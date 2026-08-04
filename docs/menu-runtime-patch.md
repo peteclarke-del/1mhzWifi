@@ -37,6 +37,12 @@ through this hardware path can return the floating-bus value `&FF`; using that
 readback as the next page would falsely report a full 64 KiB window at the
 first 256-byte boundary.
 
+WiCFS uses the same shadow rule while consuming the downloaded UEF. At a page
+boundary it increments `pr_r` and writes that value to `&FCFF`; it never reads
+the hardware register back. Without this second fix, downloading a title can
+succeed but WiCFS loses its position after 256 bytes and never reaches the
+program stored later in the UEF stream.
+
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a
 safe launch mechanism. The ROM enters `&E00` on the I/O processor instead.

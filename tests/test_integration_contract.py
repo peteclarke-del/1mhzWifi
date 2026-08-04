@@ -170,6 +170,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn('equs "WICFS"', surface)
         self.assertIn('include "wicfs.asm"', surface)
         self.assertIn("sta &FCFE", surface)
+        wicfs_patch = (ROOT / "rom-side/elkwifi-0.23/wicfs-page-shadow.patch").read_text()
+        self.assertIn("inc pr_r", wicfs_patch)
+        self.assertIn("JSR set_bank_1", wicfs_patch)
+        self.assertIn("FCFF is write-only through AP5/Pi1MHz", wicfs_patch)
+        self.assertNotIn("+    inc pagereg", wicfs_patch)
 
     def test_rom_startup_and_absent_service_are_fail_safe(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()

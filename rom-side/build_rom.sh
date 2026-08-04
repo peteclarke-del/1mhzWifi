@@ -25,7 +25,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/service_driver.asm" "$upstream/rom/ser
 install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
-for patch_name in integration.patch command-surface.patch disconnect-response.patch; do
+for patch_name in integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -46,12 +46,23 @@ for patch_name in integration.patch command-surface.patch disconnect-response.pa
             grep -q 'equb >disconnect_cmd, <disconnect_cmd' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
+        wicfs-page-shadow.patch)
+            grep -q 'FCFF is write-only through AP5/Pi1MHz' "$upstream/rom/wicfs.asm" &&
+            ! grep -q 'inc pagereg.*increment page register' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
     esac
     if "$patch_present"; then
         echo "ElkWiFi $patch_name is already applied"
     else
-        git -C "$upstream" apply --check "$patch_file"
-        git -C "$upstream" apply "$patch_file"
+        apply_options=()
+        if [ "$patch_name" = wicfs-page-shadow.patch ]; then
+            # Upstream wicfs.asm uses CRLF. Ignore that whitespace-only
+            # difference so this repository can keep a normal text patch.
+            apply_options+=(--ignore-space-change)
+        fi
+        git -C "$upstream" apply --check "${apply_options[@]}" "$patch_file"
+        git -C "$upstream" apply "${apply_options[@]}" "$patch_file"
     fi
 done
 

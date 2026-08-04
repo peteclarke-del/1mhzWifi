@@ -1,0 +1,37 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -1387,11 +1387,11 @@ __debug =   0       \print debug information
+     pha             \save data
+     iny             \increment pointer
+     bne getbyte1    \jump if not end of page
+-    inc pagereg     \increment page register
++    inc pr_r        \FCFF is write-only through AP5/Pi1MHz; advance the shadow
++    lda pr_r
++    sta pagereg
+ .getbyte1
+     sty pr_y        \save pointer
+-    lda pagereg     \load page register
+-    sta pr_r        \save page register
+     jsr set_bank_0  \select first paged ram bank
+     dec sbufl       \decrement tape counter
+     lda sbufl
+@@ -1451,6 +1451,6 @@ __debug =   0       \print debug information
+ 	LDA	#1		    \set CFS active flags true
+ 	STA	CFSact2
+-    JSR wget_context_switch_in
+     LDA #&FF        \get tape length 
+     STA pagereg     \ (this is stored in the last two bytes of the paged RAM)
++    JSR set_bank_1
+     LDA &FDFE       
+@@ -1460,7 +1460,9 @@ __debug =   0       \print debug information
+     STA sbufl
+     LDA &FDFF
+     STA sbufh
+-    JSR wget_context_switch_out
++    JSR set_bank_0
++    LDA #0
++    STA pagereg
+ 	LDA	#0
+     STA pr_y        \reset pointer to paged ram
+     sta pr_r
