@@ -1,0 +1,31 @@
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -315,6 +315,7 @@ set(lwip_files
+    ${LWIP_ROOT}/src/core/pbuf.c
+    ${LWIP_ROOT}/src/core/stats.c
+    ${LWIP_ROOT}/src/core/sys.c
++   ${LWIP_ROOT}/src/core/raw.c
+    ${LWIP_ROOT}/src/core/tcp.c
+    ${LWIP_ROOT}/src/core/tcp_in.c
+    ${LWIP_ROOT}/src/core/tcp_out.c
+@@ -349,6 +350,7 @@ set_source_files_properties(
+    ${LWIP_ROOT}/src/core/pbuf.c
+    ${LWIP_ROOT}/src/core/stats.c
+    ${LWIP_ROOT}/src/core/sys.c
++   ${LWIP_ROOT}/src/core/raw.c
+    ${LWIP_ROOT}/src/core/tcp.c
+    ${LWIP_ROOT}/src/core/tcp_in.c
+    ${LWIP_ROOT}/src/core/tcp_out.c
+diff --git a/src/wifi/lwipopts.h b/src/wifi/lwipopts.h
+--- a/src/wifi/lwipopts.h
++++ b/src/wifi/lwipopts.h
+@@ -6,7 +6,7 @@
+ 
+ #define MEM_ALIGNMENT                   4
+ 
+-#define LWIP_RAW                        0
++#define LWIP_RAW                        1
+ #define LWIP_NETCONN                    0
+ #define LWIP_SOCKET                     0
+ 

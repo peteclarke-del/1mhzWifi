@@ -1,0 +1,49 @@
+Pi1MHz bare-metal integration for commit
+83bca4922955e28e2f95122d71d631cce813d467
+
+- install_bundle.sh
+- pi1mhz-current/integration.patch
+- pi1mhz-current/wifi-security.patch
+- pi1mhz-current/wifi-radio.patch
+- pi1mhz-current/wifi-mac-fallback.patch
+- pi1mhz-current/wifi-radio-setup.patch
+- pi1mhz-current/wifi-join-diagnostics.patch
+- pi1mhz-current/wifi-join-reference.patch
+- pi1mhz-current/wifi-leave.patch
+- pi1mhz-current/wifi-network-tools.patch
+- pi1mhz-v1.30/src/elkwifi_service.c
+- pi1mhz-v1.30/src/elkwifi_service.h
+
+Host ROM integration sources:
+
+- rom-side/build_rom.sh
+- rom-side/elkwifi-0.23/integration.patch
+- rom-side/elkwifi-0.23/command-surface.patch
+- rom-side/elkwifi-0.23/menu.asm
+- rom-side/elkwifi-0.23/menusrc.asm
+- rom-side/elkwifi-0.23/net_wget.asm
+- rom-side/elkwifi-0.23/ping.asm
+- rom-side/elkwifi-0.23/service_driver.asm
+- rom-side/elkwifi-0.23/time.asm
+
+Shipped host ROM:
+
+- build/elkwifi_pi1mhz.rom
+- build/pi1mhz-all/ (complete FAT boot-partition candidate, both kernels)
+- build/pi1mhz-all-hardware-test.zip
+- SHA256SUMS
+
+Repository validation:
+
+- tests/test_integration_contract.py
+- tests/test_rom_compat.py
+- TODO.md
+- README.md
+- CONTRIBUTING.md
+- SECURITY.md
+- THIRD_PARTY_NOTICES.md
+- docs/architecture.md
+- docs/commands.md
+- docs/menu-runtime-patch.md
+- docs/hardware-validation.md
+- .github/workflows/ci.yml

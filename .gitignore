@@ -1,0 +1,18 @@
+# Local upstream checkouts and build staging
+.build-*/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Editor and operating-system files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Temporary package files
+build/.pi1mhz-bundle.*/
+*.tmp
+

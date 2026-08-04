@@ -1,0 +1,40 @@
+diff --git a/src/wifi/sdio.c b/src/wifi/sdio.c
+index 8225cbe..13eadd7 100644
+--- a/src/wifi/sdio.c
++++ b/src/wifi/sdio.c
+@@ -4407,7 +4407,7 @@ static int sdio_runtime_query_mac_step(sdio_host_t *dev)
+          sdio_runtime_set_error(NULL); /* tolerated - lwIP keeps its default MAC */
+       }
+       g_runtime_step_sent = true;
+-      g_runtime_step_deadline_us = now + 10000u;
++      g_runtime_step_deadline_us = now + 250000u;
+       return 0;
+    }
+ 
+@@ -6190,13 +6190,20 @@ bool sdio_runtime_link_is_up(void)
+-/* Copy the chip's WiFi MAC (read from cur_etheraddr at boot) into
+-   mac_out.  Returns false if it was never captured, in which case the
+-   caller should keep its own default. */
++/* Copy the chip's WiFi MAC into mac_out. A missed cur_etheraddr response
++   falls back to the desired board MAC that SET_MAC requested, so scan/join
++   is not disabled merely because diagnostic read-back was late. */
+ bool sdio_runtime_get_chip_mac(uint8_t mac_out[6])
+ {
+-   if (mac_out == NULL || !g_runtime_chip_mac_valid)
++   if (mac_out == NULL)
+       return false;
+ 
+-   memcpy(mac_out, g_runtime_chip_mac, 6u);
+-   return true;
++   if (g_runtime_chip_mac_valid) {
++      memcpy(mac_out, g_runtime_chip_mac, 6u);
++      return true;
++   }
++   if (g_runtime_desired_mac_valid) {
++      memcpy(mac_out, g_runtime_desired_mac, 6u);
++      return true;
++   }
++   return false;
+ }
+ 
+ /* Request a one-shot RSSI read.  Safe to call from any context - it only

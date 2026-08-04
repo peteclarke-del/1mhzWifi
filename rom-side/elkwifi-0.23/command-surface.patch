@@ -1,0 +1,148 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -186,16 +186,8 @@
+                     equb >ping_cmd, <ping_cmd
+                     equs "MODE"
+                     equb >mode_cmd, <mode_cmd
+-                    equs "UPDATE"
+-                    equb >update_cmd, <update_cmd
+-                    equs "CRC"
+-                    equb >crc_cmd, <crc_cmd
+                     equs "DISCONNECT"
+                     equb >wget_close, <wget_close
+-                    equs "PRINTER"
+-                    equb >printer_cmd, <printer_cmd
+-                    equs "SETSERIAL"
+-                    equb >setserial_cmd, <setserial_cmd
+                     equs "WICFS"
+                     equb >wicfs_cmd, <wicfs_cmd
+                     equs "REWIND"
+@@ -233,10 +225,7 @@
+                     equs " MODE      Set device mode",&0D
+                     equs " PING      ping a host on network",&0D
+                     equs " PRD       Paged Ram Dump",&0D
+-                    equs " PRINTER   Enable printer driver",&0D
+-                    equs " SETSERIAL Configure serial port A",&0D
+                     equs " TIME      Print current time",&0D
+-                    equs " UPDATE    Install ElkWifi ROM update",&0D
+                     equs " VERSION   Print firmware version",&0D
+                     equs " WGET      Get a file from a webserver",&0D
+                     equs " WICFS     Enable WiFi CFS",&0D
+@@ -284,14 +273,12 @@ include "ifcfg.asm"
+ include "wificmd.asm"
+ include "pdump.asm"
+ include "join.asm"
+ include "mode.asm"
+-include "update.asm"
+ include "wicfs.asm"
+ include "wget.asm"
+ include "net_wget.asm"
+ include "menu.asm"
+ include "menusrc.asm"
+ include "ping.asm"
+-include "printer.asm"
+ 
+ equs "This is the end!"
+diff --git a/rom/serial.asm b/rom/serial.asm
+--- a/rom/serial.asm
++++ b/rom/serial.asm
+@@ -223,7 +223,7 @@
+ \ Saves the current 64K bank number of the paged RAM
+ .save_bank_nr
+  pha                \ save A register
+- lda uart_mcr       \ load current value
++ lda &FCFE          \ Pi1MHz JIM window selector
+  sta bank_save      \ save in memory
+  pla                \ restore A register
+  rts                \ end subroutines
+@@ -233,6 +233,6 @@
+ .restore_bank_nr
+  pha                \ save A register
+  lda bank_save      \ load saved value
+- sta uart_mcr       \ write to uart
++ sta &FCFE          \ restore Pi1MHz JIM window
+  pla                \ restore A register
+  rts                \ end subroutines
+@@ -241,17 +241,7 @@
+ \ Sets the bank number to the value of the lsb of A
+ .set_bank_nr
+  pha                \ save A register
+- pha                \ save A register
+- lda uart_mcr       \ load mcr
+- and #&F7           \ clear bit 3
+- sta uart_mcr       \ write back to mcr
+- pla                \ restore A
+  and #&01           \ mask bit 0
+- clc                \ clear carry for shifting
+- asl a              \ shift four times right
+- asl a
+- asl a
+- ora uart_mcr       \ 'or' the A with the current value of the mcr
+- sta uart_mcr       \ set the new value
++ sta &FCFE          \ select Pi1MHz JIM window 0 or 1
+  pla                \ restore A
+  rts                \ end of routine
+@@ -270,4 +260,5 @@
+ \ Even more faster, write A to MCR
+ .set_bank_a
+- sta uart_mcr       \ write value to MCR
++ and #&01           \ only two Pi1MHz ElkWiFi JIM windows are defined
++ sta &FCFE
+  rts
+diff --git a/rom/driver.asm b/rom/driver.asm
+--- a/rom/driver.asm
++++ b/rom/driver.asm
+@@ -113,7 +113,7 @@
+ .service_driver_not_24
+  cmp #25
+  bne service_driver_not_25
+- jmp service_driver_noop
++ jmp service_driver_lapopt
+ .service_driver_not_25
+  cmp #26
+  bne service_driver_not_26
+diff --git a/rom/errors.asm b/rom/errors.asm
+--- a/rom/errors.asm
++++ b/rom/errors.asm
+@@ -37,5 +37,4 @@
+ .error_no_pagedram          equs "No paged ram",&0D
+ .error_disabled             equs "Wifi is disabled",&0D
+ .error_opencon              equs "Connect error",&0D
+-.error_bad_crc              equs "CRC error, aborted",&0D
+ .error_bad_param            equs "Wrong parameter",&0D
+diff --git a/rom/driver.asm b/rom/driver.asm
+--- a/rom/driver.asm
++++ b/rom/driver.asm
+@@ -126,6 +126,15 @@
+  bne service_driver_not_28
+  jmp service_driver_ping
+ .service_driver_not_28
++ cmp #29
++ bne service_driver_not_29
++ jmp service_driver_date
++.service_driver_not_29
++ cmp #30
++ bne service_driver_not_30
++ jmp service_driver_time
++.service_driver_not_30
++ jmp service_driver_unsupported
+  cmp #24                    \ check for enable/disable command
+  beq wifi_init_uart         \ this is always allowed
+  cmp #&FE
+diff --git a/rom/mode.asm b/rom/mode.asm
+--- a/rom/mode.asm
++++ b/rom/mode.asm
+@@ -10,10 +10,9 @@
+  cpx #&00                   \ test if ssid given, x will be > 0
+  bne mode_init_heap         \ continue as the ssid is on the command line
+  jsr printtext              \ no ssid, print a message
+- equs "Usage: *MODE <1..3>",&0D
++ equs "Usage: *MODE <1|?>",&0D
+  equs "MODE 1 -> STATION",&0D
+- equs "MODE 2 -> ACCESS POINT",&0D
+- equs "MODE 3 -> BOTH",&0D,&EA
++ equb &EA
+  jmp call_claimed           \ end of command
+ 
+ .mode_init_heap

@@ -1,0 +1,276 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+index 156730a..c15993e 100644
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -145,8 +145,6 @@ include "electron.asm"
+                     jsr oswrch
+                     cpx #1                      \ was it a power on reset
+                     bne autorun_l1              \ no, then jump to the logo print
+-                    txa                         \ load A with 1 (driver function hardware reset)
+-                    jsr wifidriver              \ perform a hard reset
+ .autorun_l1         jsr print_logo              \ print the logo if wifi is enabled
+                     jsr printtext               \ perform new line
+                     equb &D,&D,&EA
+@@ -163,6 +163,8 @@ include "electron.asm"
+-                    equb >wget_cmd, <wget_cmd
++                    equb >pi_wget_cmd, <pi_wget_cmd
+-                    equs "MENU"
+-                    equb >menu_cmd, <menu_cmd
++                    equs "MENUSRC"
++                    equb >menusrc_cmd, <menusrc_cmd
++                    equs "MENU"
++                    equb >menu_cmd, <menu_cmd
+                     equs "WIFI" 
+                     equb >wifi_cmd, <wifi_cmd 
+                     equs "VERSION"
+@@ -229,6 +231,7 @@ include "electron.asm"
+                     equs " LAPOPT    Set LAP options",&0D
+                     equs " LEAVE     Disconnect from network",&0D
+                     equs " MENU      start the menu program",&0D   
++                    equs " MENUSRC   Show/set menu URL",&0D
+                     equs " MODE      Set device mode",&0D
+                     equs " PING      ping a host on network",&0D
+                     equs " PRD       Paged Ram Dump",&0D
+@@ -273,6 +276,7 @@
+ include "routines.asm"
+ include "errors.asm"
+ include "serial.asm"
++include "service_driver.asm"
+ include "driver.asm"
+ include "version.asm"
+ include "time.asm"
+@@ -286,6 +290,8 @@ include "update.asm"
+ include "wicfs.asm"
+ include "wget.asm"
++include "net_wget.asm"
+ include "menu.asm"
++include "menusrc.asm"
+ include "ping.asm"
+ include "printer.asm"
+
+diff --git a/rom/wificmd.asm b/rom/wificmd.asm
+index b9a98ea..d6c03ea 100644
+--- a/rom/wificmd.asm
++++ b/rom/wificmd.asm
+@@ -45,7 +45,7 @@
+ 
+ .wifi_on        jsr printtext               \ for now this will do
+                 equs "Switching wifi on",&0D,&EA
+-                lda #1                      \ switch wifi on
++                ldx #1                      \ switch wifi on
+                 bne wifi_off_l1             \ branch always
+ 
+ .wifi_help      jsr printtext
+diff --git a/rom/driver.asm b/rom/driver.asm
+index cd40938..d764fc1 100644
+--- a/rom/driver.asm
++++ b/rom/driver.asm
+@@ -31,6 +31,102 @@
+  sta save_a                 \ save registers
+  stx save_x
+  sty save_y
++ cmp #0
++ bne service_driver_not_0
++ jmp service_driver_init
++.service_driver_not_0
++ cmp #1
++ bne service_driver_not_1
++ jmp service_driver_init
++.service_driver_not_1
++ cmp #2
++ bne service_driver_not_2
++ jmp service_driver_version
++.service_driver_not_2
++ cmp #3
++ bne service_driver_not_3
++ jmp service_driver_scan
++.service_driver_not_3
++ cmp #4
++ bne service_driver_not_4
++ jmp service_driver_join
++.service_driver_not_4
++ cmp #5
++ bne service_driver_not_5
++ jmp service_driver_leave
++.service_driver_not_5
++ cmp #18
++ bne service_driver_not_18
++ jmp service_driver_ifcfg
++.service_driver_not_18
++ cmp #8
++ bne service_driver_not_8
++ jmp service_driver_cipstart
++.service_driver_not_8
++ cmp #13
++ bne service_driver_not_13
++ jmp service_driver_cipsend
++.service_driver_not_13
++ cmp #14
++ bne service_driver_not_14
++ jmp service_driver_cipclose
++.service_driver_not_14
++ cmp #20
++ bne service_driver_not_20
++ jmp service_driver_ipd
++.service_driver_not_20
++ cmp #7
++ bne service_driver_not_7
++ jmp service_driver_mode
++.service_driver_not_7
++ cmp #9
++ bne service_driver_not_9
++ jmp service_driver_noop
++.service_driver_not_9
++ cmp #11
++ bne service_driver_not_11
++ jmp service_driver_noop
++.service_driver_not_11
++ cmp #12
++ bne service_driver_not_12
++ jmp service_driver_cipstatus
++.service_driver_not_12
++ cmp #17
++ bne service_driver_not_17
++ jmp service_driver_baud
++.service_driver_not_17
++ cmp #21
++ bne service_driver_not_21
++ jmp service_driver_noop
++.service_driver_not_21
++ cmp #22
++ bne service_driver_not_22
++ jmp service_driver_noop
++.service_driver_not_22
++ cmp #23
++ bne service_driver_not_23
++ jmp service_driver_mux_channel
++.service_driver_not_23
++ cmp #24
++ bne service_driver_not_24
++ jmp service_driver_wifi_control
++.service_driver_not_24
++ cmp #25
++ bne service_driver_not_25
++ jmp service_driver_noop
++.service_driver_not_25
++ cmp #26
++ bne service_driver_not_26
++ jmp service_driver_noop
++.service_driver_not_26
++ cmp #27
++ bne service_driver_not_27
++ jmp service_driver_noop
++.service_driver_not_27
++ cmp #28
++ bne service_driver_not_28
++ jmp service_driver_ping
++.service_driver_not_28
+  cmp #24                    \ check for enable/disable command
+  beq wifi_init_uart         \ this is always allowed
+  cmp #&FE
+diff --git a/rom/menu.asm b/rom/menu.asm
+index b22269e..e4940f0 100644
+--- a/rom/menu.asm
++++ b/rom/menu.asm
+@@ -3,8 +3,14 @@
+ \ Syntax:     *MENU
+  
+ .menu_cmd
+-    ldx #<menu_wget \load pointer to command string
+-    ldy #>menu_wget
++    jsr menusrc_make_wget
++    bcs mquit
++    lda #0
++    sta net_transfer_ok
++    ldx #<heap      \load generated command string
++    ldy #>heap
+     jsr oscli       \pass the command to the CLI
++    lda net_transfer_ok
++    beq mquit       \never execute stale &E00 after a failed/empty WGET
+ 	ldx	#0		    \character pointer
+ .m_a1
+@@ -20,8 +24,6 @@
+ .mquit
+     jmp call_claimed
+ 
+-.menu_wget
+-	equs	"*WGET HTTP://ACORNELECTRON.NL/uefarchive/MENU E00",&0D
+ .menu_call
+     equs    "CALL &E00",&0D
+ 	equb	&FF		            \command list end marker
+diff --git a/rom/routines.asm b/rom/routines.asm
+index 2cd2fd2..10cb31c 100644
+--- a/rom/routines.asm
++++ b/rom/routines.asm
+@@ -261,12 +261,25 @@ if __ELECTRON__
+ .print_logo
+  jsr test_wifi_ena          \ test wifi enabled status
+  bne logo2                  \ jump if wifi is disabled
+- ldx #7                     \ load index for copy
++ \ The stock ROM copied the glyph to fixed address &60A0, permanently tying
++ \ it to row zero while the MOS banner followed the current boot cursor.
++ \ Define a user character and print it through the VDU so the icon stays on
++ \ the same row as "Acorn Electron WiFi" with any ROM ordering or scrolling.
++ lda #' '
++ jsr oswrch
++ lda #23
++ jsr oswrch
++ lda #255
++ jsr oswrch
++ ldx #0
+ .logo1
+  lda wifi_symbol,x          \ load data
+- sta &60A0,x                \ write to screen
+- dex                        \ decrement index
+- bpl logo1                  \ jump if bytes follow
++ jsr oswrch
++ inx
++ cpx #8
++ bne logo1
++ lda #255
++ jsr oswrch
+ .logo2
+  rts                        \ end of routine
+ else
+diff --git a/rom/serial.asm b/rom/serial.asm
+index 16c6a60..fb18b16 100644
+--- a/rom/serial.asm
++++ b/rom/serial.asm
+@@ -258,18 +258,16 @@
+  rts                \ end of routine
+ 
+ \ Alternative bank number set routine, shorter and faster
+ .set_bank_0         \ set it to 0
+- lda uart_mcr       \ load current value
+- and #&F7           \ clear bit 3 (MFB)
+- sta uart_mcr       \ write it back
+- rts                \ end of routine
++ lda #0             \ select Pi1MHz JIM window &FFF000 directly on the host
++ sta &FCFE
++ rts
+ 
+ \ Alternative bank number set routine, shorter and faster
+ .set_bank_1         \ set it to 1
+- lda uart_mcr       \ load current value
+- ora #&08           \ clear bit 3 (MFB)
+- sta uart_mcr       \ write it back
+- rts                \ end of routine
++ lda #1             \ select second 64K Pi1MHz JIM window
++ sta &FCFE
++ rts
+ 
+ \ Even more faster, write A to MCR
+ .set_bank_a
+@@ -278,9 +278,9 @@
+ \ Test if wifi is disabled
+ \ This will return with Z=1 if wifi is disabled and Z=0 if wifi is enabled
+ .test_wifi_ena
+- lda uart_mcr       \ load status
+- and #&01           \ test lowest bit (DTR)
+- rts                \ return
++ lda #0             \ Pi1MHz WiFi is managed by the kernel, not a local UART
++ and #&01           \ report enabled without touching unforwarded &FC34
++ rts
+ 
+ \ Setup the serial port A
+ \ Parameters in ZP+6 and up: baudrate, parity, databits, stopbits

@@ -1,0 +1,58 @@
+diff --git a/src/wifi/wifi.c b/src/wifi/wifi.c
+index 0715598..6271d7f 100644
+--- a/src/wifi/wifi.c
++++ b/src/wifi/wifi.c
+@@ -675,7 +675,7 @@ void wifi_boot(void)
+          /* tick() returned false: reached DONE or ERROR.  The SDIO runtime
+             finishing DONE means the bus is up AND the firmware has been
+             downloaded to the chip and is running, so both notes fire here. */
+-         if (sdio_runtime_started()) {
++         if (sdio_runtime_ready()) {
+             wifi_note_sdio_ready();
+             wifi_note_firmware_ready();
+             wifi_debug_log("sdio runtime started");
+@@ -808,6 +808,32 @@ bool wifi_reconfigure_and_rejoin(const char *ssid, const char *password,
+    return sdio_runtime_rejoin_start();
+ }
+ 
++bool wifi_enable_radio(void)
++{
++   /* ElkWiFi starts in discovery mode: *WIFI ON and *LAP must work before
++      the user has supplied an SSID.  The SDIO state machine already stops
++      cleanly at STAGE_DONE when the SSID is empty; schedule that radio-only
++      bring-up here instead of treating an empty Pi1MHz.cfg as absent
++      hardware.  A genuine firmware/SDIO failure remains latched as ERROR. */
++   if (sdio_runtime_started())
++      return true;
++
++   if (g_wifi_state == WIFI_STATE_ERROR)
++      return false;
++
++   if (g_wifi_state == WIFI_STATE_DISABLED) {
++      g_wifi_config.enabled = true;
++      g_wifi_state = WIFI_STATE_CONFIGURED;
++      g_wifi_boot_stage = WIFI_BOOT_STAGE_START_SDIO;
++      g_wifi_init_done = true;
++      wifi_clear_error();
++      wifi_debug_log("radio-only boot scheduled by ElkWiFi host");
++   }
++
++   return g_wifi_state >= WIFI_STATE_CONFIGURED
++       && g_wifi_state < WIFI_STATE_ERROR;
++}
++
+ bool wifi_disconnect(void)
+ {
+    return sdio_runtime_disconnect();
+diff --git a/src/wifi/wifi.h b/src/wifi/wifi.h
+index ba11d4c..cbd87d2 100644
+--- a/src/wifi/wifi.h
++++ b/src/wifi/wifi.h
+@@ -265,6 +265,7 @@ void wifi_set_error(const char *message);
+ const wifi_config_t *wifi_get_config(void);
+ bool wifi_reconfigure_and_rejoin(const char *ssid, const char *password,
+                                  wifi_security_t security);
++bool wifi_enable_radio(void);
+ bool wifi_disconnect(void);
+ const wifi_network_config_t *wifi_get_network_config(void);
+ wifi_status_t wifi_get_status(void);
