@@ -61,7 +61,7 @@ for patch_name in integration.patch command-surface.patch disconnect-response.pa
             patch_present=true
             ;;
         wicfs-rewind.patch)
-            grep -q '^\.cfsrewind' "$upstream/rom/wicfs.asm" &&
+            grep -q 'Keep REWIND entirely in host RAM' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         rom-prune.patch)

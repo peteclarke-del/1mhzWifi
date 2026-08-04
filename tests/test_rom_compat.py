@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "e544a2612635219fa38c5e7d553bbeb1f45123156543093e72fbccfede7e688b"
+ROM_SHA256 = "dfed22515912be896a2e446d95c5f01d94b0ba0708eede4a6b09a56bdc34bca6"
 
 
 class RomCompatibilityTest(unittest.TestCase):
