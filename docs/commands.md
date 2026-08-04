@@ -72,6 +72,12 @@ When a server supplies `Content-Length`, Pi1MHz completes the download after
 that exact number of body bytes. A later TCP reset cannot turn an already
 complete response into error `&25`, while a short response still fails.
 
+TCP failures retain their source in current kernels: `&2A` route, `&2B`
+timeout, `&2C` reset, `&2D` local abort, `&2E` unexpected close, and `&2F`
+interface failure. `&30` means that an HTTP response arrived with a non-2xx
+status. The older generic `&25` remains for connection errors which lwIP does
+not classify more specifically.
+
 WGET supports plain HTTP only. HTTPS is rejected. Redirects are rejected rather
 than followed. Chunked bodies, large transfers, and all Escape phases remain
 part of the test backlog.

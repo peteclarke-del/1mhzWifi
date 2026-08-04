@@ -56,7 +56,7 @@ fi
 install -m 0644 "$script_dir/pi1mhz-v1.30/src/elkwifi_service.c" "$upstream/src/elkwifi_service.c"
 install -m 0644 "$script_dir/pi1mhz-v1.30/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
 
-for patch_name in integration.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch wifi-off-state.patch; do
+for patch_name in integration.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch tcp-diagnostics.patch wifi-off-state.patch; do
     patch_file="$script_dir/pi1mhz-current/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -111,6 +111,11 @@ for patch_name in integration.patch wifi-security.patch wifi-radio.patch wifi-ma
             grep -q 'h->http_code >= 300u' "$upstream/src/net_service.c" &&
             grep -q 'http_content_length' "$upstream/src/net_service.c" &&
             grep -q 'http_body_read >= h->http_content_length' "$upstream/src/net_service.c" &&
+            patch_present=true
+            ;;
+        tcp-diagnostics.patch)
+            grep -q 'static uint8_t net_tcp_result' "$upstream/src/net_service.c" &&
+            grep -q 'NET_ERR_HTTP_STATUS' "$upstream/src/net_service.h" &&
             patch_present=true
             ;;
         wifi-off-state.patch)
