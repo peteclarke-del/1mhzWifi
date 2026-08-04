@@ -43,6 +43,11 @@ the hardware register back. Without this second fix, downloading a title can
 succeed but WiCFS loses its position after 256 bytes and never reaches the
 program stored later in the UEF stream.
 
+The WiCFS page and offset cursor live in private ROM workspace at `&09D8` and
+`&09D9`, not the inherited zero-page locations `&C7` and `&C8`. This keeps the
+cursor stable when BASIC, MOS filing code or a Tube transfer runs between WiCFS
+vector calls.
+
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a
 safe launch mechanism. The ROM enters `&E00` on the I/O processor instead.
@@ -75,6 +80,15 @@ EA          NOP
 
 The replacement selects Pi1MHz JIM window 1. Keeping the sequence at eight
 bytes preserves every address and relative branch in the downloaded program.
+
+The stock payload also assumes that this selection remains active for its
+entire lifetime. That is not a safe assumption on Pi1MHz because the JIM
+aperture is shared by firmware services. For the known 2,907-byte payload, the
+ROM replaces its three `LDA &FD00,Y` catalogue reads with calls to a small
+trampoline at `&1FF0`. The trampoline selects window 1 before every read. Its
+title-selection page write similarly calls a trampoline at `&1FE0` which
+selects window 1 before writing `&FCFF`. The patch is applied only after the
+payload size and all four original instruction sites have been verified.
 
 The exact byte arrays are defined in `rom-side/elkwifi-0.23/menusrc.asm`. The
 download and validation path is in `rom-side/elkwifi-0.23/menu.asm`.

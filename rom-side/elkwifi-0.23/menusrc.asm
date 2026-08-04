@@ -260,6 +260,7 @@ menusrc_timeout_hi = errorspace+2
  inx
  cpx #8
  bne menusrc_patch_copy
+ jsr menusrc_patch_catalogue
  rts
 .menusrc_patch_mismatch
  ldy menusrc_index
@@ -276,3 +277,113 @@ menusrc_timeout_hi = errorspace+2
  equb &AD,&34,&FC,&09,&08,&8D,&34,&FC
 .menusrc_jim_bank
  equb &A9,&01,&EA,&EA,&EA,&8D,&FE,&FC
+
+\ The stock menu assumes its cartridge RAM bank remains selected indefinitely.
+\ Pi1MHz shares the JIM aperture with other services, so make each TITLES read
+\ reselect window 1. Patch only the known 2,907-byte payload and only when all
+\ four instruction sites still contain their published bytes.
+.menusrc_patch_catalogue
+ lda net_bytes_lo
+ cmp #&5B
+ bne menusrc_patch_catalogue_fail
+ lda net_bytes_hi
+ cmp #&0B
+ bne menusrc_patch_catalogue_fail
+ ldx #0
+.menusrc_catalogue_check_read
+ lda menusrc_catalogue_reads,x
+ sta zp
+ lda menusrc_catalogue_reads+1,x
+ sta zp+1
+ ldy #0
+ lda (zp),y
+ cmp #&B9                    \ LDA &FD00,Y
+ bne menusrc_patch_catalogue_fail
+ iny
+ lda (zp),y
+ bne menusrc_patch_catalogue_fail
+ iny
+ lda (zp),y
+ cmp #&FD
+ bne menusrc_patch_catalogue_fail
+ inx
+ inx
+ cpx #6
+ bne menusrc_catalogue_check_read
+ lda &0ECC
+ cmp #&8D                    \ STA &FCFF
+ bne menusrc_patch_catalogue_fail
+ lda &0ECD
+ cmp #&FF
+ bne menusrc_patch_catalogue_fail
+ lda &0ECE
+ cmp #&FC
+ bne menusrc_patch_catalogue_fail
+ jmp menusrc_patch_catalogue_verified
+.menusrc_patch_catalogue_fail
+ jmp menusrc_patch_catalogue_done
+
+.menusrc_patch_catalogue_verified
+ ldx #0
+.menusrc_catalogue_patch_read
+ lda menusrc_catalogue_reads,x
+ sta zp
+ lda menusrc_catalogue_reads+1,x
+ sta zp+1
+ ldy #0
+ lda #&20                    \ JSR &1FF0
+ sta (zp),y
+ iny
+ lda #&F0
+ sta (zp),y
+ iny
+ lda #&1F
+ sta (zp),y
+ inx
+ inx
+ cpx #6
+ bne menusrc_catalogue_patch_read
+ lda #&20                    \ JSR &1FE0
+ sta &0ECC
+ lda #&E0
+ sta &0ECD
+ lda #&1F
+ sta &0ECE
+
+ ldx #0
+.menusrc_catalogue_copy_select
+ lda menusrc_catalogue_select,x
+ sta &1FE0,x
+ inx
+ cpx #(menusrc_catalogue_select_end-menusrc_catalogue_select)
+ bne menusrc_catalogue_copy_select
+ ldx #0
+.menusrc_catalogue_copy_read
+ lda menusrc_catalogue_read,x
+ sta &1FF0,x
+ inx
+ cpx #(menusrc_catalogue_read_end-menusrc_catalogue_read)
+ bne menusrc_catalogue_copy_read
+.menusrc_patch_catalogue_done
+ rts
+
+.menusrc_catalogue_reads
+ equw &1059,&1079,&10AB
+
+\ Copied to &1FE0. Preserve the page in A while selecting JIM window 1.
+.menusrc_catalogue_select
+ pha
+ lda #1
+ sta &FCFE
+ pla
+ sta &FCFF
+ rts
+.menusrc_catalogue_select_end
+
+\ Copied to &1FF0. Y remains the catalogue offset and A returns the byte.
+.menusrc_catalogue_read
+ lda #1
+ sta &FCFE
+ lda &FD00,y
+ rts
+.menusrc_catalogue_read_end

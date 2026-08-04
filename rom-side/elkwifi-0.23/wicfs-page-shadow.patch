@@ -1,6 +1,13 @@
 diff --git a/rom/wicfs.asm b/rom/wicfs.asm
 --- a/rom/wicfs.asm
 +++ b/rom/wicfs.asm
+@@ -60,2 +60,4 @@
+-pr_y    =   &C7     \data pointor to paged ram (Y-reg)
+-pr_r    =   &C8     \data pointer to paged ram (page register)
++\ Keep the WiCFS cursor out of transient MOS and language zero page. BASIC,
++\ Tube filing calls and service polling may run between vector invocations.
++pr_y    =   heap+&D8 \data pointer to paged ram (offset)
++pr_r    =   heap+&D9 \data pointer to paged ram (page-register shadow)
 @@ -1387,11 +1387,11 @@ __debug =   0       \print debug information
      pha             \save data
      iny             \increment pointer

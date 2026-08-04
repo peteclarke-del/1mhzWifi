@@ -59,7 +59,7 @@ for patch_name in integration.patch command-surface.patch disconnect-response.pa
         if [ "$patch_name" = wicfs-page-shadow.patch ]; then
             # Upstream wicfs.asm uses CRLF. Ignore that whitespace-only
             # difference so this repository can keep a normal text patch.
-            apply_options+=(--ignore-space-change)
+            apply_options+=(--ignore-space-change --unidiff-zero)
         fi
         git -C "$upstream" apply --check "${apply_options[@]}" "$patch_file"
         git -C "$upstream" apply "${apply_options[@]}" "$patch_file"
