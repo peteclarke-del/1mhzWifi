@@ -11,10 +11,10 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-ElkWiFi ROM  923c607123674115c009fd5665b3aea27cd00638054e2a9e937a2903d9a438fe
+ElkWiFi ROM  2e208d1ce08aabb48f04378dfce0094ed1275000f16db5b79cb54ff9cc2cf1b0
 kernel.img   7a8f564aa20cf8d1c4bffbc71774e500f01eb2795bdbd57f4b5a0ffb087cd1a5
 kernel7.img  57eb5fe8cb33dda036bf0af0a33d0bcca95f65068261947a47210e907ec5683a
-bundle ZIP   797793341077fa1f2c776ea32c4287e97f2cbe4cbd5fc3dd48c0a008ba31b77f
+bundle ZIP   181717f7fab2b1c6285013ee618f4239e139584c0d56750474ccd8cd9f78aca0
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`

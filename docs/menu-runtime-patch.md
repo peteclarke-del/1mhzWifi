@@ -59,13 +59,20 @@ changes preserve the exact address of the catalogue-working MENU code. Screen
 output remains enabled so queue, filing and UEF errors are visible on real
 hardware.
 
+The menu launches a selected BASIC title with `CHAIN ""`. OSFILE requires X
+and Y to be preserved across a filing-system load. WiCFS saves both registers
+before parsing the UEF and restores them on claimed and forwarded FILEV return
+paths. OSBGET similarly preserves X and Y while returning the byte in A. Without
+the FILEV restoration, the program data loads but BASIC does not reliably enter
+the chained program.
+
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a
 safe launch mechanism. The ROM enters `&E00` on the I/O processor instead.
 
 The published program exits through a tail-called MOS routine and may change
 ROMSEL while running. Before entry, the ROM copies a short return trampoline
-to `&0900` and pushes that RAM address as the program's return target. The
+to `&1FD0` and pushes that RAM address as the program's return target. The
 trampoline restores the service-call registers and returns cleanly to MOS
 without relying on the ElkWiFi sideways ROM still being selected.
 
