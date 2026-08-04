@@ -82,7 +82,7 @@ Menu URL persistence is implemented by service commands 84-86. The downloaded
 upstream MENU is also adapted by the host ROM because it contains a direct
 `&FC34` cartridge bank-selection sequence. The ROM replaces that exact
 eight-byte sequence with a Pi1MHz `&FCFE` window-1 selection before queuing
-`CALL &E00`. No Pi-side binary rewrite occurs. See
+host execution at `&E00`. No Pi-side binary rewrite occurs. See
 [the byte-level runtime contract](../docs/menu-runtime-patch.md).
 
 ## Pi1MHz.cfg

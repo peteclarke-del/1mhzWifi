@@ -11,7 +11,7 @@ required.
 - [ ] Hardware-verify the `*MENU`/`*MENUSRC` P0 fix. `MENUSRC` now precedes
   its `MENU` prefix in the ROM table. MENU verifies the WGET transfer, patches
   the published menu payload's cartridge bank-select sequence for `&FCFE`, and
-  queues `CALL &E00` only for a non-empty download. Confirm get, set, DEFAULT,
+  enters host `&E00` only for a non-empty download. Confirm get, set, DEFAULT,
   successful, failing, and empty cases on real hardware.
 - [ ] Extend Escape cancellation beyond `*PING`. PING now cancels DNS/ICMP,
   removes the raw PCB, and exits its inter-packet wait. Add equivalent Pi-side

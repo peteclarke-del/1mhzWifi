@@ -1,7 +1,10 @@
 \ MENU downloads the active source, adapts the stock payload for Pi1MHz JIM,
-\ then defers its BASIC CALL through the keyboard buffer.
+\ then runs it on the I/O processor. The RAM return stub keeps this safe if
+\ the payload changes ROMSEL, and avoids executing host code on a Tube parasite.
 
 .menu_cmd
+    jsr printtext
+    equs "Downloading menu",&0D,&EA
     jsr menusrc_make_wget
     bcs menu_quit
     lda #0
@@ -15,18 +18,23 @@
     lda &0E00
     beq menu_download_invalid
     jsr menusrc_patch_menu
+    jsr printtext
+    equs "Starting menu",&0D,&EA
 
-    ldx #0
-.menu_queue_call
-    stx temp
-    lda #&99
-    ldy menu_call,x
-    bmi menu_quit
-    ldx #0
-    jsr osbyte
-    ldx temp
-    inx
-    bne menu_queue_call
+    \ The stock program is tail-called from BASIC and eventually exits through
+    \ an OSBYTE RTS. Put an equivalent return target in main RAM, rather than
+    \ returning to a sideways-ROM address which the program may have paged out.
+    ldx #(menu_return_stub_end-menu_return_stub)-1
+.menu_copy_return_stub
+    lda menu_return_stub,x
+    sta heap,x
+    dex
+    bpl menu_copy_return_stub
+    lda #>(heap-1)
+    pha
+    lda #<(heap-1)
+    pha
+    jmp &0E00
 .menu_quit
     jmp call_claimed
 
@@ -35,7 +43,11 @@
     equs "Menu download failed",&0D,&EA
     jmp menu_quit
 
-.menu_call
-    equs "CALL &E00",&0D
-    equb &FF
-    equb &EA
+.menu_return_stub
+    pla
+    tax
+    pla
+    tay
+    lda #0
+    rts
+.menu_return_stub_end

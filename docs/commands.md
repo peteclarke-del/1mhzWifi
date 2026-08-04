@@ -47,7 +47,7 @@ avoid spaces and commas in initial hardware testing.
 | Command | Behavior | Status |
 | --- | --- | --- |
 | `*PING <host>` | DNS lookup and five ICMP echo requests | Implemented, including Escape cancellation |
-| `*WGET <url> <addr>` | Downloads HTTP data to host memory | Implemented; advanced HTTP cases remain |
+| `*WGET <url> <addr>` | Downloads HTTP data to host memory and reports `WGET OK` on success | Implemented; advanced HTTP cases remain |
 | `*WGET -T <url>` | Prints text with CR line endings | Implemented |
 | `*WGET -X <url>` | Prints text using LF input | Implemented |
 | `*WGET -U <url>` | Downloads a UEF image to JIM window 1 | Implemented; hardware validation pending |
@@ -65,13 +65,18 @@ large transfers, and all Escape phases remain part of the test backlog.
 | `*MENUSRC` | Prints the active menu URL |
 | `*MENUSRC http://host/path` | Validates and saves a menu URL |
 | `*MENUSRC DEFAULT` | Restores and saves the compiled default URL |
-| `*MENU` | Downloads the active URL to `&E00`, then queues `CALL &E00` on success |
+| `*MENU` | Downloads the active URL to host `&E00`, adapts it, then runs it on the I/O processor |
 
 Only `http://` menu URLs are accepted. `*MENU` does not call `&E00` after a
 failed, cancelled, or empty download.
 
+`*MENU` does not queue BASIC `CALL &E00`. That command would execute parasite
+memory when a Tube processor is active, although WGET populated I/O processor
+memory. The ROM instead enters host `&E00` with a return trampoline in main
+RAM. This also remains valid if the downloaded program changes ROMSEL.
+
 The published ElkWiFi menu contains an inlined `&FC34` cartridge bank-select
-sequence. Before queuing `CALL &E00`, this ROM replaces that sequence with an
+sequence. Before entering host `&E00`, this ROM replaces that sequence with an
 equal-length Pi1MHz `&FCFE` window selection. Custom menu payloads that do not
 contain the stock sequence are left unchanged.
 

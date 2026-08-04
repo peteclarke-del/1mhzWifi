@@ -275,6 +275,8 @@ net_received = heap+&F0
  jsr wget_copy_file_to_swr
 .pi_wget_finish_close
  jsr pi_wget_close
+ jsr printtext
+ equs "WGET OK",&0D,&EA
  jmp call_claimed
 
 .pi_wget_empty_response

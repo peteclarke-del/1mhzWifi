@@ -11,10 +11,10 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-ElkWiFi ROM  cb0ee348b8ec778f3bbaa7e104b18b2ef7402384ddd34e583d48eeafed928e9f
+ElkWiFi ROM  9a38eafd644950c701edc449802798f517981e220043c5d0a7e666e2d1ed8913
 kernel.img   0e6d5825d65877704f96946a14dae0531b9745abfe729ff95de335fba1464b8b
 kernel7.img  1c12ef443ec835acfb687a0b38f8532ed4db324bdef6d87331d5cb1d55f3a09f
-bundle ZIP   6f1029a8399931923531d193da0a227a46f762c8598187953e15c2ef3a5b2ad3
+bundle ZIP   d9abc809e1dd8af8676c8017496ff77c1ad3763e4e183df1aa431f5a35f0fd5a
 ```
 
 ## Automated and emulator gate
@@ -72,9 +72,10 @@ Expected error meanings:
 - [ ] Run `*MENUSRC`; confirm it prints the active URL and does not dispatch `*MENU`.
 - [ ] Save a temporary HTTP URL with `*MENUSRC <url>` and read it back.
 - [ ] Run `*MENUSRC DEFAULT` and confirm the default persists after power cycle.
-- [ ] Run `*MENU` against the published ElkWiFi payload. Confirm WGET completes,
-  the cartridge `&FC34` bank-select sequence is adapted for `&FCFE`, and
-  `CALL &E00` starts the menu.
+- [ ] Run `*MENU` against the published ElkWiFi payload. Confirm
+  `Downloading menu`, `WGET OK`, and `Starting menu` appear, the cartridge
+  `&FC34` bank-select sequence is adapted for `&FCFE`, and host `&E00` starts
+  the menu without a BASIC `CALL`.
 - [ ] Run `*MENU` against DNS failure, refused connection, HTTP error, empty body, and timeout cases. Confirm none calls stale `&E00` memory.
 - [ ] Cancel WGET with Escape during DNS, connect, empty wait, and body transfer.
 - [ ] Test binary WGET across a main-memory page boundary.
@@ -103,6 +104,9 @@ Expected error meanings:
 
 - [ ] Run `*HELP WIFI`, `*MENUSRC`, `*MENU`, `*WGET`, and `*WICFS` from the I/O processor.
 - [ ] Repeat applicable commands from each supported Tube parasite.
+- [ ] Run `*MENU` with the Tube enabled. Confirm the menu UI executes on the
+  I/O processor, title data uses host JIM window 1, and no parasite `&0E00`
+  execution or BASIC `CALL` occurs.
 - [ ] Trace calls and confirm only the I/O processor accesses `&FCxx` and `&FDxx`.
 - [ ] Exercise every pointer-bearing OSWORD `&65` call with buffers in parasite memory.
 - [ ] Verify data is copied through MOS and Tube transfer semantics rather than passing a parasite pointer to JIM.

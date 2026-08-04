@@ -27,7 +27,7 @@ The following command paths are implemented:
 | WiFi | `*WIFI ON`, `*LAP`, `*JOIN`, `*JOIN ?`, `*LEAVE`, `*IFCFG`, `*LAPOPT` |
 | Network | `*PING`, HTTP `*WGET`, OSWORD `&65` TCP open/send/receive/close |
 | Time | NTP-backed `*DATE` and `*TIME` |
-| Menu | Persistent `*MENUSRC`; `*MENU` downloads, validates, and adapts the published payload before `CALL &E00` |
+| Menu | Persistent `*MENUSRC`; `*MENU` downloads, validates, adapts, and runs the published payload on the I/O processor |
 | Storage | `*WGET -U`, `*WICFS`, `*REWIND`, `*PRD`, and `*WGET -S` through Pi1MHz JIM windows |
 | Diagnostics | `*HELP WIFI`, `*VERSION`, station `*MODE`, bounded missing-service errors |
 
@@ -46,7 +46,7 @@ hard reset semantics, complete OSWORD `&65` parity, and full Escape handling.
 The published ElkWiFi menu contains a direct `&FC34` cartridge bank-selection
 sequence. At runtime, `*MENU` replaces that exact eight-byte sequence with an
 equal-length Pi1MHz `&FCFE` window selection after WGET succeeds and before it
-queues `CALL &E00`. See [the MENU runtime adaptation](docs/menu-runtime-patch.md)
+enters host `&E00` through a Tube-safe RAM return trampoline. See [the MENU runtime adaptation](docs/menu-runtime-patch.md)
 for the byte-level contract and failure behavior.
 
 ## Hardware-test bundle
@@ -66,10 +66,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-ElkWiFi ROM  cb0ee348b8ec778f3bbaa7e104b18b2ef7402384ddd34e583d48eeafed928e9f
+ElkWiFi ROM  9a38eafd644950c701edc449802798f517981e220043c5d0a7e666e2d1ed8913
 kernel.img   0e6d5825d65877704f96946a14dae0531b9745abfe729ff95de335fba1464b8b
 kernel7.img  1c12ef443ec835acfb687a0b38f8532ed4db324bdef6d87331d5cb1d55f3a09f
-bundle ZIP   6f1029a8399931923531d193da0a227a46f762c8598187953e15c2ef3a5b2ad3
+bundle ZIP   d9abc809e1dd8af8676c8017496ff77c1ad3763e4e183df1aa431f5a35f0fd5a
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.

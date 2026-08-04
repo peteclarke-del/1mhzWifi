@@ -98,8 +98,14 @@ claims a command when the table spelling ends. Reversing that order causes
 
 `*MENU` constructs `*WGET <url> E00` in ROM workspace and executes it through
 OSCLI. WGET exposes an internal completed/non-empty flag. The ROM queues
-`CALL &E00` only when that flag indicates success. A failed, cancelled, or
-empty transfer cannot execute stale memory at `&E00`.
+execution of host `&E00` only when that flag indicates success. A failed,
+cancelled, or empty transfer cannot execute stale memory at `&E00`.
+
+The ROM copies a return trampoline to host RAM and enters host `&E00` directly.
+It does not queue a BASIC `CALL`, because that would execute parasite memory
+when a Tube processor is active. The RAM trampoline also permits the menu to
+change ROMSEL without making its eventual return depend on the ElkWiFi ROM
+remaining selected.
 
 The published menu is itself cartridge-specific. It selects the second paged
 RAM bank through an inlined `&FC34` sequence. After download, the ROM scans

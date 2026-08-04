@@ -22,11 +22,17 @@ Pi1MHz selects its two JIM windows through `&FCFE` instead.
 5. Require both a completed, non-empty WGET result and a non-zero byte at `&E00`.
 6. Scan `&0E00-&1FFF` for the published menu's cartridge bank-select sequence.
 7. Replace that sequence in place when present.
-8. Queue `CALL &E00` through the keyboard buffer.
+8. Copy a return trampoline to host RAM and enter host `&E00`.
 
-The final action remains deferred because `CALL` is a BASIC command, not a MOS
-OSCLI command. Executing the payload directly inside the service-ROM call stack
-would change the inherited calling environment.
+The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
+would execute parasite memory when a Tube processor is active, so it is not a
+safe launch mechanism. The ROM enters `&E00` on the I/O processor instead.
+
+The published program exits through a tail-called MOS routine and may change
+ROMSEL while running. Before entry, the ROM copies a short return trampoline
+to `&0900` and pushes that RAM address as the program's return target. The
+trampoline restores the service-call registers and returns cleanly to MOS
+without relying on the ElkWiFi sideways ROM still being selected.
 
 ## Byte-level replacement
 
@@ -67,11 +73,10 @@ depending on signature matching.
 
 ## Failure behavior
 
-The ROM does not queue `CALL &E00` when WGET fails, is cancelled, returns an
-empty body, or leaves `&E00` unchanged. It prints `Menu download failed` for a
+The ROM does not enter `&E00` when WGET fails, is cancelled, returns an empty
+body, or leaves `&E00` unchanged. It prints `Menu download failed` for a
 completed transfer that does not produce an executable candidate at `&E00`.
 
 Real-hardware validation must confirm that the published menu starts, downloads
 `TITLES` through `*WGET -U`, selects JIM window 1, enters WiCFS, and launches a
 title without accessing `&FC34`.
-

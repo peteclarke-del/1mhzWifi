@@ -168,36 +168,6 @@ index cd40938..d764fc1 100644
   cmp #24                    \ check for enable/disable command
   beq wifi_init_uart         \ this is always allowed
   cmp #&FE
-diff --git a/rom/menu.asm b/rom/menu.asm
-index b22269e..e4940f0 100644
---- a/rom/menu.asm
-+++ b/rom/menu.asm
-@@ -3,8 +3,14 @@
- \ Syntax:     *MENU
-  
- .menu_cmd
--    ldx #<menu_wget \load pointer to command string
--    ldy #>menu_wget
-+    jsr menusrc_make_wget
-+    bcs mquit
-+    lda #0
-+    sta net_transfer_ok
-+    ldx #<heap      \load generated command string
-+    ldy #>heap
-     jsr oscli       \pass the command to the CLI
-+    lda net_transfer_ok
-+    beq mquit       \never execute stale &E00 after a failed/empty WGET
- 	ldx	#0		    \character pointer
- .m_a1
-@@ -20,8 +24,6 @@
- .mquit
-     jmp call_claimed
- 
--.menu_wget
--	equs	"*WGET HTTP://ACORNELECTRON.NL/uefarchive/MENU E00",&0D
- .menu_call
-     equs    "CALL &E00",&0D
- 	equb	&FF		            \command list end marker
 diff --git a/rom/routines.asm b/rom/routines.asm
 index 2cd2fd2..10cb31c 100644
 --- a/rom/routines.asm

@@ -169,7 +169,6 @@ class IntegrationContractTest(unittest.TestCase):
         rom_patch = (ROOT / "rom-side/elkwifi-0.23/integration.patch").read_text()
         self.assertIn('MENU_FILE "Pi1MHz/ElkWiFi.menu"', service)
         self.assertIn("filesystemWriteFile", service)
-        self.assertIn("menusrc_make_wget", rom_patch)
         self.assertIn('config_get("elkwifi_menu_url")', service)
         self.assertIn("if (valid_menu_url(configured))", service)
         self.assertLess(service.index("filesystemReadFile(MENU_FILE"),
@@ -178,8 +177,6 @@ class IntegrationContractTest(unittest.TestCase):
         # MENUSRC therefore has to precede its MENU prefix.
         self.assertLess(rom_patch.index('+                    equs "MENUSRC"'),
                         rom_patch.index('+                    equs "MENU"'))
-        self.assertIn("sta net_transfer_ok", rom_patch)
-        self.assertIn("beq mquit", rom_patch)
         wget = (ROOT / "rom-side/elkwifi-0.23/net_wget.asm").read_text()
         self.assertIn("net_transfer_ok = heap+&EF", wget)
         self.assertIn("net_received = heap+&F0", wget)
@@ -189,7 +186,12 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("sta &0E00", menu)
         self.assertIn("lda &0E00", menu)
         self.assertIn("jsr menusrc_patch_menu", menu)
+        self.assertIn("jmp &0E00", menu)
+        self.assertIn("sta heap,x", menu)
+        self.assertIn("#>(heap-1)", menu)
+        self.assertNotIn('equs "CALL &E00"', menu)
         self.assertIn('equs "Menu download failed"', menu)
+        self.assertIn('equs "WGET OK"', wget)
         self.assertIn("equb &AD,&34,&FC,&09,&08,&8D,&34,&FC", menusrc)
         self.assertIn("equb &A9,&01,&EA,&EA,&EA,&8D,&FE,&FC", menusrc)
         menu_doc = (ROOT / "docs/menu-runtime-patch.md").read_text()
