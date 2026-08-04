@@ -161,6 +161,10 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("net_paged_offset = heap+&E5", wget)
         self.assertIn("sta net_primary_page", wget)
         self.assertIn("ldy net_paged_offset", wget)
+        paged_store = wget.split(".pi_wget_store_paged", 1)[1].split(".pi_wget_close", 1)[0]
+        self.assertIn("inc net_paged_page", paged_store)
+        self.assertNotIn("lda pagereg", paged_store)
+        self.assertNotIn("inc pagereg", paged_store)
         self.assertNotIn(".pi_wget_store_paged\n pha\n jsr wget_context_switch_in", wget)
         self.assertNotIn("&FC30", executable)
         self.assertIn('equs "WICFS"', surface)

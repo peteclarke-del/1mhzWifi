@@ -50,6 +50,7 @@ net_primary_page = heap+&E6
  sta net_bytes_hi
  sta net_paged_page
  sta net_paged_offset
+ sta net_primary_page
  sta tflag
  sta sflag
  sta aflag
@@ -319,8 +320,6 @@ net_primary_page = heap+&E6
  sta sbufl
  lda net_bytes_hi
  sta sbufh
- lda pagereg
- sta net_primary_page
  lda #&FF
  sta pagereg
  lda #1
@@ -400,8 +399,6 @@ net_primary_page = heap+&E6
 
 .pi_wget_store_paged
  pha
- lda pagereg
- sta net_primary_page
  lda net_paged_page
  sta pagereg
  lda #1
@@ -411,12 +408,12 @@ net_primary_page = heap+&E6
  sta pageram,y
  iny
  bne pi_wget_paged_pointer_ok
- inc pagereg
+ inc net_paged_page
  beq pi_wget_paged_full
+ lda net_paged_page
+ sta pagereg
 .pi_wget_paged_pointer_ok
  sty net_paged_offset
- lda pagereg
- sta net_paged_page
  lda #0
  sta &FCFE
  lda net_primary_page

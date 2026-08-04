@@ -31,6 +31,12 @@ populated only after the download, before WiCFS starts. This prevents MOS
 workspace use during a network wait from corrupting the page pointer and
 raising a false `Buffer full` error on a small TITLES file.
 
+The AP5/Pi1MHz `&FCFF` page register is treated as write-only. Its selected
+page is shadowed in ROM workspace and incremented there. Reading the register
+through this hardware path can return the floating-bus value `&FF`; using that
+readback as the next page would falsely report a full 64 KiB window at the
+first 256-byte boundary.
+
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a
 safe launch mechanism. The ROM enters `&E00` on the I/O processor instead.
