@@ -381,16 +381,9 @@ menusrc_timeout_hi = errorspace+2
 .menusrc_catalogue_select_end
 
 \ Copied to &1FF0. Y remains the catalogue offset and A returns the byte.
-\ Pi1MHz remaps the complete JIM page whenever &FCFE is written. Avoid doing
-\ that for every byte when window 1 is already selected; redundant remaps can
-\ overrun the real 1 MHz bus path while a screen of titles is rendered.
 .menusrc_catalogue_read
- lda &FCFE
- cmp #1
- beq menusrc_catalogue_read_selected
  lda #1
  sta &FCFE
-.menusrc_catalogue_read_selected
  lda &FD00,y
  rts
 .menusrc_catalogue_read_end

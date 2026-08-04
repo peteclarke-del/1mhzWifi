@@ -1,55 +1,47 @@
 diff --git a/rom/wicfs.asm b/rom/wicfs.asm
 --- a/rom/wicfs.asm
 +++ b/rom/wicfs.asm
-@@ -43,2 +43,2 @@ temp	=	&C4		\zp temporary
--slotid	=	&C5		\UPCSF slot id (from UPURS handler)
--currom	=	&CF		\current rom slot id (usually BASIC)
-+slotid = heap+&DA \WiCFS ROM slot, retained across queued BASIC commands
-+currom = heap+&DB \ROM selected before a WiCFS vector invocation
-@@ -60,2 +60,4 @@
+@@ -60,2 +60,4 @@ optmask	=	&B7		\mask for *OPT setting (two values)
 -pr_y    =   &C7     \data pointor to paged ram (Y-reg)
 -pr_r    =   &C8     \data pointer to paged ram (page register)
 +\ Keep the WiCFS cursor out of transient MOS and language zero page. BASIC,
 +\ Tube filing calls and service polling may run between vector invocations.
 +pr_y    =   heap+&D8 \data pointer to paged ram (offset)
 +pr_r    =   heap+&D9 \data pointer to paged ram (page-register shadow)
-@@ -115,2 +117,0 @@
+@@ -113,3 +115 @@ __debug =   0       \print debug information
+-	LDA	&F4		    \record which slot UPURS occupies
+-	STA	slotid
 -	LDA	#vdu_off	\turn off screen output to hide
--	JSR	OSASCI		\KB auto-command sequence
-@@ -155,0 +156,2 @@
-+    LDA &F4             \refresh after *TAPE/PAGE/NEW have consumed the queue
-+    STA slotid          \and before installing vectors which depend on this slot
-@@ -1387,11 +1387,11 @@ __debug =   0       \print debug information
-     pha             \save data
-     iny             \increment pointer
-     bne getbyte1    \jump if not end of page
++	LDA	#vdu_on		\keep queue and filing errors visible
+@@ -162 +162,6 @@ __debug =   0       \print debug information
+-	BNE	b_a1	    	\no, loop for next
++	BNE	b_a1	    	\no, loop for next
++
++\Patch the copied switcher's immediate ROM number after queued BASIC commands
++\have completed. This survives MOS and Tube zero-page use without claiming
++\ADFS workspace or changing the size and address of the later MENU code.
++	LDA	&F4 : STA romsel+(aupurs_slot+1-s_filev)
+@@ -390 +395,2 @@ __debug =   0       \print debug information
+-	LDA	slotid		\then select UPURS rom
++.aupurs_slot
++	LDA	#0		\ROM slot patched into the copied switcher by *QUPCFS
+@@ -438 +444 @@ __debug =   0       \print debug information
+-.s_end	NOP			\dummy address marker for code download
++.s_end				\end marker for the copied switcher
+@@ -1390 +1396 @@ __debug =   0       \print debug information
 -    inc pagereg     \increment page register
-+    inc pr_r        \FCFF is write-only through AP5/Pi1MHz; advance the shadow
-+    lda pr_r
-+    sta pagereg
- .getbyte1
-     sty pr_y        \save pointer
++    inc pr_r        \advance the software shadow; FCFF is write-only through AP5/Pi1MHz
+@@ -1393,2 +1399,2 @@ __debug =   0       \print debug information
 -    lda pagereg     \load page register
 -    sta pr_r        \save page register
-     jsr set_bank_0  \select first paged ram bank
-     dec sbufl       \decrement tape counter
-     lda sbufl
-@@ -1451,6 +1451,6 @@ __debug =   0       \print debug information
- 	LDA	#1		    \set CFS active flags true
- 	STA	CFSact2
++    lda pr_r        \load page-register shadow
++    sta pagereg     \select the next physical page
+@@ -1452 +1458,0 @@ __debug =   0       \print debug information
 -    JSR wget_context_switch_in
-     LDA #&FF        \get tape length 
-     STA pagereg     \ (this is stored in the last two bytes of the paged RAM)
+@@ -1455,0 +1462 @@ __debug =   0       \print debug information
 +    JSR set_bank_1
-     LDA &FDFE       
-@@ -1460,7 +1460,9 @@ __debug =   0       \print debug information
-     STA sbufl
-     LDA &FDFF
-     STA sbufh
+@@ -1459 +1466,3 @@ __debug =   0       \print debug information
 -    JSR wget_context_switch_out
 +    JSR set_bank_0
 +    LDA #0
 +    STA pagereg
- 	LDA	#0
-     STA pr_y        \reset pointer to paged ram
-     sta pr_r

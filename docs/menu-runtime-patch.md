@@ -48,11 +48,14 @@ The WiCFS page and offset cursor live in private ROM workspace at `&09D8` and
 cursor stable when BASIC, MOS filing code or a Tube transfer runs between WiCFS
 vector calls.
 
-WiCFS also retains its sideways-ROM slot in private workspace and refreshes it
-when `*QUPCFS` runs. The queued `*TAPE`, `PAGE` and `NEW` commands therefore
-cannot corrupt the slot used by the installed filing vectors. Screen output is
-left enabled during this sequence so any queue, filing or UEF error remains
-visible on real hardware.
+When `*QUPCFS` runs, WiCFS writes the current sideways-ROM number directly into
+the copied RAM switcher's immediate operand. The installed filing vectors do
+not depend on transient zero page or claim ADFS workspace after the queued
+`*TAPE`, `PAGE` and `NEW` commands have completed. WiCFS also restores the JIM
+page register to zero after reading the downloaded length metadata. These
+changes preserve the exact address of the catalogue-working MENU code. Screen
+output remains enabled so queue, filing and UEF errors are visible on real
+hardware.
 
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a
@@ -91,13 +94,10 @@ The stock payload also assumes that this selection remains active for its
 entire lifetime. That is not a safe assumption on Pi1MHz because the JIM
 aperture is shared by firmware services. For the known 2,907-byte payload, the
 ROM replaces its three `LDA &FD00,Y` catalogue reads with calls to a small
-trampoline at `&1FF0`. The trampoline checks `&FCFE` and selects window 1 only
-when another host operation changed it. An unconditional write for every byte
-would make Pi1MHz remap the complete JIM page repeatedly and can overrun the
-real 1 MHz bus path. The title-selection page write similarly calls a
-trampoline at `&1FE0` which selects window 1 before writing `&FCFF`. The patch
-is applied only after the payload size and all four original instruction sites
-have been verified.
+trampoline at `&1FF0`. The trampoline selects window 1 before every read. Its
+title-selection page write similarly calls a trampoline at `&1FE0` which
+selects window 1 before writing `&FCFF`. The patch is applied only after the
+payload size and all four original instruction sites have been verified.
 
 The I/O-processor return trampoline is stored at `&1FD0`, above the published
 payload and immediately below the two JIM helpers. It is not stored at `&0900`,

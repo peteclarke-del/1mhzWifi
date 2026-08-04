@@ -11,10 +11,10 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-ElkWiFi ROM  6e08ec0bde037cb4efc6c222a80e0cbd2b88d8603c90701fa04f37e6111ee292
+ElkWiFi ROM  cabe829007881baf24b99f4275dbd6407e395f17680ecabb3bad02522c2bd3c6
 kernel.img   7a8f564aa20cf8d1c4bffbc71774e500f01eb2795bdbd57f4b5a0ffb087cd1a5
 kernel7.img  57eb5fe8cb33dda036bf0af0a33d0bcca95f65068261947a47210e907ec5683a
-bundle ZIP   dc319ef83c2500b2b54c840644dd302ab437af33405d69a1edc144fe65155e01
+bundle ZIP   ddf1c17d165118bc7d425a5641a652fe30293fbddc324fc4e03f49076433c14d
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -95,9 +95,7 @@ Expected error meanings:
   `Starting menu` appear, the cartridge
   `&FC34` bank-select sequence is adapted for `&FCFE`, and host `&E00` starts
   the menu without a BASIC `CALL`.
-- [ ] Confirm the first screen renders all 21 catalogue entries. Check that
-  repeated catalogue reads do not repeatedly rewrite `&FCFE` when window 1 is
-  already selected.
+- [ ] Confirm the first screen renders all 21 catalogue entries.
 - [ ] Run `*MENU` against DNS failure, refused connection, HTTP error, empty body, and timeout cases. Confirm none calls stale `&E00` memory.
 - [ ] Cancel WGET with Escape during DNS, connect, empty wait, and body transfer.
 - [ ] Test binary WGET across a main-memory page boundary.
@@ -107,7 +105,11 @@ Expected error meanings:
 ## WiCFS and JIM gate
 
 - [ ] Download a known UEF with `*WGET -U` and verify the stored length metadata.
-- [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF.
+- [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
+  selected program reaches its execution address rather than returning to the
+  BASIC prompt after the download.
+- [ ] Select a MENU title with the Tube off and then on. In both cases confirm
+  `WGET OK`, WiCFS activation, and execution of the downloaded program.
 - [ ] Test sequential open/read, EOF, rewind, Escape, malformed UEF, and recovery.
 - [ ] Confirm `*PRD` can inspect both defined JIM windows and restores the selector.
 - [ ] Test `*WGET -S` with valid sideways RAM and with no writable sideways RAM.

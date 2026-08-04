@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "6e08ec0bde037cb4efc6c222a80e0cbd2b88d8603c90701fa04f37e6111ee292"
+ROM_SHA256 = "cabe829007881baf24b99f4275dbd6407e395f17680ecabb3bad02522c2bd3c6"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -22,9 +22,15 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(self.rom[9:23], b"Electron Wifi\0")
         self.assertEqual(self.rom[23:28], b"0.23\0")
 
-    def test_menu_catalogue_selector_is_conditional(self) -> None:
-        helper = bytes.fromhex("AD FE FC C9 01 F0 05 A9 01 8D FE FC B9 00 FD 60")
+    def test_menu_catalogue_selector_is_present(self) -> None:
+        helper = bytes.fromhex("A9 01 8D FE FC B9 00 FD 60")
         self.assertEqual(self.rom.count(helper), 1)
+        self.assertEqual(self.rom.find(bytes.fromhex("59 10 79 10 AB 10")), 11180)
+        self.assertEqual(self.rom.find(helper), 11197)
+
+    def test_wicfs_patches_the_copied_rom_switcher(self) -> None:
+        self.assertEqual(self.rom.count(bytes.fromhex("A5 F4 8D C2 07")), 1)
+        self.assertEqual(self.rom.count(bytes.fromhex("A9 00 85 F4 8D 05 FE")), 1)
 
     def test_stock_commands_additive_menusrc_and_osword_are_present(self) -> None:
         for command in (
