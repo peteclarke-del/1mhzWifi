@@ -175,6 +175,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("JSR set_bank_1", wicfs_patch)
         self.assertIn("pr_y    =   heap+&D8", wicfs_patch)
         self.assertIn("pr_r    =   heap+&D9", wicfs_patch)
+        self.assertIn("slotid = heap+&DA", wicfs_patch)
+        self.assertIn("STA slotid", wicfs_patch)
+        self.assertNotIn("+\tLDA\t#vdu_off", wicfs_patch)
         self.assertIn("FCFF is write-only through AP5/Pi1MHz", wicfs_patch)
         self.assertNotIn("+    inc pagereg", wicfs_patch)
 

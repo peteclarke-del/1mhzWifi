@@ -48,6 +48,12 @@ The WiCFS page and offset cursor live in private ROM workspace at `&09D8` and
 cursor stable when BASIC, MOS filing code or a Tube transfer runs between WiCFS
 vector calls.
 
+WiCFS also retains its sideways-ROM slot in private workspace and refreshes it
+when `*QUPCFS` runs. The queued `*TAPE`, `PAGE` and `NEW` commands therefore
+cannot corrupt the slot used by the installed filing vectors. Screen output is
+left enabled during this sequence so any queue, filing or UEF error remains
+visible on real hardware.
+
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a
 safe launch mechanism. The ROM enters `&E00` on the I/O processor instead.

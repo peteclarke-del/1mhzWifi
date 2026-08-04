@@ -1,6 +1,11 @@
 diff --git a/rom/wicfs.asm b/rom/wicfs.asm
 --- a/rom/wicfs.asm
 +++ b/rom/wicfs.asm
+@@ -43,2 +43,2 @@ temp	=	&C4		\zp temporary
+-slotid	=	&C5		\UPCSF slot id (from UPURS handler)
+-currom	=	&CF		\current rom slot id (usually BASIC)
++slotid = heap+&DA \WiCFS ROM slot, retained across queued BASIC commands
++currom = heap+&DB \ROM selected before a WiCFS vector invocation
 @@ -60,2 +60,4 @@
 -pr_y    =   &C7     \data pointor to paged ram (Y-reg)
 -pr_r    =   &C8     \data pointer to paged ram (page register)
@@ -8,6 +13,12 @@ diff --git a/rom/wicfs.asm b/rom/wicfs.asm
 +\ Tube filing calls and service polling may run between vector invocations.
 +pr_y    =   heap+&D8 \data pointer to paged ram (offset)
 +pr_r    =   heap+&D9 \data pointer to paged ram (page-register shadow)
+@@ -115,2 +117,0 @@
+-	LDA	#vdu_off	\turn off screen output to hide
+-	JSR	OSASCI		\KB auto-command sequence
+@@ -155,0 +156,2 @@
++    LDA &F4             \refresh after *TAPE/PAGE/NEW have consumed the queue
++    STA slotid          \and before installing vectors which depend on this slot
 @@ -1387,11 +1387,11 @@ __debug =   0       \print debug information
      pha             \save data
      iny             \increment pointer
