@@ -1,0 +1,18 @@
+diff --git a/src/net_service.c b/src/net_service.c
+--- a/src/net_service.c
++++ b/src/net_service.c
+@@ -1352,6 +1352,14 @@ static uint8_t do_url_read(net_handle_t *h, uint32_t cp)
+          return NET_OK;                       /* wait for more header bytes */
+       }
+       net_http_parse_status(h);
++      /* A completed TCP request is not a successful WGET when the server
++         returned an error page or redirect. Do not pass HTML diagnostics to
++         the host as payload and then report WGET OK. Redirect following needs
++         an explicit bounded policy, so all non-2xx responses currently fail. */
++      if (h->http_code < 200u || h->http_code >= 300u) {
++         h->last_err = NET_ERR_CONN;
++         return NET_ERR_CONN;
++      }
+       { uint8_t junk[64]; uint16_t left = hdr;
+         while (left != 0u) { uint16_t k = (left < sizeof junk) ? left : (uint16_t)sizeof junk;
+                              ring_get_mem(h, junk, k); left = (uint16_t)(left - k); } }

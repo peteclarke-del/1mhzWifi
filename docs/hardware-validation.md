@@ -11,11 +11,16 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-ElkWiFi ROM  9a38eafd644950c701edc449802798f517981e220043c5d0a7e666e2d1ed8913
-kernel.img   0e6d5825d65877704f96946a14dae0531b9745abfe729ff95de335fba1464b8b
-kernel7.img  1c12ef443ec835acfb687a0b38f8532ed4db324bdef6d87331d5cb1d55f3a09f
-bundle ZIP   d9abc809e1dd8af8676c8017496ff77c1ad3763e4e183df1aa431f5a35f0fd5a
+ElkWiFi ROM  941896c2709d00542c74b076a7759fa01f5deba71921e4ae72cda5f508be43c2
+kernel.img   db6252a956962e60b32257fe8621acdfd4827d6be6880e897302c88a8c6f0e19
+kernel7.img  ec55a1303648f9dcd5664803ccf3dfe5207e36177d7879d3e155deedace2d0b1
+bundle ZIP   352cb784a985e83909c0c9abdc0f419ebee1c5d4729e08d31f0788f8b599d6c6
 ```
+
+For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
+files. Replace only `kernel.img` or `kernel7.img` for the fitted Pi, plus the
+host `ElkWiFi.rom`. The universal ZIP is for a clean card and may contain a
+fresh configuration template.
 
 ## Automated and emulator gate
 
@@ -62,6 +67,12 @@ Expected error meanings:
 - [ ] Confirm `*IFCFG` reports non-zero address, gateway, and netmask values.
 - [ ] Power-cycle the Pi and Acorn; confirm the saved profile associates automatically.
 - [ ] Run `*LEAVE`; confirm disassociation and no automatic rejoin until another `*JOIN`.
+- [ ] Immediately run `*IFCFG` after `*LEAVE`; confirm link `DOWN`, state
+  `IDLE`, and zero IP, gateway, and netmask values.
+- [ ] Run `*WIFI OFF`; confirm `WIFI OFF` and `OK`, then confirm `*IFCFG`
+  reports the disabled state, link `DOWN`, and zero network addresses.
+- [ ] Run `*WIFI ON`; confirm `WLC_UP` succeeds and the saved profile starts
+  associating again without restarting the Pi.
 - [ ] Test forced WPA, forced WPA2, WEP40, WEP104, and open profiles on isolated test access points.
 - [ ] Test invalid keys, association rejection, DHCP failure, and access-point loss.
 - [ ] Test SSIDs and passwords containing spaces, commas, quotes, and boundary lengths.
@@ -73,7 +84,8 @@ Expected error meanings:
 - [ ] Save a temporary HTTP URL with `*MENUSRC <url>` and read it back.
 - [ ] Run `*MENUSRC DEFAULT` and confirm the default persists after power cycle.
 - [ ] Run `*MENU` against the published ElkWiFi payload. Confirm
-  `Downloading menu`, `WGET OK`, and `Starting menu` appear, the cartridge
+  `Downloading menu`, the counted `WGET OK` line with range and header, and
+  `Starting menu` appear, the cartridge
   `&FC34` bank-select sequence is adapted for `&FCFE`, and host `&E00` starts
   the menu without a BASIC `CALL`.
 - [ ] Run `*MENU` against DNS failure, refused connection, HTTP error, empty body, and timeout cases. Confirm none calls stale `&E00` memory.

@@ -15,8 +15,20 @@
     jsr oscli
     lda net_transfer_ok
     beq menu_download_invalid
+    lda net_bytes_hi
+    bne menu_download_size_ok
+    lda net_bytes_lo
+    cmp #16
+    bcc menu_download_invalid
+.menu_download_size_ok
+    \ A directly executable menu starts with a subroutine call or jump. This
+    \ catches HTTP error text and incomplete transfers before executing them.
     lda &0E00
-    beq menu_download_invalid
+    cmp #&20
+    beq menu_download_entry_ok
+    cmp #&4C
+    bne menu_download_invalid
+.menu_download_entry_ok
     jsr menusrc_patch_menu
     jsr printtext
     equs "Starting menu",&0D,&EA

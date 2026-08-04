@@ -550,6 +550,12 @@ static uint8_t wifi_join(uint32_t cp)
       response_string(cp, "WIFI DISCONNECT\r\n\r\nOK\r\n");
       return ELKWIFI_OK;
    }
+   if (operation == ELKWIFI_JOIN_RADIO_OFF) {
+      if (!wifi_disable_radio())
+         return ELKWIFI_ERR_NETWORK;
+      response_string(cp, "WIFI OFF\r\n\r\nOK\r\n");
+      return ELKWIFI_OK;
+   }
    if (operation != ELKWIFI_JOIN_SET)
       return ELKWIFI_ERR_PARAM;
 
@@ -595,7 +601,7 @@ static uint8_t wifi_ifcfg(uint32_t cp)
    /* DHCP owns the live values in lwIP; the parsed configuration object
       intentionally contains no address in DHCP mode.  Report the netif so
       *IFCFG changes from zeroes as soon as JOIN has obtained its lease. */
-   if (live != NULL && live->netif_added) {
+   if (radio.link_up && live != NULL && live->netif_added) {
       const ip4_addr_t *live_ip = netif_ip4_addr(&live->netif);
       const ip4_addr_t *live_gateway = netif_ip4_gw(&live->netif);
       const ip4_addr_t *live_netmask = netif_ip4_netmask(&live->netif);

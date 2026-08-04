@@ -128,7 +128,11 @@ drv_net_close = 53
  beq service_driver_wifi_off
  jmp service_driver_version
 .service_driver_wifi_off
- jmp service_driver_leave
+ lda #drv_svc_join
+ jsr service_driver_write_command
+ ldy #3
+ jsr service_driver_write_y
+ jmp service_driver_dispatch
 
 .service_driver_ping
  lda #0

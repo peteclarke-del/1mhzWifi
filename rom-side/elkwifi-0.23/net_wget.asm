@@ -26,11 +26,25 @@ net_empty_hi = heap+&ED
 net_result = heap+&EE
 net_transfer_ok = heap+&EF
 net_received = heap+&F0
+net_load_lo = heap+&F1
+net_load_hi = heap+&F2
+net_bytes_lo = heap+&F3
+net_bytes_hi = heap+&F4
+
+\ Close the ElkWiFi-compatible raw socket and display the Pi response. The
+\ inherited wget_close routine is also an internal silent cleanup path.
+.disconnect_cmd
+ lda #14
+ jmp generic_cmd
 
 .pi_wget_cmd
  lda #0
  sta net_transfer_ok
  sta net_received
+ sta net_load_lo
+ sta net_load_hi
+ sta net_bytes_lo
+ sta net_bytes_hi
  sta tflag
  sta sflag
  sta aflag
@@ -143,6 +157,10 @@ net_received = heap+&F0
  sta load_addr+1
 .pi_wget_address_ok
 .pi_wget_address_ready
+ lda load_addr
+ sta net_load_lo
+ lda load_addr+1
+ sta net_load_hi
 
  jsr net_dispatch_wait
  cmp #0
@@ -191,7 +209,9 @@ net_received = heap+&F0
  jsr net_address_low
  jsr net_read_a
  sta net_count
- beq pi_wget_empty
+ bne pi_wget_have_bytes
+ jmp pi_wget_empty
+.pi_wget_have_bytes
  lda #0
  sta net_empty_lo
  lda #10
@@ -217,15 +237,38 @@ net_received = heap+&F0
  jsr pi_wget_store_paged
  jmp pi_wget_copied
 .pi_wget_store_main
+ lda net_load_lo
+ ora net_load_hi
+ bne pi_wget_main_has_space
+ lda net_bytes_lo
+ ora net_bytes_hi
+ beq pi_wget_main_has_space
+ jsr pi_wget_close
+ ldx #(error_buffer_full-error_table)
+ jmp error
+.pi_wget_main_has_space
+ lda net_load_lo
+ sta load_addr
+ lda net_load_hi
+ sta load_addr+1
  pla
  ldy #0
  sta (load_addr),y
  inc load_addr
- bne pi_wget_copied
+ bne pi_wget_save_main_pointer
  inc load_addr+1
+.pi_wget_save_main_pointer
+ lda load_addr
+ sta net_load_lo
+ lda load_addr+1
+ sta net_load_hi
 .pi_wget_copied
  lda #&FF
  sta net_received
+ inc net_bytes_lo
+ bne pi_wget_counted
+ inc net_bytes_hi
+.pi_wget_counted
  dec net_count
  bne pi_wget_copy
  jsr check_esc
@@ -256,7 +299,9 @@ net_received = heap+&F0
 
 .pi_wget_done
  lda net_received
- beq pi_wget_empty_response
+ bne pi_wget_has_response
+ jmp pi_wget_empty_response
+.pi_wget_has_response
  lda #&FF
  sta net_transfer_ok
  lda uflag
@@ -276,7 +321,58 @@ net_received = heap+&F0
 .pi_wget_finish_close
  jsr pi_wget_close
  jsr printtext
- equs "WGET OK",&0D,&EA
+ equs "WGET OK &",&EA
+ lda net_bytes_hi
+ jsr printhex
+ lda net_bytes_lo
+ jsr printhex
+ jsr printtext
+ equs " bytes",&EA
+ lda tflag
+ bne pi_wget_report_end
+ lda uflag
+ ora sflag
+ bne pi_wget_report_jim
+ jsr printtext
+ equs " at &",&EA
+ lda laddr+1
+ jsr printhex
+ lda laddr
+ jsr printhex
+ jsr printtext
+ equs "-&",&EA
+ lda net_load_hi
+ jsr printhex
+ lda net_load_lo
+ jsr printhex
+ lda net_bytes_hi
+ bne pi_wget_report_head
+ lda net_bytes_lo
+ cmp #4
+ bcc pi_wget_report_end
+.pi_wget_report_head
+ jsr printtext
+ equs " head &",&EA
+ lda #0
+ sta net_count
+.pi_wget_report_head_byte
+ lda laddr
+ sta load_addr
+ lda laddr+1
+ sta load_addr+1
+ ldy net_count
+ lda (load_addr),y
+ jsr printhex
+ inc net_count
+ lda net_count
+ cmp #4
+ bne pi_wget_report_head_byte
+ jmp pi_wget_report_end
+.pi_wget_report_jim
+ jsr printtext
+ equs " in JIM 1",&EA
+.pi_wget_report_end
+ jsr osnewl
  jmp call_claimed
 
 .pi_wget_empty_response
@@ -302,6 +398,7 @@ net_received = heap+&F0
  rts
 .pi_wget_paged_full
  jsr wget_context_switch_out
+ jsr pi_wget_close
  ldx #(error_buffer_full-error_table)
  jmp error
 

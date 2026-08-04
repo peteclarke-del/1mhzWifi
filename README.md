@@ -40,8 +40,8 @@ HTTPS, TLS, and SSH are not implemented. Secure requests fail closed; they are
 never downgraded to plaintext.
 
 The authoritative implementation backlog is [TODO.md](TODO.md). It records
-several deliberate compatibility gaps, including true `*WIFI OFF`, soft and
-hard reset semantics, complete OSWORD `&65` parity, and full Escape handling.
+several deliberate compatibility gaps, including soft and hard reset
+semantics, complete OSWORD `&65` parity, and full Escape handling.
 
 The published ElkWiFi menu contains a direct `&FC34` cartridge bank-selection
 sequence. At runtime, `*MENU` replaces that exact eight-byte sequence with an
@@ -56,6 +56,11 @@ archive is [build/pi1mhz-all-hardware-test.zip](build/pi1mhz-all-hardware-test.z
 Copy the contents of `pi1mhz-all/` to a FAT-formatted Pi boot partition, then
 fit or load `Pi1MHz/ElkWiFi.rom` as an Acorn sideways ROM.
 
+When updating an existing test card, keep its `Pi1MHz.cfg` and saved
+`Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
+host ROM. A ROM-only change does not require replacing the Pi kernel; a
+Pi-only change does not require reloading the ROM.
+
 The bundle contains both supported kernel families:
 
 | File | Target |
@@ -66,10 +71,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-ElkWiFi ROM  9a38eafd644950c701edc449802798f517981e220043c5d0a7e666e2d1ed8913
-kernel.img   0e6d5825d65877704f96946a14dae0531b9745abfe729ff95de335fba1464b8b
-kernel7.img  1c12ef443ec835acfb687a0b38f8532ed4db324bdef6d87331d5cb1d55f3a09f
-bundle ZIP   d9abc809e1dd8af8676c8017496ff77c1ad3763e4e183df1aa431f5a35f0fd5a
+ElkWiFi ROM  941896c2709d00542c74b076a7759fa01f5deba71921e4ae72cda5f508be43c2
+kernel.img   db6252a956962e60b32257fe8621acdfd4827d6be6880e897302c88a8c6f0e19
+kernel7.img  ec55a1303648f9dcd5664803ccf3dfe5207e36177d7879d3e155deedace2d0b1
+bundle ZIP   352cb784a985e83909c0c9abdc0f419ebee1c5d4729e08d31f0788f8b599d6c6
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.

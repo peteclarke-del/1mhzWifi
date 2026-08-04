@@ -25,7 +25,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/service_driver.asm" "$upstream/rom/ser
 install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
-for patch_name in integration.patch command-surface.patch; do
+for patch_name in integration.patch command-surface.patch disconnect-response.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -42,6 +42,10 @@ for patch_name in integration.patch command-surface.patch; do
             ! grep -q 'CRC error, aborted' "$upstream/rom/errors.asm" &&
             patch_present=true
             ;;
+        disconnect-response.patch)
+            grep -q 'equb >disconnect_cmd, <disconnect_cmd' "$upstream/rom/ElkWifi.asm" &&
+            patch_present=true
+            ;;
     esac
     if "$patch_present"; then
         echo "ElkWiFi $patch_name is already applied"
@@ -54,6 +58,7 @@ done
 # integration.patch must first match the upstream menu source. Replace the
 # patched file with the complete Pi1MHz implementation before assembly.
 install -m 0644 "$script_dir/elkwifi-0.23/menu.asm" "$upstream/rom/menu.asm"
+install -m 0644 "$script_dir/elkwifi-0.23/wificmd.asm" "$upstream/rom/wificmd.asm"
 
 if [ ! -f "$upstream/rom/flash.bin" ]; then
     truncate -s 512 "$upstream/rom/flash.bin"

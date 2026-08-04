@@ -17,14 +17,11 @@ required.
   removes the raw PCB, and exits its inter-packet wait. Add equivalent Pi-side
   cancellation for NTP, scan, JOIN, DHCP, HTTP, and socket operations without
   allowing a late completion to be consumed by the next command.
-- [ ] Implement genuine `*WIFI OFF`. It currently performs the same
-  disassociation as `*LEAVE`; it must instead stop the WiFi interface/radio,
-  cancel DHCP and pending network operations, and leave the services mailbox
-  responsive so `*WIFI ON` can bring it back.
-- [ ] Implement genuine `*WIFI ON` after OFF. It must restart SDIO/firmware,
-  restore the configured or saved profile when appropriate, and report a
-  positive ready result only after the CYW43 is usable. Retain the existing
-  no-WiFi error on models such as a Pi Zero without wireless hardware.
+- [x] Implement genuine `*WIFI OFF`. It now sends `WLC_DOWN`, stops DHCP,
+  clears live interface addresses, and leaves the services mailbox responsive.
+- [x] Implement genuine `*WIFI ON` after OFF. It now sends `WLC_UP` without
+  reloading the resident firmware and restarts association for a saved profile.
+  Hardware validation of repeated OFF/ON cycles remains in the validation plan.
 - [ ] Implement `*WIFI SR` as a real soft reset. Define the exact contract,
   restart the CYW43 software/runtime state without toggling its power rail,
   cancel all ElkWiFi DNS/ICMP/NTP/scan requests, and optionally restore the

@@ -32,5 +32,6 @@ void elkwifi_service_init(uint8_t instance, uint8_t address);
 #define ELKWIFI_JOIN_QUERY       0u
 #define ELKWIFI_JOIN_SET         1u
 #define ELKWIFI_JOIN_LEAVE       2u
+#define ELKWIFI_JOIN_RADIO_OFF   3u
 
 #endif

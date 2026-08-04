@@ -1,5 +1,7 @@
 \ ElkWiFi-compatible PING through the Pi1MHz service.
 
+ping_wait_count = errorspace+18
+
 .ping_cmd
  jsr skipspace1
  jsr read_cli_param
@@ -45,13 +47,13 @@
  equs " ms",&0D,&EA
 .ping_wait
  ldx #50
- stx zp
+ stx ping_wait_count
 .ping_wait_loop
  jsr check_esc
  bcs ping_cancelled
  lda #19
  jsr osbyte
- dec zp
+ dec ping_wait_count
  bne ping_wait_loop
 
  dec size

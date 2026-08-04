@@ -1,0 +1,12 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -188,7 +188,7 @@
+                     equs "MODE"
+                     equb >mode_cmd, <mode_cmd
+                     equs "DISCONNECT"
+-                    equb >wget_close, <wget_close
++                    equb >disconnect_cmd, <disconnect_cmd
+                     equs "WICFS"
+                     equb >wicfs_cmd, <wicfs_cmd
+                     equs "REWIND"

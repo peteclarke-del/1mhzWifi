@@ -4,6 +4,11 @@ This directory contains the Pi1MHz source overlay and patch set. Raspberry Pi
 boot firmware loads the resulting `kernel.img` or `kernel7.img` directly. No
 Linux service is installed or required.
 
+Pi1MHz V1.30 already contains its own bare-metal CYW43/SDIO WiFi stack. The
+overlay retains and extends that stack. Its main addition is an ElkWiFi-facing
+services-mailbox adapter, plus the state, security, and networking corrections
+needed by the retained ElkWiFi commands.
+
 ## Upstream requirements
 
 Use Pi1MHz commit `83bca4922955e28e2f95122d71d631cce813d467`.
@@ -139,8 +144,14 @@ report live state without holding the shared mailbox request open.
 
 The radio-only startup path performs CLM/country, PHY, and event-mask setup so
 that `*LAP` works before association. A saved profile is loaded during Pi boot
-and association starts automatically. `*LEAVE` sends `WLC_DISASSOC` and pauses
-automatic rejoin until the next explicit join.
+and association starts automatically. `*LEAVE` sends `WLC_DISASSOC`, releases
+the live DHCP state, clears the interface addresses, and pauses automatic
+rejoin until the next explicit join.
+
+`*WIFI OFF` is distinct from LEAVE. It sends `WLC_DOWN`, clears the live
+network state, and marks the radio disabled while keeping SDIO, firmware, and
+the services mailbox resident. A later `*WIFI ON` sends `WLC_UP` and restarts
+association when a saved profile is available.
 
 The scan response is capped at four BSS records to fit the inherited 240-byte
 host buffer. Removing that limit requires a compatible paging contract.

@@ -8,7 +8,7 @@ leading `*`. `*HELP WIFI` must be uppercase on the target system.
 | Command | Behavior | Status |
 | --- | --- | --- |
 | `*WIFI ON` | Initialises or probes the Pi WiFi runtime | Implemented |
-| `*WIFI OFF` | Intended to stop WiFi | Partial: behaves as leave/disassociate |
+| `*WIFI OFF` | Sends `WLC_DOWN`, clears the live lease and interface addresses, and leaves the mailbox available | Implemented |
 | `*WIFI SR` | Intended soft reset | Partial: status alias |
 | `*WIFI HR` | Intended hardware reset | Partial: status alias |
 | `*LAP` | Lists nearby access points | Implemented; response is limited to four records |
@@ -16,7 +16,7 @@ leading `*`. `*HELP WIFI` must be uppercase on the target system.
 | `*LAPOPT 127` | Selects full scan rows | Implemented and persistent |
 | `*JOIN <ssid> <password>` | Saves a profile and starts association | Implemented |
 | `*JOIN ?` | Reports saved and live association state | Implemented |
-| `*LEAVE` | Disassociates and pauses automatic rejoin | Implemented |
+| `*LEAVE` | Sends `WLC_DISASSOC`, clears the live lease and interface addresses, and pauses automatic rejoin | Implemented |
 | `*IFCFG` | Reports live interface and MAC state | Implemented |
 | `*MODE 1` | Selects station mode | Implemented |
 | `*MODE ?` | Reports station mode | Implemented |
@@ -47,16 +47,31 @@ avoid spaces and commas in initial hardware testing.
 | Command | Behavior | Status |
 | --- | --- | --- |
 | `*PING <host>` | DNS lookup and five ICMP echo requests | Implemented, including Escape cancellation |
-| `*WGET <url> <addr>` | Downloads HTTP data to host memory and reports `WGET OK` on success | Implemented; advanced HTTP cases remain |
+| `*WGET <url> <addr>` | Downloads HTTP data to host memory and reports the byte count, exclusive address range, and first four bytes | Implemented; advanced HTTP cases remain |
 | `*WGET -T <url>` | Prints text with CR line endings | Implemented |
 | `*WGET -X <url>` | Prints text using LF input | Implemented |
 | `*WGET -U <url>` | Downloads a UEF image to JIM window 1 | Implemented; hardware validation pending |
 | `*WGET -S <url> <slot>` | Downloads to JIM and copies to sideways RAM | Implemented; hardware validation pending |
 | `*DATE` | Reads date from NTP | Implemented |
 | `*TIME` | Reads time from NTP | Implemented |
+| `*DISCONNECT` | Closes the current OSWORD-compatible raw socket and prints the close response | Implemented |
 
-WGET supports plain HTTP only. HTTPS is rejected. Redirects, chunked bodies,
-large transfers, and all Escape phases remain part of the test backlog.
+For example, a successful menu-sized transfer to `&0E00` reports a line in
+this form:
+
+```text
+WGET OK &0B5B bytes at &0E00-&195B head &208A124C
+```
+
+The end address is exclusive. The byte count and address range prove how much
+host memory changed; `head` exposes the first four downloaded bytes so an HTTP
+error page cannot be confused with the expected program header. `*WGET -T`
+prints the downloaded text directly. Pi1MHz also rejects non-2xx HTTP status
+codes before returning payload bytes.
+
+WGET supports plain HTTP only. HTTPS is rejected. Redirects are rejected rather
+than followed. Chunked bodies, large transfers, and all Escape phases remain
+part of the test backlog.
 
 ## Menu
 
@@ -67,8 +82,9 @@ large transfers, and all Escape phases remain part of the test backlog.
 | `*MENUSRC DEFAULT` | Restores and saves the compiled default URL |
 | `*MENU` | Downloads the active URL to host `&E00`, adapts it, then runs it on the I/O processor |
 
-Only `http://` menu URLs are accepted. `*MENU` does not call `&E00` after a
-failed, cancelled, or empty download.
+Only `http://` menu URLs are accepted. `*MENU` does not enter `&E00` after a
+failed, cancelled, empty, shorter-than-16-byte, or invalid-entry download. An
+accepted payload must start with a 6502 `JSR` or absolute `JMP` opcode.
 
 `*MENU` does not queue BASIC `CALL &E00`. That command would execute parasite
 memory when a Tube processor is active, although WGET populated I/O processor
