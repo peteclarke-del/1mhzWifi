@@ -263,6 +263,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("sta &0E00", menu)
         self.assertIn("lda &0E00", menu)
         self.assertIn("jsr menusrc_patch_menu", menu)
+        self.assertIn("lda #&8C\n    ldx #0\n    ldy #0\n    jsr osbyte", menu)
         self.assertIn("jsr menusrc_patch_catalogue", menusrc)
         self.assertIn("equw &1059,&1079,&10AB", menusrc)
         self.assertIn("sta &1FF0,x", menusrc)

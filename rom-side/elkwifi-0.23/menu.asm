@@ -32,6 +32,16 @@ menu_return_addr = &1FD0
     bne menu_download_invalid
 .menu_download_entry_ok
     jsr menusrc_patch_menu
+
+    \ The stock ElkWiFi MENU is a cassette filing-system program. If ADFS,
+    \ MMFS or another filing system is current, it renders the first catalogue
+    \ row and returns to the prompt. OSBYTE &8C performs the host-side *TAPE
+    \ operation before the downloaded code runs.
+    lda #&8C
+    ldx #0
+    ldy #0
+    jsr osbyte
+
     jsr printtext
     equs "Starting menu",&0D,&EA
 

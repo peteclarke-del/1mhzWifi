@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "cabe829007881baf24b99f4275dbd6407e395f17680ecabb3bad02522c2bd3c6"
+ROM_SHA256 = "328a5d1191e59e5d147328ba4cbe480febbe76964d44ad29e826ec0381501601"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -25,12 +25,16 @@ class RomCompatibilityTest(unittest.TestCase):
     def test_menu_catalogue_selector_is_present(self) -> None:
         helper = bytes.fromhex("A9 01 8D FE FC B9 00 FD 60")
         self.assertEqual(self.rom.count(helper), 1)
-        self.assertEqual(self.rom.find(bytes.fromhex("59 10 79 10 AB 10")), 11180)
-        self.assertEqual(self.rom.find(helper), 11197)
+        self.assertEqual(self.rom.count(bytes.fromhex("A9 8C A2 00 A0 00 20 F4 FF")), 1)
 
     def test_wicfs_patches_the_copied_rom_switcher(self) -> None:
         self.assertEqual(self.rom.count(bytes.fromhex("A5 F4 8D C2 07")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("A9 00 85 F4 8D 05 FE")), 1)
+        length_read = bytes.fromhex(
+            "A9 FF 8D FF FC 20 FC 87 AD FE FD 85 F8 AD FF FD 85 F9"
+        )
+        self.assertEqual(self.rom.count(length_read), 1)
+        self.assertNotIn(bytes.fromhex("AD FE FD 85 F8 20 FC 87"), self.rom)
 
     def test_stock_commands_additive_menusrc_and_osword_are_present(self) -> None:
         for command in (

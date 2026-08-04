@@ -11,10 +11,10 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-ElkWiFi ROM  cabe829007881baf24b99f4275dbd6407e395f17680ecabb3bad02522c2bd3c6
+ElkWiFi ROM  328a5d1191e59e5d147328ba4cbe480febbe76964d44ad29e826ec0381501601
 kernel.img   7a8f564aa20cf8d1c4bffbc71774e500f01eb2795bdbd57f4b5a0ffb087cd1a5
 kernel7.img  57eb5fe8cb33dda036bf0af0a33d0bcca95f65068261947a47210e907ec5683a
-bundle ZIP   ddf1c17d165118bc7d425a5641a652fe30293fbddc324fc4e03f49076433c14d
+bundle ZIP   7622a1b6f07986cfcfc21dd0db84f1d7b605f0afca96dd7a7edf2906996249b8
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -96,6 +96,8 @@ Expected error meanings:
   `&FC34` bank-select sequence is adapted for `&FCFE`, and host `&E00` starts
   the menu without a BASIC `CALL`.
 - [ ] Confirm the first screen renders all 21 catalogue entries.
+- [ ] With ADFS current, run `*MENU` without entering `*TAPE` first. Confirm
+  the complete catalogue renders and a selected title runs.
 - [ ] Run `*MENU` against DNS failure, refused connection, HTTP error, empty body, and timeout cases. Confirm none calls stale `&E00` memory.
 - [ ] Cancel WGET with Escape during DNS, connect, empty wait, and body transfer.
 - [ ] Test binary WGET across a main-memory page boundary.

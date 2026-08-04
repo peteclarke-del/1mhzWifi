@@ -36,11 +36,11 @@ diff --git a/rom/wicfs.asm b/rom/wicfs.asm
 -    sta pr_r        \save page register
 +    lda pr_r        \load page-register shadow
 +    sta pagereg     \select the next physical page
-@@ -1452 +1458,0 @@ __debug =   0       \print debug information
+@@ -1452 +1457,0 @@ __debug =   0       \print debug information
 -    JSR wget_context_switch_in
-@@ -1455,0 +1462 @@ __debug =   0       \print debug information
+@@ -1455,0 +1460 @@ __debug =   0       \print debug information
 +    JSR set_bank_1
-@@ -1459 +1466,3 @@ __debug =   0       \print debug information
+@@ -1459 +1465,3 @@ __debug =   0       \print debug information
 -    JSR wget_context_switch_out
 +    JSR set_bank_0
 +    LDA #0
