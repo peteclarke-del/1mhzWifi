@@ -1,0 +1,35 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -69,0 +70,2 @@
++tape_len_lo = heap+&DF \current UEF length, refreshed by every successful WGET -U
++tape_len_hi = heap+&E0
+@@ -1601,0 +1605,4 @@
++    LDA sbufl
++    STA tape_len_lo
++    LDA sbufh
++    STA tape_len_hi
+@@ -1607,6 +1614,17 @@
+-    LDA #0
+-    STA pagereg
+-	LDA	#0
++    JMP cfs_reset_cursor
++
++.cfsrewind
++    \ WGET -U refreshes tape_len directly after replacing the UEF. Rewind
++    \ must not perform synchronous JIM metadata reads: on real Pi1MHz/AP5
++    \ hardware those reads can stall while the menu is switching images.
++    LDA tape_len_lo
++    STA sbufl
++    LDA tape_len_hi
++    STA sbufh
++.cfs_reset_cursor
++    JSR set_bank_0
++    LDA #0
++    STA pagereg
+     STA pr_y        \reset pointer to paged ram
+     sta pr_r
+ 	STA	sfopen		\reset sequential file control bytes
+@@ -1657,1 +1674,1 @@
+-    jsr cfsinit     \ initialize the tape (i.e. set pointers to beginning of paged RAM)
++    jsr cfsrewind   \ reset the current UEF without another 1MHz-bus length read

@@ -125,7 +125,9 @@ A typical WiCFS sequence is:
 
 `*WICFS` installs FILEV, FINDV, BGETV and FSCV through the MOS extended-vector
 table. It does not copy code into `&0400-&07FF`, which belongs to the Tube host
-code. `*REWIND` resets the UEF read pointer. `*PRD` inspects paged RAM. These
+code. Each successful `*WGET -U` publishes the new UEF length directly to
+WiCFS. `*REWIND` restores that saved length and resets the read pointer without
+performing another synchronous JIM metadata read. `*PRD` inspects paged RAM. These
 commands use the Pi1MHz JIM window selector rather than the cartridge UART
 bank bit.
 

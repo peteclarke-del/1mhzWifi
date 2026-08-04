@@ -25,7 +25,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/service_driver.asm" "$upstream/rom/ser
 install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
-for patch_name in integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-tube.patch rom-prune.patch routines-prune.patch; do
+for patch_name in integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-tube.patch wicfs-rewind.patch rom-prune.patch routines-prune.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -58,6 +58,10 @@ for patch_name in integration.patch command-surface.patch disconnect-response.pa
             ;;
         wicfs-tube.patch)
             grep -q '^\\Tube extended-vector transfer complete' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-rewind.patch)
+            grep -q '^\.cfsrewind' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         rom-prune.patch)

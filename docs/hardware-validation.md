@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-ElkWiFi ROM  c02f22db84742918bf59d6fddf15939ebc8017d225a4e80767ae5d567a654821
+ElkWiFi ROM  e544a2612635219fa38c5e7d553bbeb1f45123156543093e72fbccfede7e688b
 kernel.img   e7ab3bfbd40d34c2893ed58d45e60d318b3a8268b0d77d5b94c85fee48090096
 kernel7.img  8f2bca6702b350dab4281ac9f0c6b57037f03986c2b8e3da794bf313c7a10ca0
-bundle ZIP   ffc7a8a63da6f5a5fdaba132b4efd48091917f8c008d9115b111423667736f9c
+bundle ZIP   a94be96ea34324270fb5be1ce118e636b57b448f71ad8981b7ef352bdc0876b1
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -111,6 +111,9 @@ Expected error meanings:
 - [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
+- [ ] Run `*MENU`, press `L` for Zalaga, and confirm the post-download
+  `*REWIND` returns before `CHAIN""`. This verifies that WGET published the
+  replacement game UEF length without a second JIM metadata read.
 - [ ] Select a MENU title with the Tube off and then on. In both cases confirm
   `WGET OK`, WiCFS activation, and execution of the downloaded program.
 - [ ] Test sequential open/read, EOF, rewind, Escape, malformed UEF, and recovery.

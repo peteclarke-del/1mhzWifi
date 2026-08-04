@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "c02f22db84742918bf59d6fddf15939ebc8017d225a4e80767ae5d567a654821"
+ROM_SHA256 = "e544a2612635219fa38c5e7d553bbeb1f45123156543093e72fbccfede7e688b"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -46,10 +46,14 @@ class RomCompatibilityTest(unittest.TestCase):
         length_read = re.compile(
             bytes.fromhex("A9 FF 8D FF FC 20")
             + b".."
-            + bytes.fromhex("AD FE FD 85 F8 AD FF FD 85 F9"),
+            + bytes.fromhex("AD FE FD 85 F8")
+            + b".{0,12}"
+            + bytes.fromhex("AD FF FD 85 F9"),
             re.DOTALL,
         )
         self.assertEqual(len(length_read.findall(self.rom)), 1)
+        self.assertEqual(self.rom.count(bytes.fromhex("AD FE FD")), 1)
+        self.assertEqual(self.rom.count(bytes.fromhex("AD FF FD")), 1)
         self.assertNotIn(bytes.fromhex("AD FE FD 85 F8 20 FC 87"), self.rom)
         self.assertEqual(self.rom.count(bytes.fromhex("8E DA 09 8C DB 09")), 1)
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AE DA 09 AC DB 09")), 1)

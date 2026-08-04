@@ -239,6 +239,19 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("\\Tube extended-vector transfer complete", tube_patch)
         self.assertNotIn("+romsel\t=\t&07A4", tube_patch)
 
+        rewind_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-rewind.patch"
+        ).read_text()
+        wget = (ROOT / "rom-side/elkwifi-0.23/net_wget.asm").read_text()
+        self.assertIn(".cfsrewind", rewind_patch)
+        self.assertIn("LDA tape_len_lo", rewind_patch)
+        self.assertIn("LDA tape_len_hi", rewind_patch)
+        self.assertIn("jsr cfsrewind", rewind_patch)
+        self.assertNotIn("+    jsr cfsinit", rewind_patch)
+        self.assertIn("sta tape_len_lo", wget)
+        self.assertIn("sta tape_len_hi", wget)
+        self.assertIn("lda uflag\n beq pi_wget_length_saved", wget)
+
     def test_rom_startup_and_absent_service_are_fail_safe(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()
         menusrc = (ROOT / "rom-side/elkwifi-0.23/menusrc.asm").read_text()

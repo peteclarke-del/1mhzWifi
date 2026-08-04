@@ -2,7 +2,7 @@
 set -euo pipefail
 
 rom=build/elkwifi_pi1mhz.rom
-expected=c02f22db84742918bf59d6fddf15939ebc8017d225a4e80767ae5d567a654821
+expected=e544a2612635219fa38c5e7d553bbeb1f45123156543093e72fbccfede7e688b
 test "$(stat -c %s "$rom")" -eq 16384
 printf '%s  %s\n' "$expected" "$rom" | sha256sum --check --strict
 sha256sum --check --strict SHA256SUMS

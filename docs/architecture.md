@@ -83,6 +83,11 @@ Window 0 contains the service and network command pages. Window 1 holds UEF and
 sideways-RAM downloads used by `*WGET -U`, WiCFS, and `*WGET -S`. The ROM saves
 and restores the selector when switching windows.
 
+After a successful `*WGET -U`, WGET updates both the JIM length trailer and a
+WiCFS-local current-tape length. `*REWIND` uses the local value, so the menu can
+replace the consumed TITLES image with a game image without blocking on a
+second pair of 1MHz-bus reads while it changes filing-system state.
+
 The service command page is in window 0 at `&FFF000`; URL scratch data is at
 `&FFF100`. WiCFS content occupies window 1. The ROM keeps independent shadow
 page values and restores the selected window around transfers, avoiding the
