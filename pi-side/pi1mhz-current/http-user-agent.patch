@@ -1,0 +1,26 @@
+diff --git a/src/net_service.c b/src/net_service.c
+--- a/src/net_service.c
++++ b/src/net_service.c
+@@ -887,8 +887,9 @@ static uint8_t net_http_send_request(net_handle_t *h, const char *host,
+                                      const char *path)
+ {
+-   char req[NET_MAX_HOSTNAME + 256u];
++   char req[NET_MAX_HOSTNAME + 288u];
+    int n = snprintf(req, sizeof req,
+-                    "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n",
++                    "GET %s HTTP/1.0\r\nHost: %s\r\n"
++                    "User-Agent: ElkWiFi/0.23\r\nConnection: close\r\n\r\n",
+                     path, host);
+    if (n < 0 || (size_t)n >= sizeof req)
+       return NET_ERR_PARAM;
+diff --git a/src/tests/net/test_net.c b/src/tests/net/test_net.c
+--- a/src/tests/net/test_net.c
++++ b/src/tests/net/test_net.c
+@@ -988,5 +988,7 @@ int main(void)
+    CHECK(strstr((char *)g_tx, "GET /index.html HTTP/1.0") != NULL, "HTTP GET line sent");
+    CHECK(strstr((char *)g_tx, "Host: 1.2.3.4") != NULL, "Host header sent");
++   CHECK(strstr((char *)g_tx, "User-Agent: ElkWiFi/0.23") != NULL,
++         "ElkWiFi User-Agent sent");
+    {
+       static const char resp[] =
+          "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n<html>hi</html>";

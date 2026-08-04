@@ -78,6 +78,10 @@ interface failure. `&30` means that an HTTP response arrived with a non-2xx
 status. The older generic `&25` remains for connection errors which lwIP does
 not classify more specifically.
 
+HTTP requests identify themselves as `ElkWiFi/0.23`. The default MENU server
+rejects anonymous HTTP clients with status 403, so this compatibility header
+is required for both `*MENU` and direct `*WGET` requests.
+
 WGET supports plain HTTP only. HTTPS is rejected. Redirects are rejected rather
 than followed. Chunked bodies, large transfers, and all Escape phases remain
 part of the test backlog.

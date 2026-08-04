@@ -72,9 +72,9 @@ Release hashes:
 
 ```text
 ElkWiFi ROM  941896c2709d00542c74b076a7759fa01f5deba71921e4ae72cda5f508be43c2
-kernel.img   e67060e78b4dceb84fca6d73fe7684d87229df72e5386391b8f16a00f6b51321
-kernel7.img  7b67b27e43e69c45346a1d54cf638c77c5a29f439b46909a6397c0d7b1bd3283
-bundle ZIP   8f91cad614f64c4492eb5baf4d0ca4952df4d6a60b757a27b9a056e79110db22
+kernel.img   7a8f564aa20cf8d1c4bffbc71774e500f01eb2795bdbd57f4b5a0ffb087cd1a5
+kernel7.img  57eb5fe8cb33dda036bf0af0a33d0bcca95f65068261947a47210e907ec5683a
+bundle ZIP   b001e740842b2d18a563a2b936a0555732a07a67117670cd26cf039dc7a1164f
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
