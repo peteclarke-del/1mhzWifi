@@ -319,7 +319,17 @@ menusrc_timeout_hi = errorspace+2
  lda &0ECE
  cmp #&FC
  bne menusrc_patch_catalogue_fail
+ ldx #0
+.menusrc_rewind_macro_check
+ lda &137B,x
+ cmp menusrc_rewind_macro_old,x
+ bne menusrc_rewind_macro_fail
+ inx
+ cpx #(menusrc_rewind_macro_old_end-menusrc_rewind_macro_old)
+ bne menusrc_rewind_macro_check
  jmp menusrc_patch_catalogue_verified
+.menusrc_rewind_macro_fail
+ jmp menusrc_patch_catalogue_fail
 .menusrc_patch_catalogue_fail
  jmp menusrc_patch_catalogue_done
 
@@ -364,11 +374,34 @@ menusrc_timeout_hi = errorspace+2
  inx
  cpx #(menusrc_catalogue_read_end-menusrc_catalogue_read)
  bne menusrc_catalogue_copy_read
+ \ WGET -U has already installed the selected game's length and reset the
+ \ WiCFS cursor. Replace the stock two-line key expansion with CHAIN alone;
+ \ invoking *REWIND from the keyboard buffer hangs on real Tube/AP5 systems.
+ ldx #0
+.menusrc_rewind_macro_copy
+ lda menusrc_rewind_macro_new,x
+ sta &137B,x
+ inx
+ cpx #(menusrc_rewind_macro_new_end-menusrc_rewind_macro_new)
+ bne menusrc_rewind_macro_copy
 .menusrc_patch_catalogue_done
  rts
 
 .menusrc_catalogue_reads
  equw &1059,&1079,&10AB
+
+.menusrc_rewind_macro_old
+ equs "*REWIND|MCHAIN "
+ equb &22,&22
+ equs "|M"
+ equb &0D
+.menusrc_rewind_macro_old_end
+.menusrc_rewind_macro_new
+ equs "CHAIN "
+ equb &22,&22
+ equs "|M"
+ equb &0D
+.menusrc_rewind_macro_new_end
 
 \ Copied to &1FE0. Preserve the page in A while selecting JIM window 1.
 .menusrc_catalogue_select

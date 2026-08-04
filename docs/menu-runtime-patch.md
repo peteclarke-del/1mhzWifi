@@ -7,6 +7,9 @@ The menu published at `http://acornelectron.nl/uefarchive/MENU` is a valid
 compatible with an Electron Plus 5 and Pi1MHz because it contains an inlined
 access to the cartridge UART modem-control register at `&FC34`.
 
+The payload used for this adaptation has SHA-256
+`68cf0cc8b05c50c26b22e5580dc310e1e111502d3467ca3090b55d28624fd1a0`.
+
 The menu uses that register to select the second 64 KiB paged-RAM bank before
 loading its title index. The Plus 5 does not forward the ElkWiFi UART register.
 Pi1MHz selects its two JIM windows through `&FCFE` instead.
@@ -83,6 +86,14 @@ ROMSEL while running. Before entry, the ROM copies a short return trampoline
 to `&1FD0` and pushes that RAM address as the program's return target. The
 trampoline restores the service-call registers and returns cleanly to MOS
 without relying on the ElkWiFi sideways ROM still being selected.
+
+The published title-launch key expansion originally contains two commands:
+`*REWIND`, then `CHAIN ""`. A successful `*WGET -U` already publishes the
+replacement UEF length and resets every WiCFS cursor field. On real AP5/Tube
+systems, dispatching the redundant `*REWIND` from the keyboard expansion can
+stall before BASIC receives the following line. For the verified 2,907-byte
+payload, the ROM checks the complete original expansion at `&137B` and replaces
+it with `CHAIN ""` alone. No custom MENU payload is modified at that address.
 
 ## Byte-level replacement
 

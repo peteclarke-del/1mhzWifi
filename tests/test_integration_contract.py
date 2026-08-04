@@ -252,6 +252,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("sta tape_len_lo", wget)
         self.assertIn("sta tape_len_hi", wget)
         self.assertIn("lda uflag\n beq pi_wget_length_saved", wget)
+        menusrc = (ROOT / "rom-side/elkwifi-0.23/menusrc.asm").read_text()
+        self.assertIn("cmp menusrc_rewind_macro_old,x", menusrc)
+        self.assertIn("sta &137B,x", menusrc)
+        self.assertIn(".menusrc_rewind_macro_new", menusrc)
+        self.assertIn('equs "CHAIN "', menusrc)
 
     def test_rom_startup_and_absent_service_are_fail_safe(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()
