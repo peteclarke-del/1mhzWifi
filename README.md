@@ -61,6 +61,12 @@ When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 host ROM. A ROM-only change does not require replacing the Pi kernel; a
 Pi-only change does not require reloading the ROM.
 
+The bundle does not contain a BeebSCSI disc image. Preserve the card's
+`/BeebSCSI0` directory when updating it. A clean card needs at least
+`/BeebSCSI0/scsi0.dat` from an existing installation or a BeebSCSI starter
+image before ADFS can mount a hard disc. `Pi1MHz/defscsi.cfg` is only the
+default geometry description; it is not a disc image.
+
 The bundle contains both supported kernel families:
 
 | File | Target |
@@ -71,10 +77,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-ElkWiFi ROM  7b18edeefffb3c8698aaa14b8d48f450aa564e1ad21d5364f84421e3b34993ac
+ElkWiFi ROM  6e08ec0bde037cb4efc6c222a80e0cbd2b88d8603c90701fa04f37e6111ee292
 kernel.img   7a8f564aa20cf8d1c4bffbc71774e500f01eb2795bdbd57f4b5a0ffb087cd1a5
 kernel7.img  57eb5fe8cb33dda036bf0af0a33d0bcca95f65068261947a47210e907ec5683a
-bundle ZIP   20394eb8265eff32a3271bb07ae9b4faf0ac877bd951725cf81dc288a35890c5
+bundle ZIP   dc319ef83c2500b2b54c840644dd302ab437af33405d69a1edc144fe65155e01
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.

@@ -1,3 +1,5 @@
+import hashlib
+import re
 import unittest
 from pathlib import Path
 
@@ -6,6 +8,30 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class IntegrationContractTest(unittest.TestCase):
+    def test_beebscsi_assets_and_bus_contract_are_preserved(self) -> None:
+        bundle = ROOT / "build/pi1mhz-all/Pi1MHz"
+        expected_hashes = {
+            "ADFS.rom": "4f785bb4572bde31a93f12687dec501c9005b6a0decc6ac943c657447095a563",
+            "defscsi.cfg": "126d88b1923f5c71e48cff750f69a4ad42e657dbd885435534e51afb8aa9b864",
+        }
+        for name, expected in expected_hashes.items():
+            self.assertEqual(hashlib.sha256((bundle / name).read_bytes()).hexdigest(), expected)
+
+        config = (bundle / "Pi1MHz.cfg").read_text()
+        active = dict(re.findall(r"^\s*([A-Za-z][A-Za-z0-9_]*)\s*=\s*([^#\r\n]+)",
+                                 config, re.MULTILINE))
+        self.assertEqual(active.get("SCSIJUKE", "").strip(), "0")
+        self.assertEqual(active.get("SCSIID", "").strip(), "0")
+        self.assertEqual(active.get("VFSJUKE", "").strip(), "0")
+        self.assertNotIn("Harddisc_addr", active)
+        self.assertEqual(active.get("Services_addr", "").strip(), "0xA6")
+
+        integration = (ROOT / "pi-side/pi1mhz-current/integration.patch").read_text()
+        self.assertNotIn("harddisc_emulator", integration.lower())
+        capacity_test = (ROOT / "pi-side/pi1mhz-current/services-capacity-test.patch").read_text()
+        self.assertIn("eighth range registers", capacity_test)
+        self.assertIn("identical reset-time claim renews", capacity_test)
+
     def test_linux_bridge_scaffold_is_absent(self) -> None:
         for name in (
             "bridge_daemon.py", "bridge_protocol.py", "linux_network_backend.py",
@@ -238,10 +264,13 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("equw &1059,&1079,&10AB", menusrc)
         self.assertIn("sta &1FF0,x", menusrc)
         self.assertIn("sta &1FE0,x", menusrc)
+        self.assertIn("menu_return_addr = &1FD0", menu)
+        self.assertIn("sta menu_return_addr,x", menu)
+        self.assertIn("lda &FCFE\n cmp #1\n beq menusrc_catalogue_read_selected", menusrc)
         self.assertIn("lda &FD00,y", menusrc)
         self.assertIn("jmp &0E00", menu)
-        self.assertIn("sta heap,x", menu)
-        self.assertIn("#>(heap-1)", menu)
+        self.assertNotIn("sta heap,x", menu)
+        self.assertIn("#>(menu_return_addr-1)", menu)
         self.assertNotIn('equs "CALL &E00"', menu)
         self.assertIn('equs "Menu download failed"', menu)
         self.assertIn('equs "WGET OK &"', wget)

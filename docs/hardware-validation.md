@@ -11,16 +11,19 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-ElkWiFi ROM  7b18edeefffb3c8698aaa14b8d48f450aa564e1ad21d5364f84421e3b34993ac
+ElkWiFi ROM  6e08ec0bde037cb4efc6c222a80e0cbd2b88d8603c90701fa04f37e6111ee292
 kernel.img   7a8f564aa20cf8d1c4bffbc71774e500f01eb2795bdbd57f4b5a0ffb087cd1a5
 kernel7.img  57eb5fe8cb33dda036bf0af0a33d0bcca95f65068261947a47210e907ec5683a
-bundle ZIP   20394eb8265eff32a3271bb07ae9b4faf0ac877bd951725cf81dc288a35890c5
+bundle ZIP   dc319ef83c2500b2b54c840644dd302ab437af33405d69a1edc144fe65155e01
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
 files. Replace only `kernel.img` or `kernel7.img` for the fitted Pi, plus the
 host `ElkWiFi.rom`. The universal ZIP is for a clean card and may contain a
 fresh configuration template.
+
+Also preserve `/BeebSCSI0` and its `scsi*.dat` images. The bundle supplies the
+ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Automated and emulator gate
 
@@ -40,6 +43,10 @@ cartridge UART, not the Pi1MHz mailbox, Plus 5 forwarding, or Tube transfers.
 
 ## Cold boot and bus gate
 
+- [ ] Before running any WiFi or MENU command, run `*ADFS` and `*CAT`. Confirm
+  the expected BeebSCSI volume mounts from `/BeebSCSI0/scsi0.dat`.
+- [ ] After a failed or successful MENU/WiCFS launch, run `*ADFS` and `*CAT`
+  again. Confirm ADFS reclaims the filing-system vectors without resetting.
 - [ ] Boot the current ROM with the Pi powered down. Confirm the BASIC prompt appears without a hang or `Buffer full`.
 - [ ] Boot the current matched kernel and ROM. Confirm the BASIC prompt appears before a WiFi command is issued.
 - [ ] Run `*HELP WIFI`; confirm the current command list and no screen-row corruption.
@@ -88,6 +95,9 @@ Expected error meanings:
   `Starting menu` appear, the cartridge
   `&FC34` bank-select sequence is adapted for `&FCFE`, and host `&E00` starts
   the menu without a BASIC `CALL`.
+- [ ] Confirm the first screen renders all 21 catalogue entries. Check that
+  repeated catalogue reads do not repeatedly rewrite `&FCFE` when window 1 is
+  already selected.
 - [ ] Run `*MENU` against DNS failure, refused connection, HTTP error, empty body, and timeout cases. Confirm none calls stale `&E00` memory.
 - [ ] Cancel WGET with Escape during DNS, connect, empty wait, and body transfer.
 - [ ] Test binary WGET across a main-memory page boundary.

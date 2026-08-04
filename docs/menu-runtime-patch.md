@@ -91,10 +91,17 @@ The stock payload also assumes that this selection remains active for its
 entire lifetime. That is not a safe assumption on Pi1MHz because the JIM
 aperture is shared by firmware services. For the known 2,907-byte payload, the
 ROM replaces its three `LDA &FD00,Y` catalogue reads with calls to a small
-trampoline at `&1FF0`. The trampoline selects window 1 before every read. Its
-title-selection page write similarly calls a trampoline at `&1FE0` which
-selects window 1 before writing `&FCFF`. The patch is applied only after the
-payload size and all four original instruction sites have been verified.
+trampoline at `&1FF0`. The trampoline checks `&FCFE` and selects window 1 only
+when another host operation changed it. An unconditional write for every byte
+would make Pi1MHz remap the complete JIM page repeatedly and can overrun the
+real 1 MHz bus path. The title-selection page write similarly calls a
+trampoline at `&1FE0` which selects window 1 before writing `&FCFF`. The patch
+is applied only after the payload size and all four original instruction sites
+have been verified.
+
+The I/O-processor return trampoline is stored at `&1FD0`, above the published
+payload and immediately below the two JIM helpers. It is not stored at `&0900`,
+which belongs to filing-system and ROM workspace when ADFS is present.
 
 The exact byte arrays are defined in `rom-side/elkwifi-0.23/menusrc.asm`. The
 download and validation path is in `rom-side/elkwifi-0.23/menu.asm`.

@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "7b18edeefffb3c8698aaa14b8d48f450aa564e1ad21d5364f84421e3b34993ac"
+ROM_SHA256 = "6e08ec0bde037cb4efc6c222a80e0cbd2b88d8603c90701fa04f37e6111ee292"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -21,6 +21,10 @@ class RomCompatibilityTest(unittest.TestCase):
         )
         self.assertEqual(self.rom[9:23], b"Electron Wifi\0")
         self.assertEqual(self.rom[23:28], b"0.23\0")
+
+    def test_menu_catalogue_selector_is_conditional(self) -> None:
+        helper = bytes.fromhex("AD FE FC C9 01 F0 05 A9 01 8D FE FC B9 00 FD 60")
+        self.assertEqual(self.rom.count(helper), 1)
 
     def test_stock_commands_additive_menusrc_and_osword_are_present(self) -> None:
         for command in (

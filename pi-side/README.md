@@ -123,6 +123,11 @@ It does not merge a previously deployed SD card back into a newly generated
 bundle. Preserve deployed configuration separately before replacing an SD-card
 tree.
 
+The generated bundle includes `ADFS.rom` and `defscsi.cfg`, but it deliberately
+does not include BeebSCSI LUN data. Preserve `/BeebSCSI0` and any other
+`/BeebSCSI*` directories when updating a card. A clean card needs a
+`/BeebSCSI0/scsi0.dat` image before ADFS has a hard disc to mount.
+
 ## Persistent files
 
 | File | Purpose |

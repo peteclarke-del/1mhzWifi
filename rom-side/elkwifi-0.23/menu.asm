@@ -2,6 +2,8 @@
 \ then runs it on the I/O processor. The RAM return stub keeps this safe if
 \ the payload changes ROMSEL, and avoids executing host code on a Tube parasite.
 
+menu_return_addr = &1FD0
+
 .menu_cmd
     jsr printtext
     equs "Downloading menu",&0D,&EA
@@ -34,17 +36,18 @@
     equs "Starting menu",&0D,&EA
 
     \ The stock program is tail-called from BASIC and eventually exits through
-    \ an OSBYTE RTS. Put an equivalent return target in main RAM, rather than
-    \ returning to a sideways-ROM address which the program may have paged out.
+    \ an OSBYTE RTS. Put an equivalent return target above the downloaded
+    \ payload, rather than in the &0900 filing-system workspace or in a
+    \ sideways-ROM address which the program may have paged out.
     ldx #(menu_return_stub_end-menu_return_stub)-1
 .menu_copy_return_stub
     lda menu_return_stub,x
-    sta heap,x
+    sta menu_return_addr,x
     dex
     bpl menu_copy_return_stub
-    lda #>(heap-1)
+    lda #>(menu_return_addr-1)
     pha
-    lda #<(heap-1)
+    lda #<(menu_return_addr-1)
     pha
     jmp &0E00
 .menu_quit

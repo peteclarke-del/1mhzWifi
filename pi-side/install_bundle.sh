@@ -56,7 +56,7 @@ fi
 install -m 0644 "$script_dir/pi1mhz-v1.30/src/elkwifi_service.c" "$upstream/src/elkwifi_service.c"
 install -m 0644 "$script_dir/pi1mhz-v1.30/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
 
-for patch_name in integration.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch tcp-diagnostics.patch http-user-agent.patch wifi-off-state.patch; do
+for patch_name in integration.patch services-capacity-test.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch tcp-diagnostics.patch http-user-agent.patch wifi-off-state.patch; do
     patch_file="$script_dir/pi1mhz-current/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -64,6 +64,11 @@ for patch_name in integration.patch wifi-security.patch wifi-radio.patch wifi-ma
             grep -q 'elkwifi_service.c' "$upstream/src/CMakeLists.txt" &&
             grep -q 'SERVICE_CMD_ELKWIFI_FIRST' "$upstream/src/services.h" &&
             grep -q '#define SERVICES_MAX 8u' "$upstream/src/services_emulator.c" &&
+            patch_present=true
+            ;;
+        services-capacity-test.patch)
+            grep -q 'eighth range registers' "$upstream/src/tests/services/test_services.c" &&
+            grep -q 'identical reset-time claim renews' "$upstream/src/tests/services/test_services.c" &&
             patch_present=true
             ;;
         wifi-security.patch)
@@ -214,4 +219,6 @@ rmdir "$archive_tmp_dir"
 echo "Hardware-test SD-card bundle: $bundle"
 echo "Hardware-test ZIP archive: $archive"
 echo "Copy the contents of that directory to a FAT SD-card boot partition."
+echo "Preserve /BeebSCSI*/scsi*.dat when updating an existing card."
+echo "This bundle does not include BeebSCSI hard-disc images."
 echo "Fit/load $upstream/firmware/Pi1MHz/ElkWiFi.rom as the host sideways ROM."
