@@ -268,6 +268,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("lda #&8C", menu)
         self.assertIn("menu_tape_addr = &1FC0", menu)
         self.assertIn("sta menu_tape_addr,x", menu)
+        self.assertLess(menu.index("jsr oscli"), menu.index("jsr menusrc_make_wget"))
+        self.assertLess(menu.index("jsr oscli"), menu.index("ldx #<heap"))
         self.assertIn("jsr menusrc_patch_catalogue", menusrc)
         self.assertIn("equw &1059,&1079,&10AB", menusrc)
         self.assertIn("sta &1FF0,x", menusrc)

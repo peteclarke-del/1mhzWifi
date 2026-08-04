@@ -15,15 +15,15 @@ Pi1MHz selects its two JIM windows through `&FCFE` instead.
 
 `*MENU` performs these steps:
 
-1. Resolve the active URL through `*MENUSRC` configuration precedence.
-2. Construct `*WGET <url> E00` in ROM workspace.
-3. Clear byte `&E00` and the internal WGET completion flag.
-4. Execute WGET synchronously through OSCLI.
-5. Require both a completed, non-empty WGET result and a non-zero byte at `&E00`.
-6. Scan `&0E00-&1FFF` for the published menu's cartridge bank-select sequence.
-7. Replace that sequence in place when present.
-8. Execute host `*TAPE` through OSCLI, matching the prerequisite of the stock
-   program without relying on ADFS-sensitive direct OSBYTE behavior.
+1. Execute host `*TAPE` through OSCLI before touching `&0900`, which overlaps
+   Electron ADFS workspace.
+2. Resolve the active URL through `*MENUSRC` configuration precedence.
+3. Construct `*WGET <url> E00` in ROM workspace.
+4. Clear byte `&E00` and the internal WGET completion flag.
+5. Execute WGET synchronously through OSCLI.
+6. Require both a completed, non-empty WGET result and a non-zero byte at `&E00`.
+7. Scan `&0E00-&1FFF` for the published menu's cartridge bank-select sequence.
+8. Replace that sequence in place when present.
 9. Copy a return trampoline to host RAM and enter host `&E00`.
 
 The menu then invokes `*WGET -U` for the TITLES index. Network waits call MOS

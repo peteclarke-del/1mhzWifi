@@ -6,6 +6,20 @@ menu_tape_addr = &1FC0
 menu_return_addr = &1FD0
 
 .menu_cmd
+    \ The stock ElkWiFi MENU is a cassette filing-system program, and heap at
+    \ &0900 overlaps Electron ADFS workspace. Select cassette filing before
+    \ constructing the WGET command or touching heap. This matches the proven
+    \ interactive sequence: *TAPE followed by *MENU.
+    ldx #(menu_tape_command_end-menu_tape_command)-1
+.menu_copy_tape_command
+    lda menu_tape_command,x
+    sta menu_tape_addr,x
+    dex
+    bpl menu_copy_tape_command
+    ldx #<menu_tape_addr
+    ldy #>menu_tape_addr
+    jsr oscli
+
     jsr printtext
     equs "Downloading menu",&0D,&EA
     jsr menusrc_make_wget
@@ -33,20 +47,6 @@ menu_return_addr = &1FD0
     bne menu_download_invalid
 .menu_download_entry_ok
     jsr menusrc_patch_menu
-
-    \ The stock ElkWiFi MENU is a cassette filing-system program. If ADFS,
-    \ MMFS or another filing system is current, it renders the first catalogue
-    \ row and returns to the prompt. Invoke the same host command that works
-    \ interactively; direct OSBYTE &8C is not equivalent under Electron ADFS.
-    ldx #(menu_tape_command_end-menu_tape_command)-1
-.menu_copy_tape_command
-    lda menu_tape_command,x
-    sta menu_tape_addr,x
-    dex
-    bpl menu_copy_tape_command
-    ldx #<menu_tape_addr
-    ldy #>menu_tape_addr
-    jsr oscli
 
     jsr printtext
     equs "Starting menu",&0D,&EA
