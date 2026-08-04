@@ -22,8 +22,8 @@ Pi1MHz selects its two JIM windows through `&FCFE` instead.
 5. Require both a completed, non-empty WGET result and a non-zero byte at `&E00`.
 6. Scan `&0E00-&1FFF` for the published menu's cartridge bank-select sequence.
 7. Replace that sequence in place when present.
-8. Select the cassette filing system through host OSBYTE `&8C`, matching the
-   `*TAPE` prerequisite of the stock program.
+8. Execute host `*TAPE` through OSCLI, matching the prerequisite of the stock
+   program without relying on ADFS-sensitive direct OSBYTE behavior.
 9. Copy a return trampoline to host RAM and enter host `&E00`.
 
 The menu then invokes `*WGET -U` for the TITLES index. Network waits call MOS

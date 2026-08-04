@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "328a5d1191e59e5d147328ba4cbe480febbe76964d44ad29e826ec0381501601"
+ROM_SHA256 = "a2525d5eab4750c10abde0a64773b93088bbd749f54a09bd34ec55e43849f365"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -25,7 +25,8 @@ class RomCompatibilityTest(unittest.TestCase):
     def test_menu_catalogue_selector_is_present(self) -> None:
         helper = bytes.fromhex("A9 01 8D FE FC B9 00 FD 60")
         self.assertEqual(self.rom.count(helper), 1)
-        self.assertEqual(self.rom.count(bytes.fromhex("A9 8C A2 00 A0 00 20 F4 FF")), 1)
+        self.assertIn(b"TAPE\r", self.rom)
+        self.assertNotIn(bytes.fromhex("A9 8C A2 00 A0 00 20 F4 FF"), self.rom)
 
     def test_wicfs_patches_the_copied_rom_switcher(self) -> None:
         self.assertEqual(self.rom.count(bytes.fromhex("A5 F4 8D C2 07")), 1)

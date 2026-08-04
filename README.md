@@ -77,7 +77,7 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-ElkWiFi ROM  328a5d1191e59e5d147328ba4cbe480febbe76964d44ad29e826ec0381501601
+ElkWiFi ROM  a2525d5eab4750c10abde0a64773b93088bbd749f54a09bd34ec55e43849f365
 kernel.img   7a8f564aa20cf8d1c4bffbc71774e500f01eb2795bdbd57f4b5a0ffb087cd1a5
 kernel7.img  57eb5fe8cb33dda036bf0af0a33d0bcca95f65068261947a47210e907ec5683a
 bundle ZIP   dc319ef83c2500b2b54c840644dd302ab437af33405d69a1edc144fe65155e01

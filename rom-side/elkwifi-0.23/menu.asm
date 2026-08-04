@@ -2,6 +2,7 @@
 \ then runs it on the I/O processor. The RAM return stub keeps this safe if
 \ the payload changes ROMSEL, and avoids executing host code on a Tube parasite.
 
+menu_tape_addr = &1FC0
 menu_return_addr = &1FD0
 
 .menu_cmd
@@ -35,12 +36,17 @@ menu_return_addr = &1FD0
 
     \ The stock ElkWiFi MENU is a cassette filing-system program. If ADFS,
     \ MMFS or another filing system is current, it renders the first catalogue
-    \ row and returns to the prompt. OSBYTE &8C performs the host-side *TAPE
-    \ operation before the downloaded code runs.
-    lda #&8C
-    ldx #0
-    ldy #0
-    jsr osbyte
+    \ row and returns to the prompt. Invoke the same host command that works
+    \ interactively; direct OSBYTE &8C is not equivalent under Electron ADFS.
+    ldx #(menu_tape_command_end-menu_tape_command)-1
+.menu_copy_tape_command
+    lda menu_tape_command,x
+    sta menu_tape_addr,x
+    dex
+    bpl menu_copy_tape_command
+    ldx #<menu_tape_addr
+    ldy #>menu_tape_addr
+    jsr oscli
 
     jsr printtext
     equs "Starting menu",&0D,&EA
@@ -62,6 +68,10 @@ menu_return_addr = &1FD0
     jmp &0E00
 .menu_quit
     jmp call_claimed
+
+.menu_tape_command
+    equs "TAPE",&0D
+.menu_tape_command_end
 
 .menu_download_invalid
     jsr printtext
