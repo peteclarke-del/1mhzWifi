@@ -24,6 +24,13 @@ Pi1MHz selects its two JIM windows through `&FCFE` instead.
 7. Replace that sequence in place when present.
 8. Copy a return trampoline to host RAM and enter host `&E00`.
 
+The menu then invokes `*WGET -U` for the TITLES index. Network waits call MOS
+polling services, so the active JIM page and offset are held in ROM heap while
+the transfer is in progress. The original ElkWiFi zero-page locations are
+populated only after the download, before WiCFS starts. This prevents MOS
+workspace use during a network wait from corrupting the page pointer and
+raising a false `Buffer full` error on a small TITLES file.
+
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a
 safe launch mechanism. The ROM enters `&E00` on the I/O processor instead.

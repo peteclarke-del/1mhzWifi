@@ -30,6 +30,9 @@ net_load_lo = heap+&F1
 net_load_hi = heap+&F2
 net_bytes_lo = heap+&F3
 net_bytes_hi = heap+&F4
+net_paged_page = heap+&E4
+net_paged_offset = heap+&E5
+net_primary_page = heap+&E6
 
 \ Close the ElkWiFi-compatible raw socket and display the Pi response. The
 \ inherited wget_close routine is also an internal silent cleanup path.
@@ -45,6 +48,8 @@ net_bytes_hi = heap+&F4
  sta net_load_hi
  sta net_bytes_lo
  sta net_bytes_hi
+ sta net_paged_page
+ sta net_paged_offset
  sta tflag
  sta sflag
  sta aflag
@@ -307,14 +312,27 @@ net_bytes_hi = heap+&F4
  lda uflag
  ora sflag
  beq pi_wget_finish_close
- jsr wget_context_switch_in
+ lda #0
+ sta pr_r
+ sta pr_y
+ lda net_bytes_lo
+ sta sbufl
+ lda net_bytes_hi
+ sta sbufh
+ lda pagereg
+ sta net_primary_page
  lda #&FF
  sta pagereg
- lda sbufl
+ lda #1
+ sta &FCFE
+ lda net_bytes_lo
  sta &FDFE
- lda sbufh
+ lda net_bytes_hi
  sta &FDFF
- jsr wget_context_switch_out
+ lda #0
+ sta &FCFE
+ lda net_primary_page
+ sta pagereg
  lda sflag
  beq pi_wget_finish_close
  jsr wget_copy_file_to_swr
@@ -382,7 +400,13 @@ net_bytes_hi = heap+&F4
 
 .pi_wget_store_paged
  pha
- jsr wget_context_switch_in
+ lda pagereg
+ sta net_primary_page
+ lda net_paged_page
+ sta pagereg
+ lda #1
+ sta &FCFE
+ ldy net_paged_offset
  pla
  sta pageram,y
  iny
@@ -390,14 +414,19 @@ net_bytes_hi = heap+&F4
  inc pagereg
  beq pi_wget_paged_full
 .pi_wget_paged_pointer_ok
- jsr wget_context_switch_out
- inc sbufl
- bne pi_wget_paged_stored
- inc sbufh
-.pi_wget_paged_stored
+ sty net_paged_offset
+ lda pagereg
+ sta net_paged_page
+ lda #0
+ sta &FCFE
+ lda net_primary_page
+ sta pagereg
  rts
 .pi_wget_paged_full
- jsr wget_context_switch_out
+ lda #0
+ sta &FCFE
+ lda net_primary_page
+ sta pagereg
  jsr pi_wget_close
  ldx #(error_buffer_full-error_table)
  jmp error
