@@ -66,6 +66,14 @@ paths. OSBGET similarly preserves X and Y while returning the byte in A. Without
 the FILEV restoration, the program data loads but BASIC does not reliably enter
 the chained program.
 
+WiCFS also returns the CFS header's load address, execution address and complete
+file length in the caller's 18-byte OSFILE control block. The inherited code
+loaded the bytes but discarded that catalogue metadata after using the control
+block pointer to find the filename. BASIC could display `Searching` and
+`Loading`, then return to its prompt instead of completing `CHAIN`. Returning
+the catalogue data is required for initial programs and every later stage in a
+multi-file UEF loader.
+
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a
 safe launch mechanism. The ROM enters `&E00` on the I/O processor instead.

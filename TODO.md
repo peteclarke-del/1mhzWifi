@@ -134,7 +134,11 @@ mapping is incomplete even where star commands work.
   bank boundaries.
 - [ ] `*WICFS`: prove and, where required, fix catalogue, load, run, sequential
   access, rewind, escape, malformed UEF, and error recovery using the Pi1MHz
-  JIM windows. Ensure it cannot collide with service/net scratch pages.
+  JIM windows. The native OSFILE load path now returns load, execution, length,
+  and attribute fields to BASIC, but still requires hardware confirmation.
+  Ensure it cannot collide with service/net scratch pages. Implement the Acorn
+  `&0406`/`&FEE5` filing-system transfer protocol before claiming parasite
+  loading or execution support.
 - [ ] `*PRD`: verify bank 0/1 selection, selector restoration, escape exit, and
   AP5/Tube behavior. Reject out-of-range banks instead of silently masking
   them if that differs from the cartridge contract.

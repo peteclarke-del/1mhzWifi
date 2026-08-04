@@ -1,0 +1,55 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -268,2 +268,5 @@ __debug =   0       \print debug information
+ .upf_a1	JSR	starload		\goto action file load
++	BEQ	upf_a1_done		\not found, leave A=0 and do not invent metadata
++	JSR	filev_load_info		\return the CFS catalogue data required by CHAIN
++.upf_a1_done
+ JMP	romsel+(filev_actioned-s_filev) \claim and preserve OSFILE X/Y
+@@ -286,0 +290,44 @@ __debug =   0       \print debug information
++
++\OSFILE A=&FF must return the loaded file's catalogue information in the
++\caller's 18-byte control block. flinit repurposes pbl/pbh for the filename,
++\so recover the original pointer saved at vector entry. BASIC CHAIN uses the
++\returned execution address and length to complete each stage of a UEF loader.
++.filev_load_info
++	LDA	filev_x
++	STA	pbl
++	LDA	filev_y
++	STA	pbh
++
++	LDY	#2			\load and execution addresses
++	LDX	#0
++.filev_info_addresses
++	LDA	&03BE,X
++	STA	(pbl),Y
++	INX
++	INY
++	CPX	#8
++	BNE	filev_info_addresses
++
++	LDA	blklen			\total length = block number:final block length
++	STA	(pbl),Y
++	INY
++	LDA	&03C6
++	STA	(pbl),Y
++	INY
++	LDA	#0
++	STA	(pbl),Y
++	INY
++	STA	(pbl),Y
++
++\Cassette files have no catalogue attributes. Clear the four returned bytes
++\rather than exposing stale caller memory; the CFS locked flag is handled by
++\the existing break-type compatibility code in starload.
++	LDX	#4
++.filev_info_attributes
++	INY
++	STA	(pbl),Y
++	DEX
++	BNE	filev_info_attributes
++	LDA	#1			\OSFILE successfully loaded and found the file
++	RTS
++\OSFILE metadata return complete
++

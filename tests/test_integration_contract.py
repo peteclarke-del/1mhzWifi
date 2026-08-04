@@ -218,6 +218,15 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("FCFF is write-only through AP5/Pi1MHz", wicfs_patch)
         self.assertNotIn("+    inc pagereg", wicfs_patch)
 
+        metadata_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-osfile-metadata.patch"
+        ).read_text()
+        self.assertIn("JSR\tfilev_load_info", metadata_patch)
+        self.assertIn("LDA\t&03BE,X", metadata_patch)
+        self.assertIn("LDA\tblklen", metadata_patch)
+        self.assertIn("LDA\t&03C6", metadata_patch)
+        self.assertIn("STA\t(pbl),Y", metadata_patch)
+
     def test_rom_startup_and_absent_service_are_fail_safe(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()
         menusrc = (ROOT / "rom-side/elkwifi-0.23/menusrc.asm").read_text()

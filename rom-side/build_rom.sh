@@ -25,7 +25,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/service_driver.asm" "$upstream/rom/ser
 install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
-for patch_name in integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch; do
+for patch_name in integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -51,12 +51,16 @@ for patch_name in integration.patch command-surface.patch disconnect-response.pa
             ! grep -q 'inc pagereg.*increment page register' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
+        wicfs-osfile-metadata.patch)
+            grep -q '^\\OSFILE metadata return complete' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
     esac
     if "$patch_present"; then
         echo "ElkWiFi $patch_name is already applied"
     else
         apply_options=()
-        if [ "$patch_name" = wicfs-page-shadow.patch ]; then
+        if [[ "$patch_name" = wicfs-*.patch ]]; then
             # Upstream wicfs.asm uses CRLF. Ignore that whitespace-only
             # difference so this repository can keep a normal text patch.
             apply_options+=(--ignore-space-change --unidiff-zero)

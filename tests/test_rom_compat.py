@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "2e208d1ce08aabb48f04378dfce0094ed1275000f16db5b79cb54ff9cc2cf1b0"
+ROM_SHA256 = "5f04476996604b0ff3c8cdf8e00c0e48c448abc947ae31afc969660dc1c2233f"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -40,6 +40,12 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(self.rom.count(bytes.fromhex("AE DA 09 AC DB 09")), 2)
         self.assertEqual(self.rom.count(bytes.fromhex("8C DC 09")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("AC DC 09")), 1)
+        osfile_metadata = bytes.fromhex(
+            "AD DA 09 85 B8 AD DB 09 85 B9 A0 02 A2 00 BD BE 03 91 B8 "
+            "E8 C8 E0 08 D0 F5 A5 B5 91 B8 C8 AD C6 03 91 B8 C8 A9 "
+            "00 91 B8 C8 91 B8 A2 04 C8 91 B8 CA D0 FA A9 01 60"
+        )
+        self.assertEqual(self.rom.count(osfile_metadata), 1)
 
     def test_stock_commands_additive_menusrc_and_osword_are_present(self) -> None:
         for command in (
