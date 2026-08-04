@@ -1,0 +1,31 @@
+diff --git a/src/wifi/sdio.h b/src/wifi/sdio.h
+--- a/src/wifi/sdio.h
++++ b/src/wifi/sdio.h
+@@ -313,5 +313,6 @@ bool sdio_runtime_get_chip_mac(uint8_t mac_out[6]);
+    cooperative main loop. */
+ bool sdio_runtime_scan_start(void);
++void sdio_runtime_scan_cancel(void);
+ bool sdio_runtime_scan_busy(void);
+ bool sdio_runtime_scan_complete(void);
+ uint8_t sdio_runtime_scan_results(sdio_wifi_scan_result_t *out,
+diff --git a/src/wifi/sdio.c b/src/wifi/sdio.c
+--- a/src/wifi/sdio.c
++++ b/src/wifi/sdio.c
+@@ -6043,6 +6043,17 @@ bool sdio_runtime_scan_start(void)
+    return true;
+ }
+ 
++void sdio_runtime_scan_cancel(void)
++{
++   /* Enhanced-scan results arrive asynchronously through the event poller.
++      Dropping the active flag makes those late events inert and permits a
++      later LAP to create a fresh result set. The firmware scan itself is
++      bounded by its existing deadline and needs no blocking abort ioctl. */
++   g_runtime_scan_active = false;
++   g_runtime_scan_done = false;
++   g_runtime_scan_result_count = 0u;
++}
++
+ bool sdio_runtime_scan_busy(void)
+ {
+    if (g_runtime_scan_active

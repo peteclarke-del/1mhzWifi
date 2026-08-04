@@ -75,7 +75,7 @@ index cd40938..d764fc1 100644
 +.service_driver_not_0
 + cmp #1
 + bne service_driver_not_1
-+ jmp service_driver_init
++ jmp service_driver_unsupported
 +.service_driver_not_1
 + cmp #2
 + bne service_driver_not_2
@@ -119,27 +119,27 @@ index cd40938..d764fc1 100644
 +.service_driver_not_7
 + cmp #9
 + bne service_driver_not_9
-+ jmp service_driver_noop
++ jmp service_driver_unsupported
 +.service_driver_not_9
 + cmp #11
 + bne service_driver_not_11
-+ jmp service_driver_noop
++ jmp service_driver_unsupported
 +.service_driver_not_11
 + cmp #12
 + bne service_driver_not_12
-+ jmp service_driver_cipstatus
++ jmp service_driver_unsupported
 +.service_driver_not_12
 + cmp #17
 + bne service_driver_not_17
-+ jmp service_driver_baud
++ jmp service_driver_unsupported
 +.service_driver_not_17
 + cmp #21
 + bne service_driver_not_21
-+ jmp service_driver_noop
++ jmp service_driver_unsupported
 +.service_driver_not_21
 + cmp #22
 + bne service_driver_not_22
-+ jmp service_driver_noop
++ jmp service_driver_unsupported
 +.service_driver_not_22
 + cmp #23
 + bne service_driver_not_23
@@ -151,15 +151,15 @@ index cd40938..d764fc1 100644
 +.service_driver_not_24
 + cmp #25
 + bne service_driver_not_25
-+ jmp service_driver_noop
++ jmp service_driver_unsupported
 +.service_driver_not_25
 + cmp #26
 + bne service_driver_not_26
-+ jmp service_driver_noop
++ jmp service_driver_unsupported
 +.service_driver_not_26
 + cmp #27
 + bne service_driver_not_27
-+ jmp service_driver_noop
++ jmp service_driver_unsupported
 +.service_driver_not_27
 + cmp #28
 + bne service_driver_not_28

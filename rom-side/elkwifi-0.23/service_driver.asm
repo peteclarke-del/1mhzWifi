@@ -96,25 +96,9 @@ drv_net_close = 53
  ldy #>service_driver_mode_text
  jmp service_driver_rom_response
 
-.service_driver_noop
-.service_driver_status
- ldx #<service_driver_ok_text
- ldy #>service_driver_ok_text
- jmp service_driver_rom_response
-
 .service_driver_unsupported
  ldx #(error_not_implemented-error_table)
  jmp error
-
-.service_driver_cipstatus
- ldx #<service_driver_status_text
- ldy #>service_driver_status_text
- jmp service_driver_rom_response
-
-.service_driver_baud
- ldx #<service_driver_baud_text
- ldy #>service_driver_baud_text
- jmp service_driver_rom_response
 
 .service_driver_mux_channel
  ldy #&FF                  \ single-connection mode
@@ -515,14 +499,8 @@ drv_net_close = 53
  equs "CONNECT",&0D,&0A,&0D,&0A,"OK",&0D,&0A,&0D,&0A,0
 .service_driver_close_text
  equs "CLOSED",&0D,&0A,&0D,&0A,"OK",&0D,&0A,&0D,&0A,0
-.service_driver_ok_text
- equs "OK",&0D,&0A,0
 .service_driver_mode_text
  equs "+CWMODE:1",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
-.service_driver_status_text
- equs "STATUS:3",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
-.service_driver_baud_text
- equs "+CIOBAUD:115200",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
 .service_driver_ping_text
  equs "+1",&0D,&0A,0
 
@@ -648,8 +626,8 @@ drv_net_close = 53
  dec drv_svc_timeout_lo
  bne service_driver_wait
  lda drv_svc_command_copy
- cmp #drv_svc_ping
- bne service_driver_wait_yield
+ cmp #drv_svc_cancel
+ beq service_driver_wait_yield
  jsr check_esc
  bcc service_driver_wait_yield
  lda #&FF

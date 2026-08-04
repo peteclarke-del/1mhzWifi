@@ -24,8 +24,7 @@
                 lda (line),y
                 cmp #'R'
                 bne wifi_badcmd
-                txa
-                jmp generic_cmd             \ perform it and print the device response
+                jmp service_driver_unsupported
 
 .wifi_on_off    jsr skipspace
                 cmp #'N'
@@ -47,6 +46,6 @@
 .wifi_help      jsr printtext
                 equs " ON   enable wifi",&0D
                 equs " OFF  disable wifi",&0D
-                equs " SR   perform soft reset",&0D
-                equs " HR   perform hard reset",&0D,&EA
+                equs " SR   not implemented",&0D
+                equs " HR   not implemented",&0D,&EA
                 jmp call_claimed

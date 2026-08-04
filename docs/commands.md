@@ -9,8 +9,8 @@ leading `*`. `*HELP WIFI` must be uppercase on the target system.
 | --- | --- | --- |
 | `*WIFI ON` | Initialises or probes the Pi WiFi runtime | Implemented |
 | `*WIFI OFF` | Sends `WLC_DOWN`, clears the live lease and interface addresses, and leaves the mailbox available | Implemented |
-| `*WIFI SR` | Intended soft reset | Partial: status alias |
-| `*WIFI HR` | Intended hardware reset | Partial: status alias |
+| `*WIFI SR` | Cartridge UART soft reset | Explicitly unsupported |
+| `*WIFI HR` | Cartridge hardware reset | Explicitly unsupported |
 | `*LAP` | Lists nearby access points | Implemented; response is limited to four records |
 | `*LAPOPT 7` | Selects compact scan rows | Implemented and persistent |
 | `*LAPOPT 127` | Selects full scan rows | Implemented and persistent |
@@ -83,8 +83,9 @@ rejects anonymous HTTP clients with status 403, so this compatibility header
 is required for both `*MENU` and direct `*WGET` requests.
 
 WGET supports plain HTTP only. HTTPS is rejected. Redirects are rejected rather
-than followed. Chunked bodies, large transfers, and all Escape phases remain
-part of the test backlog.
+than followed. Chunked bodies and large transfers remain hardware test cases.
+Escape closes the URL handle and returns without treating cancellation as
+successful EOF.
 
 ## Menu
 
@@ -122,12 +123,20 @@ A typical WiCFS sequence is:
 *CAT
 ```
 
-`*WICFS` installs the inherited UEF filing-system vectors. `*REWIND` resets the
-UEF read pointer. `*PRD` inspects paged RAM. These commands use the Pi1MHz JIM
-window selector rather than the cartridge UART bank bit.
+`*WICFS` installs FILEV, FINDV, BGETV and FSCV through the MOS extended-vector
+table. It does not copy code into `&0400-&07FF`, which belongs to the Tube host
+code. `*REWIND` resets the UEF read pointer. `*PRD` inspects paged RAM. These
+commands use the Pi1MHz JIM window selector rather than the cartridge UART
+bank bit.
 
-Catalogue, load, run, sequential access, malformed UEF handling, Tube access,
-and selector restoration still require full hardware regression testing.
+Whole-file loads retain all four address bytes. Host destinations are written
+through the normal indirect store. Parasite destinations initialise Tube
+operation 1 at `&0406` and stream each byte through R3DATA at `&FEE5`.
+Successful `*RUN` requests jump to host memory for `&FFFFxxxx` execution
+addresses or use Tube operation 4 for parasite execution. OSFILE returns load,
+execution, length and attribute fields required by BASIC `CHAIN`. Catalogue,
+load, run, sequential access, malformed UEF handling and selector restoration
+still require full regression on real hardware.
 
 ## Version and help
 

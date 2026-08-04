@@ -72,6 +72,7 @@ static uint16_t ping_sequence;
 static uint32_t ping_started_us;
 static uint32_t ping_deadline_us;
 static uint32_t ping_elapsed_ms;
+static uint32_t ping_generation;
 
 static netop_state_t time_state;
 static struct udp_pcb *time_pcb;
@@ -79,9 +80,11 @@ static ip_addr_t time_address;
 static uint32_t time_deadline_us;
 static uint32_t time_ntp_seconds;
 static int16_t time_utc_offset_minutes;
+static uint32_t time_generation;
 
 static void response_string(uint32_t cp, const char *value);
-static void response_printf(uint32_t cp, const char *format, ...);
+static void response_printf(uint32_t cp, const char *format, ...)
+   __attribute__((format(printf, 2, 3)));
 static bool command_string(uint32_t cp, const char **value);
 
 static bool deadline_expired(uint32_t deadline)
@@ -97,16 +100,34 @@ static void ping_close(void)
    }
 }
 
+static void asynchronous_close(void)
+{
+   /* Invalidate DNS/packet callbacks before releasing their PCBs. A late
+      callback from a cancelled request must never complete a newer command
+      which has reused the same static state. */
+   ping_generation++;
+   time_generation++;
+   ping_close();
+   ping_state = NETOP_IDLE;
+   if (time_pcb != NULL) {
+      udp_remove(time_pcb);
+      time_pcb = NULL;
+   }
+   time_state = NETOP_IDLE;
+   sdio_runtime_scan_cancel();
+   scan_waiting = false;
+}
+
 static u8_t ping_receive(void *arg, struct raw_pcb *pcb, struct pbuf *p,
                          const ip_addr_t *address)
 {
    uint8_t first;
    uint16_t ip_header_length;
    struct icmp_echo_hdr echo;
-   (void)arg;
    (void)pcb;
    (void)address;
-   if (ping_state != NETOP_WAITING || p == NULL || p->tot_len < 28u)
+   if ((uint32_t)(uintptr_t)arg != ping_generation
+       || ping_state != NETOP_WAITING || p == NULL || p->tot_len < 28u)
       return 0u;
    if (pbuf_copy_partial(p, &first, 1u, 0u) != 1u)
       return 0u;
@@ -133,7 +154,7 @@ static void ping_send(void)
       ping_state = NETOP_FAILED;
       return;
    }
-   raw_recv(ping_pcb, ping_receive, NULL);
+   raw_recv(ping_pcb, ping_receive, (void *)(uintptr_t)ping_generation);
    raw_bind(ping_pcb, IP_ADDR_ANY);
    p = pbuf_alloc(PBUF_IP, length, PBUF_RAM);
    if (p == NULL || p->len != p->tot_len) {
@@ -166,8 +187,8 @@ static void ping_send(void)
 static void ping_dns_found(const char *name, const ip_addr_t *address, void *arg)
 {
    (void)name;
-   (void)arg;
-   if (ping_state != NETOP_DNS)
+   if ((uint32_t)(uintptr_t)arg != ping_generation
+       || ping_state != NETOP_DNS)
       return;
    if (address == NULL) {
       ping_state = NETOP_FAILED;
@@ -186,8 +207,10 @@ static uint8_t wifi_ping(uint32_t cp)
           || host[0] == '\0')
          return ELKWIFI_ERR_NETWORK;
       strlcpy(ping_host, host, sizeof ping_host);
+      ping_generation++;
       ping_deadline_us = RPI_GetSystemTime() + ELKWIFI_NET_TIMEOUT_US;
-      result = dns_gethostbyname(ping_host, &ping_address, ping_dns_found, NULL);
+      result = dns_gethostbyname(ping_host, &ping_address, ping_dns_found,
+                                 (void *)(uintptr_t)ping_generation);
       if (result == ERR_OK)
          ping_send();
       else if (result == ERR_INPROGRESS)
@@ -220,10 +243,10 @@ static void time_udp_receive(void *arg, struct udp_pcb *pcb, struct pbuf *p,
                              const ip_addr_t *address, u16_t port)
 {
    uint8_t packet[48];
-   (void)arg;
    (void)pcb;
    (void)address;
-   if (time_state == NETOP_WAITING && p != NULL && port == 123u
+   if ((uint32_t)(uintptr_t)arg == time_generation
+       && time_state == NETOP_WAITING && p != NULL && port == 123u
        && p->tot_len >= sizeof packet
        && pbuf_copy_partial(p, packet, sizeof packet, 0u) == sizeof packet
        && (packet[0] & 7u) == 4u && packet[1] != 0u) {
@@ -244,7 +267,7 @@ static void time_send(void)
       time_state = NETOP_FAILED;
       return;
    }
-   udp_recv(time_pcb, time_udp_receive, NULL);
+   udp_recv(time_pcb, time_udp_receive, (void *)(uintptr_t)time_generation);
    packet[0] = 0x1bu;
    p = pbuf_alloc(PBUF_TRANSPORT, sizeof packet, PBUF_RAM);
    if (p == NULL || pbuf_take(p, packet, sizeof packet) != ERR_OK
@@ -261,8 +284,8 @@ static void time_send(void)
 static void time_dns_found(const char *name, const ip_addr_t *address, void *arg)
 {
    (void)name;
-   (void)arg;
-   if (time_state != NETOP_DNS)
+   if ((uint32_t)(uintptr_t)arg != time_generation
+       || time_state != NETOP_DNS)
       return;
    if (address == NULL) {
       time_state = NETOP_FAILED;
@@ -330,9 +353,11 @@ static uint8_t wifi_datetime(uint32_t cp)
    if (time_state == NETOP_IDLE) {
       err_t result;
       if (!sdio_runtime_link_is_up()) return ELKWIFI_ERR_NETWORK;
+      time_generation++;
       time_deadline_us = RPI_GetSystemTime() + ELKWIFI_NET_TIMEOUT_US;
       result = dns_gethostbyname("pool.ntp.org", &time_address,
-                                 time_dns_found, NULL);
+                                 time_dns_found,
+                                 (void *)(uintptr_t)time_generation);
       if (result == ERR_OK) time_send();
       else if (result == ERR_INPROGRESS) time_state = NETOP_DNS;
       else time_state = NETOP_FAILED;
@@ -820,8 +845,7 @@ static uint8_t process_request(uint32_t cp)
          return wifi_datetime(cp);
 
       case ELKWIFI_CMD_CANCEL:
-         ping_close();
-         ping_state = NETOP_IDLE;
+         asynchronous_close();
          response_string(cp, "OK\r\n");
          return ELKWIFI_OK;
 
@@ -871,8 +895,7 @@ static void elkwifi_poll(void)
    if (request_cancel) {
       cp = request_pointer;
       addr = request_status_address;
-      ping_close();
-      ping_state = NETOP_IDLE;
+      asynchronous_close();
       request_pending = false;
       request_cancel = false;
       response_string(cp, "OK\r\n");
@@ -909,7 +932,9 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
    }
    (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_SECURE_OPEN,
                            elkwifi_command);
+   asynchronous_close();
    request_pending = false;
+   request_cancel = false;
    scan_waiting = false;
    Pi1MHz_Register_Poll(elkwifi_poll);
 }

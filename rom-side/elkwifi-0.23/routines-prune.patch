@@ -1,0 +1,139 @@
+diff --git a/rom/routines.asm b/rom/routines.asm
+--- a/rom/routines.asm
++++ b/rom/routines.asm
+@@ -288,135 +288,3 @@ endif
+ 
+ .wifi_symbol
+  equb &3E,&41,&1C,&22,&08,&14,&00,&08
+-
+-\ Test presense of paged ram
+-\ This test is destructive for both the ram content and the A register.
+-\ Returns with Z=0 for ram error.
+-.test_paged_ram
+- lda #&AA                   \ load byte
+- sta pageram                \ write to memory
+- lda pageram                \ read memory
+- cmp #&AA                   \ compare with value
+- bne ram_error              \ jump of not equal
+- lda #&55                   \ load byte
+- sta pageram                \ write to memory
+- lda pageram                \ read memory
+- cmp #&55                   \ compare with value
+-.ram_error
+- rts                        \ return from subroutine
+-
+-\ Calculate CRC16
+-\ Copied from: http://mdfs.net/Info/Comp/Comms/CRC16.htm
+-
+-.crc_cmd                    \ temporary for development, testing and debugging.
+- jsr crc16
+- lda crc+1
+- jsr printhex
+- lda crc
+- jsr printhex
+- jsr osnewl
+- jmp call_claimed
+- 
+- 
+-.crc16
+-\ Set start address of data
+- lda #&00                       :\ Data block starts at &2000
+- sta data_pointer
+- lda #&20
+- sta data_pointer+1
+-\ Set data length
+- lda #&00                       :\ Data length is 16k
+- sta datalen
+- lda #&40
+- sta datalen+1
+-\ Initialize crc
+- lda #&00
+- sta crc
+- sta crc+1
+-
+-.bytelp
+- LDX #8                         :\ Prepare to rotate CRC 8 bits
+- LDA (data_pointer-8 AND &FF,X) :\ Fetch byte from memory
+-
+-\ The following code updates the CRC with the byte in A ---------+
+- EOR crc+1                      :\ EOR byte into CRC top byte    |
+-.rotlp                          :\                               |
+- ASL crc+0:ROL A                :\ Rotate CRC clearing bit 0     |
+- BCC clear                      :\ b15 was clear, skip past      |
+- TAY                            :\ Hold CRC high byte in Y       |
+- LDA crc+0:EOR #&21:STA crc+0   :\ CRC=CRC EOR &1021, XMODEM polynomic
+- TYA:EOR #&10                   :\ Get CRC high byte back from Y |
+-.clear                          :\ b15 was zero                  |
+- DEX:BNE rotlp                  :\ Loop for 8 bits               |
+- STA crc+1                      :\ Store CRC high byte           |
+-\ ---------------------------------------------------------------+
+-
+- INC data_pointer+0:BNE next:INC data_pointer+1 :\ Step to next byte
+-.next
+-
+-\ Now do a 16-bit decrement
+- LDA datalen+0:BNE skip             :\ num.lo<>0, not wrapping from 00 to FF
+- DEC datalen+1                      :\ Wrapping from 00 to FF, dec. high byte
+-.skip
+- DEC datalen+0:BNE bytelp           :\ Dec. low byte, loop until num.lo=0
+- LDA datalen+1:BNE bytelp           :\ Loop until num=0
+- RTS
+-
+-.save_registers                     \ save registers
+- sta save_a
+- stx save_x
+- sty save_y
+- rts
+-
+-.restore_registers                  \ restore registers
+- lda save_a
+- ldx save_x
+- ldy save_y
+- rts
+-
+-\ Calculates  DIVEND / DIVSOR = RESULT	
+-.div16
+- divisor = zp+6                     \ just to make the code more human readable
+- dividend = zp                    \ what a coincidence .... this is the address of baudrate
+- remainder = zp+2                   \ not necessary, but it's calculated
+- result = dividend                  \ more readability
+-
+- lda #0	                            \ reset remainder
+- sta remainder
+- sta remainder+1
+- ldx #16	                        \ the number of bits
+-
+-.div16loop	
+- asl dividend	                    \ dividend lb & hb*2, msb to carry
+- rol dividend+1	
+- rol remainder	                    \ remainder lb & hb * 2 + msb from carry
+- rol remainder+1
+- lda remainder
+- sec                                \ set carry for substraction
+- sbc divisor	                    \ substract divisor to see if it fits in
+- tay	                            \ lb result -> Y, for we may need it later
+- lda remainder+1
+- sbc divisor+1
+- bcc div16skip	                    \ if carry=0 then divisor didn't fit in yet
+-
+- sta remainder+1	                \ else save substraction result as new remainder,
+- sty remainder	
+- inc result	                        \ and INCrement result cause divisor fit in 1 times
+-
+-.div16skip
+- dex
+- bne div16loop	
+- rts                                \ do you understand it? I don't ;-)
+-
+-.wait_a_second                      \ wait a second....
+- ldx #50                            \ load counter
+-.was1
+- txa
+- pha
+- lda #&13
+- jsr osbyte
+- pla
+- tax
+- dex                                \ decrement counter
+- bne was1                           \ jump if not ready
+- rts                                \ return

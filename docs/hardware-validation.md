@@ -11,10 +11,11 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-ElkWiFi ROM  5f04476996604b0ff3c8cdf8e00c0e48c448abc947ae31afc969660dc1c2233f
-kernel.img   7a8f564aa20cf8d1c4bffbc71774e500f01eb2795bdbd57f4b5a0ffb087cd1a5
-kernel7.img  57eb5fe8cb33dda036bf0af0a33d0bcca95f65068261947a47210e907ec5683a
-bundle ZIP   181717f7fab2b1c6285013ee618f4239e139584c0d56750474ccd8cd9f78aca0
+Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
+ElkWiFi ROM  c02f22db84742918bf59d6fddf15939ebc8017d225a4e80767ae5d567a654821
+kernel.img   e7ab3bfbd40d34c2893ed58d45e60d318b3a8268b0d77d5b94c85fee48090096
+kernel7.img  8f2bca6702b350dab4281ac9f0c6b57037f03986c2b8e3da794bf313c7a10ca0
+bundle ZIP   ffc7a8a63da6f5a5fdaba132b4efd48091917f8c008d9115b111423667736f9c
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -135,13 +136,21 @@ Expected error meanings:
   execution or BASIC `CALL` occurs.
 - [ ] Trace calls and confirm only the I/O processor accesses `&FCxx` and `&FDxx`.
 - [ ] Exercise every pointer-bearing OSWORD `&65` call with buffers in parasite memory.
-- [ ] Verify data is copied through MOS and Tube transfer semantics rather than passing a parasite pointer to JIM.
+- [ ] Load a UEF file to parasite RAM and trace Tube operation 1 at `&0406`
+  followed by one `&FEE5` write for each data byte.
+- [ ] Run a UEF file with a parasite execution address and trace Tube operation
+  4 at `&0406`. Repeat with an `&FFFFxxxx` host execution address and confirm it
+  runs on the I/O processor.
+- [ ] Confirm no WiCFS vector code occupies Tube workspace `&0400-&07FF` and no
+  parasite pointer is passed directly to JIM.
 
 ## Reset and fault-recovery gate
 
 - [ ] Reset during scan, association, DHCP, DNS, ICMP, NTP, connect, send, receive, and filesystem writes.
 - [ ] After each reset, run `*WIFI ON` and one network command without rebooting the Pi.
-- [ ] Repeat WiFi off/on, soft reset, and hard reset tests after those commands have genuine implementations.
+- [ ] Repeat `*WIFI OFF`/`*WIFI ON` cycles before, during and after association.
+- [ ] Confirm `*WIFI SR` and `*WIFI HR` return the documented explicit
+  `Not implemented` error without changing radio state.
 - [ ] Confirm late callbacks cannot complete a newer request.
 
 ## Secure transport gate

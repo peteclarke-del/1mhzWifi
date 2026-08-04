@@ -1,12 +1,12 @@
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 88ee5c0..9a9d488 100644
+index 13e03eb..9a9d488 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
 @@ -36,7 +36,11 @@ project( Pi1MHz C ASM )
  
  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
  
--set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu23" )
+-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu2x" )
 +if(CMAKE_C_COMPILER_VERSION VERSION_LESS 16)
 +   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu2x" )
 +else()
@@ -15,16 +15,7 @@ index 88ee5c0..9a9d488 100644
  
  # Replace newlib's _ctype_ table lookups for toupper/tolower with 3-instruction
  # ASCII range checks. Force-included so that source files keep using plain
-@@ -82,11 +86,17 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wstrict-aliasing=3 -Wunsafe-loop-optimizat
- set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Walloc-zero -Wdiscarded-qualifiers -Wtrampolines -Wbad-function-cast ")
- set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Waddress-of-packed-member -Wsuggest-attribute=noreturn ")
- set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wdiscarded-array-qualifiers -Wmissing-noreturn ")
--set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wflex-array-member-not-at-end -ftabstop=8  ")
-+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftabstop=8  ")
-+if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 16)
-+   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wflex-array-member-not-at-end")
-+endif()
- 
+@@ -88,6 +92,9 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wdeprecated-declarations -Wfloat-equal -Wm
  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wdeprecated-declarations -Wfloat-equal -Wmissing-format-attribute " )
  
 -set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wenum-int-mismatch -Wxor-used-as-pow -fstrict-flex-arrays -Warray-bounds=2")
@@ -44,16 +35,15 @@ index 88ee5c0..9a9d488 100644
  
  # These are cold (config/filename handling, ~12 call sites). We recompile them
 diff --git a/src/Pi1MHz.c b/src/Pi1MHz.c
-index 8c23783..e8e02ac 100644
+index 8a7a155..e8e02ac 100644
 --- a/src/Pi1MHz.c
 +++ b/src/Pi1MHz.c
 @@ -124,7 +124,8 @@ See mdfs.net/Docs/Comp/BBC/Hardware/JIMAddrs for full details
  #include "videoplayer.h"
  #include "usb.h"
  #include "wifi/wifi.h"
--#include "aun/aun_emulator.h"
 +#include "elkwifi_service.h"
-+#include "AUN/aun_emulator.h"
+ #include "AUN/aun_emulator.h"
  #include "teletext_emulator.h"
  #include "watchdog.h"
  
@@ -161,19 +151,6 @@ index 1f43940..71e7731 100644
  /* Microseconds since the last frame arrived from the chip (0 before the
     first).  A link can stop carrying traffic without the firmware reporting
     anything, so this is the only evidence that it has. */
-diff --git a/src/wifi/webserver.c b/src/wifi/webserver.c
-index 7eea434..407f750 100644
---- a/src/wifi/webserver.c
-+++ b/src/wifi/webserver.c
-@@ -28,7 +28,7 @@
- #include "../rpi/info.h"
- #include "../rpi/systimer.h"
- #include "../Pi1MHz.h"
--#include "../aun/aun_emulator.h"
-+#include "../AUN/aun_emulator.h"
- 
- #include "lwip/err.h"
- #include "lwip/tcp.h"
 diff --git a/src/wifi/wifi.c b/src/wifi/wifi.c
 index 1596768..6156c12 100644
 --- a/src/wifi/wifi.c

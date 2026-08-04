@@ -1,0 +1,581 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -15,9 +15,10 @@
+ 
+ \System constants and program constants & variables
+ 
+-OSWORD	=	&FFF1		\OSWORD
+-OSASCI	=	$FFE3		\print A to screen
+-OSBYTE	=	$FFF4		\OSBYTE
++OSWORD	=	&FFF1		\OSWORD
++OSASCI	=	$FFE3		\print A to screen
++OSFSC	=	$FFE9		\filing-system control entry
++OSBYTE	=	$FFF4		\OSBYTE
+ OSRDCH	=	$FFE0		\read character from input stream
+ OSWRCH	=	$FFEE		\write character to output stream
+ 
+@@ -30,9 +31,8 @@
+ FILVRTN	=	&03A3		\Tape FILEV vector contents
+ FSCVRTN	=	&03A5		\Tape FSCV vector contents
+ 
+-serbuf	=	&06E0		\serial input buffer
+-romsel	=	&07A4		\location of external rom select code
+-notape	=	&0398		\location of external *TAPE trap
++serbuf	=	&06E0		\serial input buffer
++notape	=	&0398		\location of external *TAPE trap
+ hchunk	=	&03CB		\Chunk header type(2) + length(4)
+ 
+ bufsize	=	28		\data burst (buffer) size
+@@ -40,8 +40,8 @@
+ sbufl	=	&F8		\number of bytes left (lo)
+ sbufh	=	&F9		\number of bytes left (hi)
+ temp	=	&C4		\zp temporary
+-slotid	=	&C5		\UPCSF slot id (from UPURS handler)
+-currom	=	&CF		\current rom slot id (usually BASIC)
++slotid	=	&C5		\WiCFS ROM slot used by extended vectors
++currom	=	&CF		\previous ROM slot saved by extended FSCV
+ tmpidx	=	&C1		\temporary store for index pointers
+ fnlen	=	&C2		\length of current CFS block filename
+ inchunk	=	&CE		\chunk started (non-zero = yes)
+@@ -64,6 +64,11 @@
+ filev_x =   heap+&DA \OSFILE/OSFIND require X and Y to be preserved
+ filev_y =   heap+&DB
+ bget_y  =   heap+&DC \OSBGET returns data in A and preserves X and Y
++findv_rtn = heap+&DD \saved FINDV for calls WiCFS does not claim
++evptr     = pbl      \temporary zero-page extended-vector table pointer
++tube_target = heap+&E1 \non-zero while load data is destined for parasite RAM
++filev_source = heap+&E2 \zero for FILEV, negative for FINDV
++fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
+ 
+ 				    \the following locations are re-entrant
+ 				    \and must only be initialised on *UPCFS
+@@ -144,10 +149,8 @@
+ 	equb	&FF		            \command list end marker
+ 
+ \-------------------------------------------------------------------------------
+-\*QUPCFS handler. This a silent command called by UPCFS which sets FILEV, FSCV,
+-\FINDV and BGETV to point to the downloaded rom switch code allowing upfilev
+-\and upfscv to be called in place of the original CFS handlers. (The code
+-\download is executed first by this command.)
++\*QUPCFS handler. This silent internal command selects WiCFS using MOS extended
++\vectors. No code is placed in &0400-&07FF because that is Tube host workspace.
+ 
+ \external *UPCFS interface code
+ .bUPCFS	
+@@ -156,21 +159,45 @@
+     equs "in bupcfs",&0D,&EA
+     plp
+     endif
+-    LDX	#0		        \index on X
+-.b_a1
+-   	LDA	s_filev,X		\get a byte
+-	STA	romsel,X		\copy to ram
+-	INX	        		\increment index
+-	CPX	#(s_end-s_filev)	\all done?
+-	BNE	b_a1	    	\no, loop for next
++\A repeated internal command must not save WiCFS as its own predecessor or
++\turn the OSBYTE forwarding jump into a self-loop.
++	LDA	&F4
++	STA	slotid
++	LDA	#&A8
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	evptr
++	STY	evptr+1
++	LDA	OSFILEV
++	CMP	#<&FF1B
++	BNE	b_install
++	LDA	OSFILEV+1
++	CMP	#>&FF1B
++	BNE	b_install
++	LDY	#27
++	LDA	(evptr),Y
++	CMP	#<upfilev
++	BNE	b_install
++	INY
++	LDA	(evptr),Y
++	CMP	#>upfilev
++	BNE	b_install
++	INY
++	LDA	(evptr),Y
++	CMP	slotid
++	BNE	b_install
++	JMP	b_initialise
+ 
+-\Patch the copied switcher's immediate ROM number after queued BASIC commands
+-\have completed. This survives MOS and Tube zero-page use without claiming
+-\ADFS workspace or changing the size and address of the later MENU code.
+-	LDA	&F4 : STA romsel+(aupurs_slot+1-s_filev)
+-
+-\and external code for *TAPE trap
+-	LDX	#0		        \index on X
++.b_install
++\Tell the current filing system it is being replaced, then retain its direct
++\vectors for operations WiCFS does not implement. *UPCFS selects *TAPE first,
++\so these are the MOS cassette handlers rather than another extended owner.
++	LDA	#6
++	JSR	OSFSC
++
++\and external code for *TAPE trap
++	LDX	#0		        \index on X
+ .b_a2
+ 	LDA	osb_s,X 		\get a byte
+ 	STA	notape,X		\copy to ram
+@@ -181,44 +208,73 @@
+ \now set the UPCFS vectors
+ 	LDA	OSFILEV		    \preserve OS tape vector addresses
+ 	STA	FILVRTN
+-	LDA	OSFILEV+1
+-	STA	FILVRTN+1
++	LDA	OSFILEV+1
++	STA	FILVRTN+1
++	LDA	OSFINDV
++	STA	findv_rtn
++	LDA	OSFINDV+1
++	STA	findv_rtn+1
+ 
+ 	LDA	OSFSCV
+ 	STA	FSCVRTN
+ 	LDA	OSFSCV+1
+ 	STA	FSCVRTN+1
+ 
+-\new UPCFS vector addresses
+-	LDA	#<romsel		\FILEV, FINDV
+-	STA	OSFILEV
+-	STA	OSFINDV
+-
+-	LDA	#>romsel
+-	STA	OSFILEV+1
+-	STA	OSFINDV+1
+-
+-	LDA	#<(romsel+(s_fscv-s_filev))	\FSCV
+-	STA	OSFSCV
+-	LDA	#>(romsel+(s_fscv-s_filev))
+-	STA	OSFSCV+1
+-
+-	LDA	#<(romsel+(s_bgetv-s_filev))	\BGETV
+-	STA	OSBGETV
+-	LDA	#>(romsel+(s_bgetv-s_filev))
+-	STA	OSBGETV+1
++\Use MOS extended vectors so vector entry never occupies &0400-&07FF. That
++\range contains the Tube host implementation and its &0406 transfer entry.
++	PHP
++	SEI
++	LDY	#27		\FILEV extended entry: 3 * vector 9
++	LDA	#<upfilev
++	LDX	#>upfilev
++	JSR	install_extended_vector
++	LDY	#33		\BGETV: 3 * vector 11
++	LDA	#<upbgetv
++	LDX	#>upbgetv
++	JSR	install_extended_vector
++	LDY	#42		\FINDV: 3 * vector 14
++	LDA	#<upfindv
++	LDX	#>upfindv
++	JSR	install_extended_vector
++	LDY	#45		\FSCV: 3 * vector 15
++	LDA	#<upfscv
++	LDX	#>upfscv
++	JSR	install_extended_vector
++	LDA	#<&FF1B
++	STA	OSFILEV
++	LDA	#>&FF1B
++	STA	OSFILEV+1
++	LDA	#<&FF21
++	STA	OSBGETV
++	LDA	#>&FF21
++	STA	OSBGETV+1
++	LDA	#<&FF2A
++	STA	OSFINDV
++	LDA	#>&FF2A
++	STA	OSFINDV+1
++	LDA	#<&FF2D
++	STA	OSFSCV
++	LDA	#>&FF2D
++	STA	OSFSCV+1
++	PLP
++	LDA	#&8F		\service &0F: filing vectors changed
++	LDX	#&0F
++	LDY	#0
++	JSR	OSBYTE
+ 
+ 	LDA	BYTEV		    \OSBYTE intercept
+ 	STA	notape+(osb_j-osb_s)+1
+ 	LDA	BYTEV+1
+ 	STA	notape+(osb_j-osb_s)+2
+-	SEI			        \no interrupts during OSBYTE redirect
++	PHP
++	SEI			        \no interrupts during OSBYTE redirect
+ 	LDA	#<notape
+ 	STA	BYTEV
+ 	LDA	#>notape
+ 	STA	BYTEV+1
+-	CLI
+-	JSR	cfsinit		    \initialisations
++	PLP
++.b_initialise
++	JSR	cfsinit		    \initialisations
+ 
+ .brom	
+     LDA	#vdu_on		    \restore screen output
+@@ -237,23 +293,44 @@
+ 	RTS
+ 
+ \-------------------------------------------------------------------------------
+-\Main FILEV (+FINDV), FSCV and BGETV entry points. Traps full file loads,
++\Main FILEV, FINDV, FSCV and BGETV entry points. Traps full file loads,
+ \load & run (*RUN), sequential access file open and single byte get. 
+ 
+ .upfilev
+-    STX filev_x
+-    STY filev_y
++	PHA
++	LDA	#0
++	STA	filev_source
++	PLA
++	JMP	filev_entry
++.upfindv
++	PHA
++	LDA	#&FF
++	STA	filev_source
++	PLA
++.filev_entry
++	STX filev_x
++	STY filev_y
+     if __debug = 1
+     php:jsr debug
+     equs "in upfilev",&0D,&EA
+     plp
+-    endif
+-	BEQ	upf_a7		\If A=0, possible file close request
+-	CMP	#255		\file load?
+-	BEQ	upf_a1		\yes, goto process
+-	AND	#192		\sequential file access request?
+-	BNE	upf_a2		\yes, goto further tests
+-	BEQ	upf_a6		\else command not supported by UPCFS
++    endif
++	BIT	filev_source
++	BMI	upfind_dispatch
++	CMP	#255		\OSFILE load is the only FILEV operation implemented
++	BEQ	upf_a1
++	JMP	upf_a6
++
++.upfind_dispatch
++	CMP	#0
++	BEQ	upf_a7		\close one/all files
++	CMP	#64
++	BEQ	upf_a3		\open for input
++	CMP	#128
++	BEQ	upf_a2		\output is unsupported
++	CMP	#192
++	BEQ	upf_a2		\random access is unsupported
++	JMP	upf_a6
+ 
+ .upf_a7	TYA			\A=0, test Y
+ 	BEQ	upf_a8		\Y=0, close all files request
+@@ -270,11 +347,9 @@
+ 	BEQ	upf_a1_done		\not found, leave A=0 and do not invent metadata
+ 	JSR	filev_load_info		\return the CFS catalogue data required by CHAIN
+ .upf_a1_done
+-	JMP	romsel+(filev_actioned-s_filev) \claim and preserve OSFILE X/Y
++	JMP	filev_actioned		\claim and preserve OSFILE X/Y
+ 
+-.upf_a2	CMP	#128		\exclusive output request?
+-	BNE	upf_a3		\no, includes input sp process
+-	LDA	#12		\else output only requested..
++.upf_a2	LDA	#12		\output or random access requested
+ 	JSR	xmess		\report error..
+ 	BEQ	upf_a5		\and exit
+ 
+@@ -286,7 +361,7 @@
+ 
+ .upf_a4	JSR	fopen		\goto action file open
+ 
+-.upf_a5	JMP	romsel+(filev_actioned-s_filev) \claim and preserve OSFILE X/Y
++.upf_a5	JMP	filev_actioned		\claim and preserve OSFIND X/Y
+ 
+ \OSFILE A=&FF must return the loaded file's catalogue information in the
+ \caller's 18-byte control block. flinit repurposes pbl/pbh for the filename,
+@@ -330,14 +405,41 @@
+ 	BNE	filev_info_attributes
+ 	LDA	#1			\OSFILE successfully loaded and found the file
+ 	RTS
++
++.install_extended_vector
++	STA	(evptr),Y		\A is handler low byte
++	INY
++	TXA				\X is handler high byte
++	STA	(evptr),Y
++	INY
++	LDA	slotid
++	STA	(evptr),Y
++	RTS
+ \OSFILE metadata return complete
++
++.xfilev
++	LDX	filev_x
++	LDY	filev_y
++	BIT	filev_source
++	BMI	xfindv
++	JMP	(FILVRTN)
++.xfindv
++	JMP	(findv_rtn)
+ 
+-.xfilev	JMP	romsel+(x_filev-s_filev)	\return command unclaimed
++.filev_actioned
++	LDX	filev_x
++	LDY	filev_y
++	RTS
+ 
+ \...............................................................................
+ \Filters selected FSCV functions
+ 
+-.upfscv
++.upfscv
++	STA	fscv_reason
++	TSX				\previous ROM is byte three in the MOS vector frame
++	LDA	&0103,X
++	STA	currom
++	LDA	fscv_reason
+     if __debug = 1
+     php:jsr debug
+     equs "in upfscv",&0D,&EA
+@@ -379,9 +481,9 @@
+ 	AND	#&7F
+ 	STA	loadrun
+ 
+-.clfscv	JMP	romsel+(actioned-s_filev)	\return command claimed
+-
+-.xfscv	JMP	romsel+(x_fscv-s_filev)	\return command unclaimed
++.clfscv	JMP	actioned		\return command claimed
++
++.xfscv	JMP	(FSCVRTN)		\return command unclaimed
+ 
+ \...............................................................................
+ \Handles BGET (single byte read from sequential access file)
+@@ -416,98 +518,39 @@
+ 	TAX
+ 	LDA	temp
+ 
+-	JMP	romsel+(bget_actioned-s_filev) \claim and preserve OSBGET X/Y
+-						\via FILEV and simple RTS
+-
+-\===============================================================================
+-\Sideways ROM select code downloaded to ram @romsel. Allows intercepted FS
+-\vectors to call UPCFS code in rom and to return claimed or unclaimed as
+-\required.
+-
+-\Code begins with entry points for UPCFS intercepts
+-
+-.s_filev	JSR	romsel+(aupurs-s_filev)	\page in UPURS
+-	JMP	upfilev			\and jump to UPCFS FILEV
+-
+-.s_fscv	JSR	romsel+(aupurs-s_filev)	\page in UPURS
+-	JMP	upfscv			\and jump to UPCFS FSCV
+-
+-.s_bgetv	JSR	romsel+(aupurs-s_filev)	\page in UPURS
+-	JMP	upbgetv			\and jump to UPCFS BGETV
+-
+-\...............................................................................
+-\Local common subroutine to select UPURS rom
+-
+-.aupurs
+-	PHA			\preserve A
+-	SEI			\no interrupts during rom switching
+-	LDA	&F4		\log current sw rom (probably BASIC)
+-	STA	currom
+-	LDA	#&C		\deselect BASIC (Elk quirk)
+-	STA	&FE05
+-.aupurs_slot
+-	LDA	#0		\ROM slot patched into the copied switcher by *QUPCFS
+-	STA	&F4
+-	STA	&FE05
+-	CLI			\restore interrupts
+-	PLA			\restore A
+-	RTS			\roms switched, return
+-
+-\-------------------------------------------------------------------------------
+-\Return handler post-UPCFS processing
+-
+-\1. Return path for unclaimed commands
+-
+-				\deselect UPURS and select previous rom
+-.x_filev	JSR	romsel+(bupurs-s_filev)		
+-	LDX	filev_x
+-	LDY	filev_y
+-	JMP	(FILVRTN)		\and follow original FILEV vector
+-
+-.filev_actioned
+-	JSR	romsel+(bupurs-s_filev)
+-	LDX	filev_x
+-	LDY	filev_y
+-	RTS
+-
+-.bget_actioned
+-	JSR	romsel+(bupurs-s_filev)
+ 	LDY	bget_y
+-	RTS
++	RTS				\claim while preserving OSBGET X/Y and carry
+ 
+-				\deselect UPURS and select previous rom
+-.x_fscv	JSR	romsel+(bupurs-s_filev)
+-	JMP	(FSCVRTN)		\and follow original FSCV vector
+-
+-\2. Return path for claimed commands
+-
+-				\deselect UPURS and select previous rom
+-.actioned	JSR	romsel+(bupurs-s_filev)
+-
+-	LDY	loadrun		\are we running the program?
+-	BPL	ret_fscv		\no, return to OS
+-	PLA			\else dump OS call return
+-	PLA
+-	JMP	(&03C2)		\and execute loaded program
+-		
+-.ret_fscv	RTS			\simple RTS as command actioned
+-
+-\...............................................................................
+-\Local common subroutine to deselect UPURS rom
+-
+-.bupurs
+-	PHA			\preserve A
+-	SEI			\no interrupts during rom switching
+-	LDA	currom		\restore active rom prior to UPCFS call
+-	STA	&F4
+-	STA	&FE05
+-	CLI			\restore interrupts
+-	PLA			\restore A
+-	RTS			\roms switched, return
+-
+-\...............................................................................
+-
+-.s_end				\end marker for the copied switcher
++\===============================================================================
++\Claimed FSCV return and *RUN execution. The MOS extended-vector dispatcher
++\leaves a five-byte frame beneath this handler. A normal return lets MOS restore
++\ROMSEL. A successful *RUN cannot return, so restore ROMSEL and remove the whole
++\frame before entering host code or the official Tube execution operation.
++.actioned
++	LDY	loadrun
++	BPL	ret_fscv
++	LDA	currom
++	STA	&F4
++	STA	&FE05
++	PLA
++	PLA
++	PLA
++	PLA
++	PLA
++	BIT	&027A			\Tube-present MOS flag
++	BPL	run_in_host
++	LDA	&03C4
++	AND	&03C5
++	CMP	#&FF			\&FFFFxxxx is I/O-processor memory
++	BEQ	run_in_host
++	LDX	#<&03C2
++	LDY	#>&03C2
++	LDA	#4			\Tube operation 4: execute in parasite
++	JMP	&0406
++.run_in_host
++	JMP	(&03C2)
++.ret_fscv
++	RTS
+ 
+ \~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ \Download code for OSBYTE *TAPE trap. Copied to notape by *QUPCFS
+@@ -554,7 +597,8 @@
+ 	LDA	&03C1
+ 	STA	CFSload+3
+ 
+-.stl_a1	JSR	loadblk		\load CFS data block
++.stl_a1	JSR	tube_prepare_load	\select host store or initialise parasite transfer
++	JSR	loadblk		\load CFS data block
+ 	BCS	stl_nf		\exit on error
+ 	LDA	&3CA		\last block?
+ 	AND	#&80
+@@ -594,10 +638,29 @@
+ 
+ .stl_x	RTS			\and return
+ 
+-\-------------------------------------------------------------------------------
+-\Loads current CFS data block into memory
+-
+-.loadblk
++\-------------------------------------------------------------------------------
++\Loads current CFS data block into memory
++
++.tube_prepare_load
++	LDA	#0
++	STA	tube_target
++	BIT	&027A			\Tube-present MOS flag
++	BPL	tube_prepare_done
++	LDA	CFSload+2
++	AND	CFSload+3
++	CMP	#&FF			\&FFFFxxxx addresses remain in host memory
++	BEQ	tube_prepare_done
++	LDA	#1			\Tube operation 1: I/O processor to parasite
++	LDX	#<CFSload
++	LDY	#>CFSload
++	JSR	&0406
++	LDA	#&FF
++	STA	tube_target
++.tube_prepare_done
++	RTS
++\Tube extended-vector transfer complete
++
++.loadblk
+     if __debug = 1
+     php:jsr debug
+     equs "in loadblk",&0D,&EA
+@@ -605,11 +668,21 @@
+     endif
+ 	JSR	getbyte		\get a block data byte from PC
+ 	BCS	ldb_err		\abort on error
+-	LDY	#0		\write to Beeb memory
+-	STA	(CFSload),Y
+-	INC	CFSload		\increment Beeb load address
+-	BNE	ldb_a1
+-	INC	CFSload+1
++	BIT	tube_target
++	BMI	ldb_tube
++	LDY	#0		\write to I/O-processor memory
++	STA	(CFSload),Y
++	JMP	ldb_increment
++.ldb_tube
++	STA	&FEE5			\Tube register 3 data, after operation 1
++.ldb_increment
++	INC	CFSload		\increment full 32-bit load address
++	BNE	ldb_a1
++	INC	CFSload+1
++	BNE	ldb_a1
++	INC	CFSload+2
++	BNE	ldb_a1
++	INC	CFSload+3
+ 
+ .ldb_a1	DEC	&3C8		\decrement CFS block length count
+ 	LDA	&3C8
+@@ -1115,7 +1188,7 @@
+ \-------------------------------------------------------------------------------
+ \Initialises UPCFS workspace and resets 6522
+ 
+-.wsinit				\workspace inits (&B0-&BD)
++.wsinit				\workspace inits (&B0-&BD)
+     if __debug = 1
+     php:jsr debug
+     equs "in wsinit",&0D,&EA
+@@ -1127,9 +1200,10 @@
+ .wsi_a1
+ 	STA	&B0,X
+ 	INX
+-	CPX	#&0E
+-	BNE	wsi_a1		\loop till all done
+-	LDX	temp
++	CPX	#&0E
++	BNE	wsi_a1		\loop till all done
++	STA	tube_target		\sequential BGET buffers always use host &0A00
++	LDX	temp
+ 	RTS
+ 
+ \-------------------------------------------------------------------------------
+

@@ -48,10 +48,11 @@ Command 80 has a fast path when firmware is already ready. This prevents the
 host's short `*WIFI ON` poll from losing a race with an unrelated cooperative
 WiFi poll.
 
-The current mailbox holds one outstanding ElkWiFi request. PING Escape uses
-command 90 to remove the raw ICMP PCB and invalidate its DNS callback state.
-Reset cancellation, request generation identifiers, and equivalent handling
-for every other asynchronous operation remain open work.
+The current mailbox holds one outstanding ElkWiFi request. Escape uses command
+90 to close ICMP and NTP PCBs, invalidate DNS and packet callback generations,
+clear enhanced-scan state, and retire the pending request. WGET and raw TCP use
+the net-service close path. Reinitialisation performs the same ElkWiFi cleanup
+before registering the poll callback again.
 
 ## Service command map
 
@@ -82,9 +83,11 @@ Window 0 contains the service and network command pages. Window 1 holds UEF and
 sideways-RAM downloads used by `*WGET -U`, WiCFS, and `*WGET -S`. The ROM saves
 and restores the selector when switching windows.
 
-The current layout is inherited in part from ElkWiFi and requires further
-stress testing for large transfers and simultaneous services. The required
-memory-layout assertions are tracked in [TODO.md](../TODO.md).
+The service command page is in window 0 at `&FFF000`; URL scratch data is at
+`&FFF100`. WiCFS content occupies window 1. The ROM keeps independent shadow
+page values and restores the selected window around transfers, avoiding the
+AP5 write-only `&FCFF` readback trap. Large transfers and simultaneous-service
+use remain hardware stress tests.
 
 ## Menu operation
 

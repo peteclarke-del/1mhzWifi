@@ -201,16 +201,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("JSR set_bank_1", wicfs_patch)
         self.assertIn("pr_y    =   heap+&D8", wicfs_patch)
         self.assertIn("pr_r    =   heap+&D9", wicfs_patch)
-        self.assertIn("STA romsel+(aupurs_slot+1-s_filev)", wicfs_patch)
-        self.assertIn(".aupurs_slot", wicfs_patch)
-        self.assertIn("LDA\t#0\t\t\\ROM slot patched", wicfs_patch)
         self.assertIn("LDA\t#vdu_on", wicfs_patch)
         self.assertIn("+    STA pagereg", wicfs_patch)
         self.assertIn("filev_x =   heap+&DA", wicfs_patch)
         self.assertIn("filev_y =   heap+&DB", wicfs_patch)
         self.assertIn("bget_y  =   heap+&DC", wicfs_patch)
-        self.assertIn("filev_actioned-s_filev", wicfs_patch)
-        self.assertIn("bget_actioned-s_filev", wicfs_patch)
         self.assertIn("+\tLDX\tfilev_x", wicfs_patch)
         self.assertIn("+\tLDY\tfilev_y", wicfs_patch)
         self.assertIn("+\tLDY\tbget_y", wicfs_patch)
@@ -226,6 +221,23 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("LDA\tblklen", metadata_patch)
         self.assertIn("LDA\t&03C6", metadata_patch)
         self.assertIn("STA\t(pbl),Y", metadata_patch)
+
+        tube_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-tube.patch"
+        ).read_text()
+        self.assertIn("Use MOS extended vectors", tube_patch)
+        self.assertIn("LDY\t#27", tube_patch)
+        self.assertIn("LDY\t#33", tube_patch)
+        self.assertIn("LDY\t#42", tube_patch)
+        self.assertIn("LDY\t#45", tube_patch)
+        self.assertIn("STA\t&FEE5", tube_patch)
+        self.assertIn("JSR\t&0406", tube_patch)
+        self.assertIn("JMP\t&0406", tube_patch)
+        self.assertIn("INC\tCFSload+3", tube_patch)
+        self.assertIn("findv_rtn", tube_patch)
+        self.assertIn("fscv_reason", tube_patch)
+        self.assertIn("\\Tube extended-vector transfer complete", tube_patch)
+        self.assertNotIn("+romsel\t=\t&07A4", tube_patch)
 
     def test_rom_startup_and_absent_service_are_fail_safe(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()
@@ -322,11 +334,24 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_CMD_CANCEL       90u", header)
         self.assertIn("if (request_cancel)", service)
         self.assertIn("ping_close();", service)
+        self.assertIn("asynchronous_close();", service)
+        self.assertIn("sdio_runtime_scan_cancel();", service)
+        self.assertIn("ping_generation++", service)
+        self.assertIn("time_generation++", service)
+        self.assertIn("(uint32_t)(uintptr_t)arg != ping_generation", service)
+        self.assertIn("(uint32_t)(uintptr_t)arg != time_generation", service)
+        scan_cancel = (
+            ROOT / "pi-side/pi1mhz-current/wifi-scan-cancel.patch"
+        ).read_text()
+        self.assertIn("void sdio_runtime_scan_cancel(void)", scan_cancel)
+        self.assertIn("g_runtime_scan_active = false", scan_cancel)
+        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        self.assertIn("wifi-scan-cancel.patch", installer)
 
     def test_installer_pins_reviewed_pi1mhz_commit(self) -> None:
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         self.assertIn(
-            "expected_upstream=83bca4922955e28e2f95122d71d631cce813d467",
+            "expected_upstream=8468a38f63b25785007a50912a3b32a596db8ff9",
             installer,
         )
 

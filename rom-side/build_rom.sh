@@ -25,13 +25,14 @@ install -m 0644 "$script_dir/elkwifi-0.23/service_driver.asm" "$upstream/rom/ser
 install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
-for patch_name in integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch; do
+for patch_name in integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-tube.patch rom-prune.patch routines-prune.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
         integration.patch)
             grep -q 'include "menusrc.asm"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q 'Pi1MHz WiFi is managed by the kernel' "$upstream/rom/serial.asm" &&
+            grep -q 'include "service_driver.asm"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.service_driver_not_0' "$upstream/rom/driver.asm" &&
             patch_present=true
             ;;
         command-surface.patch)
@@ -55,6 +56,18 @@ for patch_name in integration.patch command-surface.patch disconnect-response.pa
             grep -q '^\\OSFILE metadata return complete' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
+        wicfs-tube.patch)
+            grep -q '^\\Tube extended-vector transfer complete' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        rom-prune.patch)
+            ! grep -q 'incbin "flash.bin"' "$upstream/rom/ElkWifi.asm" &&
+            patch_present=true
+            ;;
+        routines-prune.patch)
+            ! grep -q '^\.test_paged_ram' "$upstream/rom/routines.asm" &&
+            patch_present=true
+            ;;
     esac
     if "$patch_present"; then
         echo "ElkWiFi $patch_name is already applied"
@@ -74,10 +87,10 @@ done
 # patched file with the complete Pi1MHz implementation before assembly.
 install -m 0644 "$script_dir/elkwifi-0.23/menu.asm" "$upstream/rom/menu.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/wificmd.asm" "$upstream/rom/wificmd.asm"
+install -m 0644 "$script_dir/elkwifi-0.23/driver.asm" "$upstream/rom/driver.asm"
+install -m 0644 "$script_dir/elkwifi-0.23/serial.asm" "$upstream/rom/serial.asm"
+install -m 0644 "$script_dir/elkwifi-0.23/wget_helpers.asm" "$upstream/rom/wget.asm"
 
-if [ ! -f "$upstream/rom/flash.bin" ]; then
-    truncate -s 512 "$upstream/rom/flash.bin"
-fi
 (cd "$upstream/rom" && beebasm -i ElkWifi.asm)
 install -m 0644 "$upstream/rom/bbcwifi.rom" "$root_dir/build/elkwifi_pi1mhz.rom"
 sha256sum "$root_dir/build/elkwifi_pi1mhz.rom"

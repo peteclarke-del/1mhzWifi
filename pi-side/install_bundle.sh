@@ -29,7 +29,7 @@ if ! git -C "$upstream" merge-base --is-ancestor V1.30 HEAD; then
     echo "the checkout does not contain Pi1MHz V1.30" >&2
     exit 1
 fi
-expected_upstream=83bca4922955e28e2f95122d71d631cce813d467
+expected_upstream=8468a38f63b25785007a50912a3b32a596db8ff9
 actual_upstream=$(git -C "$upstream" rev-parse HEAD)
 if [ "$actual_upstream" != "$expected_upstream" ]; then
     echo "Pi1MHz commit $expected_upstream is required" >&2
@@ -56,7 +56,7 @@ fi
 install -m 0644 "$script_dir/pi1mhz-v1.30/src/elkwifi_service.c" "$upstream/src/elkwifi_service.c"
 install -m 0644 "$script_dir/pi1mhz-v1.30/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
 
-for patch_name in integration.patch services-capacity-test.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch tcp-diagnostics.patch http-user-agent.patch wifi-off-state.patch; do
+for patch_name in integration.patch services-capacity-test.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch tcp-diagnostics.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch; do
     patch_file="$script_dir/pi1mhz-current/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -131,6 +131,11 @@ for patch_name in integration.patch services-capacity-test.patch wifi-security.p
             grep -q 'bool wifi_disable_radio(void)' "$upstream/src/wifi/wifi.c" &&
             grep -q 'association and address state cleared' "$upstream/src/wifi/wifi_lwip.c" &&
             grep -q 'WLC_DOWN: radio disabled by ElkWiFi host' "$upstream/src/wifi/sdio.c" &&
+            patch_present=true
+            ;;
+        wifi-scan-cancel.patch)
+            grep -q 'void sdio_runtime_scan_cancel(void)' "$upstream/src/wifi/sdio.c" &&
+            grep -q 'void sdio_runtime_scan_cancel(void);' "$upstream/src/wifi/sdio.h" &&
             patch_present=true
             ;;
     esac

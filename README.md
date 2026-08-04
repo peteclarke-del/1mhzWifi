@@ -20,11 +20,12 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-The following command paths are implemented:
+The following command paths are implemented, including host and Tube-safe
+WiCFS load and execution transfers:
 
 | Area | Implemented behavior |
 | --- | --- |
-| WiFi | `*WIFI ON`, `*LAP`, `*JOIN`, `*JOIN ?`, `*LEAVE`, `*IFCFG`, `*LAPOPT` |
+| WiFi | `*WIFI ON`, `*WIFI OFF`, `*LAP`, `*JOIN`, `*JOIN ?`, `*LEAVE`, `*IFCFG`, `*LAPOPT` |
 | Network | `*PING`, HTTP `*WGET`, OSWORD `&65` TCP open/send/receive/close |
 | Time | NTP-backed `*DATE` and `*TIME` |
 | Menu | Persistent `*MENUSRC`; `*MENU` downloads, validates, adapts, and runs the published payload on the I/O processor |
@@ -39,9 +40,10 @@ can reach the inherited UART or flash code.
 HTTPS, TLS, and SSH are not implemented. Secure requests fail closed; they are
 never downgraded to plaintext.
 
-The authoritative implementation backlog is [TODO.md](TODO.md). It records
-several deliberate compatibility gaps, including soft and hard reset
-semantics, complete OSWORD `&65` parity, and full Escape handling.
+The release boundary and deliberately unsupported cartridge-only features are
+recorded in [TODO.md](TODO.md). Asynchronous scan, DNS, ICMP, NTP, WGET and raw
+socket waits are Escape-aware. Cancellation closes active PCBs, invalidates
+late callbacks and clears scan state before returning to MOS.
 
 The published ElkWiFi menu contains a direct `&FC34` cartridge bank-selection
 sequence. At runtime, `*MENU` replaces that exact eight-byte sequence with an
@@ -77,10 +79,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-ElkWiFi ROM  5f04476996604b0ff3c8cdf8e00c0e48c448abc947ae31afc969660dc1c2233f
-kernel.img   7a8f564aa20cf8d1c4bffbc71774e500f01eb2795bdbd57f4b5a0ffb087cd1a5
-kernel7.img  57eb5fe8cb33dda036bf0af0a33d0bcca95f65068261947a47210e907ec5683a
-bundle ZIP   dc319ef83c2500b2b54c840644dd302ab437af33405d69a1edc144fe65155e01
+ElkWiFi ROM  c02f22db84742918bf59d6fddf15939ebc8017d225a4e80767ae5d567a654821
+kernel.img   e7ab3bfbd40d34c2893ed58d45e60d318b3a8268b0d77d5b94c85fee48090096
+kernel7.img  8f2bca6702b350dab4281ac9f0c6b57037f03986c2b8e3da794bf313c7a10ca0
+bundle ZIP   ffc7a8a63da6f5a5fdaba132b4efd48091917f8c008d9115b111423667736f9c
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -112,7 +114,7 @@ Protect the card and do not publish production credentials in bug reports.
 Two upstream source trees are required:
 
 - ElkWiFi commit `7bf366c97bec18bd238963c95e6f2aa6893cdb3a`
-- Pi1MHz commit `83bca4922955e28e2f95122d71d631cce813d467`
+- Pi1MHz commit `8468a38f63b25785007a50912a3b32a596db8ff9`
 
 Build the host ROM with BeebAsm:
 
@@ -127,7 +129,7 @@ Build both Pi kernel families with Arm GCC 13 or later:
 ```sh
 git clone --recursive https://github.com/dp111/Pi1MHz.git
 git -C Pi1MHz submodule update --init --recursive
-git -C Pi1MHz checkout 83bca4922955e28e2f95122d71d631cce813d467
+git -C Pi1MHz checkout 8468a38f63b25785007a50912a3b32a596db8ff9
 ./pi-side/install_bundle.sh /path/to/Pi1MHz all
 ```
 
@@ -146,8 +148,10 @@ unzip -t build/pi1mhz-all-hardware-test.zip
 ```
 
 The test suite checks ROM identity, command presence, mailbox addressing,
-safe rejection of unsupported functions, WGET and WiCFS routing, configuration
-integration, and the absence of the retired Linux bridge.
+safe rejection of unsupported functions, WGET and WiCFS Tube routing,
+cancellation, configuration integration, and the absence of retired
+UART/flash and Linux bridge code. The Pi1MHz services, net and web parser
+suites also run under ASan and UBSan during release validation.
 
 Elkulator smoke-test captures are under `tests/elkulator/screenshots/`.
 Elkulator does not yet emulate the Pi1MHz services mailbox, so live WiFi,

@@ -1,5 +1,5 @@
 Pi1MHz bare-metal integration for commit
-83bca4922955e28e2f95122d71d631cce813d467
+8468a38f63b25785007a50912a3b32a596db8ff9
 
 - install_bundle.sh
 - pi1mhz-current/integration.patch
@@ -12,7 +12,10 @@ Pi1MHz bare-metal integration for commit
 - pi1mhz-current/wifi-leave.patch
 - pi1mhz-current/wifi-network-tools.patch
 - pi1mhz-current/http-status.patch
+- pi1mhz-current/tcp-diagnostics.patch
+- pi1mhz-current/http-user-agent.patch
 - pi1mhz-current/wifi-off-state.patch
+- pi1mhz-current/wifi-scan-cancel.patch
 - pi1mhz-v1.30/src/elkwifi_service.c
 - pi1mhz-v1.30/src/elkwifi_service.h
 
@@ -29,6 +32,14 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/ping.asm
 - rom-side/elkwifi-0.23/service_driver.asm
 - rom-side/elkwifi-0.23/time.asm
+- rom-side/elkwifi-0.23/driver.asm
+- rom-side/elkwifi-0.23/serial.asm
+- rom-side/elkwifi-0.23/wget_helpers.asm
+- rom-side/elkwifi-0.23/wicfs-page-shadow.patch
+- rom-side/elkwifi-0.23/wicfs-osfile-metadata.patch
+- rom-side/elkwifi-0.23/wicfs-tube.patch
+- rom-side/elkwifi-0.23/rom-prune.patch
+- rom-side/elkwifi-0.23/routines-prune.patch
 
 Shipped host ROM:
 

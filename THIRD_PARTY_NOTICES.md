@@ -6,7 +6,7 @@ upstream projects:
 | Project | Upstream | Revision basis |
 | --- | --- | --- |
 | ElkWiFi | <https://github.com/hoglet67/ElkWiFi> | `7bf366c97bec18bd238963c95e6f2aa6893cdb3a` |
-| Pi1MHz | <https://github.com/dp111/Pi1MHz> | `83bca4922955e28e2f95122d71d631cce813d467` |
+| Pi1MHz | <https://github.com/dp111/Pi1MHz> | `8468a38f63b25785007a50912a3b32a596db8ff9` |
 
 ElkWiFi identifies Roland Leurs as the original ROM author and credits Martin
 Barr and Roland Leurs for WiCFS. Pi1MHz and its submodules contain their own

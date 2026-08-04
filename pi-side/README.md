@@ -11,7 +11,7 @@ needed by the retained ElkWiFi commands.
 
 ## Upstream requirements
 
-Use Pi1MHz commit `83bca4922955e28e2f95122d71d631cce813d467`.
+Use Pi1MHz commit `8468a38f63b25785007a50912a3b32a596db8ff9`.
 The installer rejects any other revision so an upstream change cannot alter a
 release build without review. This commit contains tag `V1.30` in its history
 and includes the later net service required by WGET and OSWORD TCP.
@@ -75,7 +75,7 @@ DNS, ICMP, and NTP work runs in a main-loop poll callback.
 | 87 | Save LAPOPT mode |
 | 88 | DNS and ICMP echo |
 | 89 | DNS and NTP date/time |
-| 90 | Cancel an outstanding foreground network request |
+| 90 | Cancel an outstanding scan, DNS, ICMP or NTP request |
 | 91 | Reserved secure-open ABI; unsupported |
 
 Raw TCP and HTTP use the existing Pi1MHz net-service command range. Secure
@@ -86,8 +86,8 @@ open is registered only as a reserved ABI value and returns unsupported.
 Menu URL persistence is implemented by service commands 84-86. The downloaded
 upstream MENU is also adapted by the host ROM because it contains a direct
 `&FC34` cartridge bank-selection sequence. The ROM replaces that exact
-eight-byte sequence with a Pi1MHz `&FCFE` window-1 selection before queuing
-host execution at `&E00`. No Pi-side binary rewrite occurs. See
+eight-byte sequence with a Pi1MHz `&FCFE` window-1 selection before entering
+host `&E00`. No Pi-side binary rewrite occurs. See
 [the byte-level runtime contract](../docs/menu-runtime-patch.md).
 
 ## Pi1MHz.cfg
@@ -160,6 +160,11 @@ association when a saved profile is available.
 
 The scan response is capped at four BSS records to fit the inherited 240-byte
 host buffer. Removing that limit requires a compatible paging contract.
+
+Escape cancellation closes ICMP/NTP PCBs, invalidates callback generations
+and clears the active scan state. A late DNS or packet callback cannot complete
+a newer request which reused the same command page. WGET and raw TCP close the
+net-service handle on cancellation.
 
 ## Security limits
 

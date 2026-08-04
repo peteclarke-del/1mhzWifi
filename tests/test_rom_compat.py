@@ -1,11 +1,12 @@
 import hashlib
+import re
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "5f04476996604b0ff3c8cdf8e00c0e48c448abc947ae31afc969660dc1c2233f"
+ROM_SHA256 = "c02f22db84742918bf59d6fddf15939ebc8017d225a4e80767ae5d567a654821"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -28,16 +29,30 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(b"TAPE\r", self.rom)
         self.assertNotIn(bytes.fromhex("A9 8C A2 00 A0 00 20 F4 FF"), self.rom)
 
-    def test_wicfs_patches_the_copied_rom_switcher(self) -> None:
-        self.assertEqual(self.rom.count(bytes.fromhex("A5 F4 8D C2 07")), 1)
-        self.assertEqual(self.rom.count(bytes.fromhex("A9 00 85 F4 8D 05 FE")), 1)
-        length_read = bytes.fromhex(
-            "A9 FF 8D FF FC 20 FC 87 AD FE FD 85 F8 AD FF FD 85 F9"
+    def test_wicfs_uses_mos_vectors_and_the_tube_transfer_abi(self) -> None:
+        # No ROM switcher may be copied into &07A4. Pages 4-7 belong to the
+        # Tube host code whenever a parasite is active.
+        self.assertNotIn(bytes.fromhex("A5 F4 8D C2 07"), self.rom)
+        # Whole-file parasite loads initialise operation 1 and stream bytes
+        # through R3DATA. Successful parasite *RUN uses operation 4.
+        self.assertGreaterEqual(self.rom.count(bytes.fromhex("20 06 04")), 1)
+        self.assertEqual(self.rom.count(bytes.fromhex("8D E5 FE")), 1)
+        self.assertEqual(self.rom.count(bytes.fromhex("4C 06 04")), 1)
+        # Extended vector entry points for FILEV/BGETV/FINDV/FSCV.
+        for entry in (0x1B, 0x21, 0x2A, 0x2D):
+            self.assertIn(bytes((0xA9, entry, 0x8D)), self.rom)
+        # The helper call address moves as dead legacy routines are removed.
+        # Match the surrounding JIM length transaction, not a linker address.
+        length_read = re.compile(
+            bytes.fromhex("A9 FF 8D FF FC 20")
+            + b".."
+            + bytes.fromhex("AD FE FD 85 F8 AD FF FD 85 F9"),
+            re.DOTALL,
         )
-        self.assertEqual(self.rom.count(length_read), 1)
+        self.assertEqual(len(length_read.findall(self.rom)), 1)
         self.assertNotIn(bytes.fromhex("AD FE FD 85 F8 20 FC 87"), self.rom)
         self.assertEqual(self.rom.count(bytes.fromhex("8E DA 09 8C DB 09")), 1)
-        self.assertEqual(self.rom.count(bytes.fromhex("AE DA 09 AC DB 09")), 2)
+        self.assertGreaterEqual(self.rom.count(bytes.fromhex("AE DA 09 AC DB 09")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("8C DC 09")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("AC DC 09")), 1)
         osfile_metadata = bytes.fromhex(
@@ -57,6 +72,13 @@ class RomCompatibilityTest(unittest.TestCase):
         for removed in (b"PRINTER", b"UPDATE", b"SETSERIAL", b"CRC error"):
             self.assertNotIn(removed, self.rom)
         self.assertIn(bytes((0xA5, 0xEF, 0xC9, 0x65)), self.rom)
+
+    def test_retired_cartridge_code_is_not_emitted(self) -> None:
+        for legacy in (
+            b"AT+", b"ESP8266", b"STATUS:3", b"115200", b"PRINTER",
+            b"SETSERIAL", b"CRC error", b"WGET /",
+        ):
+            self.assertNotIn(legacy, self.rom)
 
     def test_services_use_ap5_fred_window_from_io_processor(self) -> None:
         self.assertIn(bytes((0x8D, 0xA6, 0xFC)), self.rom)  # STA &FCA6

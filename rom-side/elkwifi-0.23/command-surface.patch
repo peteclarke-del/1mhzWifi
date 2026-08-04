@@ -97,7 +97,7 @@ diff --git a/rom/driver.asm b/rom/driver.asm
  .service_driver_not_24
   cmp #25
   bne service_driver_not_25
-- jmp service_driver_noop
+- jmp service_driver_unsupported
 + jmp service_driver_lapopt
  .service_driver_not_25
   cmp #26
