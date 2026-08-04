@@ -109,6 +109,8 @@ for patch_name in integration.patch wifi-security.patch wifi-radio.patch wifi-ma
         http-status.patch)
             grep -q 'A completed TCP request is not a successful WGET' "$upstream/src/net_service.c" &&
             grep -q 'h->http_code >= 300u' "$upstream/src/net_service.c" &&
+            grep -q 'http_content_length' "$upstream/src/net_service.c" &&
+            grep -q 'http_body_read >= h->http_content_length' "$upstream/src/net_service.c" &&
             patch_present=true
             ;;
         wifi-off-state.patch)
@@ -120,6 +122,11 @@ for patch_name in integration.patch wifi-security.patch wifi-radio.patch wifi-ma
     esac
     if "$patch_present"; then
         echo "Pi1MHz $patch_name is already applied"
+    elif [ "$patch_name" = http-status.patch ]; then
+        # This pinned patch deliberately uses a zero-context insertion to keep
+        # the patch file itself free of whitespace-only context lines.
+        git -C "$upstream" apply --unidiff-zero --check "$patch_file"
+        git -C "$upstream" apply --unidiff-zero "$patch_file"
     else
         git -C "$upstream" apply --check "$patch_file"
         git -C "$upstream" apply "$patch_file"

@@ -12,9 +12,9 @@ or protocol change that can affect it.
 
 ```text
 ElkWiFi ROM  941896c2709d00542c74b076a7759fa01f5deba71921e4ae72cda5f508be43c2
-kernel.img   db6252a956962e60b32257fe8621acdfd4827d6be6880e897302c88a8c6f0e19
-kernel7.img  ec55a1303648f9dcd5664803ccf3dfe5207e36177d7879d3e155deedace2d0b1
-bundle ZIP   352cb784a985e83909c0c9abdc0f419ebee1c5d4729e08d31f0788f8b599d6c6
+kernel.img   92d39d82668a399188d0667e72e2dfa8a4802f66a1c5ae5f4061da044c5ad549
+kernel7.img  9b9c46c78fd89f5b34b82885d2603275266dd15e76dc2e457279d5c92c12f612
+bundle ZIP   ec21cc12cde33b90c614977a525ec95db50260bc5469cc72b145cc48c29c983d
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`

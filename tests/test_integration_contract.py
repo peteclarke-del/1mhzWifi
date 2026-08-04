@@ -70,6 +70,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("wifi-network-tools.patch", installer)
         self.assertIn("http-status.patch", installer)
         self.assertIn("h->http_code >= 300u", http_status_patch)
+        self.assertIn("http_content_length", http_status_patch)
+        self.assertIn("http_body_read >= h->http_content_length", http_status_patch)
         self.assertIn("wifi-off-state.patch", installer)
         self.assertIn("sdio_runtime_radio_disable", off_state_patch)
         self.assertIn("WIFI_SDIO_TX_PROBE_COMMAND_DOWN", off_state_patch)

@@ -68,6 +68,9 @@ host memory changed; `head` exposes the first four downloaded bytes so an HTTP
 error page cannot be confused with the expected program header. `*WGET -T`
 prints the downloaded text directly. Pi1MHz also rejects non-2xx HTTP status
 codes before returning payload bytes.
+When a server supplies `Content-Length`, Pi1MHz completes the download after
+that exact number of body bytes. A later TCP reset cannot turn an already
+complete response into error `&25`, while a short response still fails.
 
 WGET supports plain HTTP only. HTTPS is rejected. Redirects are rejected rather
 than followed. Chunked bodies, large transfers, and all Escape phases remain
