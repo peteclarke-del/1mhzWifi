@@ -23,6 +23,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertEqual(active.get("SCSIJUKE", "").strip(), "0")
         self.assertEqual(active.get("SCSIID", "").strip(), "0")
         self.assertEqual(active.get("VFSJUKE", "").strip(), "0")
+        self.assertEqual(active.get("Rampage_addr", "").strip(), "0xFD")
         self.assertNotIn("Harddisc_addr", active)
         self.assertEqual(active.get("Services_addr", "").strip(), "0xA6")
 
@@ -41,11 +42,14 @@ class IntegrationContractTest(unittest.TestCase):
 
     def test_pi_overlay_uses_services_mailbox_not_fc30_uart(self) -> None:
         service = (ROOT / "pi-side/pi1mhz-v1.30/src/elkwifi_service.c").read_text()
+        service_header = (ROOT / "pi-side/pi1mhz-v1.30/src/elkwifi_service.h").read_text()
         patch = (ROOT / "pi-side/pi1mhz-current/integration.patch").read_text()
         self.assertIn("services_register", service)
         self.assertIn("elkwifi_service.c", patch)
         self.assertNotIn("elkwifi_emulator", patch)
         self.assertNotIn("0x30", patch)
+        for source in (service, service_header):
+            self.assertNotRegex(source.lower(), r"\btube\b|\bparasite\b")
 
     def test_wifi_credentials_persist_and_runtime_network_is_enabled(self) -> None:
         service = (ROOT / "pi-side/pi1mhz-v1.30/src/elkwifi_service.c").read_text()
@@ -145,6 +149,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn('build.sh" rpi3', installer)
         for key in ("SCSIJUKE", "SCSIID", "VFSJUKE"):
             self.assertIn(f"ensure_config_default {key} 0", installer)
+        self.assertIn("ensure_config_default Rampage_addr 0xFD", installer)
+        self.assertIn("must set Rampage_addr=0xFD", installer)
 
     def test_rom_routes_url_and_osword_tcp_through_pi_services(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()
@@ -191,11 +197,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("inc net_paged_page", paged_store)
         self.assertNotIn("lda pagereg", paged_store)
         self.assertNotIn("inc pagereg", paged_store)
-        self.assertLess(paged_store.index("sta &FCFE"), paged_store.index("sta pagereg"))
+        self.assertLess(paged_store.index("jsr set_bank_1"), paged_store.index("sta pagereg"))
         trailer = wget.split(".pi_wget_has_response", 1)[1].split(
             ".pi_wget_finish_close", 1
         )[0]
-        self.assertLess(trailer.index("sta &FCFE"), trailer.index("sta pagereg"))
+        self.assertLess(trailer.index("jsr set_bank_1"), trailer.index("sta pagereg"))
         self.assertNotIn(".pi_wget_store_paged\n pha\n jsr wget_context_switch_in", wget)
         self.assertNotIn("&FC30", executable)
         self.assertIn('equs "WICFS"', surface)
@@ -262,6 +268,13 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("sta &137B", menusrc)
         self.assertNotIn("menusrc_rewind_macro", menusrc)
         self.assertNotIn('equs "*RUN "', menusrc)
+        self.assertIn("sta &1FC5,x", menusrc)
+        self.assertIn("equb &20,&C5,&1F,&EA,&EA,&EA,&EA,&EA", menusrc)
+        self.assertIn("lda #0\n sta &FCFD\n lda #1\n sta &FCFE", menusrc)
+        serial = (ROOT / "rom-side/elkwifi-0.23/serial.asm").read_text()
+        self.assertGreaterEqual(serial.count("sta &FCFD"), 5)
+        self.assertNotIn("lda &FCFF", serial)
+        self.assertIn("jsr set_bank_0             \\ ElkWiFi buffers are in JIM address 00:00:page", (ROOT / "rom-side/elkwifi-0.23/driver.asm").read_text())
 
     def test_rom_startup_and_absent_service_are_fail_safe(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()
@@ -276,9 +289,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.1"', identity)
+        self.assertIn('romversion         equs "0.1.2"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.1 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.2 (C) 2026 Peter Clarke", version)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
         self.assertIn("cmp #&44\n beq service_driver_error_no_wifi", driver)
         self.assertIn("cmp &FC00+drv_svc_data\n bne service_driver_port_missing_near", driver)
@@ -343,12 +356,13 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn('equs "Menu download failed"', menu)
         self.assertIn('equs "WGET OK &"', wget)
         self.assertIn("equb &AD,&34,&FC,&09,&08,&8D,&34,&FC", menusrc)
-        self.assertIn("equb &A9,&01,&EA,&EA,&EA,&8D,&FE,&FC", menusrc)
+        self.assertIn("equb &20,&C5,&1F,&EA,&EA,&EA,&EA,&EA", menusrc)
         menu_doc = (ROOT / "docs/menu-runtime-patch.md").read_text()
         self.assertIn("AD 34 FC", menu_doc)
         self.assertIn("8D 34 FC", menu_doc)
-        self.assertIn("A9 01", menu_doc)
-        self.assertIn("8D FE FC", menu_doc)
+        self.assertIn("20 C5 1F", menu_doc)
+        self.assertIn("&FCFD=0", menu_doc)
+        self.assertIn("&FCFE=1", menu_doc)
         self.assertIn("&0E00-&1FFF", menu_doc)
 
     def test_ping_escape_dispatches_pi_cancellation(self) -> None:

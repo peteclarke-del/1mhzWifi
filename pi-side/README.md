@@ -98,6 +98,7 @@ The installer adds required defaults only when no active setting exists:
 Services_addr=0xA6
 ElkWiFi_addr=0x00
 net_enable=1
+Rampage_addr=0xFD
 SCSIJUKE=0
 SCSIID=0
 VFSJUKE=0
@@ -118,7 +119,10 @@ saved profile takes precedence over the initial WiFi settings. A valid saved
 menu URL takes precedence over `elkwifi_menu_url`; the compiled default is used
 when neither value is valid.
 
-The installer preserves an active `Pi1MHz.cfg` value in its source checkout.
+The installer preserves an active `Pi1MHz.cfg` value in its source checkout,
+except that it rejects a `Rampage_addr` other than `0xFD`. The ROM uses the
+standard page-mode JIM registers at `&FCFD-&FCFF`; relocating or disabling
+Rampage would disconnect WiCFS and WGET storage from the 1MHz bus.
 It does not merge a previously deployed SD card back into a newly generated
 bundle. Preserve deployed configuration separately before replacing an SD-card
 tree.

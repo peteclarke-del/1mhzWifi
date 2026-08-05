@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWifi ROM aa19fde34e11eb2b06b067cef68077fe1575899588f3ad2e7851170644284448
+1MHzWifi ROM cb412d676f7e626e29bb0246c3754d081f222f4df52de5074441337890c57c88
 kernel.img   2332d082ed4b235007fdf8ad50baf99bdf322126af78c3e0f024f9db75d4a6f0
 kernel7.img  2825bfc5f0302816c23304bb0fa0f800dd775e9d58dda8487469e5ea7b0cfad7
-bundle ZIP   7c539670ac6cd3ad1efca5be84163727fe3967e2ed571d9180c7546d034d2ee5
+bundle ZIP   32332d0855b5b8ab13cdfa3122f757d001868b7560ff366f366deed7dd909544
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -35,7 +35,7 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 - [x] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [x] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt return.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.1` before recording any further test result.
+  `1MHzWifi 0.1.2` before recording any further test result.
 - [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
 - [x] Run `*MENUSRC` with no services-mailbox device. Confirm a bounded error and return to BASIC.
@@ -97,7 +97,7 @@ Expected error meanings:
 - [ ] Run `*MENU` against the published ElkWiFi payload. Confirm
   `Downloading menu`, the counted `WGET OK` line with range and header, and
   `Starting menu` appear, the cartridge
-  `&FC34` bank-select sequence is adapted for `&FCFE`, and host `&E00` starts
+  `&FC34` bank-select sequence becomes a full `&FCFD-&FCFE` JIM selection, and host `&E00` starts
   the menu without a BASIC `CALL`.
 - [ ] Confirm the first screen renders all 21 catalogue entries.
 - [ ] With ADFS current, run `*MENU` without entering `*TAPE` first. Confirm
@@ -110,6 +110,9 @@ Expected error meanings:
 
 ## WiCFS and JIM gate
 
+- [ ] Confirm `Pi1MHz.cfg` contains active `Rampage_addr=0xFD`. Boot with ADFS,
+  DFS, MMFS/SWRAM and other JIM users present; verify each can reselect its own
+  address after 1MHzWifi commands.
 - [ ] Download a known UEF with `*WGET -U` and verify the stored length metadata.
 - [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
   selected program reaches its execution address rather than returning to the
@@ -140,7 +143,7 @@ Expected error meanings:
   Any Tube traffic must be normal MOS or application activity, never ElkWiFi or
   WiCFS transport.
 - [ ] Run `*MENU` with the Tube enabled. Confirm the menu UI executes on the
-  I/O processor, title data uses host JIM window 1, and no parasite `&0E00`
+  I/O processor, title data uses host JIM address `00:01:page`, and no parasite `&0E00`
   execution or BASIC `CALL` occurs.
 - [ ] Trace calls and confirm only the I/O processor accesses `&FCxx` and `&FDxx`.
 - [ ] Exercise every pointer-bearing OSWORD `&65` call with buffers in parasite memory.

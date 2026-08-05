@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "aa19fde34e11eb2b06b067cef68077fe1575899588f3ad2e7851170644284448"
+ROM_SHA256 = "cb412d676f7e626e29bb0246c3754d081f222f4df52de5074441337890c57c88"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -21,13 +21,17 @@ class RomCompatibilityTest(unittest.TestCase):
             self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x17, 1))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:24], b"0.1.1\0")
-        self.assertIn(b"1MHzWifi 0.1.1 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:24], b"0.1.2\0")
+        self.assertIn(b"1MHzWifi 0.1.2 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
-        helper = bytes.fromhex("A9 01 8D FE FC B9 00 FD 60")
+        helper = bytes.fromhex("A9 00 8D FD FC A9 01 8D FE FC B9 00 FD 60")
         self.assertEqual(self.rom.count(helper), 1)
+        self.assertIn(bytes.fromhex("20 C5 1F EA EA EA EA EA"), self.rom)
+        self.assertGreaterEqual(
+            self.rom.count(bytes.fromhex("A9 00 8D FD FC A9 01 8D FE FC")), 3
+        )
         self.assertIn(b"TAPE\r", self.rom)
         self.assertNotIn(bytes.fromhex("A9 8C A2 00 A0 00 20 F4 FF"), self.rom)
 

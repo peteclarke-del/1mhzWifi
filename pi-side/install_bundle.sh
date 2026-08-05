@@ -180,6 +180,11 @@ ensure_config_default() {
 ensure_config_default SCSIJUKE 0
 ensure_config_default SCSIID 0
 ensure_config_default VFSJUKE 0
+ensure_config_default Rampage_addr 0xFD
+if ! grep -Eqi '^[[:space:]]*Rampage_addr[[:space:]]*=[[:space:]]*0x0*FD([[:space:]]*(#.*)?)?$' "$config_file"; then
+    echo "Pi1MHz.cfg must set Rampage_addr=0xFD for the 1MHzWifi JIM transport" >&2
+    exit 1
+fi
 if ! grep -Eq '^[[:space:]]*Services_addr[[:space:]]*=' "$config_file"; then
     printf '\n# ElkWiFi host transport: AP5 forwards the FCA0-FCAF block\nServices_addr=0xA6\n' >> "$config_file"
 fi

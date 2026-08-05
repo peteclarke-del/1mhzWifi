@@ -81,7 +81,7 @@ diff --git a/rom/wicfs.asm b/rom/wicfs.asm
 +    sta pagereg     \select the next physical page
 @@ -1452 +1476 @@ __debug =   0       \print debug information
 -    JSR wget_context_switch_in
-+    JSR set_bank_1  \ select JIM window before its page register
++    JSR set_bank_1  \ select JIM address 00:01 before its low page
 @@ -1459 +1484,3 @@ __debug =   0       \print debug information
 -    JSR wget_context_switch_out
 +    JSR set_bank_0

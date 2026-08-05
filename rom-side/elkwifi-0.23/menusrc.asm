@@ -231,9 +231,16 @@ menusrc_timeout_hi = errorspace+2
 
 \ The published ElkWiFi MENU contains one inlined cartridge bank-select
 \ sequence: LDA &FC34 / ORA #8 / STA &FC34. Replace it in place with a
-\ length-preserving Pi1MHz JIM window-1 selection. A custom menu without the
+\ length-preserving Pi1MHz JIM address 00:01 selection. A custom menu without the
 \ stock sequence is left unchanged.
 .menusrc_patch_menu
+ ldx #0
+.menusrc_copy_jim_bank
+ lda menusrc_jim_bank_select,x
+ sta &1FC5,x
+ inx
+ cpx #(menusrc_jim_bank_select_end-menusrc_jim_bank_select)
+ bne menusrc_copy_jim_bank
  lda #0
  sta zp
  lda #&0E
@@ -276,11 +283,11 @@ menusrc_timeout_hi = errorspace+2
 .menusrc_uart_bank
  equb &AD,&34,&FC,&09,&08,&8D,&34,&FC
 .menusrc_jim_bank
- equb &A9,&01,&EA,&EA,&EA,&8D,&FE,&FC
+ equb &20,&C5,&1F,&EA,&EA,&EA,&EA,&EA
 
 \ The stock menu assumes its cartridge RAM bank remains selected indefinitely.
 \ Pi1MHz shares the JIM aperture with other services, so make each TITLES read
-\ reselect window 1. Patch only the known 2,907-byte payload and only when all
+\ reselect JIM address 00:01. Patch only the known 2,907-byte payload and only when all
 \ four instruction sites still contain their published bytes.
 .menusrc_patch_catalogue
  lda net_bytes_lo
@@ -387,9 +394,22 @@ menusrc_timeout_hi = errorspace+2
  equb &0D
 .menusrc_stock_launch_end
 
-\ Copied to &1FE0. Preserve the page in A while selecting JIM window 1.
+\ Copied to &1FC5, immediately after the temporary TAPE command at &1FC0.
+\ It establishes the complete Pi1MHz JIM high/middle address and leaves A=1,
+\ matching the earlier equal-length inline replacement.
+.menusrc_jim_bank_select
+ lda #0
+ sta &FCFD
+ lda #1
+ sta &FCFE
+ rts
+.menusrc_jim_bank_select_end
+
+\ Copied to &1FE0. Preserve the page in A while selecting JIM address 00:01.
 .menusrc_catalogue_select
  pha
+ lda #0
+ sta &FCFD
  lda #1
  sta &FCFE
  pla
@@ -399,6 +419,8 @@ menusrc_timeout_hi = errorspace+2
 
 \ Copied to &1FF0. Y remains the catalogue offset and A returns the byte.
 .menusrc_catalogue_read
+ lda #0
+ sta &FCFD
  lda #1
  sta &FCFE
  lda &FD00,y

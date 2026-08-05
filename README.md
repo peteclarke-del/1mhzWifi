@@ -1,9 +1,9 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.1` host ROM presents the applicable ElkWiFi 0.23 command
-and OSWORD interface. The Pi implementation runs inside the Pi1MHz bare-metal
-kernel; it is not a Linux daemon.
+Micro through Pi1MHz. The `1MHzWifi 0.1.2` host ROM presents the applicable
+ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
+the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
 The original ElkWiFi cartridge uses a 16C2552 UART at `&FC30`. An Electron Plus
 5 does not forward that address to its 1 MHz connector. This implementation
@@ -47,10 +47,11 @@ late callbacks and clears scan state before returning to MOS.
 
 The published ElkWiFi menu contains a direct `&FC34` cartridge bank-selection
 sequence. At runtime, `*MENU` replaces that exact eight-byte sequence with an
-equal-length Pi1MHz `&FCFE` window selection after WGET succeeds and before it
-enters host `&E00` through a RAM return trampoline. The code does not inspect,
-claim or access a fitted Tube. See [the MENU runtime adaptation](docs/menu-runtime-patch.md)
-for the byte-level contract and failure behavior.
+equal-length call to a Pi1MHz JIM address selector after WGET succeeds and
+before it enters host `&E00` through a RAM return trampoline. The code does not
+inspect, claim or access a fitted Tube. See
+[the MENU runtime adaptation](docs/menu-runtime-patch.md) for the byte-level
+contract and failure behavior.
 
 ## Hardware-test bundle
 
@@ -80,10 +81,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-1MHzWifi ROM aa19fde34e11eb2b06b067cef68077fe1575899588f3ad2e7851170644284448
+1MHzWifi ROM cb412d676f7e626e29bb0246c3754d081f222f4df52de5074441337890c57c88
 kernel.img   2332d082ed4b235007fdf8ad50baf99bdf322126af78c3e0f024f9db75d4a6f0
 kernel7.img  2825bfc5f0302816c23304bb0fa0f800dd775e9d58dda8487469e5ea7b0cfad7
-bundle ZIP   7c539670ac6cd3ad1efca5be84163727fe3967e2ed571d9180c7546d034d2ee5
+bundle ZIP   32332d0855b5b8ab13cdfa3122f757d001868b7560ff366f366deed7dd909544
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -91,9 +92,11 @@ The same values are provided in `SHA256SUMS` for automated verification.
 ## Configuration
 
 The installer preserves active values already present in `Pi1MHz.cfg`. The
-following optional keys provide initial settings:
+JIM transport must remain at its standard 1MHz-bus address, and the following
+optional keys provide initial settings:
 
 ```ini
+Rampage_addr=0xFD
 wifi_ssid=MyNetwork
 wifi_password=secret
 wifi_security=auto

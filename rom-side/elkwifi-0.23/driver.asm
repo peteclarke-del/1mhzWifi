@@ -31,6 +31,8 @@
  sta save_a                 \ save registers
  stx save_x
  sty save_y
+ jsr set_bank_0             \ ElkWiFi buffers are in JIM address 00:00:page
+ lda save_a
  cmp #0
  bne service_driver_not_0
  jmp service_driver_init

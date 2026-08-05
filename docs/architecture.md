@@ -78,21 +78,21 @@ to the Pi.
 
 ## JIM memory use
 
-Pi1MHz provides two 64 KiB logical JIM windows selected through `&FCFE`.
-Window 0 contains the service and network command pages. Window 1 holds UEF and
-sideways-RAM downloads used by `*WGET -U`, WiCFS, and `*WGET -S`. The ROM saves
-and restores the selector when switching windows.
+Pi1MHz exposes a 24-bit JIM page address through `&FCFD` (high), `&FCFE`
+(middle), and `&FCFF` (low). This ROM reserves addresses `00:00:page` for
+command responses and `00:01:page` for UEF and sideways-RAM downloads. Every
+entry point establishes the high byte explicitly, so ADFS, MMFS, DFS helpers,
+or another application ROM cannot redirect WiCFS into another JIM region.
 
 After a successful `*WGET -U`, WGET updates the JIM length trailer. `*REWIND`
 reloads that authoritative value and resets the WiCFS cursor. It does not keep
 the length in the ROM's `&0900` heap because that workspace is volatile and can
 be overwritten by the menu or BASIC before a title is selected.
 
-The service command page is in window 0 at `&FFF000`; URL scratch data is at
-`&FFF100`. WiCFS content occupies window 1. The ROM keeps independent shadow
-page values and restores the selected window around transfers, avoiding the
-AP5 write-only `&FCFF` readback trap. Large transfers and simultaneous-service
-use remain hardware stress tests.
+The service command page is at JIM offset `&FFF000`; URL scratch data is at
+`&FFF100`. WiCFS content occupies `&010000-&01FFFF`. The ROM keeps an
+independent low-page shadow and never reads AP5's write-only `&FCFF` register.
+Large transfers and simultaneous-service use remain hardware stress tests.
 
 ## Menu operation
 
@@ -121,9 +121,9 @@ remaining selected.
 The published menu is itself cartridge-specific. It selects the second paged
 RAM bank through an inlined `&FC34` sequence. After download, the ROM scans
 `&0E00-&1FFF` and replaces that exact eight-byte sequence with an equal-length
-Pi1MHz `&FCFE` window-1 selection. Equal length preserves the downloaded
-program's addresses and relative branches. Custom payloads without the exact
-signature are unchanged. The complete contract is documented in
+Pi1MHz helper call that selects JIM address `00:01:page`. Equal length preserves
+the downloaded program's addresses and relative branches. Custom payloads
+without the exact signature are unchanged. The complete contract is documented in
 [MENU runtime adaptation](menu-runtime-patch.md).
 
 ## Failure policy

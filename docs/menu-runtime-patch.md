@@ -12,7 +12,8 @@ The payload used for this adaptation has SHA-256
 
 The menu uses that register to select the second 64 KiB paged-RAM bank before
 loading its title index. The Plus 5 does not forward the ElkWiFi UART register.
-Pi1MHz selects its two JIM windows through `&FCFE` instead.
+Pi1MHz uses `&FCFD`, `&FCFE`, and `&FCFF` as the high, middle, and low bytes
+of its JIM page address.
 
 ## Compatibility rule
 
@@ -24,10 +25,10 @@ when it would conflict with other fitted Acorn hardware.
 
 | Original mechanism | Pi1MHz adaptation | Required reason |
 | --- | --- | --- |
-| ElkWiFi UART and cartridge RAM banking at `&FC30-&FC34` | Pi1MHz services and JIM selection at `&FCA6-&FCAA` and `&FCFE` | AP5 does not forward the cartridge UART; Pi1MHz exposes its service on the 1MHz bus |
+| ElkWiFi UART and cartridge RAM banking at `&FC30-&FC34` | Pi1MHz services at `&FCA6-&FCAA` and full JIM selection at `&FCFD-&FCFF` | AP5 does not forward the cartridge UART; Pi1MHz exposes its service on the 1MHz bus |
 | ROM queues BASIC `CALL &E00` after downloading MENU | Enter host `&E00` through a RAM return trampoline | The downloaded bytes are in I/O-processor RAM; a second processor must not become an accidental destination |
 | MENU is entered while another filing system may own Electron workspace | Select `*TAPE` before constructing the download command | Reproduces the required cassette environment and avoids the observed ADFS workspace collision |
-| Menu assumes its selected JIM window remains active | Reselect window 1 at each patched catalogue access | Pi1MHz services share the JIM aperture |
+| Menu assumes its selected RAM bank remains active | Select JIM address `00:01:page` at each patched catalogue access | Pi1MHz services and other fitted ROMs share the JIM aperture |
 | WiCFS copies a ROM switcher into `&0400-&07FF` | MOS extended filing vectors | That RAM is not private WiCFS workspace and can conflict with fitted hardware |
 | `*REWIND` rereads length metadata through JIM | Retained | The JIM trailer is authoritative; caching it in volatile `&0900` heap corrupts later title loads |
 | Key 0 runs `*REWIND`, then `CHAIN ""` | Unchanged | This is the official menu launch contract |
@@ -131,28 +132,38 @@ AD 34 FC    LDA &FC34
 The ROM replaces it with an equal-length sequence:
 
 ```text
-A9 01       LDA #&01
-EA          NOP
-EA          NOP
-EA          NOP
-8D FE FC    STA &FCFE
+20 C5 1F    JSR &1FC5
+EA EA EA EA EA
 ```
 
-The replacement selects Pi1MHz JIM window 1. Keeping the sequence at eight
-bytes preserves every address and relative branch in the downloaded program.
+The helper at `&1FC5` establishes `&FCFD=0` and `&FCFE=1`:
+
+```text
+A9 00       LDA #&00
+8D FD FC    STA &FCFD
+A9 01       LDA #&01
+8D FE FC    STA &FCFE
+60          RTS
+```
+
+This selects Pi1MHz JIM address `00:01:page`. Keeping the replaced sequence at
+eight bytes preserves every address and relative branch in the downloaded
+program.
 
 The stock payload also assumes that this selection remains active for its
 entire lifetime. That is not a safe assumption on Pi1MHz because the JIM
 aperture is shared by firmware services. For the known 2,907-byte payload, the
 ROM replaces its three `LDA &FD00,Y` catalogue reads with calls to a small
-trampoline at `&1FF0`. The trampoline selects window 1 before every read. Its
-title-selection page write similarly calls a trampoline at `&1FE0` which
-selects window 1 before writing `&FCFF`. The patch is applied only after the
-payload size and all four original instruction sites have been verified.
+trampoline at `&1FF0`. The trampoline selects `00:01:page` before every read.
+Its title-selection page write similarly calls a trampoline at `&1FE0`. The
+patch is applied only after the payload size and all four original instruction
+sites have been verified.
 
-The I/O-processor return trampoline is stored at `&1FD0`, above the published
-payload and immediately below the two JIM helpers. It is not stored at `&0900`,
-which belongs to filing-system and ROM workspace when ADFS is present.
+The base-address helper is stored at `&1FC5`, immediately after the temporary
+TAPE command. The I/O-processor return trampoline is at `&1FD0`, and the
+catalogue helpers are at `&1FE0` and `&1FF0`. These fixed blocks do not overlap.
+None is stored at `&0900`, which belongs to filing-system and ROM workspace
+when ADFS is present.
 
 The exact byte arrays are defined in `rom-side/elkwifi-0.23/menusrc.asm`. The
 download and validation path is in `rom-side/elkwifi-0.23/menu.asm`.
@@ -175,5 +186,5 @@ body, or leaves `&E00` unchanged. It prints `Menu download failed` for a
 completed transfer that does not produce an executable candidate at `&E00`.
 
 Real-hardware validation must confirm that the published menu starts, downloads
-`TITLES` through `*WGET -U`, selects JIM window 1, enters WiCFS, and launches a
+`TITLES` through `*WGET -U`, selects JIM address `00:01:page`, enters WiCFS, and launches a
 title without accessing `&FC34`.
