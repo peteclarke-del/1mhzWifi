@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "06e27760af4bb8b1890dc4cf6873c317c33a0a8f7ef6e41ca7810892ef444222"
+ROM_SHA256 = "fb3c38607ef08e90611c3e199429ddc49c5365a26651ec4dafa361f2f3a363f0"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -21,8 +21,8 @@ class RomCompatibilityTest(unittest.TestCase):
             self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x17, 1))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:24], b"0.1.6\0")
-        self.assertIn(b"1MHzWifi 0.1.6 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:24], b"0.1.7\0")
+        self.assertIn(b"1MHzWifi 0.1.7 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -33,7 +33,9 @@ class RomCompatibilityTest(unittest.TestCase):
             self.rom.count(bytes.fromhex("A9 00 8D FD FC A9 01 8D FE FC")), 3
         )
         self.assertIn(b"TAPE\r", self.rom)
-        self.assertNotIn(bytes.fromhex("A9 8C A2 00 A0 00 20 F4 FF"), self.rom)
+        # WiCFS retains its original OSBYTE &8C trap so a protected loader's
+        # internal *TAPE cannot disconnect a multi-stage virtual tape.
+        self.assertIn(bytes.fromhex("C9 8C D0 01 60 4C 00 00 EA"), self.rom)
 
     def test_wicfs_uses_mos_vectors_and_never_touches_the_tube(self) -> None:
         # No ROM switcher may be copied into &07A4. Pages 4-7 belong to the
@@ -59,8 +61,11 @@ class RomCompatibilityTest(unittest.TestCase):
             re.DOTALL,
         )
         self.assertEqual(len(length_read.findall(self.rom)), 1)
-        self.assertEqual(self.rom.count(bytes.fromhex("AD FE FD")), 1)
-        self.assertEqual(self.rom.count(bytes.fromhex("AD FF FD")), 1)
+        # The local UEF importer also reads and increments this trailer. The
+        # complete WiCFS rewind transaction above must remain unique, while
+        # individual trailer reads are expected in both implementations.
+        self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FE FD")), 1)
+        self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FF FD")), 1)
         self.assertNotIn(bytes.fromhex("AD FE FD 85 F8 20 FC 87"), self.rom)
         self.assertEqual(self.rom.count(bytes.fromhex("8E DA 09 8C DB 09")), 1)
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AE DA 09 AC DB 09")), 1)
@@ -77,12 +82,21 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertNotIn(bytes.fromhex("A5 F8 8D D6 09 A5 F9 8D D7 09"), self.rom)
         self.assertIn(bytes.fromhex("0A 0A 0A 0A AA"), self.rom)
         self.assertNotIn(bytes.fromhex("0A AD D6 09"), self.rom)
+        # The Zalaga compatibility guard contains both the complete vector
+        # reset signature and its following TAPE command before patching RAM.
+        loader_signature = bytes.fromhex(
+            "AE B7 FF AC B8 FF 86 70 84 71 AC B6 FF 88 B1 70 "
+            "99 00 02 98 D0 F7 A9 EA"
+        )
+        self.assertEqual(self.rom.count(loader_signature), 1)
+        self.assertIn(b"TAPE\r", self.rom)
 
     def test_stock_commands_additive_menusrc_and_osword_are_present(self) -> None:
         for command in (
             b"WGET", b"MENU", b"MENUSRC", b"WIFI", b"VERSION", b"LAPOPT",
             b"LAP", b"IFCFG", b"DATE", b"TIME", b"PRD", b"JOIN", b"LEAVE",
-            b"PING", b"MODE", b"ONLINE", b"DISCONNECT", b"WICFS", b"REWIND", b"QUPCFS",
+            b"PING", b"MODE", b"ONLINE", b"DISCONNECT", b"UEF", b"WICFS",
+            b"REWIND", b"QUPCFS", b"QUPRUN",
         ):
             self.assertIn(command, self.rom)
         for removed in (b"PRINTER", b"UPDATE", b"SETSERIAL", b"CRC error"):
@@ -90,6 +104,11 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(bytes((0xA5, 0xEF, 0xC9, 0x65)), self.rom)
         self.assertIn(b'*REWIND|MCHAIN ""|M\r', self.rom)
         self.assertNotIn(b'*RUN ""|M\r', self.rom)
+        self.assertIn(b"Usage: *UEF LOAD <filename>", self.rom)
+        self.assertIn(b"UEF OK &", self.rom)
+        self.assertIn(b"*QUPRUN\r", self.rom)
+        self.assertIn(b"*REWIND\rCHAIN \"\"\r", self.rom)
+        self.assertNotIn(b"*QUPRUN\r*REWIND", self.rom)
 
     def test_retired_cartridge_code_is_not_emitted(self) -> None:
         for legacy in (

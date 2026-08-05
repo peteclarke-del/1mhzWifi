@@ -10,6 +10,7 @@ menu_return_addr = &1FD0
     \ &0900 overlaps Electron ADFS workspace. Select cassette filing before
     \ constructing the WGET command or touching heap. This matches the proven
     \ interactive sequence: *TAPE followed by *MENU.
+    jsr wicfs_release_tape_trap
     ldx #(menu_tape_command_end-menu_tape_command)-1
 .menu_copy_tape_command
     lda menu_tape_command,x
@@ -72,6 +73,28 @@ menu_return_addr = &1FD0
 .menu_tape_command
     equs "TAPE",&0D
 .menu_tape_command_end
+
+\ WiCFS suppresses OSBYTE &8C while a downloaded UEF is active. Multi-stage
+\ cassette loaders, including Zalaga, restore the MOS vectors and issue *TAPE;
+\ suppressing that request is part of the original WiCFS contract. MENU is the
+\ one controlled transition back to cassette state. Restore the BYTEV saved in
+\ the RAM trap before MENU deliberately executes its own TAPE command.
+.wicfs_release_tape_trap
+    lda BYTEV
+    cmp #<notape
+    bne wicfs_release_tape_done
+    lda BYTEV+1
+    cmp #>notape
+    bne wicfs_release_tape_done
+    php
+    sei
+    lda notape+(osb_j-osb_s)+1
+    sta BYTEV
+    lda notape+(osb_j-osb_s)+2
+    sta BYTEV+1
+    plp
+.wicfs_release_tape_done
+    rts
 
 .menu_download_invalid
     jsr printtext

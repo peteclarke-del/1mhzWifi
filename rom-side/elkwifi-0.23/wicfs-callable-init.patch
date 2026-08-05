@@ -1,0 +1,17 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -166,0 +167,5 @@
++\ Keep the command-service stack handling outside the callable installer.
++\ *UEF uses the same installer before it queues REWIND and CHAIN.
++	JSR	wicfs_install
++	JMP	call_claimed
++.wicfs_install
+@@ -355,6 +360 @@
+-    PLA			        \UPCFS initialisation complete so..
+-	TAY			        \..restore registers and return to OS
+-	PLA
+-	TAX
+-	LDA	#0      		\set A=0 to inform OS command taken
+-	RTS
++	RTS			        \return to the command-specific wrapper

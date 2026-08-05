@@ -92,6 +92,18 @@ reloads that authoritative value and resets the WiCFS cursor. It does not keep
 the length in the ROM's `&0900` heap because that workspace is volatile and can
 be overwritten by the menu or BASIC before a title is selected.
 
+`*UEF LOAD` produces the same JIM image from a file on the current MOS filing
+system. It uses OSFIND and OSBGET rather than reading ADFS or DFS structures
+directly. No importer state is kept in `&0900`: the open handle remains in the
+OSBGET-preserved X register and the byte count remains in the final JIM page.
+After each source byte, the ROM reselects JIM address `00:01:page`, so an ADFS
+or MMFS read cannot redirect the destination by changing the shared selector.
+Once the source file is closed, the command queues the normal tape, PAGE, NEW,
+and WiCFS setup sequence. A hidden second-stage command performs the same
+callable WiCFS vector installation as `*QUPCFS`, then queues only `*REWIND` and
+`CHAIN ""`. This split keeps each insertion below the Electron keyboard-buffer
+limit while retaining the published launch sequence.
+
 WiCFS records the handler address and owning ROM behind each MOS extended
 filing vector before installing its own entries. Unsupported operations are
 tail-called through that recorded handler. This is required for OSCLI: the
@@ -103,10 +115,13 @@ does not fetch an instruction from a different ROM immediately after ROMSEL is
 changed.
 
 While WiCFS is active it claims its own `*REWIND` during the FSCV OSCLI pass,
-before sideways-ROM command dispatch. `*TAPE` remains available and restores
-the cassette filing system normally. WiCFS does not retain the inherited
-OSBYTE trap that suppressed later `*TAPE` requests, because that prevented a
-second `*MENU` invocation from resetting the filing workspace.
+before sideways-ROM command dispatch. Its original OSBYTE `&8C` trap remains
+installed while a virtual tape is active. This prevents a protected
+multi-stage loader's internal `*TAPE` command from disconnecting WiCFS between
+files. `*MENU` is the controlled transition back to cassette state: it first
+restores the BYTEV entry saved by WiCFS and then issues the normal `*TAPE`
+command. Repeated MENU invocations therefore remain possible without weakening
+the active virtual-tape contract.
 
 The service command page is at JIM offset `&FFF000`; URL scratch data is at
 `&FFF100`. WiCFS content occupies `&010000-&01FFFF`. The ROM keeps an
@@ -144,6 +159,14 @@ Pi1MHz helper call that selects JIM address `00:01:page`. Equal length preserves
 the downloaded program's addresses and relative branches. Custom payloads
 without the exact signature are unchanged. The complete contract is documented in
 [MENU runtime adaptation](menu-runtime-patch.md).
+
+One published title contains a second-stage loader at `&0400` which copies the
+Electron MOS filing vectors back into page two before issuing `*TAPE`. That
+would bypass every virtual filing system, including original WiCFS. After an
+execution load, 1MHzWifi compares the complete 24-byte reset loop and the
+following `TAPE` command at `&04A8`. Only when both signatures match does it
+replace the loop entry with `JMP &0418`, leaving the loader's remaining code
+and the official `*REWIND`, `CHAIN ""` launch sequence unchanged.
 
 ## Failure policy
 

@@ -13,7 +13,7 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   registers.
 - [x] `*WIFI ON`, `*WIFI OFF`, `*LAP`, `*LAPOPT`, `*JOIN`, `*JOIN ?`,
   `*LEAVE`, `*ONLINE`, `*IFCFG`, station `*MODE`, `*PING`, `*DATE`, `*TIME`,
-  `*WGET`, `*MENU`, `*MENUSRC`, `*PRD`, `*WICFS` and `*REWIND`.
+  `*WGET`, `*UEF LOAD`, `*MENU`, `*MENUSRC`, `*PRD`, `*WICFS` and `*REWIND`.
 - [x] Persistent WiFi profile, menu source and LAPOPT settings.
 - [x] Open, WEP, WPA and WPA2 association modes, with automatic reconnect from
   a saved profile.
@@ -26,6 +26,9 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 - [x] Full 32-bit WiCFS catalogue addresses, OSFILE metadata returns,
   sequential reads and Electron-only load and execution. WiCFS does not use
   an optional Tube as a source, destination or transport.
+- [x] Filing-system-neutral local UEF import through OSFIND/OSBGET, with JIM
+  selector restoration, bounded storage, Escape handling, and a two-stage
+  automatic queue for the stock WiCFS `*REWIND`, `CHAIN ""` launch sequence.
 - [x] Removal of emitted UART, AT-command, flash updater, printer, baud-rate,
   CRC diagnostic and unused ROM helper code.
 - [x] Explicit `Not implemented` errors for every retained driver entry which

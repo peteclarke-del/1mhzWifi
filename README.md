@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.6` host ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.7` host ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -29,7 +29,7 @@ the Electron or BBC I/O processor and use only the 1MHz-bus Pi service:
 | Network | `*PING`, HTTP `*WGET`, OSWORD `&65` TCP open/send/receive/close |
 | Time | NTP-backed `*DATE` and `*TIME` |
 | Menu | Persistent `*MENUSRC`; `*MENU` downloads, validates, adapts, and runs the published payload on the I/O processor |
-| Storage | `*WGET -U`, `*WICFS`, `*REWIND`, `*PRD`, and `*WGET -S` through Pi1MHz JIM windows |
+| Storage | `*WGET -U`, `*UEF LOAD`, `*WICFS`, `*REWIND`, `*PRD`, and `*WGET -S` through Pi1MHz JIM windows |
 | Diagnostics | `*HELP WIFI`, `*VERSION`, station `*MODE`, bounded missing-service errors |
 
 `*PRINTER`, `*UPDATE`, update `*CRC`, and `*SETSERIAL` are not present. They
@@ -62,9 +62,10 @@ fit or load `Pi1MHz/ElkWiFi.rom` as an Acorn sideways ROM.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.6 requires both because `*ONLINE` adds Pi service command
-92. In general, changes confined to one side do not require replacing the
-other side.
+host ROM. Release 0.1.7 changes the WiCFS host code, so the ROM must be
+replaced. A kernel from 0.1.6 already provides the required service command 92,
+but using the matched bundle removes version ambiguity. Changes confined to
+one side do not otherwise require replacing the other side.
 
 The bundle does not contain a BeebSCSI disc image. Preserve the card's
 `/BeebSCSI0` directory when updating it. A clean card needs at least
@@ -82,10 +83,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-1MHzWifi ROM 06e27760af4bb8b1890dc4cf6873c317c33a0a8f7ef6e41ca7810892ef444222
-kernel.img   29241db0f1b110f70741dcd623951934bf1ae18f5be455e87359a8a85fd3986f
-kernel7.img  4eff4b7fa5ca8c32c487747d7165acbeac2a0911a563e1293aa9471f26a7613a
-bundle ZIP   9b9e61f277bcc7f52145f010fdaa832e1d24bcf135bba99f84e3697c799862a0
+1MHzWifi ROM fb3c38607ef08e90611c3e199429ddc49c5365a26651ec4dafa361f2f3a363f0
+kernel.img   69a4cc2d44328929e95f98c37c84fe00b771bb1e47fccb6f91e3f42a6e4069c1
+kernel7.img  2cbb42d46af5a82af7a7e44d223c4d37df7448b78a93699799ea345e40ffd6be
+bundle ZIP   efcf1e7aec477a533f35443d1d407c15acdeadd2d71a2f28862469a0efd277be
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -110,6 +111,13 @@ saved by `*JOIN` takes precedence over the initial WiFi settings. A URL saved
 by `*MENUSRC` takes precedence over `elkwifi_menu_url`, which in turn takes
 precedence over the compiled default URL. The UTC offset is expressed in
 minutes east of UTC. Use `0` for GMT and `60` for BST.
+
+`*UEF LOAD <filename>` reads a UEF image from the currently selected MOS filing
+system, including ADFS, DFS, or MMFS, into the WiCFS JIM window. It then selects
+the tape filing system, installs WiCFS, runs `*REWIND`, and executes `CHAIN ""`
+without further input. The setup and launch are queued in two stages so they
+fit the Electron keyboard buffer. The file may contain at most `&FFFE` bytes
+because the last two bytes of the 64 KiB window hold its length.
 
 Credentials and saved settings are plaintext files on the FAT partition.
 Protect the card and do not publish production credentials in bug reports.
@@ -160,9 +168,14 @@ suites also run under ASan and UBSan during release validation. WiCFS treats
 Pi1MHz strictly as a 1MHz-bus service and never transfers through an optional
 Tube.
 
-Elkulator smoke-test captures are under `tests/elkulator/screenshots/`.
-Elkulator does not yet emulate the Pi1MHz services mailbox, so live WiFi,
-WGET, MENU, and WiCFS behavior must be tested on Pi1MHz hardware.
+Elkulator smoke-test captures are under `tests/elkulator/screenshots/`. A
+development harness that preloads Pi1MHz JIM data has also exercised literal
+`*REWIND`, the stock `CHAIN ""` sequence, and every stage of the published
+Zalaga image through to gameplay. A second cold-start test loaded the same UEF
+from a DFS image with one `*UEF LOAD ZALAGA` command and reached its title screen
+without manual commands. Elkulator does not emulate the live Pi1MHz services
+mailbox, so WiFi association, HTTP transfer, AP5 forwarding, and Tube
+coexistence still require Pi1MHz hardware.
 
 ## Documentation
 

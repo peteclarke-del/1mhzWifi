@@ -287,10 +287,29 @@ class IntegrationContractTest(unittest.TestCase):
         ).read_text()
         self.assertIn("CMP\t#3\t\t\\unrecognised OSCLI command?", reentry_patch)
         self.assertIn("JSR\tcfsinit", reentry_patch)
+        self.assertIn("LDA\t#0\t\t\\REWIND is not a pending *RUN", reentry_patch)
+        self.assertIn("STA\tloadrun\t\t\\do not enter actioned's stale execution path", reentry_patch)
         self.assertIn("STA\tchain_exec,X", reentry_patch)
         self.assertIn("JMP\tchain_exec", reentry_patch)
         self.assertIn("-\tPLA\n-\tPLA", reentry_patch)
-        self.assertNotIn("+.osb_s", reentry_patch)
+        self.assertNotIn("-BYTEV\t=", reentry_patch)
+        self.assertNotIn("-.osb_s", reentry_patch)
+
+        loader_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-loader-compat.patch"
+        ).read_text()
+        self.assertIn("JSR\tprotect_loader_vectors", loader_patch)
+        self.assertIn("BIT\tloadrun", loader_patch)
+        self.assertIn("CMP\tplv_signature,X", loader_patch)
+        self.assertIn("LDA\t&04A8,X", loader_patch)
+        self.assertIn('equs "TAPE",&0D', loader_patch)
+        self.assertIn("STA\t&040A", loader_patch)
+        self.assertIn("STA\t&040B", loader_patch)
+        self.assertIn("STA\t&040C", loader_patch)
+        self.assertIn(
+            "equb &AE,&B7,&FF,&AC,&B8,&FF,&86,&70,&84,&71,&AC,&B6",
+            loader_patch,
+        )
 
         rewind_patch = (
             ROOT / "rom-side/elkwifi-0.23/wicfs-rewind.patch"
@@ -331,9 +350,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.6"', identity)
+        self.assertIn('romversion         equs "0.1.7"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.6 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.7 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
@@ -384,6 +403,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("lda #&8C", menu)
         self.assertIn("menu_tape_addr = &1FC0", menu)
         self.assertIn("sta menu_tape_addr,x", menu)
+        self.assertIn("jsr wicfs_release_tape_trap", menu)
+        self.assertIn("lda notape+(osb_j-osb_s)+1", menu)
+        self.assertIn("sta BYTEV", menu)
         self.assertLess(menu.index("jsr oscli"), menu.index("jsr menusrc_make_wget"))
         self.assertLess(menu.index("jsr oscli"), menu.index("ldx #<heap"))
         self.assertIn("jsr menusrc_patch_catalogue", menusrc)
@@ -447,6 +469,61 @@ class IntegrationContractTest(unittest.TestCase):
             "expected_upstream=8468a38f63b25785007a50912a3b32a596db8ff9",
             installer,
         )
+
+        rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()
+        self.assertIn("wicfs-loader-compat.patch", rom_installer)
+        self.assertIn("wicfs-callable-init.patch", rom_installer)
+        self.assertIn("uef-command.patch", rom_installer)
+        self.assertIn('elkwifi-0.23/uef.asm', rom_installer)
+        self.assertLess(
+            rom_installer.index("wicfs-reentry-run.patch"),
+            rom_installer.index("wicfs-loader-compat.patch"),
+        )
+        self.assertLess(
+            rom_installer.index("wicfs-loader-compat.patch"),
+            rom_installer.index("wicfs-callable-init.patch"),
+        )
+        self.assertLess(
+            rom_installer.index("wicfs-callable-init.patch"),
+            rom_installer.index("wicfs-rewind.patch"),
+        )
+
+    def test_local_uef_import_uses_current_filing_system_and_wicfs(self) -> None:
+        source = (ROOT / "rom-side/elkwifi-0.23/uef.asm").read_text()
+        command_patch = (
+            ROOT / "rom-side/elkwifi-0.23/uef-command.patch"
+        ).read_text()
+        callable_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-callable-init.patch"
+        ).read_text()
+        self.assertIn('equs "UEF"', command_patch)
+        self.assertIn('equs "QUPRUN"', command_patch)
+        self.assertIn('include "uef.asm"', command_patch)
+        self.assertIn("OSFIND = &FFCE", source)
+        self.assertIn("OSBGET = &FFD7", source)
+        self.assertIn("lda #&40\n jsr OSFIND", source)
+        self.assertIn("jsr OSBGET", source)
+        self.assertIn("jsr uef_select_length", source)
+        self.assertIn("sta &FCFD", source)
+        self.assertIn("sta &FCFE", source)
+        self.assertIn("sta pagereg", source)
+        self.assertIn("sta &FDFE", source)
+        self.assertIn("sta &FDFF", source)
+        self.assertIn("cmp #&FE", source)
+        self.assertIn("jsr check_esc", source)
+        self.assertIn('equs "*QUPRUN",&0D', source)
+        self.assertIn('equs "*REWIND",&0D', source)
+        self.assertIn('equs "CHAIN "', source)
+        self.assertLess(source.index(".uef_launch"), source.index(".uef_run_launch"))
+        initial_launch = source.split(".uef_launch", 1)[1].split(
+            ".uef_run_launch", 1
+        )[0]
+        self.assertNotIn('equs "*REWIND"', initial_launch)
+        self.assertIn("jsr wicfs_install", source)
+        self.assertIn("JSR\twicfs_install", callable_patch)
+        self.assertIn("JMP\tcall_claimed", callable_patch)
+        self.assertIn("return to the command-specific wrapper", callable_patch)
+        self.assertNotRegex(source.lower(), r"\btube\b|\bparasite\b")
 
     def test_date_time_and_ping_use_pi_network_services(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()

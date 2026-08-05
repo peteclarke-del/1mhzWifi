@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWifi ROM 06e27760af4bb8b1890dc4cf6873c317c33a0a8f7ef6e41ca7810892ef444222
-kernel.img   29241db0f1b110f70741dcd623951934bf1ae18f5be455e87359a8a85fd3986f
-kernel7.img  4eff4b7fa5ca8c32c487747d7165acbeac2a0911a563e1293aa9471f26a7613a
-bundle ZIP   9b9e61f277bcc7f52145f010fdaa832e1d24bcf135bba99f84e3697c799862a0
+1MHzWifi ROM fb3c38607ef08e90611c3e199429ddc49c5365a26651ec4dafa361f2f3a363f0
+kernel.img   69a4cc2d44328929e95f98c37c84fe00b771bb1e47fccb6f91e3f42a6e4069c1
+kernel7.img  2cbb42d46af5a82af7a7e44d223c4d37df7448b78a93699799ea345e40ffd6be
+bundle ZIP   efcf1e7aec477a533f35443d1d407c15acdeadd2d71a2f28862469a0efd277be
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -31,14 +31,15 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
-- [ ] Repeat the Elkulator boot smoke test with the 0.1.6 ROM and Electron OS
+- [x] Repeat the Elkulator boot smoke test with the 0.1.7 ROM and Electron OS
   and BASIC. Elkulator does not reproduce the AP5 extended-vector path.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
-- [ ] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
-  return. Repeat this on hardware because the emulator's previous filing
-  vector is direct rather than the AP5 configuration that exposed the loop.
+- [x] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
+  return. The 0.1.7 emulator run returned directly to BASIC. Repeat this on
+  hardware because the emulator's previous filing vector is direct rather than
+  the AP5 configuration that exposed the loop.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.6` before recording any further test result.
+  `1MHzWifi 0.1.7` before recording any further test result.
 - [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and
   ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
@@ -132,6 +133,17 @@ Expected error meanings:
 - [ ] Run `*MENU`, press `L` for Zalaga, and confirm the published menu executes
   its original `*REWIND` followed by `CHAIN ""` after the download. The ROM
   must not substitute `*RUN`, `*/`, or another launch command.
+- [x] In the Elkulator preload harness, execute the complete published Zalaga
+  UEF through WiCFS and confirm the title reaches gameplay. This covers the
+  second-stage vector-reset signature and subsequent `Scrunch` and
+  `ElkZalaga3` files without changing the stock launch commands.
+- [x] Put the 29,794-byte Zalaga UEF on a DFS image, run
+  `*UEF LOAD ZALAGA`, verify `UEF OK &7462 bytes in JIM 1`, and confirm the
+  game reaches its title screen through the two-stage queued WiCFS launch with
+  no additional keystrokes.
+- [ ] Repeat `*UEF LOAD` from the hardware ADFS hard disc and MMFS, including
+  a path-qualified filename, Escape, missing file, empty file, and an image
+  larger than `&FFFE` bytes.
 - [ ] Select a MENU title with the Tube off and then on. In both cases confirm
   `WGET OK`, WiCFS activation, and execution of the downloaded program.
 - [ ] Test sequential open/read, EOF, rewind, Escape, malformed UEF, and recovery.
