@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "b8761bde7d651f3f7faa4386666208ee2e4c2042bed00057a46b294ecdec9480"
+ROM_SHA256 = "661b985b54180be9793c7c028713e8b2ebccba757a386bf1dd213863110555e2"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -29,26 +29,16 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(b"TAPE\r", self.rom)
         self.assertNotIn(bytes.fromhex("A9 8C A2 00 A0 00 20 F4 FF"), self.rom)
 
-    def test_wicfs_uses_mos_vectors_and_the_tube_transfer_abi(self) -> None:
+    def test_wicfs_uses_mos_vectors_and_never_touches_the_tube(self) -> None:
         # No ROM switcher may be copied into &07A4. Pages 4-7 belong to the
         # Tube host code whenever a parasite is active.
         self.assertNotIn(bytes.fromhex("A5 F4 8D C2 07"), self.rom)
-        # Whole-file parasite loads initialise operation 1 and stream bytes
-        # through R3DATA. Successful parasite *RUN uses operation 4.
-        self.assertGreaterEqual(self.rom.count(bytes.fromhex("20 06 04")), 1)
-        self.assertEqual(self.rom.count(bytes.fromhex("8D E5 FE")), 1)
-        # R3 is flow-controlled. Poll host-write-ready (status bit 6) before
-        # every byte so fast PiTubeDirect implementations cannot lose data.
-        self.assertEqual(
-            self.rom.count(bytes.fromhex("48 2C E4 FE 50 FB 68 8D E5 FE")), 1
-        )
-        self.assertEqual(self.rom.count(bytes.fromhex("4C 06 04")), 1)
-        # WiCFS owns R3/R4 as cassette filing system ID zero. It claims with
-        # &C0 before transfer/execute and releases with &80 on every return.
-        self.assertGreaterEqual(
-            self.rom.count(bytes.fromhex("A9 C0 20 06 04 90 F9")), 2
-        )
-        self.assertEqual(self.rom.count(bytes.fromhex("A9 80 20 06 04")), 1)
+        # The Pi is a 1MHz-bus source, never a Tube destination. WiCFS stores
+        # bytes and executes programs in Electron I/O-processor memory only.
+        self.assertEqual(self.rom.count(bytes.fromhex("8D E5 FE")), 0)
+        self.assertEqual(self.rom.count(bytes.fromhex("2C E4 FE")), 0)
+        self.assertEqual(self.rom.count(bytes.fromhex("A9 C0 20 06 04 90 F9")), 0)
+        self.assertIn(bytes.fromhex("A0 00 91 B0 E6 B0"), self.rom)
         # Extended vector entry points for FILEV/BGETV/FINDV/FSCV.
         for entry in (0x1B, 0x21, 0x2A, 0x2D):
             self.assertIn(bytes((0xA9, entry, 0x8D)), self.rom)

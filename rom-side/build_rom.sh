@@ -25,7 +25,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/service_driver.asm" "$upstream/rom/ser
 install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
-for patch_name in integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-tube.patch wicfs-rewind.patch wicfs-tube-claim.patch rom-prune.patch routines-prune.patch; do
+for patch_name in integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-rewind.patch rom-prune.patch routines-prune.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -56,12 +56,8 @@ for patch_name in integration.patch command-surface.patch disconnect-response.pa
             grep -q '^\\OSFILE metadata return complete' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
-        wicfs-tube.patch)
-            grep -q '^\\Tube extended-vector transfer complete' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-tube-claim.patch)
-            grep -q '^\\Tube ownership contract complete' "$upstream/rom/wicfs.asm" &&
+        wicfs-host-only.patch)
+            grep -q '^\\1MHz-bus filing system and must not claim' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         wicfs-rewind.patch)

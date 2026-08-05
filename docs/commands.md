@@ -131,14 +131,12 @@ performing any JIM transaction. `*PRD` inspects paged RAM. These
 commands use the Pi1MHz JIM window selector rather than the cartridge UART
 bank bit.
 
-Whole-file loads retain all four address bytes. Host destinations are written
-through the normal indirect store. Parasite destinations claim Tube R3/R4 with
-the cassette filing system owner ID, initialise operation 1 at `&0406`, wait
-for R3 status bit 6 before every R3DATA write at `&FEE5`, and release the claim
-on every successful or failed return. Successful `*RUN` requests jump to host
-memory for `&FFFFxxxx` execution addresses or claim R3/R4 and use Tube
-operation 4 for parasite execution. OSFILE returns load, execution, length and
-attribute fields required by BASIC `CHAIN`. Catalogue,
+Whole-file loads retain all four address bytes for catalogue compatibility but
+always write and execute in Electron I/O-processor memory. Pi1MHz supplies the
+UEF over the 1MHz bus. WiCFS never claims the Tube, calls its host API or
+accesses Tube registers. A fitted Tube may remain present, but it is neither a
+source nor a destination for WiCFS. OSFILE returns load, execution, length and
+attribute fields required by callers. Catalogue,
 load, run, sequential access, malformed UEF handling and selector restoration
 still require full regression on real hardware.
 

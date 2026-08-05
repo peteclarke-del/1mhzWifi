@@ -28,7 +28,9 @@ unzip -t build/pi1mhz-all-hardware-test.zip
 - Keep FIQ work bounded. Network and filesystem work belongs in the cooperative poll path.
 - Bound all host-visible buffers and every missing-device poll.
 - Preserve existing `Pi1MHz.cfg` values unless the change explicitly migrates them.
-- Treat Tube pointers as parasite addresses until MOS transfer semantics have copied the data.
+- Never probe, claim, read or write Tube hardware. Rely on MOS to marshal calls
+  made by an independently running second processor, then copy I/O-processor
+  buffers through JIM for the Pi1MHz service.
 - Add a regression test for each corrected failure mode.
 - Record hardware model, hashes, and exact command output for hardware-only failures.
 
@@ -38,4 +40,3 @@ Keep commits narrow enough to review against the transport and host contracts.
 Generated ROM and bundle changes must be committed with the source changes that
 produced them. Do not commit local upstream checkouts, Python caches, production
 credentials, SD-card working files, or unrelated Pi1MHz changes.
-

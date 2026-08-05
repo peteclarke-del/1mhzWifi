@@ -37,9 +37,8 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/wget_helpers.asm
 - rom-side/elkwifi-0.23/wicfs-page-shadow.patch
 - rom-side/elkwifi-0.23/wicfs-osfile-metadata.patch
-- rom-side/elkwifi-0.23/wicfs-tube.patch
+- rom-side/elkwifi-0.23/wicfs-host-only.patch
 - rom-side/elkwifi-0.23/wicfs-rewind.patch
-- rom-side/elkwifi-0.23/wicfs-tube-claim.patch
 - rom-side/elkwifi-0.23/rom-prune.patch
 - rom-side/elkwifi-0.23/routines-prune.patch
 

@@ -20,8 +20,8 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-The following command paths are implemented, including host and Tube-safe
-WiCFS load and execution transfers:
+The following command paths are implemented. WiCFS load and execution stay on
+the Electron or BBC I/O processor and use only the 1MHz-bus Pi service:
 
 | Area | Implemented behavior |
 | --- | --- |
@@ -48,7 +48,8 @@ late callbacks and clears scan state before returning to MOS.
 The published ElkWiFi menu contains a direct `&FC34` cartridge bank-selection
 sequence. At runtime, `*MENU` replaces that exact eight-byte sequence with an
 equal-length Pi1MHz `&FCFE` window selection after WGET succeeds and before it
-enters host `&E00` through a Tube-safe RAM return trampoline. See [the MENU runtime adaptation](docs/menu-runtime-patch.md)
+enters host `&E00` through a RAM return trampoline. The code does not inspect,
+claim or access a fitted Tube. See [the MENU runtime adaptation](docs/menu-runtime-patch.md)
 for the byte-level contract and failure behavior.
 
 ## Hardware-test bundle
@@ -79,10 +80,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-ElkWiFi ROM  b8761bde7d651f3f7faa4386666208ee2e4c2042bed00057a46b294ecdec9480
+ElkWiFi ROM  661b985b54180be9793c7c028713e8b2ebccba757a386bf1dd213863110555e2
 kernel.img   2332d082ed4b235007fdf8ad50baf99bdf322126af78c3e0f024f9db75d4a6f0
 kernel7.img  2825bfc5f0302816c23304bb0fa0f800dd775e9d58dda8487469e5ea7b0cfad7
-bundle ZIP   bd3adecda9a76cc85fc7d2b96029fd590bcbf2270ed91b5809721056b528f56e
+bundle ZIP   68d7b8e402dceb4209ba856ea7cff16f8f0aca1a976f82da949ef332248f5ecd
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -148,10 +149,12 @@ unzip -t build/pi1mhz-all-hardware-test.zip
 ```
 
 The test suite checks ROM identity, command presence, mailbox addressing,
-safe rejection of unsupported functions, WGET and WiCFS Tube routing,
+safe rejection of unsupported functions, WGET, WiCFS host-only execution,
 cancellation, configuration integration, and the absence of retired
 UART/flash and Linux bridge code. The Pi1MHz services, net and web parser
-suites also run under ASan and UBSan during release validation.
+suites also run under ASan and UBSan during release validation. WiCFS treats
+Pi1MHz strictly as a 1MHz-bus service and never transfers through an optional
+Tube.
 
 Elkulator smoke-test captures are under `tests/elkulator/screenshots/`.
 Elkulator does not yet emulate the Pi1MHz services mailbox, so live WiFi,

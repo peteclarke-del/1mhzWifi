@@ -23,9 +23,9 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   cancellation releases PCBs, clears scan state and invalidates late callback
   generations.
 - [x] WiCFS MOS extended-vector installation without occupying Tube workspace.
-- [x] Full 32-bit WiCFS load addresses, OSFILE metadata returns, sequential
-  reads, host execution and Tube operation 1/R3DATA load plus operation 4
-  execution paths.
+- [x] Full 32-bit WiCFS catalogue addresses, OSFILE metadata returns,
+  sequential reads and Electron-only load and execution. WiCFS does not use
+  an optional Tube as a source, destination or transport.
 - [x] Removal of emitted UART, AT-command, flash updater, printer, baud-rate,
   CRC diagnostic and unused ROM helper code.
 - [x] Explicit `Not implemented` errors for every retained driver entry which
@@ -66,7 +66,7 @@ half-written path in this release:
   without exceeding the stock 240-byte response.
 - [ ] Add power-failure-safe temporary-file and rename updates for saved
   profiles and menu settings if deployment requirements justify it.
-- [ ] Add a Pi1MHz services-mailbox and Tube device to Elkulator so live
+- [ ] Add a Pi1MHz services-mailbox device to Elkulator so live
   Pi-side commands can run without physical hardware.
 
 ## Release gate

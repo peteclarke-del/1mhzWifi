@@ -50,32 +50,37 @@ program stored later in the UEF stream.
 
 The WiCFS page and offset cursor live in private ROM workspace at `&09D8` and
 `&09D9`, not the inherited zero-page locations `&C7` and `&C8`. This keeps the
-cursor stable when BASIC, MOS filing code or a Tube transfer runs between WiCFS
+cursor stable when BASIC, MOS filing code or another service runs between WiCFS
 vector calls.
 
-When `*QUPCFS` runs, WiCFS writes the current sideways-ROM number directly into
-the copied RAM switcher's immediate operand. The installed filing vectors do
-not depend on transient zero page or claim ADFS workspace after the queued
-`*TAPE`, `PAGE` and `NEW` commands have completed. WiCFS also restores the JIM
-page register to zero after reading the downloaded length metadata. These
-changes preserve the exact address of the catalogue-working MENU code. Screen
-output remains enabled so queue, filing and UEF errors are visible on real
-hardware.
+When `*QUPCFS` runs, WiCFS installs MOS extended vectors without copying a ROM
+switcher into language or Tube workspace. The installed filing vectors do not
+claim ADFS workspace after the queued `*TAPE`, `PAGE` and `NEW` commands have
+completed. WiCFS also restores the JIM page register to zero after reading the
+downloaded length metadata. These changes preserve the exact address of the
+catalogue-working MENU code. Screen output remains enabled so queue, filing
+and UEF errors are visible on real hardware.
 
-The menu launches a selected BASIC title with `CHAIN ""`. OSFILE requires X
-and Y to be preserved across a filing-system load. WiCFS saves both registers
-before parsing the UEF and restores them on claimed and forwarded FILEV return
-paths. OSBGET similarly preserves X and Y while returning the byte in A. Without
-the FILEV restoration, the program data loads but BASIC does not reliably enter
-the chained program.
+The menu launches a selected title with the explicit cassette `*RUN ""`. This
+enters WiCFS directly and executes the first file's host entry point instead of
+returning `CHAIN ""` to whichever BASIC happens to be active. That distinction
+keeps Electron games in the I/O processor when a Tube language processor is
+present. OSFILE requires X and Y to be preserved across a filing-system load.
+WiCFS saves both registers before parsing the UEF and restores them on claimed
+and forwarded FILEV return paths. OSBGET similarly preserves X and Y while
+returning the byte in A.
 
 WiCFS also returns the CFS header's load address, execution address and complete
 file length in the caller's 18-byte OSFILE control block. The inherited code
 loaded the bytes but discarded that catalogue metadata after using the control
-block pointer to find the filename. BASIC could display `Searching` and
-`Loading`, then return to its prompt instead of completing `CHAIN`. Returning
-the catalogue data is required for initial programs and every later stage in a
-multi-file UEF loader.
+block pointer to find the filename. Returning the catalogue data remains
+necessary for programs which call OSFILE during later UEF stages.
+
+WiCFS is strictly a 1MHz-bus filing system. All bytes are written to Electron
+I/O-processor memory and all run addresses execute there. It does not inspect
+the Tube-present flag, call `&0406`, access `&FEE4` or `&FEE5`, or claim Tube
+registers. A Tube may be absent, fitted or active without becoming part of the
+Pi1MHz transfer path.
 
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a
@@ -89,11 +94,11 @@ without relying on the ElkWiFi sideways ROM still being selected.
 
 The published title-launch key expansion originally contains two commands:
 `*REWIND`, then `CHAIN ""`. A successful `*WGET -U` already publishes the
-replacement UEF length and resets every WiCFS cursor field. On real AP5/Tube
-systems, dispatching the redundant `*REWIND` from the keyboard expansion can
-stall before BASIC receives the following line. For the verified 2,907-byte
-payload, the ROM checks the complete original expansion at `&137B` and replaces
-it with `CHAIN ""` alone. No custom MENU payload is modified at that address.
+replacement UEF length and resets every WiCFS cursor field. For the verified
+2,907-byte payload, the ROM checks the complete original expansion at `&137B`
+and replaces it with `*RUN ""` alone. This invokes WiCFS host execution without a
+redundant rewind or a dependency on the active BASIC processor. No custom MENU
+payload is modified at that address.
 
 ## Byte-level replacement
 

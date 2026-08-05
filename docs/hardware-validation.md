@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-ElkWiFi ROM  b8761bde7d651f3f7faa4386666208ee2e4c2042bed00057a46b294ecdec9480
+ElkWiFi ROM  661b985b54180be9793c7c028713e8b2ebccba757a386bf1dd213863110555e2
 kernel.img   2332d082ed4b235007fdf8ad50baf99bdf322126af78c3e0f024f9db75d4a6f0
 kernel7.img  2825bfc5f0302816c23304bb0fa0f800dd775e9d58dda8487469e5ea7b0cfad7
-bundle ZIP   bd3adecda9a76cc85fc7d2b96029fd590bcbf2270ed91b5809721056b528f56e
+bundle ZIP   68d7b8e402dceb4209ba856ea7cff16f8f0aca1a976f82da949ef332248f5ecd
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -112,8 +112,8 @@ Expected error meanings:
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
 - [ ] Run `*MENU`, press `L` for Zalaga, and confirm the menu proceeds directly
-  to `CHAIN""` after the download. The verified stock MENU must not queue its
-  redundant `*REWIND` line.
+  to the host `*RUN ""` after the download. The verified stock MENU must not
+  queue its redundant `*REWIND` or `CHAIN""` lines.
 - [ ] Select a MENU title with the Tube off and then on. In both cases confirm
   `WGET OK`, WiCFS activation, and execution of the downloaded program.
 - [ ] Test sequential open/read, EOF, rewind, Escape, malformed UEF, and recovery.
@@ -130,30 +130,25 @@ Expected error meanings:
 - [ ] Run `*DATE` and `*TIME`; compare with a trusted clock and configured UTC offset.
 - [ ] Test DNS and NTP failures, repeated queries, invalid server packets, and reset during an outstanding request.
 
-## Tube gate
+## Tube coexistence gate
 
 - [ ] Run `*HELP WIFI`, `*MENUSRC`, `*MENU`, `*WGET`, and `*WICFS` from the I/O processor.
-- [ ] Repeat applicable commands from each supported Tube parasite.
+- [ ] Repeat applicable commands while each supported Tube is fitted and active.
+  Any Tube traffic must be normal MOS or application activity, never ElkWiFi or
+  WiCFS transport.
 - [ ] Run `*MENU` with the Tube enabled. Confirm the menu UI executes on the
   I/O processor, title data uses host JIM window 1, and no parasite `&0E00`
   execution or BASIC `CALL` occurs.
 - [ ] Trace calls and confirm only the I/O processor accesses `&FCxx` and `&FDxx`.
 - [ ] Exercise every pointer-bearing OSWORD `&65` call with buffers in parasite memory.
-- [ ] Load a UEF file to parasite RAM and trace cassette filing system claim
-  `&C0`, Tube operation 1 at `&0406`, an R3 status-bit-6 wait before each
-  `&FEE5` write, and release
-  `&80` after the final block. Repeat with a malformed or truncated UEF and
-  confirm the error path also releases the claim.
-- [ ] Run a UEF file with a parasite execution address and trace claim `&C0`
-  followed by Tube operation 4 at `&0406`; operation 4 releases implicitly.
-  Repeat with an `&FFFFxxxx` host execution address and confirm it runs on the
-  I/O processor without claiming R3/R4.
+- [ ] Trace a complete title load and confirm WiCFS never accesses `&0406`,
+  `&FEE4` or `&FEE5`, never claims the Tube and never transfers game data to a
+  parasite. Repeat with no Tube fitted and with a Tube fitted and active.
 - [ ] Select `Aardvark/Zalaga_E.uef` from `*MENU` with the Tube enabled. Confirm
-  the BASIC stage at `&2800`, loader at `&0400`, parasite data at `&8000`, and
-  host image at `&FFFF0E00` all load and the game reaches its title screen
-  without token text or a BASIC prompt.
+  each stage remains in Electron memory and the game reaches its title screen
+  without token text, a BASIC prompt or any Tube activity.
 - [ ] Confirm no WiCFS vector code occupies Tube workspace `&0400-&07FF` and no
-  parasite pointer is passed directly to JIM.
+  parasite pointer is passed to JIM or the 1MHz-bus Pi service.
 
 ## Reset and fault-recovery gate
 

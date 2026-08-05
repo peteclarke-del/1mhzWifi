@@ -222,34 +222,23 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("LDA\t&03C6", metadata_patch)
         self.assertIn("STA\t(pbl),Y", metadata_patch)
 
-        tube_patch = (
-            ROOT / "rom-side/elkwifi-0.23/wicfs-tube.patch"
+        host_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-host-only.patch"
         ).read_text()
-        self.assertIn("Use MOS extended vectors", tube_patch)
-        self.assertIn("LDY\t#27", tube_patch)
-        self.assertIn("LDY\t#33", tube_patch)
-        self.assertIn("LDY\t#42", tube_patch)
-        self.assertIn("LDY\t#45", tube_patch)
-        self.assertIn("STA\t&FEE5", tube_patch)
-        self.assertIn("BIT\t&FEE4", tube_patch)
-        self.assertIn("BVC\tldb_tube_wait", tube_patch)
-        self.assertIn("JSR\t&0406", tube_patch)
-        self.assertIn("JMP\t&0406", tube_patch)
-        self.assertIn("INC\tCFSload+3", tube_patch)
-        self.assertIn("findv_rtn", tube_patch)
-        self.assertIn("fscv_reason", tube_patch)
-        self.assertIn("\\Tube extended-vector transfer complete", tube_patch)
-        self.assertNotIn("+romsel\t=\t&07A4", tube_patch)
-
-        tube_claim_patch = (
-            ROOT / "rom-side/elkwifi-0.23/wicfs-tube-claim.patch"
-        ).read_text()
-        self.assertIn("LDA\t#&C0", tube_claim_patch)
-        self.assertIn("LDA\t#&80", tube_claim_patch)
-        self.assertIn("JSR\ttube_release", tube_claim_patch)
-        self.assertIn("BCC\ttube_claim_loop", tube_claim_patch)
-        self.assertIn("BCC\trun_claim_tube", tube_claim_patch)
-        self.assertIn("\\Tube ownership contract complete", tube_claim_patch)
+        self.assertIn("Use MOS extended vectors", host_patch)
+        self.assertIn("LDY\t#27", host_patch)
+        self.assertIn("LDY\t#33", host_patch)
+        self.assertIn("LDY\t#42", host_patch)
+        self.assertIn("LDY\t#45", host_patch)
+        self.assertIn("1MHz-bus filing system", host_patch)
+        self.assertIn("STA\t(CFSload),Y", host_patch)
+        self.assertIn("JMP\t(&03C2)", host_patch)
+        self.assertIn("INC\tCFSload+3", host_patch)
+        self.assertIn("findv_rtn", host_patch)
+        self.assertIn("fscv_reason", host_patch)
+        self.assertNotIn("+romsel\t=\t&07A4", host_patch)
+        for forbidden in ("&027A", "&0406", "&FEE4", "&FEE5", "tube_target"):
+            self.assertNotIn(forbidden, host_patch)
 
         rewind_patch = (
             ROOT / "rom-side/elkwifi-0.23/wicfs-rewind.patch"
@@ -268,7 +257,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("cmp menusrc_rewind_macro_old,x", menusrc)
         self.assertIn("sta &137B,x", menusrc)
         self.assertIn(".menusrc_rewind_macro_new", menusrc)
-        self.assertIn('equs "CHAIN "', menusrc)
+        self.assertIn('equs "*RUN "', menusrc)
 
     def test_rom_startup_and_absent_service_are_fail_safe(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()

@@ -375,8 +375,9 @@ menusrc_timeout_hi = errorspace+2
  cpx #(menusrc_catalogue_read_end-menusrc_catalogue_read)
  bne menusrc_catalogue_copy_read
  \ WGET -U has already installed the selected game's length and reset the
- \ WiCFS cursor. Replace the stock two-line key expansion with CHAIN alone;
- \ invoking *REWIND from the keyboard buffer hangs on real Tube/AP5 systems.
+ \ WiCFS cursor. Execute the first cassette file through WiCFS itself. This
+ \ keeps the game in Electron memory and never routes it through an optional
+ \ Tube language processor.
  ldx #0
 .menusrc_rewind_macro_copy
  lda menusrc_rewind_macro_new,x
@@ -397,7 +398,7 @@ menusrc_timeout_hi = errorspace+2
  equb &0D
 .menusrc_rewind_macro_old_end
 .menusrc_rewind_macro_new
- equs "CHAIN "
+ equs "*RUN "
  equb &22,&22
  equs "|M"
  equb &0D
