@@ -320,15 +320,15 @@ menusrc_timeout_hi = errorspace+2
  cmp #&FC
  bne menusrc_patch_catalogue_fail
  ldx #0
-.menusrc_rewind_macro_check
+.menusrc_stock_launch_check
  lda &137B,x
- cmp menusrc_rewind_macro_old,x
- bne menusrc_rewind_macro_fail
+ cmp menusrc_stock_launch,x
+ bne menusrc_stock_launch_fail
  inx
- cpx #(menusrc_rewind_macro_old_end-menusrc_rewind_macro_old)
- bne menusrc_rewind_macro_check
+ cpx #(menusrc_stock_launch_end-menusrc_stock_launch)
+ bne menusrc_stock_launch_check
  jmp menusrc_patch_catalogue_verified
-.menusrc_rewind_macro_fail
+.menusrc_stock_launch_fail
  jmp menusrc_patch_catalogue_fail
 .menusrc_patch_catalogue_fail
  jmp menusrc_patch_catalogue_done
@@ -374,35 +374,18 @@ menusrc_timeout_hi = errorspace+2
  inx
  cpx #(menusrc_catalogue_read_end-menusrc_catalogue_read)
  bne menusrc_catalogue_copy_read
- \ WGET -U has already installed the selected game's length and reset the
- \ WiCFS cursor. Execute the first cassette file through WiCFS itself. This
- \ keeps the game in Electron memory and never routes it through an optional
- \ Tube language processor.
- ldx #0
-.menusrc_rewind_macro_copy
- lda menusrc_rewind_macro_new,x
- sta &137B,x
- inx
- cpx #(menusrc_rewind_macro_new_end-menusrc_rewind_macro_new)
- bne menusrc_rewind_macro_copy
 .menusrc_patch_catalogue_done
  rts
 
 .menusrc_catalogue_reads
  equw &1059,&1079,&10AB
 
-.menusrc_rewind_macro_old
+.menusrc_stock_launch
  equs "*REWIND|MCHAIN "
  equb &22,&22
  equs "|M"
  equb &0D
-.menusrc_rewind_macro_old_end
-.menusrc_rewind_macro_new
- equs "*RUN "
- equb &22,&22
- equs "|M"
- equb &0D
-.menusrc_rewind_macro_new_end
+.menusrc_stock_launch_end
 
 \ Copied to &1FE0. Preserve the page in A while selecting JIM window 1.
 .menusrc_catalogue_select

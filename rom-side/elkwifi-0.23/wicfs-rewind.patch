@@ -2,8 +2,8 @@ diff --git a/rom/wicfs.asm b/rom/wicfs.asm
 --- a/rom/wicfs.asm
 +++ b/rom/wicfs.asm
 @@ -69,0 +70,2 @@
-+tape_len_lo = heap+&DF \current UEF length, refreshed by every successful WGET -U
-+tape_len_hi = heap+&E0
++tape_len_lo = heap+&D6 \persistent UEF length, refreshed by successful WGET -U
++tape_len_hi = heap+&D7
 @@ -1601,0 +1605,4 @@
 +    LDA sbufl
 +    STA tape_len_lo

@@ -80,10 +80,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-ElkWiFi ROM  661b985b54180be9793c7c028713e8b2ebccba757a386bf1dd213863110555e2
+ElkWiFi ROM  74e3a5ad86f1c3f472d9744efb0a49547feed06ada493d87315ff90f2b9b0593
 kernel.img   2332d082ed4b235007fdf8ad50baf99bdf322126af78c3e0f024f9db75d4a6f0
 kernel7.img  2825bfc5f0302816c23304bb0fa0f800dd775e9d58dda8487469e5ea7b0cfad7
-bundle ZIP   68d7b8e402dceb4209ba856ea7cff16f8f0aca1a976f82da949ef332248f5ecd
+bundle ZIP   d443351fb05c505b44a3ed386033c52ddb01f2ce0485927491537b3e9f6b78ac
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.

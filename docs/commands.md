@@ -131,6 +131,10 @@ performing any JIM transaction. `*PRD` inspects paged RAM. These
 commands use the Pi1MHz JIM window selector rather than the cartridge UART
 bank bit.
 
+The published ElkWiFi menu retains its original selected-title sequence:
+`*REWIND`, followed by `CHAIN ""`. The Pi1MHz adaptation does not rewrite that
+sequence to `*RUN`, `*/`, or another command.
+
 Whole-file loads retain all four address bytes for catalogue compatibility but
 always write and execute in Electron I/O-processor memory. Pi1MHz supplies the
 UEF over the 1MHz bus. WiCFS never claims the Tube, calls its host API or

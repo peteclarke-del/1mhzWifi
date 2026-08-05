@@ -14,6 +14,24 @@ The menu uses that register to select the second 64 KiB paged-RAM bank before
 loading its title index. The Plus 5 does not forward the ElkWiFi UART register.
 Pi1MHz selects its two JIM windows through `&FCFE` instead.
 
+## Compatibility rule
+
+The pinned ElkWiFi source and published MENU payload define the visible
+behavior. This project preserves their command order, filenames, filing-system
+calls and launch semantics. An internal alteration is permitted only when an
+original cartridge hardware assumption cannot operate through Pi1MHz/AP5, or
+when it would conflict with other fitted Acorn hardware.
+
+| Original mechanism | Pi1MHz adaptation | Required reason |
+| --- | --- | --- |
+| ElkWiFi UART and cartridge RAM banking at `&FC30-&FC34` | Pi1MHz services and JIM selection at `&FCA6-&FCAA` and `&FCFE` | AP5 does not forward the cartridge UART; Pi1MHz exposes its service on the 1MHz bus |
+| ROM queues BASIC `CALL &E00` after downloading MENU | Enter host `&E00` through a RAM return trampoline | The downloaded bytes are in I/O-processor RAM; a second processor must not become an accidental destination |
+| MENU is entered while another filing system may own Electron workspace | Select `*TAPE` before constructing the download command | Reproduces the required cassette environment and avoids the observed ADFS workspace collision |
+| Menu assumes its selected JIM window remains active | Reselect window 1 at each patched catalogue access | Pi1MHz services share the JIM aperture |
+| WiCFS copies a ROM switcher into `&0400-&07FF` | MOS extended filing vectors | That RAM is not private WiCFS workspace and can conflict with fitted hardware |
+| `*REWIND` rereads length metadata through JIM | Restore the length cached by successful `*WGET -U` | Avoids the observed AP5/1MHz-bus stall while preserving the same cursor reset |
+| Key 0 runs `*REWIND`, then `CHAIN ""` | Unchanged | This is the official menu launch contract |
+
 ## Download and execution sequence
 
 `*MENU` performs these steps:
@@ -61,14 +79,12 @@ downloaded length metadata. These changes preserve the exact address of the
 catalogue-working MENU code. Screen output remains enabled so queue, filing
 and UEF errors are visible on real hardware.
 
-The menu launches a selected title with the explicit cassette `*RUN ""`. This
-enters WiCFS directly and executes the first file's host entry point instead of
-returning `CHAIN ""` to whichever BASIC happens to be active. That distinction
-keeps Electron games in the I/O processor when a Tube language processor is
-present. OSFILE requires X and Y to be preserved across a filing-system load.
-WiCFS saves both registers before parsing the UEF and restores them on claimed
-and forwarded FILEV return paths. OSBGET similarly preserves X and Y while
-returning the byte in A.
+The stock menu installs key 0 as `*REWIND|MCHAIN ""|M` and later inserts that
+key into the keyboard buffer after a selected UEF has downloaded. The ROM does
+not alter this launch contract. OSFILE requires X and Y to be preserved across
+the `CHAIN` load. WiCFS saves both registers before parsing the UEF and restores
+them on claimed and forwarded FILEV return paths. OSBGET similarly preserves X
+and Y while returning the byte in A.
 
 WiCFS also returns the CFS header's load address, execution address and complete
 file length in the caller's 18-byte OSFILE control block. The inherited code
@@ -92,13 +108,11 @@ to `&1FD0` and pushes that RAM address as the program's return target. The
 trampoline restores the service-call registers and returns cleanly to MOS
 without relying on the ElkWiFi sideways ROM still being selected.
 
-The published title-launch key expansion originally contains two commands:
-`*REWIND`, then `CHAIN ""`. A successful `*WGET -U` already publishes the
-replacement UEF length and resets every WiCFS cursor field. For the verified
-2,907-byte payload, the ROM checks the complete original expansion at `&137B`
-and replaces it with `*RUN ""` alone. This invokes WiCFS host execution without a
-redundant rewind or a dependency on the active BASIC processor. No custom MENU
-payload is modified at that address.
+The published title-launch key expansion contains two commands: `*REWIND`, then
+`CHAIN ""`. The ROM preserves that sequence exactly. `*REWIND` resets the WiCFS
+cursor to the UEF installed by `*WGET -U`; `CHAIN ""` then uses the cassette
+file's OSFILE metadata and BASIC's normal chain semantics. The adaptation does
+not replace it with `*RUN`, `*/`, or another inferred launch path.
 
 ## Byte-level replacement
 

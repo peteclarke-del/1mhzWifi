@@ -61,8 +61,15 @@ for patch_name in integration.patch command-surface.patch disconnect-response.pa
             patch_present=true
             ;;
         wicfs-rewind.patch)
-            grep -q 'Keep REWIND entirely in host RAM' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
+            if grep -q 'Keep REWIND entirely in host RAM' "$upstream/rom/wicfs.asm"; then
+                if grep -q 'tape_len_lo = heap+&D6' "$upstream/rom/wicfs.asm" &&
+                   grep -q 'tape_len_hi = heap+&D7' "$upstream/rom/wicfs.asm"; then
+                    patch_present=true
+                else
+                    echo "ElkWiFi checkout contains an obsolete WiCFS rewind patch; use a clean pinned checkout" >&2
+                    exit 1
+                fi
+            fi
             ;;
         rom-prune.patch)
             ! grep -q 'incbin "flash.bin"' "$upstream/rom/ElkWifi.asm" &&

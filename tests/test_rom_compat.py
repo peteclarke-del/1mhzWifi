@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "661b985b54180be9793c7c028713e8b2ebccba757a386bf1dd213863110555e2"
+ROM_SHA256 = "74e3a5ad86f1c3f472d9744efb0a49547feed06ada493d87315ff90f2b9b0593"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -77,6 +77,8 @@ class RomCompatibilityTest(unittest.TestCase):
         for removed in (b"PRINTER", b"UPDATE", b"SETSERIAL", b"CRC error"):
             self.assertNotIn(removed, self.rom)
         self.assertIn(bytes((0xA5, 0xEF, 0xC9, 0x65)), self.rom)
+        self.assertIn(b'*REWIND|MCHAIN ""|M\r', self.rom)
+        self.assertNotIn(b'*RUN ""|M\r', self.rom)
 
     def test_retired_cartridge_code_is_not_emitted(self) -> None:
         for legacy in (

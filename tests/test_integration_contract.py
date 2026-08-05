@@ -246,6 +246,9 @@ class IntegrationContractTest(unittest.TestCase):
         wget = (ROOT / "rom-side/elkwifi-0.23/net_wget.asm").read_text()
         self.assertIn("lda tape_len_lo", rewind_patch)
         self.assertIn("lda tape_len_hi", rewind_patch)
+        self.assertIn("tape_len_lo = heap+&D6", rewind_patch)
+        self.assertIn("tape_len_hi = heap+&D7", rewind_patch)
+        self.assertNotIn("tape_len_hi = heap+&E0", rewind_patch)
         self.assertIn("Keep REWIND entirely in host RAM", rewind_patch)
         self.assertNotIn("+    jsr cfsinit", rewind_patch)
         self.assertNotIn("+    jsr set_bank", rewind_patch)
@@ -254,10 +257,14 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("sta tape_len_hi", wget)
         self.assertIn("lda uflag\n beq pi_wget_length_saved", wget)
         menusrc = (ROOT / "rom-side/elkwifi-0.23/menusrc.asm").read_text()
-        self.assertIn("cmp menusrc_rewind_macro_old,x", menusrc)
-        self.assertIn("sta &137B,x", menusrc)
-        self.assertIn(".menusrc_rewind_macro_new", menusrc)
-        self.assertIn('equs "*RUN "', menusrc)
+        # Preserve the published menu's exact *REWIND then CHAIN "" launch
+        # sequence. The runtime adaptation only replaces cartridge/JIM access.
+        self.assertIn('equs "*REWIND|MCHAIN "', menusrc)
+        self.assertIn('equb &22,&22\n equs "|M"\n equb &0D', menusrc)
+        self.assertIn("cmp menusrc_stock_launch,x", menusrc)
+        self.assertNotIn("sta &137B", menusrc)
+        self.assertNotIn("menusrc_rewind_macro", menusrc)
+        self.assertNotIn('equs "*RUN "', menusrc)
 
     def test_rom_startup_and_absent_service_are_fail_safe(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()

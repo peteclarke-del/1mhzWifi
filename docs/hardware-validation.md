@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-ElkWiFi ROM  661b985b54180be9793c7c028713e8b2ebccba757a386bf1dd213863110555e2
+ElkWiFi ROM  74e3a5ad86f1c3f472d9744efb0a49547feed06ada493d87315ff90f2b9b0593
 kernel.img   2332d082ed4b235007fdf8ad50baf99bdf322126af78c3e0f024f9db75d4a6f0
 kernel7.img  2825bfc5f0302816c23304bb0fa0f800dd775e9d58dda8487469e5ea7b0cfad7
-bundle ZIP   68d7b8e402dceb4209ba856ea7cff16f8f0aca1a976f82da949ef332248f5ecd
+bundle ZIP   d443351fb05c505b44a3ed386033c52ddb01f2ce0485927491537b3e9f6b78ac
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -111,9 +111,9 @@ Expected error meanings:
 - [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
-- [ ] Run `*MENU`, press `L` for Zalaga, and confirm the menu proceeds directly
-  to the host `*RUN ""` after the download. The verified stock MENU must not
-  queue its redundant `*REWIND` or `CHAIN""` lines.
+- [ ] Run `*MENU`, press `L` for Zalaga, and confirm the published menu executes
+  its original `*REWIND` followed by `CHAIN ""` after the download. The ROM
+  must not substitute `*RUN`, `*/`, or another launch command.
 - [ ] Select a MENU title with the Tube off and then on. In both cases confirm
   `WGET OK`, WiCFS activation, and execution of the downloaded program.
 - [ ] Test sequential open/read, EOF, rewind, Escape, malformed UEF, and recovery.
