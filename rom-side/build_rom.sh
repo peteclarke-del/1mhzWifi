@@ -38,8 +38,8 @@ for patch_name in identity.patch integration.patch command-surface.patch disconn
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.4"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q 'equs "1MHzWifi 0.1.4",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.5"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q 'equs "1MHzWifi 0.1.5",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         command-surface.patch)

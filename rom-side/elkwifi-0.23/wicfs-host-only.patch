@@ -422,9 +422,9 @@ index f5cc88c..df95368 100644
 +
 +\===============================================================================
 +\Claimed FSCV return and *RUN execution. The MOS extended-vector dispatcher
-+\leaves a five-byte frame beneath this handler. A normal return lets MOS restore
-+\ROMSEL. A successful *RUN cannot return, so restore ROMSEL and remove the whole
-+\frame before entering the Electron I/O-processor program.
++\leaves its cleanup return, saved ROM and caller return beneath this handler. A
++\normal return lets MOS unwind them. A successful *RUN restores ROMSEL, removes
++\the cleanup return and saved ROM, and retains the caller return for the loader.
 +.actioned
 +	LDY	loadrun
 +	BPL	ret_fscv

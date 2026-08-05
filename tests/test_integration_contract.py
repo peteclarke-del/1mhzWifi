@@ -281,6 +281,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("JSR\tcfsinit", reentry_patch)
         self.assertIn("STA\tchain_exec,X", reentry_patch)
         self.assertIn("JMP\tchain_exec", reentry_patch)
+        self.assertIn("-\tPLA\n-\tPLA", reentry_patch)
         self.assertNotIn("+.osb_s", reentry_patch)
 
         rewind_patch = (
@@ -321,9 +322,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.4"', identity)
+        self.assertIn('romversion         equs "0.1.5"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.4 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.5 (C) 2026 Peter Clarke", version)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
         self.assertIn("cmp #&44\n beq service_driver_error_no_wifi", driver)
         self.assertIn("cmp &FC00+drv_svc_data\n bne service_driver_port_missing_near", driver)

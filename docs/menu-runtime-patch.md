@@ -104,7 +104,9 @@ WiCFS claims `*REWIND` directly when it is the active filing system. It leaves
 state before reusing filing workspace. The successful `CHAIN` execution path
 also completes its ROMSEL change and extended-vector stack cleanup from the RAM
 trampoline. No instruction following a ROMSEL write is fetched from an
-unrelated sideways ROM.
+unrelated sideways ROM. It removes the dispatcher's two-byte cleanup return and
+saved-ROM byte, but retains the original OSCLI return address required when a
+first-stage loader returns.
 
 The stock menu installs key 0 as `*REWIND|MCHAIN ""|M` and later inserts that
 key into the keyboard buffer after a selected UEF has downloaded. The ROM does

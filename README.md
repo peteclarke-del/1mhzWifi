@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.4` host ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.5` host ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -81,10 +81,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-1MHzWifi ROM feeaaaf7915e68d7bd5357fc54ffc85eda2e340be98b6a0619d5372b1ea48775
+1MHzWifi ROM b86572f5fb9208b2081915e064bec807e80975512a569ef415bf05253b59697f
 kernel.img   9c54abb1777e0a3fe1e3e579d59bffd4bc7531e3a2fbe51b90cb5f2739ff6a05
 kernel7.img  4b8a165b1db9f93fe7ac28b41d6314a4afda99d8ed61c3abfde0cf999e501d01
-bundle ZIP   1082537e68c102ee49ba90826eec8e7cac2d68f16c16f9a1cc96bb55a563547e
+bundle ZIP   816685124ae23fd00523dff88fa296b5925a571010c1a9aa8ad8361df560c614
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.

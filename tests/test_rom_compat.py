@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "feeaaaf7915e68d7bd5357fc54ffc85eda2e340be98b6a0619d5372b1ea48775"
+ROM_SHA256 = "b86572f5fb9208b2081915e064bec807e80975512a569ef415bf05253b59697f"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -21,8 +21,8 @@ class RomCompatibilityTest(unittest.TestCase):
             self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x17, 1))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:24], b"0.1.4\0")
-        self.assertIn(b"1MHzWifi 0.1.4 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:24], b"0.1.5\0")
+        self.assertIn(b"1MHzWifi 0.1.5 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
