@@ -1,0 +1,109 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -70,6 +70,7 @@ tape_len_lo = heap+&DF \current UEF length, refreshed by every successful WGET -U
+ tape_len_hi = heap+&E0
+ filev_source = heap+&E2 \zero for FILEV, negative for FINDV
+ fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
++tube_claimed = heap+&E7 \non-zero while WiCFS owns Tube R3/R4 as cassette FS
+ 
+ 				    \the following locations are re-entrant
+ 				    \and must only be initialised on *UPCFS
+@@ -541,6 +542,12 @@ fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
+ 	AND	&03C5
+ 	CMP	#&FF			\&FFFFxxxx is I/O-processor memory
+ 	BEQ	run_in_host
++\Execution is an R3/R4 operation too. Claim the Tube as cassette filing
++\system (&C0) before operation 4; the execute operation releases implicitly.
++.run_claim_tube
++	LDA	#&C0
++	JSR	&0406
++	BCC	run_claim_tube
+ 	LDX	#<&03C2
+ 	LDY	#>&03C2
+ 	LDA	#4			\Tube operation 4: execute in parasite
+@@ -600,7 +608,7 @@ fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
+ 	LDA	&03C1
+ 	STA	CFSload+3
+ 
+-.stl_a1	JSR	tube_prepare_load	\select host store or initialise parasite transfer
++.stl_a1	JSR	tube_prepare_load	\claim/select Tube and initialise parasite transfer
+ 	JSR	loadblk		\load CFS data block
+ 	BCS	stl_nf		\exit on error
+ 	LDA	&3CA		\last block?
+@@ -610,11 +618,11 @@ fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
+ 	STA	nxtblk
+ 	INC	nxtblk
+ 	JSR	chunk		\and fetch next chunk
+-	BCS	stl_x
++	BCS	stl_nf
+ 	JSR	cfstest		\cfs block?	
+ 	BEQ	stl_a3		\no, goto skip
+ 	JSR	header		\fetch the CFS block header
+-	BCS	stl_x
++	BCS	stl_nf
+ 	JSR	prblock		\display block cfs info
+ 	JMP	stl_a1		\and loop to load
+ 
+@@ -625,6 +633,7 @@ fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
+ 	JMP	stl_a2		\and loop for next chunk
+ 
+ .stl_end
++	JSR	tube_release		\finish R3/R4 before returning to MOS
+ 	JSR	lastblk		\process last block output
+ 
+ \ Set break type to 3 after loading a locked file. Elk CFS does this
+@@ -640,7 +649,8 @@ fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
+ 	LDA	#1		    \flag file found to OS
+ 	BNE	stl_x
+ 
+-.stl_nf	LDA	#0		\flag file not found to OS
++.stl_nf	JSR	tube_release		\also release after EOF/header/skip failures
++	LDA	#0		\flag file not found to OS
+ 
+ .stl_x	RTS			\and return
+ 
+@@ -656,6 +666,17 @@ fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
+ 	AND	CFSload+3
+ 	CMP	#&FF			\&FFFFxxxx addresses remain in host memory
+ 	BEQ	tube_prepare_done
++	BIT	tube_claimed
++	BMI	tube_prepare_transfer
++\Every R3/R4 user must claim the Tube first. WiCFS uses the cassette filing
++\system's allocated owner ID zero, represented by &C0 to claim and &80 to release.
++.tube_claim_loop
++	LDA	#&C0
++	JSR	&0406
++	BCC	tube_claim_loop
++	LDA	#&FF
++	STA	tube_claimed
++.tube_prepare_transfer
+ 	LDA	#1			\Tube operation 1: I/O processor to parasite
+ 	LDX	#<CFSload
+ 	LDY	#>CFSload
+@@ -666,6 +687,18 @@ fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
+ .tube_prepare_done
+ 	RTS
+ \Tube extended-vector transfer complete
++
++.tube_release
++	BIT	tube_claimed
++	BPL	tube_release_done
++	LDA	#&80			\release cassette filing system's Tube claim
++	JSR	&0406
++	LDA	#0
++	STA	tube_claimed
++	STA	tube_target
++.tube_release_done
++	RTS
++\Tube ownership contract complete
+ 
+ .loadblk
+     if __debug = 1
+@@ -1202,5 +1235,6 @@ fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
+ 	CPX	#&0E
+ 	BNE	wsi_a1		\loop till all done
+ 	STA	tube_target		\sequential BGET buffers always use host &0A00
++	STA	tube_claimed		\no R3/R4 transfer survives a fresh file operation
+ 	LDX	temp
+ 	RTS

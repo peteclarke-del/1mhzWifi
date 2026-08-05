@@ -239,6 +239,16 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("\\Tube extended-vector transfer complete", tube_patch)
         self.assertNotIn("+romsel\t=\t&07A4", tube_patch)
 
+        tube_claim_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-tube-claim.patch"
+        ).read_text()
+        self.assertIn("LDA\t#&C0", tube_claim_patch)
+        self.assertIn("LDA\t#&80", tube_claim_patch)
+        self.assertIn("JSR\ttube_release", tube_claim_patch)
+        self.assertIn("BCC\ttube_claim_loop", tube_claim_patch)
+        self.assertIn("BCC\trun_claim_tube", tube_claim_patch)
+        self.assertIn("\\Tube ownership contract complete", tube_claim_patch)
+
         rewind_patch = (
             ROOT / "rom-side/elkwifi-0.23/wicfs-rewind.patch"
         ).read_text()

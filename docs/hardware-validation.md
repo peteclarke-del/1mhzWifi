@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-ElkWiFi ROM  9803baef7a958c485cb86efe538f2bbcc9135c63aa08f82bb5ef15c570f1ff15
-kernel.img   e7ab3bfbd40d34c2893ed58d45e60d318b3a8268b0d77d5b94c85fee48090096
-kernel7.img  8f2bca6702b350dab4281ac9f0c6b57037f03986c2b8e3da794bf313c7a10ca0
-bundle ZIP   ac293473efd31b5dbabb541449a260fff95c0a47d6c24e77041609c38c4e2654
+ElkWiFi ROM  c13d2d469867ee482d9b409cfa4344c3d12a030387adf667f0c81be6ca176ab3
+kernel.img   2332d082ed4b235007fdf8ad50baf99bdf322126af78c3e0f024f9db75d4a6f0
+kernel7.img  2825bfc5f0302816c23304bb0fa0f800dd775e9d58dda8487469e5ea7b0cfad7
+bundle ZIP   f4878d1a6836f13358cb171424133ab6047e310466efcc48e968abc3fc1a16c0
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -139,11 +139,18 @@ Expected error meanings:
   execution or BASIC `CALL` occurs.
 - [ ] Trace calls and confirm only the I/O processor accesses `&FCxx` and `&FDxx`.
 - [ ] Exercise every pointer-bearing OSWORD `&65` call with buffers in parasite memory.
-- [ ] Load a UEF file to parasite RAM and trace Tube operation 1 at `&0406`
-  followed by one `&FEE5` write for each data byte.
-- [ ] Run a UEF file with a parasite execution address and trace Tube operation
-  4 at `&0406`. Repeat with an `&FFFFxxxx` host execution address and confirm it
-  runs on the I/O processor.
+- [ ] Load a UEF file to parasite RAM and trace cassette filing system claim
+  `&C0`, Tube operation 1 at `&0406`, one `&FEE5` write per byte, and release
+  `&80` after the final block. Repeat with a malformed or truncated UEF and
+  confirm the error path also releases the claim.
+- [ ] Run a UEF file with a parasite execution address and trace claim `&C0`
+  followed by Tube operation 4 at `&0406`; operation 4 releases implicitly.
+  Repeat with an `&FFFFxxxx` host execution address and confirm it runs on the
+  I/O processor without claiming R3/R4.
+- [ ] Select `Aardvark/Zalaga_E.uef` from `*MENU` with the Tube enabled. Confirm
+  the BASIC stage at `&2800`, loader at `&0400`, parasite data at `&8000`, and
+  host image at `&FFFF0E00` all load and the game reaches its title screen
+  without token text or a BASIC prompt.
 - [ ] Confirm no WiCFS vector code occupies Tube workspace `&0400-&07FF` and no
   parasite pointer is passed directly to JIM.
 

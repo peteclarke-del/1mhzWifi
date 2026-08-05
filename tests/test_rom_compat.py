@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "9803baef7a958c485cb86efe538f2bbcc9135c63aa08f82bb5ef15c570f1ff15"
+ROM_SHA256 = "c13d2d469867ee482d9b409cfa4344c3d12a030387adf667f0c81be6ca176ab3"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -38,6 +38,12 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("20 06 04")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("8D E5 FE")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("4C 06 04")), 1)
+        # WiCFS owns R3/R4 as cassette filing system ID zero. It claims with
+        # &C0 before transfer/execute and releases with &80 on every return.
+        self.assertGreaterEqual(
+            self.rom.count(bytes.fromhex("A9 C0 20 06 04 90 F9")), 2
+        )
+        self.assertEqual(self.rom.count(bytes.fromhex("A9 80 20 06 04")), 1)
         # Extended vector entry points for FILEV/BGETV/FINDV/FSCV.
         for entry in (0x1B, 0x21, 0x2A, 0x2D):
             self.assertIn(bytes((0xA9, entry, 0x8D)), self.rom)
