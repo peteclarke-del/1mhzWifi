@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "c13d2d469867ee482d9b409cfa4344c3d12a030387adf667f0c81be6ca176ab3"
+ROM_SHA256 = "b8761bde7d651f3f7faa4386666208ee2e4c2042bed00057a46b294ecdec9480"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -37,6 +37,11 @@ class RomCompatibilityTest(unittest.TestCase):
         # through R3DATA. Successful parasite *RUN uses operation 4.
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("20 06 04")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("8D E5 FE")), 1)
+        # R3 is flow-controlled. Poll host-write-ready (status bit 6) before
+        # every byte so fast PiTubeDirect implementations cannot lose data.
+        self.assertEqual(
+            self.rom.count(bytes.fromhex("48 2C E4 FE 50 FB 68 8D E5 FE")), 1
+        )
         self.assertEqual(self.rom.count(bytes.fromhex("4C 06 04")), 1)
         # WiCFS owns R3/R4 as cassette filing system ID zero. It claims with
         # &C0 before transfer/execute and releases with &80 on every return.

@@ -528,7 +528,7 @@
      if __debug = 1
      php:jsr debug
      equs "in loadblk",&0D,&EA
-@@ -605,11 +668,21 @@
+@@ -605,11 +668,26 @@
      endif
  	JSR	getbyte		\get a block data byte from PC
  	BCS	ldb_err		\abort on error
@@ -543,6 +543,11 @@
 +	STA	(CFSload),Y
 +	JMP	ldb_increment
 +.ldb_tube
++	PHA				\preserve byte while R3 applies back-pressure
++.ldb_tube_wait
++	BIT	&FEE4			\host-write-ready is Tube R3 status bit 6
++	BVC	ldb_tube_wait
++	PLA
 +	STA	&FEE5			\Tube register 3 data, after operation 1
 +.ldb_increment
 +	INC	CFSload		\increment full 32-bit load address
@@ -578,4 +583,3 @@
  	RTS
  
  \-------------------------------------------------------------------------------
-

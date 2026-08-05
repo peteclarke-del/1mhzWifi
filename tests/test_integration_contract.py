@@ -231,6 +231,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("LDY\t#42", tube_patch)
         self.assertIn("LDY\t#45", tube_patch)
         self.assertIn("STA\t&FEE5", tube_patch)
+        self.assertIn("BIT\t&FEE4", tube_patch)
+        self.assertIn("BVC\tldb_tube_wait", tube_patch)
         self.assertIn("JSR\t&0406", tube_patch)
         self.assertIn("JMP\t&0406", tube_patch)
         self.assertIn("INC\tCFSload+3", tube_patch)

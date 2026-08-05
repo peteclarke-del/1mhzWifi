@@ -133,12 +133,12 @@ bank bit.
 
 Whole-file loads retain all four address bytes. Host destinations are written
 through the normal indirect store. Parasite destinations claim Tube R3/R4 with
-the cassette filing system owner ID, initialise operation 1 at `&0406`, and
-stream each byte through R3DATA at `&FEE5`. WiCFS releases that claim on every
-successful or failed return. Successful `*RUN` requests jump to host memory for
-`&FFFFxxxx` execution addresses or claim R3/R4 and use Tube operation 4 for
-parasite execution. OSFILE returns load,
-execution, length and attribute fields required by BASIC `CHAIN`. Catalogue,
+the cassette filing system owner ID, initialise operation 1 at `&0406`, wait
+for R3 status bit 6 before every R3DATA write at `&FEE5`, and release the claim
+on every successful or failed return. Successful `*RUN` requests jump to host
+memory for `&FFFFxxxx` execution addresses or claim R3/R4 and use Tube
+operation 4 for parasite execution. OSFILE returns load, execution, length and
+attribute fields required by BASIC `CHAIN`. Catalogue,
 load, run, sequential access, malformed UEF handling and selector restoration
 still require full regression on real hardware.
 
