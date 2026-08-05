@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "74e3a5ad86f1c3f472d9744efb0a49547feed06ada493d87315ff90f2b9b0593"
+ROM_SHA256 = "6c7033594f8bcac8588fd7546a58bb338e16d461da7188e9ab5b4dc2f3cb82ce"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -66,6 +66,13 @@ class RomCompatibilityTest(unittest.TestCase):
             "00 91 B8 C8 91 B8 A2 04 C8 91 B8 CA D0 FA A9 01 60"
         )
         self.assertEqual(self.rom.count(osfile_metadata), 1)
+        # cfsinit caches the downloaded UEF length exactly once. The earlier
+        # zero-context patch accidentally inserted this sequence into xmess.
+        self.assertEqual(
+            self.rom.count(bytes.fromhex("A5 F8 8D D6 09 A5 F9 8D D7 09")), 1
+        )
+        self.assertIn(bytes.fromhex("0A 0A 0A 0A AA"), self.rom)
+        self.assertNotIn(bytes.fromhex("0A AD D6 09"), self.rom)
 
     def test_stock_commands_additive_menusrc_and_osword_are_present(self) -> None:
         for command in (
