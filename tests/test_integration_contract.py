@@ -274,6 +274,15 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("JMP\t(FSCVRTN)", vector_patch)
         self.assertNotIn("+.xfscv\tJMP\t(FSCVRTN)", vector_patch)
 
+        reentry_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-reentry-run.patch"
+        ).read_text()
+        self.assertIn("CMP\t#3\t\t\\unrecognised OSCLI command?", reentry_patch)
+        self.assertIn("JSR\tcfsinit", reentry_patch)
+        self.assertIn("STA\tchain_exec,X", reentry_patch)
+        self.assertIn("JMP\tchain_exec", reentry_patch)
+        self.assertNotIn("+.osb_s", reentry_patch)
+
         rewind_patch = (
             ROOT / "rom-side/elkwifi-0.23/wicfs-rewind.patch"
         ).read_text()
@@ -312,9 +321,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.3"', identity)
+        self.assertIn('romversion         equs "0.1.4"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.3 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.4 (C) 2026 Peter Clarke", version)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
         self.assertIn("cmp #&44\n beq service_driver_error_no_wifi", driver)
         self.assertIn("cmp &FC00+drv_svc_data\n bne service_driver_port_missing_near", driver)

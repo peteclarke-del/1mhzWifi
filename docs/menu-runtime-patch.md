@@ -99,6 +99,13 @@ ROM switch is the trampoline's final setup action, so execution never continues
 from the same address in a newly selected ROM. The trampoline is outside
 `&0400-&07FF` and neither detects nor accesses a Tube.
 
+WiCFS claims `*REWIND` directly when it is the active filing system. It leaves
+`*TAPE` functional, allowing every `*MENU` invocation to return to cassette
+state before reusing filing workspace. The successful `CHAIN` execution path
+also completes its ROMSEL change and extended-vector stack cleanup from the RAM
+trampoline. No instruction following a ROMSEL write is fetched from an
+unrelated sideways ROM.
+
 The stock menu installs key 0 as `*REWIND|MCHAIN ""|M` and later inserts that
 key into the keyboard buffer after a selected UEF has downloaded. The ROM does
 not alter this launch contract. OSFILE requires X and Y to be preserved across

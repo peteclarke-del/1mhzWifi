@@ -101,6 +101,12 @@ ROM hand-off uses a temporary trampoline in filing-system workspace so the CPU
 does not fetch an instruction from a different ROM immediately after ROMSEL is
 changed.
 
+While WiCFS is active it claims its own `*REWIND` during the FSCV OSCLI pass,
+before sideways-ROM command dispatch. `*TAPE` remains available and restores
+the cassette filing system normally. WiCFS does not retain the inherited
+OSBYTE trap that suppressed later `*TAPE` requests, because that prevented a
+second `*MENU` invocation from resetting the filing workspace.
+
 The service command page is at JIM offset `&FFF000`; URL scratch data is at
 `&FFF100`. WiCFS content occupies `&010000-&01FFFF`. The ROM keeps an
 independent low-page shadow and never reads AP5's write-only `&FCFF` register.

@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWifi ROM 43352ee303945d8de456923009952add0342a3d5a58ade605acb569489bfbdaa
+1MHzWifi ROM feeaaaf7915e68d7bd5357fc54ffc85eda2e340be98b6a0619d5372b1ea48775
 kernel.img   9c54abb1777e0a3fe1e3e579d59bffd4bc7531e3a2fbe51b90cb5f2739ff6a05
 kernel7.img  4b8a165b1db9f93fe7ac28b41d6314a4afda99d8ed61c3abfde0cf999e501d01
-bundle ZIP   3e9c70b3ebddd239fa4469887f1aa2a23ef73230170ff4fbeb0f1fdc91124b3e
+bundle ZIP   1082537e68c102ee49ba90826eec8e7cac2d68f16c16f9a1cc96bb55a563547e
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -31,14 +31,14 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
-- [ ] Repeat the Elkulator boot smoke test with the 0.1.3 ROM and Electron OS
+- [ ] Repeat the Elkulator boot smoke test with the 0.1.4 ROM and Electron OS
   and BASIC. Elkulator does not reproduce the AP5 extended-vector path.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [ ] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
   return. Repeat this on hardware because the emulator's previous filing
   vector is direct rather than the AP5 configuration that exposed the loop.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.3` before recording any further test result.
+  `1MHzWifi 0.1.4` before recording any further test result.
 - [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
 - [x] Run `*MENUSRC` with no services-mailbox device. Confirm a bounded error and return to BASIC.

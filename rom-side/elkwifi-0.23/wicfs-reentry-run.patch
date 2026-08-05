@@ -1,0 +1,153 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -24,15 +24,13 @@
+ 
+ OSFILEV	=	&0212		\OS FILEV vector
+ OSFSCV	=	&021E		\OS FSCV vector
+-BYTEV	=	&020A		\OSBYTE vector
+ OSFINDV	=	&021C		\OSFIND vector (Open sequential)
+ OSBGETV	=	&0216		\OSBGET vector (sequential read)
+ 
+ FILVRTN	=	&03A3		\Tape FILEV vector contents
+ FSCVRTN	=	&03A5		\Tape FSCV vector contents
+ 
+ serbuf	=	&06E0		\serial input buffer
+-notape	=	&0398		\location of external *TAPE trap
+ hchunk	=	&03CB		\Chunk header type(2) + length(4)
+ 
+ bufsize	=	28		\data burst (buffer) size
+@@ -212,15 +210,6 @@
+ 	STX	evptr
+ 	STY	evptr+1
+ 
+-\and external code for *TAPE trap
+-	LDX	#0		        \index on X
+-.b_a2
+-	LDA	osb_s,X 		\get a byte
+-	STA	notape,X		\copy to ram
+-	INX			        \increment index
+-	CPX	#(osb_e-osb_s)	\all done?
+-	BNE	b_a2	    	\no, loop for next
+-
+ \now set the UPCFS vectors
+ 	LDA	#&FF
+ 	STA	filev_prev_rom
+@@ -329,17 +318,6 @@
+ 	LDY	#0
+ 	JSR	OSBYTE
+ 
+-	LDA	BYTEV		    \OSBYTE intercept
+-	STA	notape+(osb_j-osb_s)+1
+-	LDA	BYTEV+1
+-	STA	notape+(osb_j-osb_s)+2
+-	PHP
+-	SEI			        \no interrupts during OSBYTE redirect
+-	LDA	#<notape
+-	STA	BYTEV
+-	LDA	#>notape
+-	STA	BYTEV+1
+-	PLP
+ .b_initialise
+ 	JSR	cfsinit		    \initialisations
+ 
+@@ -568,7 +546,61 @@
+     plp
+     endif
+ 
+-	CMP	#5		\*CAT ?
++	CMP	#3		\unrecognised OSCLI command?
++	BNE	upv_cat
++	LDY	#0
++.upv_rewind_space
++	LDA	(fscv_x),Y
++	CMP	#sp
++	BNE	upv_rewind_star
++	INY
++	BNE	upv_rewind_space
++.upv_rewind_star
++	CMP	#'*'
++	BNE	upv_rewind_r
++	INY
++.upv_rewind_r
++	LDA	(fscv_x),Y
++	AND	#&DF
++	CMP	#'R'
++	BNE	upv_a2
++	INY
++	LDA	(fscv_x),Y
++	AND	#&DF
++	CMP	#'E'
++	BNE	upv_a2
++	INY
++	LDA	(fscv_x),Y
++	AND	#&DF
++	CMP	#'W'
++	BNE	upv_a2
++	INY
++	LDA	(fscv_x),Y
++	AND	#&DF
++	CMP	#'I'
++	BNE	upv_a2
++	INY
++	LDA	(fscv_x),Y
++	AND	#&DF
++	CMP	#'N'
++	BNE	upv_a2
++	INY
++	LDA	(fscv_x),Y
++	AND	#&DF
++	CMP	#'D'
++	BNE	upv_a2
++	INY
++	LDA	(fscv_x),Y
++	CMP	#cr
++	BEQ	upv_rewind
++	CMP	#sp
++	BNE	upv_a2
++.upv_rewind
++	JSR	cfsinit
++	JMP	clfscv
++
++.upv_cat
++	CMP	#5		\*CAT ?
+ 	BNE	upv_a1		\no, next check
+ 	PHA
+ 	JSR	upcat		\perform a *CAT
+@@ -670,6 +702,14 @@
+ .actioned
+ 	LDY	loadrun
+ 	BPL	ret_fscv
++	LDX	#run_code_end-run_code-1
++.run_copy
++	LDA	run_code,X
++	STA	chain_exec,X
++	DEX
++	BPL	run_copy
++	JMP	chain_exec
++.run_code
+ 	LDA	currom
+ 	STA	&F4
+ 	STA	&FE05
+@@ -679,20 +719,9 @@
+ 	PLA
+ 	PLA
+ 	JMP	(&03C2)
++.run_code_end
+ .ret_fscv
+ 	RTS
+-
+-\~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-\Download code for OSBYTE *TAPE trap. Copied to notape by *QUPCFS
+-
+-.osb_s
+-	CMP	#&8C		\*TAPE ?
+-	BNE	osb_j		\no, continue to OSBYTE
+-	RTS	    		\yes, return no action
+-
+-.osb_j	JMP	&0000		\continue to OSBYTE at OS vector..
+-		        		\..address written by *QUPCFS
+-.osb_e	NOP
+ 
+ \===============================================================================
+ \Loads a file into memory (*LOAD)
