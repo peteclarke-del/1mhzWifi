@@ -25,7 +25,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/service_driver.asm" "$upstream/rom/ser
 install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
-for patch_name in integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-rewind.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-rewind.patch rom-prune.patch routines-prune.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -33,6 +33,12 @@ for patch_name in integration.patch command-surface.patch disconnect-response.pa
             grep -q 'include "menusrc.asm"' "$upstream/rom/ElkWifi.asm" &&
             grep -q 'include "service_driver.asm"' "$upstream/rom/ElkWifi.asm" &&
             grep -q '^\.service_driver_not_0' "$upstream/rom/driver.asm" &&
+            patch_present=true
+            ;;
+        identity.patch)
+            grep -q '^\.romtitle.*equs "1MHzWiFi"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.0"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q 'equs "1MHzWiFi 0.1.0",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         command-surface.patch)
@@ -84,7 +90,11 @@ for patch_name in integration.patch command-surface.patch disconnect-response.pa
         echo "ElkWiFi $patch_name is already applied"
     else
         apply_options=()
-        if [[ "$patch_name" = wicfs-rewind.patch ]]; then
+        if [[ "$patch_name" = identity.patch ]]; then
+            # The banner replacement is deliberately a one-line hunk so it
+            # remains independent of upstream startup-flow changes.
+            apply_options+=(--unidiff-zero)
+        elif [[ "$patch_name" = wicfs-rewind.patch ]]; then
             # This stateful patch must be anchored to cfsinit and rewind_cmd.
             # Never permit line-number-only application here.
             apply_options+=(--ignore-space-change)

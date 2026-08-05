@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-ElkWiFi ROM  6c7033594f8bcac8588fd7546a58bb338e16d461da7188e9ab5b4dc2f3cb82ce
+1MHzWiFi ROM 57bacffb78226b886d0f0ba83132ab5eaf7462a9775beac98b72f930a64cb7b2
 kernel.img   2332d082ed4b235007fdf8ad50baf99bdf322126af78c3e0f024f9db75d4a6f0
 kernel7.img  2825bfc5f0302816c23304bb0fa0f800dd775e9d58dda8487469e5ea7b0cfad7
-bundle ZIP   de881762acfe7587ab48e750295295474ad172dc5f81ea34440406bde94cda82
+bundle ZIP   5c273a1193393b759945ef6ef9cf61c731b00575b5881d99480c49706a930d16
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -32,7 +32,8 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
 - [x] Boot the ROM in Elkulator with Electron OS and BASIC.
-- [x] Run uppercase `*HELP WIFI` and verify the ElkWiFi 0.23 banner and retained commands.
+- [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify both identify the ROM as
+  `1MHzWiFi 0.1.0` before recording any further test result.
 - [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
 - [x] Run `*MENUSRC` with no services-mailbox device. Confirm a bounded error and return to BASIC.

@@ -1,0 +1,22 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -19,12 +19,12 @@ include "electron.asm"
+                     equb 0
+                     equb 0
+                     jmp service                 \ Jump to service entry point
+                     equb &82                    \ ROM type byte: service rom
+                     equb (copyright-romstart)   \ Offset to copyright string
+-                    equb &00                    \ version 0.0x
+-.romtitle           equs "Electron Wifi"
++                    equb &01                    \ 1MHzWiFi ROM release 0.1.0
++.romtitle           equs "1MHzWiFi"
+                     equb 0
+-.romversion         equs "0.23"                 \ Rom version string
++.romversion         equs "0.1.0"                \ project test version
+ .copyright          equb 0                      \ Copyright message
+                     equs "(C)2020 Roland Leurs"
+                     equb 0
+@@ -137 +137 @@ include "electron.asm"
+-                    equs "Acorn Electron WiFi",&EA
++                    equs "1MHzWiFi 0.1.0",&EA

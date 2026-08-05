@@ -23,6 +23,7 @@ Host ROM integration sources:
 
 - rom-side/build_rom.sh
 - rom-side/elkwifi-0.23/integration.patch
+- rom-side/elkwifi-0.23/identity.patch
 - rom-side/elkwifi-0.23/command-surface.patch
 - rom-side/elkwifi-0.23/wificmd.asm
 - rom-side/elkwifi-0.23/disconnect-response.patch
