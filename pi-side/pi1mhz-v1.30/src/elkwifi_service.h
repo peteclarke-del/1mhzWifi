@@ -19,7 +19,8 @@ void elkwifi_service_init(uint8_t instance, uint8_t address);
 #define ELKWIFI_CMD_DATETIME     89u
 #define ELKWIFI_CMD_CANCEL       90u
 #define ELKWIFI_CMD_SECURE_OPEN  91u
-#define ELKWIFI_CMD_LAST         ELKWIFI_CMD_SECURE_OPEN
+#define ELKWIFI_CMD_ONLINE       92u
+#define ELKWIFI_CMD_LAST         ELKWIFI_CMD_ONLINE
 
 #define ELKWIFI_OK               0x00u
 #define ELKWIFI_BUSY             0x80u

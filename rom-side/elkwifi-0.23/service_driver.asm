@@ -16,6 +16,7 @@ drv_svc_lapopt = 87
 drv_svc_ping = 88
 drv_svc_datetime = 89
 drv_svc_cancel = 90
+drv_svc_online = 92
 
 drv_svc_timeout_lo = errorspace+3
 drv_svc_timeout_hi = errorspace+4
@@ -51,6 +52,10 @@ drv_net_close = 53
 
 .service_driver_ifcfg
  lda #drv_svc_ifcfg
+ jmp service_driver_begin
+
+.service_driver_online
+ lda #drv_svc_online
  jmp service_driver_begin
 
 .service_driver_lapopt

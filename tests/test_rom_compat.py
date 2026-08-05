@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "b86572f5fb9208b2081915e064bec807e80975512a569ef415bf05253b59697f"
+ROM_SHA256 = "06e27760af4bb8b1890dc4cf6873c317c33a0a8f7ef6e41ca7810892ef444222"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -21,8 +21,8 @@ class RomCompatibilityTest(unittest.TestCase):
             self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x17, 1))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:24], b"0.1.5\0")
-        self.assertIn(b"1MHzWifi 0.1.5 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:24], b"0.1.6\0")
+        self.assertIn(b"1MHzWifi 0.1.6 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -82,7 +82,7 @@ class RomCompatibilityTest(unittest.TestCase):
         for command in (
             b"WGET", b"MENU", b"MENUSRC", b"WIFI", b"VERSION", b"LAPOPT",
             b"LAP", b"IFCFG", b"DATE", b"TIME", b"PRD", b"JOIN", b"LEAVE",
-            b"PING", b"MODE", b"DISCONNECT", b"WICFS", b"REWIND", b"QUPCFS",
+            b"PING", b"MODE", b"ONLINE", b"DISCONNECT", b"WICFS", b"REWIND", b"QUPCFS",
         ):
             self.assertIn(command, self.rom)
         for removed in (b"PRINTER", b"UPDATE", b"SETSERIAL", b"CRC error"):

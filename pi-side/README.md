@@ -59,7 +59,7 @@ replacing them.
 
 ## Service command range
 
-The overlay registers commands 80-91 at the Pi1MHz Services mailbox. FIQ
+The overlay registers commands 80-92 at the Pi1MHz Services mailbox. FIQ
 context captures a request and marks it busy. Filesystem, scan, association,
 DNS, ICMP, and NTP work runs in a main-loop poll callback.
 
@@ -77,6 +77,7 @@ DNS, ICMP, and NTP work runs in a main-loop poll callback.
 | 89 | DNS and NTP date/time |
 | 90 | Cancel an outstanding scan, DNS, ICMP or NTP request |
 | 91 | Reserved secure-open ABI; unsupported |
+| 92 | Concise association and IPv4 readiness status |
 
 Raw TCP and HTTP use the existing Pi1MHz net-service command range. Secure
 open is registered only as a reserved ABI value and returns unsupported.
@@ -150,6 +151,8 @@ plaintext on the FAT partition.
 association. The host receives `WIFI CONNECTING` once the request has been
 accepted; association and DHCP continue cooperatively. `*JOIN ?` and `*IFCFG`
 report live state without holding the shared mailbox request open.
+`*ONLINE` is the short readiness check: it reports the assigned IPv4 address,
+`OFFLINE CONNECTING`, `OFFLINE WIFI OFF`, `OFFLINE ERROR`, or `OFFLINE`.
 
 The radio-only startup path performs CLM/country, PHY, and event-mask setup so
 that `*LAP` works before association. A saved profile is loaded during Pi boot

@@ -53,6 +53,7 @@ class IntegrationContractTest(unittest.TestCase):
 
     def test_wifi_credentials_persist_and_runtime_network_is_enabled(self) -> None:
         service = (ROOT / "pi-side/pi1mhz-v1.30/src/elkwifi_service.c").read_text()
+        service_header = (ROOT / "pi-side/pi1mhz-v1.30/src/elkwifi_service.h").read_text()
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         security_patch = (ROOT / "pi-side/pi1mhz-current/wifi-security.patch").read_text()
         radio_patch = (ROOT / "pi-side/pi1mhz-current/wifi-radio.patch").read_text()
@@ -95,6 +96,13 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_CMD_PING", service)
         self.assertIn("raw_sendto", service)
         self.assertIn("ELKWIFI_CMD_DATETIME", service)
+        self.assertIn("ELKWIFI_CMD_ONLINE", service)
+        self.assertIn("ELKWIFI_CMD_ONLINE       92u", service_header)
+        self.assertIn("ELKWIFI_CMD_LAST         ELKWIFI_CMD_ONLINE", service_header)
+        self.assertIn('response_printf(cp, "ONLINE %u.%u.%u.%u\\r\\n"', service)
+        self.assertIn('response_string(cp, "OFFLINE CONNECTING\\r\\n")', service)
+        self.assertIn('response_string(cp, "OFFLINE WIFI OFF\\r\\n")', service)
+        self.assertIn('response_string(cp, "OFFLINE ERROR\\r\\n")', service)
         self.assertIn('dns_gethostbyname("pool.ntp.org"', service)
         self.assertIn("NTP_UNIX_EPOCH", service)
         self.assertIn("LWIP_RAW", network_tools_patch)
@@ -313,6 +321,7 @@ class IntegrationContractTest(unittest.TestCase):
         driver = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()
         menusrc = (ROOT / "rom-side/elkwifi-0.23/menusrc.asm").read_text()
         rom_patch = (ROOT / "rom-side/elkwifi-0.23/integration.patch").read_text()
+        banner_patch = (ROOT / "rom-side/elkwifi-0.23/banner-spacing.patch").read_text()
         self.assertIn("drv_svc_response_count = errorspace+14", driver)
         self.assertIn("lda #240\n sta drv_svc_response_count", driver)
         self.assertIn("lda #100", driver)
@@ -322,9 +331,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.5"', identity)
+        self.assertIn('romversion         equs "0.1.6"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.5 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.6 (C) 2026 Peter Clarke", version)
+        self.assertIn("+                    equb &D,&EA", banner_patch)
+        self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
         self.assertIn("cmp #&44\n beq service_driver_error_no_wifi", driver)
         self.assertIn("cmp &FC00+drv_svc_data\n bne service_driver_port_missing_near", driver)
@@ -424,6 +435,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("g_runtime_scan_active = false", scan_cancel)
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         self.assertIn("wifi-scan-cancel.patch", installer)
+        self.assertIn("service-range-online.patch", installer)
+        range_patch = (
+            ROOT / "pi-side/pi1mhz-current/service-range-online.patch"
+        ).read_text()
+        self.assertIn("SERVICE_CMD_ELKWIFI_LAST  92u", range_patch)
 
     def test_installer_pins_reviewed_pi1mhz_commit(self) -> None:
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()

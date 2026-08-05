@@ -4,9 +4,9 @@
 
 The host-facing contract is based on ElkWiFi 0.23. It includes the service ROM
 header, retained star commands, OSWORD `&65`, response framing, and error
-conventions. `*MENUSRC` is an additive extension. Cartridge-specific commands
-are omitted where the required UART, printer port, or flash device does not
-exist.
+conventions. `*MENUSRC` and `*ONLINE` are additive extensions.
+Cartridge-specific commands are omitted where the required UART, printer port,
+or flash device does not exist.
 
 Pi1MHz V1.30 already provides the bare-metal CYW43/SDIO WiFi stack. This
 project reuses that implementation and adds the missing ElkWiFi-compatible
@@ -24,9 +24,9 @@ transport.
 | `&FCA9` | Auto-incrementing data register |
 | `&FCAA` | Command dispatch and completion status |
 
-The ElkWiFi service owns command numbers 80-91. Commands 80-90 are assigned.
-Command 91 returns unsupported and is reserved in the source ABI for a future
-secure-open operation.
+The ElkWiFi service owns command numbers 80-92. Commands 80-90 and 92 are
+assigned. Command 91 returns unsupported and is reserved in the source ABI for
+a future secure-open operation.
 
 The ROM accesses `&FCA6-&FCAA` directly from the Electron I/O processor. It
 does not use the BBC or Master FRED OSBYTE calls. Tube OSCLI and OSWORD calls
@@ -72,6 +72,7 @@ does not perform a matching cold boot.
 | 89 | DNS and NTP date/time request |
 | 90 | Cancel an outstanding foreground network request |
 | 91 | Reserved secure-open ABI; returns unsupported |
+| 92 | Concise association and IPv4 readiness status |
 
 HTTP WGET uses the existing Pi1MHz net-service commands 60, 61, and 63. Raw
 TCP compatibility uses net-service commands 45-53. Host buffers are copied

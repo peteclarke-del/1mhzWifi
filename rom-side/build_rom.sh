@@ -23,10 +23,11 @@ fi
 install -m 0644 "$script_dir/elkwifi-0.23/menusrc.asm" "$upstream/rom/menusrc.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/service_driver.asm" "$upstream/rom/service_driver.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.asm"
+install -m 0644 "$script_dir/elkwifi-0.23/online.asm" "$upstream/rom/online.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/version.asm" "$upstream/rom/version.asm"
-for patch_name in identity.patch integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-reentry-run.patch wicfs-rewind.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-reentry-run.patch wicfs-rewind.patch rom-prune.patch routines-prune.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -38,8 +39,13 @@ for patch_name in identity.patch integration.patch command-surface.patch disconn
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.5"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q 'equs "1MHzWifi 0.1.5",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.6"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q 'equs "1MHzWifi 0.1.6",&EA' "$upstream/rom/ElkWifi.asm" &&
+            patch_present=true
+            ;;
+        banner-spacing.patch)
+            grep -q 'equb &D,&EA' "$upstream/rom/ElkWifi.asm" &&
+            ! grep -q 'equb &D,&D,&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         command-surface.patch)
@@ -48,6 +54,11 @@ for patch_name in identity.patch integration.patch command-surface.patch disconn
             grep -q 'jmp service_driver_date' "$upstream/rom/driver.asm" &&
             grep -q 'Usage: \*MODE <1|?>' "$upstream/rom/mode.asm" &&
             ! grep -q 'CRC error, aborted' "$upstream/rom/errors.asm" &&
+            patch_present=true
+            ;;
+        online-command.patch)
+            grep -q 'equs "ONLINE"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q 'include "online.asm"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         disconnect-response.patch)
@@ -96,7 +107,7 @@ for patch_name in identity.patch integration.patch command-surface.patch disconn
         echo "ElkWiFi $patch_name is already applied"
     else
         apply_options=()
-        if [[ "$patch_name" = identity.patch ]]; then
+        if [[ "$patch_name" = identity.patch || "$patch_name" = banner-spacing.patch ]]; then
             # The banner replacement is deliberately a one-line hunk so it
             # remains independent of upstream startup-flow changes.
             apply_options+=(--unidiff-zero)

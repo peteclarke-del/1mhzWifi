@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWifi ROM b86572f5fb9208b2081915e064bec807e80975512a569ef415bf05253b59697f
-kernel.img   9c54abb1777e0a3fe1e3e579d59bffd4bc7531e3a2fbe51b90cb5f2739ff6a05
-kernel7.img  4b8a165b1db9f93fe7ac28b41d6314a4afda99d8ed61c3abfde0cf999e501d01
-bundle ZIP   816685124ae23fd00523dff88fa296b5925a571010c1a9aa8ad8361df560c614
+1MHzWifi ROM 06e27760af4bb8b1890dc4cf6873c317c33a0a8f7ef6e41ca7810892ef444222
+kernel.img   29241db0f1b110f70741dcd623951934bf1ae18f5be455e87359a8a85fd3986f
+kernel7.img  4eff4b7fa5ca8c32c487747d7165acbeac2a0911a563e1293aa9471f26a7613a
+bundle ZIP   9b9e61f277bcc7f52145f010fdaa832e1d24bcf135bba99f84e3697c799862a0
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -31,15 +31,16 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
-- [ ] Repeat the Elkulator boot smoke test with the 0.1.5 ROM and Electron OS
+- [ ] Repeat the Elkulator boot smoke test with the 0.1.6 ROM and Electron OS
   and BASIC. Elkulator does not reproduce the AP5 extended-vector path.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [ ] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
   return. Repeat this on hardware because the emulator's previous filing
   vector is direct rather than the AP5 configuration that exposed the loop.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.5` before recording any further test result.
-- [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and ADFS banners reach the BASIC prompt without `Buffer full`.
+  `1MHzWifi 0.1.6` before recording any further test result.
+- [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and
+  ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
 - [x] Run `*MENUSRC` with no services-mailbox device. Confirm a bounded error and return to BASIC.
 - [ ] Add a Pi1MHz services-mailbox device to Elkulator and run live command tests.
@@ -59,6 +60,11 @@ does not model the Pi1MHz mailbox, Plus 5 forwarding, or Tube transfers.
 - [ ] Run `*HELP WIFI`; confirm the current command list and no screen-row corruption.
 - [ ] Run `*WIFI ON`; confirm a WiFi-capable Pi reports ready and a Pi without WiFi reports `Device not found`.
 - [ ] Run `*WIFI ON` twice; confirm both calls complete and the second call does not lose the service registration.
+- [ ] With the Tube disabled, confirm the WiFi banner consumes one line and
+  does not add a blank line.
+- [ ] With the Tube enabled, confirm there is no blank line between the WiFi
+  and Tube banners. Their relative order is determined by MOS ROM service
+  order.
 - [ ] Run `*LAP`; confirm the rows describe nearby access points rather than the configured SSID alone.
 - [ ] Capture `nRST`, `PHI2`, `R/W`, address, data, and buffer enable for `&FCA6-&FCAA`.
 - [ ] Compare setup and hold timing with an unmodified Pi1MHz V1.30-descended build.
@@ -79,12 +85,15 @@ Expected error meanings:
 - [ ] Join an automatic WPA/WPA2 access point and wait for DHCP.
 - [ ] Confirm `*JOIN ?` reports the associated SSID.
 - [ ] Confirm `*IFCFG` reports non-zero address, gateway, and netmask values.
+- [ ] Run `*ONLINE` while DHCP is pending and confirm `OFFLINE CONNECTING`.
+- [ ] Run `*ONLINE` after DHCP and confirm `ONLINE` followed by the assigned IPv4 address.
 - [ ] Power-cycle the Pi and Acorn; confirm the saved profile associates automatically.
 - [ ] Run `*LEAVE`; confirm disassociation and no automatic rejoin until another `*JOIN`.
 - [ ] Immediately run `*IFCFG` after `*LEAVE`; confirm link `DOWN`, state
   `IDLE`, and zero IP, gateway, and netmask values.
 - [ ] Run `*WIFI OFF`; confirm `WIFI OFF` and `OK`, then confirm `*IFCFG`
   reports the disabled state, link `DOWN`, and zero network addresses.
+- [ ] Run `*ONLINE` after `*WIFI OFF` and confirm `OFFLINE WIFI OFF`.
 - [ ] Run `*WIFI ON`; confirm `WLC_UP` succeeds and the saved profile starts
   associating again without restarting the Pi.
 - [ ] Test forced WPA, forced WPA2, WEP40, WEP104, and open profiles on isolated test access points.

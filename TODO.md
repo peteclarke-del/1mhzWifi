@@ -12,8 +12,8 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 - [x] AP5-safe FRED/JIM transport with no dependency on cartridge `&FC30` UART
   registers.
 - [x] `*WIFI ON`, `*WIFI OFF`, `*LAP`, `*LAPOPT`, `*JOIN`, `*JOIN ?`,
-  `*LEAVE`, `*IFCFG`, station `*MODE`, `*PING`, `*DATE`, `*TIME`, `*WGET`,
-  `*MENU`, `*MENUSRC`, `*PRD`, `*WICFS` and `*REWIND`.
+  `*LEAVE`, `*ONLINE`, `*IFCFG`, station `*MODE`, `*PING`, `*DATE`, `*TIME`,
+  `*WGET`, `*MENU`, `*MENUSRC`, `*PRD`, `*WICFS` and `*REWIND`.
 - [x] Persistent WiFi profile, menu source and LAPOPT settings.
 - [x] Open, WEP, WPA and WPA2 association modes, with automatic reconnect from
   a saved profile.

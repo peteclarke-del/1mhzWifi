@@ -1,0 +1,6 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -153 +153 @@ include "electron.asm"
+-                    equb &D,&D,&EA
++                    equb &D,&EA

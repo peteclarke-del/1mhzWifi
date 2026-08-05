@@ -1,0 +1,8 @@
+diff --git a/src/services.h b/src/services.h
+--- a/src/services.h
++++ b/src/services.h
+@@ -26,2 +26,2 @@
+-#define SERVICE_CMD_ELKWIFI_LAST  91u
+-/* 92..255 unallocated */
++#define SERVICE_CMD_ELKWIFI_LAST  92u
++/* 93..255 unallocated */

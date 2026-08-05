@@ -56,7 +56,7 @@ fi
 install -m 0644 "$script_dir/pi1mhz-v1.30/src/elkwifi_service.c" "$upstream/src/elkwifi_service.c"
 install -m 0644 "$script_dir/pi1mhz-v1.30/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
 
-for patch_name in integration.patch services-capacity-test.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch tcp-diagnostics.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch; do
+for patch_name in integration.patch service-range-online.patch services-capacity-test.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch tcp-diagnostics.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch; do
     patch_file="$script_dir/pi1mhz-current/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -64,6 +64,11 @@ for patch_name in integration.patch services-capacity-test.patch wifi-security.p
             grep -q 'elkwifi_service.c' "$upstream/src/CMakeLists.txt" &&
             grep -q 'SERVICE_CMD_ELKWIFI_FIRST' "$upstream/src/services.h" &&
             grep -q '#define SERVICES_MAX 8u' "$upstream/src/services_emulator.c" &&
+            patch_present=true
+            ;;
+        service-range-online.patch)
+            grep -q 'SERVICE_CMD_ELKWIFI_LAST  *92u' "$upstream/src/services.h" &&
+            grep -q '93\.\.255 unallocated' "$upstream/src/services.h" &&
             patch_present=true
             ;;
         services-capacity-test.patch)
@@ -141,9 +146,9 @@ for patch_name in integration.patch services-capacity-test.patch wifi-security.p
     esac
     if "$patch_present"; then
         echo "Pi1MHz $patch_name is already applied"
-    elif [ "$patch_name" = http-status.patch ]; then
-        # This pinned patch deliberately uses a zero-context insertion to keep
-        # the patch file itself free of whitespace-only context lines.
+    elif [ "$patch_name" = http-status.patch ] || [ "$patch_name" = service-range-online.patch ]; then
+        # These small migration patches use zero-context hunks so they can
+        # update an already-integrated checkout as well as a clean one.
         git -C "$upstream" apply --unidiff-zero --check "$patch_file"
         git -C "$upstream" apply --unidiff-zero "$patch_file"
     else

@@ -3,6 +3,7 @@ Pi1MHz bare-metal integration for commit
 
 - install_bundle.sh
 - pi1mhz-current/integration.patch
+- pi1mhz-current/service-range-online.patch
 - pi1mhz-current/wifi-security.patch
 - pi1mhz-current/wifi-radio.patch
 - pi1mhz-current/wifi-mac-fallback.patch
@@ -23,8 +24,11 @@ Host ROM integration sources:
 
 - rom-side/build_rom.sh
 - rom-side/elkwifi-0.23/integration.patch
+- rom-side/elkwifi-0.23/banner-spacing.patch
 - rom-side/elkwifi-0.23/identity.patch
 - rom-side/elkwifi-0.23/command-surface.patch
+- rom-side/elkwifi-0.23/online-command.patch
+- rom-side/elkwifi-0.23/online.asm
 - rom-side/elkwifi-0.23/wificmd.asm
 - rom-side/elkwifi-0.23/disconnect-response.patch
 - rom-side/elkwifi-0.23/menu.asm

@@ -1,0 +1,28 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -177,6 +177,8 @@
+                     equb >time_cmd, <time_cmd
+                     equs "PRD"
+                     equb >pdump_cmd, <pdump_cmd
++                    equs "ONLINE"
++                    equb >online_cmd, <online_cmd
+                     equs "JOIN"
+                     equb >join_cmd, <join_cmd
+                     equs "LEAVE"
+@@ -224,5 +226,6 @@
+                     equs " MENUSRC   Show/set menu URL",&0D
+                     equs " MODE      Set device mode",&0D
++                    equs " ONLINE    Show network readiness",&0D
+                     equs " PING      ping a host on network",&0D
+                     equs " PRD       Paged Ram Dump",&0D
+                     equs " TIME      Print current time",&0D
+@@ -278,7 +281,8 @@
+ include "version.asm"
+ include "time.asm"
+ include "lap.asm"
+ include "ifcfg.asm"
++include "online.asm"
+ include "wificmd.asm"
+ include "pdump.asm"
+ include "join.asm"

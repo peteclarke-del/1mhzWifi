@@ -655,6 +655,31 @@ static uint8_t wifi_ifcfg(uint32_t cp)
    return ELKWIFI_OK;
 }
 
+static uint8_t wifi_online(uint32_t cp)
+{
+   const wifi_lwip_context_t *live = wifi_lwip_get_context();
+   sdio_runtime_status_t radio = sdio_runtime_get_status();
+
+   if (radio.link_up && live != NULL && live->netif_added) {
+      const ip4_addr_t *address = netif_ip4_addr(&live->netif);
+      if (!ip4_addr_isany_val(*address)) {
+         response_printf(cp, "ONLINE %u.%u.%u.%u\r\n",
+                         ip4_addr1(address), ip4_addr2(address),
+                         ip4_addr3(address), ip4_addr4(address));
+         return ELKWIFI_OK;
+      }
+   }
+   if (radio.join_busy || radio.link_up)
+      response_string(cp, "OFFLINE CONNECTING\r\n");
+   else if (wifi_get_state() == WIFI_STATE_DISABLED)
+      response_string(cp, "OFFLINE WIFI OFF\r\n");
+   else if (wifi_get_state() == WIFI_STATE_ERROR)
+      response_string(cp, "OFFLINE ERROR\r\n");
+   else
+      response_string(cp, "OFFLINE\r\n");
+   return ELKWIFI_OK;
+}
+
 static uint8_t wifi_scan(uint32_t cp)
 {
    sdio_wifi_scan_result_t results[SDIO_WIFI_SCAN_MAX_RESULTS];
@@ -793,6 +818,9 @@ static uint8_t process_request(uint32_t cp)
 
       case ELKWIFI_CMD_IFCFG:
          return wifi_ifcfg(cp);
+
+      case ELKWIFI_CMD_ONLINE:
+         return wifi_online(cp);
 
       case ELKWIFI_CMD_MENU_GET:
          response_string(cp, menu_url);
@@ -934,7 +962,7 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
     * every init, not just the Pi's first cold-start init. This also covers an
     * Acorn power cycle while the separately powered Pi remains running. */
    wifi_credentials_load();
-   (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_SECURE_OPEN,
+   (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_ONLINE,
                            elkwifi_command);
    asynchronous_close();
    request_pending = false;

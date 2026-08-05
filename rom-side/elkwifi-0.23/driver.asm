@@ -137,6 +137,10 @@
  bne service_driver_not_30
  jmp service_driver_time
 .service_driver_not_30
+ cmp #31
+ bne service_driver_not_31
+ jmp service_driver_online
+.service_driver_not_31
  jmp service_driver_unsupported
 \ Initialize the data buffer, by resetting the paged ram register to 0. This
 \ call does not clear the buffer and will mostly be called after a command
