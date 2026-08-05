@@ -1,0 +1,23 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -796 +796,3 @@
+-	BCS	stl_nf		\on error, return flagging not found
++	BCC	stl_newuef_ok
++	JMP	stl_nf		\on error, return flagging not found
++.stl_newuef_ok
+@@ -798 +800,3 @@
+-	BEQ	stl_nf		\if A=0, file not found
++	BNE	stl_found
++	JMP	stl_nf		\if A=0, file not found
++.stl_found
+@@ -813 +817,3 @@
+-	BCS	stl_nf		\exit on error
++	BCC	stl_block_ok
++	JMP	stl_nf		\exit on error
++.stl_block_ok
+@@ -831 +837,3 @@
+-	BCS	stl_nf		\exit immediately on skip error
++	BCC	stl_skip_ok
++	JMP	stl_nf		\exit immediately on skip error
++.stl_skip_ok

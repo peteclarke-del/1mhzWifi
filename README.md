@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.8` host ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.9` host ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -62,9 +62,11 @@ fit or load `Pi1MHz/ElkWiFi.rom` as an Acorn sideways ROM.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.8 changes the WiCFS host code and adds Pi service command
-93 for UEF normalization, so both the ROM and the applicable kernel must be
-replaced with the matched bundle.
+host ROM. Release 0.1.9 retains the WiCFS host changes and compressed-UEF Pi
+service introduced in 0.1.8, and restores the original `WGET -U` contract for
+raw paged-RAM data such as the published menu TITLES catalogue. The matched
+kernel still provides service command 93 for ZIP and gzip UEF normalization,
+so replace both the ROM and the kernel from the same bundle.
 
 The bundle does not contain a BeebSCSI disc image. Preserve the card's
 `/BeebSCSI0` directory when updating it. A clean card needs at least
@@ -82,10 +84,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-1MHzWifi ROM 13195ded90d41f197fa00da0562a8424af10071444db3b5142d78743b63ea5d2
-kernel.img   934c9371b5991f624963039218f57b5ad7e8528f002b14e006dcd2016832c43c
-kernel7.img  8938280dd1487a933ca6b905ab3d47d2ac1f2549270c358f2e515de6693aec49
-bundle ZIP   558742407fc86aa596d97a56096948426ca8d703261d39ad58b3ca977037ae0b
+1MHzWifi ROM b7dfe0ac296c33f9f6d6f128e9b955132414546db932b91cfdecb393af3239b8
+kernel.img   8049f604eb0c01bda7d3c70e4359a338946802e36529e26e104310d7b923e852
+kernel7.img  209ab7a35e89508fcaff026c9dd77ff5028a2f48b51313ea78a94e54c4fc052d
+bundle ZIP   3c6a7bb8ed770a0f9a6d48787299e583f7d5bc13beb9db55894201b9585b832c
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -188,7 +190,7 @@ coexistence still require Pi1MHz hardware.
 Real hardware with the 0.1.7 ROM loaded the first Zalaga and Chuckie Egg files
 but returned to the BASIC prompt after `CHAIN ""`. Both files span the old
 `&09DA/&09DB` OSFILE pointer save, so the load overwrote the pointer before
-WiCFS returned catalogue metadata. Version 0.1.8 keeps that pointer on the
+WiCFS returned catalogue metadata. Version 0.1.9 keeps that pointer on the
 active 6502 stack. This correction is built and emulator-tested, but remains
 the first hardware release gate for this image.
 

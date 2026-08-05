@@ -28,7 +28,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/uef.asm" "$upstream/rom/uef.asm"
-for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-loader-compat.patch wicfs-callable-init.patch wicfs-rewind.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-loader-compat.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch rom-prune.patch routines-prune.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -40,8 +40,8 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.8"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q 'equs "1MHzWifi 0.1.8",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.9"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q 'equs "1MHzWifi 0.1.9",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)
@@ -114,6 +114,11 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         wicfs-rewind.patch)
             grep -q 'reload authoritative UEF length from Pi1MHz JIM and rewind' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-long-branches.patch)
+            grep -q '^\.stl_newuef_ok' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.stl_skip_ok' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         rom-prune.patch)

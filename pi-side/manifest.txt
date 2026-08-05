@@ -57,6 +57,7 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/wicfs-loader-compat.patch
 - rom-side/elkwifi-0.23/wicfs-callable-init.patch
 - rom-side/elkwifi-0.23/wicfs-rewind.patch
+- rom-side/elkwifi-0.23/wicfs-long-branches.patch
 - rom-side/elkwifi-0.23/rom-prune.patch
 - rom-side/elkwifi-0.23/routines-prune.patch
 

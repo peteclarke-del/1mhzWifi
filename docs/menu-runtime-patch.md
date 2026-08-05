@@ -59,6 +59,11 @@ populated only after the download, before WiCFS starts. This prevents MOS
 workspace use during a network wait from corrupting the page pointer and
 raising a false `Buffer full` error on a small TITLES file.
 
+`-U` selects the 64 KiB paged-RAM destination; it does not assert that the
+download is a UEF image. The published TITLES index is raw catalogue data.
+1MHzWifi therefore invokes Pi-side decompression only when the downloaded bytes
+carry a gzip or ZIP signature. Raw title data and raw UEF files remain untouched.
+
 The AP5/Pi1MHz `&FCFF` page register is treated as write-only. Its selected
 page is shadowed in ROM workspace and incremented there. Reading the register
 through this hardware path can return the floating-bus value `&FF`; using that

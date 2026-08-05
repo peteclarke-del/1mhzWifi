@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWifi ROM 13195ded90d41f197fa00da0562a8424af10071444db3b5142d78743b63ea5d2
-kernel.img   934c9371b5991f624963039218f57b5ad7e8528f002b14e006dcd2016832c43c
-kernel7.img  8938280dd1487a933ca6b905ab3d47d2ac1f2549270c358f2e515de6693aec49
-bundle ZIP   558742407fc86aa596d97a56096948426ca8d703261d39ad58b3ca977037ae0b
+1MHzWifi ROM b7dfe0ac296c33f9f6d6f128e9b955132414546db932b91cfdecb393af3239b8
+kernel.img   8049f604eb0c01bda7d3c70e4359a338946802e36529e26e104310d7b923e852
+kernel7.img  209ab7a35e89508fcaff026c9dd77ff5028a2f48b51313ea78a94e54c4fc052d
+bundle ZIP   3c6a7bb8ed770a0f9a6d48787299e583f7d5bc13beb9db55894201b9585b832c
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -31,15 +31,15 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
-- [x] Repeat the Elkulator boot smoke test with the 0.1.8 ROM and Electron OS
+- [x] Repeat the Elkulator boot smoke test with the 0.1.9 ROM and Electron OS
   and BASIC. Elkulator does not reproduce the AP5 extended-vector path.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [x] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
-  return. The 0.1.8 emulator run returned directly to BASIC. Repeat this on
+  return. The 0.1.9 emulator run returned directly to BASIC. Repeat this on
   hardware because the emulator's previous filing vector is direct rather than
   the AP5 configuration that exposed the loop.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.8` before recording any further test result.
+  `1MHzWifi 0.1.9` before recording any further test result.
 - [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and
   ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
@@ -131,10 +131,10 @@ Expected error meanings:
 - [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
-- [ ] Retest Zalaga and Chuckie Egg with ROM 0.1.8. ROM 0.1.7 loaded each
+- [ ] Retest Zalaga and Chuckie Egg with ROM 0.1.9. ROM 0.1.7 loaded each
   initial file, printed its cassette title and length, then returned to the
   BASIC prompt. The common cause was the OSFILE control-block pointer stored
-  in loaded host memory at `&09DA/&09DB`. Version 0.1.8 holds it on the active
+  in loaded host memory at `&09DA/&09DB`. Version 0.1.9 holds it on the active
   6502 stack and returns the catalogue metadata after the load.
 - [ ] Run `*MENU`, press `L` for Zalaga, and confirm the published menu executes
   its original `*REWIND` followed by `CHAIN ""` after the download. The ROM

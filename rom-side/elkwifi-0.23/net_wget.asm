@@ -312,7 +312,9 @@ net_primary_page = heap+&E6
  sta net_transfer_ok
  lda uflag
  ora sflag
- beq pi_wget_finish_close
+ bne pi_wget_paged_finish
+ jmp pi_wget_finish_close
+.pi_wget_paged_finish
  lda #0
  sta pr_r
  sta pr_y
@@ -329,6 +331,29 @@ net_primary_page = heap+&E6
  sta &FDFF
  lda uflag
  beq pi_wget_normalized
+ \ ElkWiFi -U means "store in paged RAM"; it does not promise that the
+ \ payload is a UEF.  The published MENU downloads its raw TITLES catalogue
+ \ with -U.  Only ask the Pi to expand inputs carrying a gzip or ZIP signature.
+ \ This also keeps ordinary -U transfers compatible with kernels predating
+ \ the optional normalisation service.
+ lda #'R'
+ sta net_result
+ lda #0
+ sta pagereg
+ lda pageram
+ cmp #&1F
+ bne pi_wget_check_zip
+ lda pageram+1
+ cmp #&8B
+ beq pi_wget_normalize_compressed
+.pi_wget_check_zip
+ lda pageram
+ cmp #'P'
+ bne pi_wget_raw_paged
+ lda pageram+1
+ cmp #'K'
+ bne pi_wget_raw_paged
+.pi_wget_normalize_compressed
  jsr service_driver_uef_normalize
  cmp #'I'
  bne pi_wget_not_invalid_uef
@@ -350,6 +375,10 @@ net_primary_page = heap+&E6
  lda &FDFF
  sta net_bytes_hi
  sta sbufh
+ jmp pi_wget_normalized
+.pi_wget_raw_paged
+ lda #&FF
+ sta pagereg
 .pi_wget_normalized
  jsr set_bank_0
  lda net_primary_page

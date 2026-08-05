@@ -14,6 +14,7 @@
 #include <strings.h>
 
 #include "Pi1MHz.h"
+#include "scripts/gitversion.h"
 #include "BeebSCSI/filesystem.h"
 #include "config.h"
 #include "elkwifi_service.h"
@@ -810,8 +811,8 @@ static uint8_t process_request(uint32_t cp)
             return ELKWIFI_ERR_NO_WIFI;
          if (wifi_get_state() < WIFI_STATE_FIRMWARE_READY)
             return ELKWIFI_BUSY;
-         response_printf(cp, "Pi1MHz ElkWiFi 1.0 (%s)\r\n\r\nOK\r\n",
-                         wifi_state_name(wifi_get_state()));
+         response_printf(cp, "Pi1MHz ElkWiFi 1.0 (%s), kernel %s\r\n\r\nOK\r\n",
+                         wifi_state_name(wifi_get_state()), GITVERSION);
          return ELKWIFI_OK;
 
       case ELKWIFI_CMD_SCAN:
