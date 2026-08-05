@@ -1,38 +1,6 @@
 diff --git a/rom/wicfs.asm b/rom/wicfs.asm
 --- a/rom/wicfs.asm
 +++ b/rom/wicfs.asm
-@@ -67,4 +67,6 @@
- findv_rtn = heap+&DD \saved FINDV for calls WiCFS does not claim
- evptr     = pbl      \temporary zero-page extended-vector table pointer
- filev_source = heap+&E2 \zero for FILEV, negative for FINDV
-+tape_len_lo = heap+&D6 \persistent UEF length, refreshed by successful WGET -U
-+tape_len_hi = heap+&D7
- fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
-@@ -1565,5 +1565,9 @@
-     LDA &FDFF
-     STA sbufh
-+    LDA sbufl
-+    STA tape_len_lo
-+    LDA sbufh
-+    STA tape_len_hi
-     JSR set_bank_0
-     LDA #0
-     STA pagereg
-@@ -1628,3 +1632,16 @@
- .rewind_cmd
+@@ -1628 +1628 @@
 -    jsr cfsinit     \ initialize the tape (i.e. set pointers to beginning of paged RAM)
-+    \ WGET -U has already replaced the current UEF, published its length and
-+    \ reset pr_r/pr_y. Keep REWIND entirely in host RAM: the menu executes it
-+    \ while transitioning from TITLES to a game and no JIM transaction or
-+    \ additional subroutine stack frame is required here.
-+    lda tape_len_lo
-+    sta sbufl
-+    lda tape_len_hi
-+    sta sbufh
-+    lda #0
-+    sta pr_y
-+    sta pr_r
-+    sta sfopen
-+    sta sfptr
-+    sta sbuft
-     jmp call_claimed
++    jsr cfsinit     \ reload authoritative UEF length from Pi1MHz JIM and rewind

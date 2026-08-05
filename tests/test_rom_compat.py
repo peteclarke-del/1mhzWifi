@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "57bacffb78226b886d0f0ba83132ab5eaf7462a9775beac98b72f930a64cb7b2"
+ROM_SHA256 = "aa19fde34e11eb2b06b067cef68077fe1575899588f3ad2e7851170644284448"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -18,11 +18,12 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(len(self.rom), 16 * 1024)
         self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
-            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x31, 0x80, 0x82, 0x17, 1))
+            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x17, 1))
         )
-        self.assertEqual(self.rom[9:18], b"1MHzWiFi\0")
-        self.assertEqual(self.rom[18:24], b"0.1.0\0")
-        self.assertIn(b"1MHzWiFi 0.1.0", self.rom)
+        self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
+        self.assertEqual(self.rom[18:24], b"0.1.1\0")
+        self.assertIn(b"1MHzWifi 0.1.1 (C) 2026 Peter Clarke", self.rom)
+        self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
         helper = bytes.fromhex("A9 01 8D FE FC B9 00 FD 60")
@@ -46,9 +47,9 @@ class RomCompatibilityTest(unittest.TestCase):
         # The helper call address moves as dead legacy routines are removed.
         # Match the surrounding JIM length transaction, not a linker address.
         length_read = re.compile(
-            bytes.fromhex("A9 FF 8D FF FC 20")
+            bytes.fromhex("20")
             + b".."
-            + bytes.fromhex("AD FE FD 85 F8")
+            + bytes.fromhex("A9 FF 8D FF FC AD FE FD 85 F8")
             + b".{0,12}"
             + bytes.fromhex("AD FF FD 85 F9"),
             re.DOTALL,
@@ -67,11 +68,9 @@ class RomCompatibilityTest(unittest.TestCase):
             "00 91 B8 C8 91 B8 A2 04 C8 91 B8 CA D0 FA A9 01 60"
         )
         self.assertEqual(self.rom.count(osfile_metadata), 1)
-        # cfsinit caches the downloaded UEF length exactly once. The earlier
-        # zero-context patch accidentally inserted this sequence into xmess.
-        self.assertEqual(
-            self.rom.count(bytes.fromhex("A5 F8 8D D6 09 A5 F9 8D D7 09")), 1
-        )
+        # The UEF length remains authoritative in JIM. Do not reintroduce the
+        # discarded cache in volatile &09D6/&09D7 host heap.
+        self.assertNotIn(bytes.fromhex("A5 F8 8D D6 09 A5 F9 8D D7 09"), self.rom)
         self.assertIn(bytes.fromhex("0A 0A 0A 0A AA"), self.rom)
         self.assertNotIn(bytes.fromhex("0A AD D6 09"), self.rom)
 

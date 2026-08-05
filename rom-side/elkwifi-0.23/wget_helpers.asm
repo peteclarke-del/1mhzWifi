@@ -16,10 +16,10 @@ laddr = heap+&FE
  pha
  lda pagereg
  sta load_addr+1
+ jsr set_bank_1
  lda pr_r
  sta pagereg
  ldy pr_y
- jsr set_bank_1
  pla
  rts
 
@@ -28,9 +28,9 @@ laddr = heap+&FE
  lda pagereg
  sta pr_r
  sty pr_y
+ jsr set_bank_0
  lda load_addr+1
  sta pagereg
- jsr set_bank_0
  pla
  rts
 

@@ -29,13 +29,12 @@ when it would conflict with other fitted Acorn hardware.
 | MENU is entered while another filing system may own Electron workspace | Select `*TAPE` before constructing the download command | Reproduces the required cassette environment and avoids the observed ADFS workspace collision |
 | Menu assumes its selected JIM window remains active | Reselect window 1 at each patched catalogue access | Pi1MHz services share the JIM aperture |
 | WiCFS copies a ROM switcher into `&0400-&07FF` | MOS extended filing vectors | That RAM is not private WiCFS workspace and can conflict with fitted hardware |
-| `*REWIND` rereads length metadata through JIM | Restore the length cached by successful `*WGET -U` | Avoids the observed AP5/1MHz-bus stall while preserving the same cursor reset |
+| `*REWIND` rereads length metadata through JIM | Retained | The JIM trailer is authoritative; caching it in volatile `&0900` heap corrupts later title loads |
 | Key 0 runs `*REWIND`, then `CHAIN ""` | Unchanged | This is the official menu launch contract |
 
-The rewind patch is context-anchored to `cfsinit` and `rewind_cmd`. It is not
-applied by source line number alone. This matters because the upstream file is
-changed by earlier compatibility patches and a line-number-only insertion can
-silently land in an unrelated routine.
+The rewind patch preserves the upstream `cfsinit` call and documents that the
+length comes from the Pi1MHz JIM trailer. It does not introduce a second host
+copy of that state.
 
 ## Download and execution sequence
 

@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWiFi ROM 57bacffb78226b886d0f0ba83132ab5eaf7462a9775beac98b72f930a64cb7b2
+1MHzWifi ROM aa19fde34e11eb2b06b067cef68077fe1575899588f3ad2e7851170644284448
 kernel.img   2332d082ed4b235007fdf8ad50baf99bdf322126af78c3e0f024f9db75d4a6f0
 kernel7.img  2825bfc5f0302816c23304bb0fa0f800dd775e9d58dda8487469e5ea7b0cfad7
-bundle ZIP   5c273a1193393b759945ef6ef9cf61c731b00575b5881d99480c49706a930d16
+bundle ZIP   7c539670ac6cd3ad1efca5be84163727fe3967e2ed571d9180c7546d034d2ee5
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -32,16 +32,18 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
 - [x] Boot the ROM in Elkulator with Electron OS and BASIC.
-- [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify both identify the ROM as
-  `1MHzWiFi 0.1.0` before recording any further test result.
+- [x] Run `*VERSION` in Elkulator and verify both copyright lines.
+- [x] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt return.
+- [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
+  `1MHzWifi 0.1.1` before recording any further test result.
 - [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
 - [x] Run `*MENUSRC` with no services-mailbox device. Confirm a bounded error and return to BASIC.
 - [ ] Add a Pi1MHz services-mailbox device to Elkulator and run live command tests.
 
 Existing captures are stored under `tests/elkulator/screenshots/`. They prove
-ROM startup and missing-service behavior only. Elkulator models the original
-cartridge UART, not the Pi1MHz mailbox, Plus 5 forwarding, or Tube transfers.
+ROM startup, identity, command return and missing-service behavior. Elkulator
+does not model the Pi1MHz mailbox, Plus 5 forwarding, or Tube transfers.
 
 ## Cold boot and bus gate
 

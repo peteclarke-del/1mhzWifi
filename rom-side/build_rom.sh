@@ -25,6 +25,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/service_driver.asm" "$upstream/rom/ser
 install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
+install -m 0644 "$script_dir/elkwifi-0.23/version.asm" "$upstream/rom/version.asm"
 for patch_name in identity.patch integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-rewind.patch rom-prune.patch routines-prune.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
@@ -36,9 +37,9 @@ for patch_name in identity.patch integration.patch command-surface.patch disconn
             patch_present=true
             ;;
         identity.patch)
-            grep -q '^\.romtitle.*equs "1MHzWiFi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.0"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q 'equs "1MHzWiFi 0.1.0",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.1"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q 'equs "1MHzWifi 0.1.1",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         command-surface.patch)
@@ -67,15 +68,8 @@ for patch_name in identity.patch integration.patch command-surface.patch disconn
             patch_present=true
             ;;
         wicfs-rewind.patch)
-            if grep -q 'Keep REWIND entirely in host RAM' "$upstream/rom/wicfs.asm"; then
-                if grep -q 'tape_len_lo = heap+&D6' "$upstream/rom/wicfs.asm" &&
-                   grep -q 'tape_len_hi = heap+&D7' "$upstream/rom/wicfs.asm"; then
-                    patch_present=true
-                else
-                    echo "ElkWiFi checkout contains an obsolete WiCFS rewind patch; use a clean pinned checkout" >&2
-                    exit 1
-                fi
-            fi
+            grep -q 'reload authoritative UEF length from Pi1MHz JIM and rewind' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
             ;;
         rom-prune.patch)
             ! grep -q 'incbin "flash.bin"' "$upstream/rom/ElkWifi.asm" &&
@@ -94,10 +88,6 @@ for patch_name in identity.patch integration.patch command-surface.patch disconn
             # The banner replacement is deliberately a one-line hunk so it
             # remains independent of upstream startup-flow changes.
             apply_options+=(--unidiff-zero)
-        elif [[ "$patch_name" = wicfs-rewind.patch ]]; then
-            # This stateful patch must be anchored to cfsinit and rewind_cmd.
-            # Never permit line-number-only application here.
-            apply_options+=(--ignore-space-change)
         elif [[ "$patch_name" = wicfs-*.patch ]]; then
             # Upstream wicfs.asm uses CRLF. Ignore that whitespace-only
             # difference so this repository can keep a normal text patch.

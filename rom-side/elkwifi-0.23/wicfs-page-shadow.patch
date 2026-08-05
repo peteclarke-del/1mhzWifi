@@ -79,12 +79,9 @@ diff --git a/rom/wicfs.asm b/rom/wicfs.asm
 -    sta pr_r        \save page register
 +    lda pr_r        \load page-register shadow
 +    sta pagereg     \select the next physical page
-@@ -1452 +1476,0 @@ __debug =   0       \print debug information
+@@ -1452 +1476 @@ __debug =   0       \print debug information
 -    JSR wget_context_switch_in
-@@ -1454 +1478,2 @@ __debug =   0       \print debug information
--    STA pagereg     \ (this is stored in the last two bytes of the paged RAM)
-+    STA pagereg     \ (this is stored in the last two bytes of the paged RAM)
-+    JSR set_bank_1
++    JSR set_bank_1  \ select JIM window before its page register
 @@ -1459 +1484,3 @@ __debug =   0       \print debug information
 -    JSR wget_context_switch_out
 +    JSR set_bank_0

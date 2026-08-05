@@ -320,17 +320,10 @@ net_primary_page = heap+&E6
  sta sbufl
  lda net_bytes_hi
  sta sbufh
- lda uflag
- beq pi_wget_length_saved
- lda net_bytes_lo
- sta tape_len_lo
- lda net_bytes_hi
- sta tape_len_hi
-.pi_wget_length_saved
- lda #&FF
- sta pagereg
  lda #1
  sta &FCFE
+ lda #&FF
+ sta pagereg
  lda net_bytes_lo
  sta &FDFE
  lda net_bytes_hi
@@ -406,10 +399,10 @@ net_primary_page = heap+&E6
 
 .pi_wget_store_paged
  pha
- lda net_paged_page
- sta pagereg
  lda #1
  sta &FCFE
+ lda net_paged_page
+ sta pagereg
  ldy net_paged_offset
  pla
  sta pageram,y

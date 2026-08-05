@@ -33,6 +33,7 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/ping.asm
 - rom-side/elkwifi-0.23/service_driver.asm
 - rom-side/elkwifi-0.23/time.asm
+- rom-side/elkwifi-0.23/version.asm
 - rom-side/elkwifi-0.23/driver.asm
 - rom-side/elkwifi-0.23/serial.asm
 - rom-side/elkwifi-0.23/wget_helpers.asm
