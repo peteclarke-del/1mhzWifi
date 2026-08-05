@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != "--rom-only" ]; }; then
+    echo "usage: $0 [--rom-only]" >&2
+    exit 2
+fi
+
 rom=build/elkwifi_pi1mhz.rom
-expected=fb3c38607ef08e90611c3e199429ddc49c5365a26651ec4dafa361f2f3a363f0
+expected=13195ded90d41f197fa00da0562a8424af10071444db3b5142d78743b63ea5d2
 test "$(stat -c %s "$rom")" -eq 16384
 printf '%s  %s\n' "$expected" "$rom" | sha256sum --check --strict
+
+if [ "${1:-}" = "--rom-only" ]; then
+    exit 0
+fi
+
 sha256sum --check --strict SHA256SUMS

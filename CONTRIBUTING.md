@@ -6,7 +6,8 @@ renumbering stock OSWORD functions or changing established command syntax.
 
 ## Development workflow
 
-1. Start from clean, pinned ElkWiFi and Pi1MHz checkouts.
+1. Follow the clean-checkout process in
+   [`docs/building.md`](docs/building.md).
 2. Make source changes in this repository, not only in a generated upstream checkout.
 3. Keep patch application repeatable and update each already-applied test when required.
 4. Build the 16 KiB ROM and both Pi kernel families for protocol or ABI changes.
@@ -17,7 +18,7 @@ Required local checks:
 
 ```sh
 ./build.sh
-python3 -m unittest discover -s tests -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 unzip -t build/pi1mhz-all-hardware-test.zip
 ```
 

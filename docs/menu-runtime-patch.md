@@ -111,8 +111,11 @@ first-stage loader returns.
 The stock menu installs key 0 as `*REWIND|MCHAIN ""|M` and later inserts that
 key into the keyboard buffer after a selected UEF has downloaded. The ROM does
 not alter this launch contract. OSFILE requires X and Y to be preserved across
-the `CHAIN` load. WiCFS saves both registers before parsing the UEF and restores
-them on claimed and forwarded FILEV return paths. OSBGET similarly preserves X
+the `CHAIN` load. WiCFS saves the OSFILE control-block pointer on the active
+6502 stack before parsing the UEF and restores X and Y on return. This is
+intentionally not host heap: first-stage files such as Zalaga and Chuckie Egg
+can overwrite the old `&09DA/&09DB` save area while loading. Forwarded FILEV
+calls retain their separate vector-chain state. OSBGET similarly preserves X
 and Y while returning the byte in A.
 
 WiCFS also returns the CFS header's load address, execution address and complete

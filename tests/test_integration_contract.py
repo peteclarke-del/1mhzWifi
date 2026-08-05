@@ -8,6 +8,31 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class IntegrationContractTest(unittest.TestCase):
+    def test_every_overlay_source_and_patch_is_consumed_by_a_build(self) -> None:
+        rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()
+        rom_sources = (ROOT / "rom-side/elkwifi-0.23").iterdir()
+        for source in rom_sources:
+            if source.is_file():
+                self.assertIn(source.name, rom_installer, source.name)
+
+        pi_installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        for patch in (ROOT / "pi-side/pi1mhz-current").glob("*.patch"):
+            self.assertIn(patch.name, pi_installer, patch.name)
+        for source in (ROOT / "pi-side/pi1mhz-v1.30/src").iterdir():
+            if source.is_file():
+                self.assertIn(source.name, pi_installer, source.name)
+
+        self.assertIn('"$root_dir/build.sh" --rom-only', pi_installer)
+        self.assertIn("install_if_changed", pi_installer)
+        self.assertIn("SOURCE_DATE_EPOCH", pi_installer)
+        self.assertIn("TZ=UTC zip -Xqr", pi_installer)
+
+        osfile_stack = (ROOT / "rom-side/elkwifi-0.23/wicfs-osfile-stack.patch").read_text()
+        self.assertIn("Keep the OSFILE control-block pointer below the active stack", osfile_stack)
+        self.assertIn("LDA\t&0102,X", osfile_stack)
+        self.assertIn("LDA\t&0101,X", osfile_stack)
+        self.assertNotIn("+\tLDA\tfilev_x", osfile_stack)
+
     def test_beebscsi_assets_and_bus_contract_are_preserved(self) -> None:
         bundle = ROOT / "build/pi1mhz-all/Pi1MHz"
         expected_hashes = {
@@ -98,7 +123,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_CMD_DATETIME", service)
         self.assertIn("ELKWIFI_CMD_ONLINE", service)
         self.assertIn("ELKWIFI_CMD_ONLINE       92u", service_header)
-        self.assertIn("ELKWIFI_CMD_LAST         ELKWIFI_CMD_ONLINE", service_header)
+        self.assertIn("ELKWIFI_CMD_UEF_NORMALIZE 93u", service_header)
+        self.assertIn("ELKWIFI_CMD_LAST         ELKWIFI_CMD_UEF_NORMALIZE", service_header)
         self.assertIn('response_printf(cp, "ONLINE %u.%u.%u.%u\\r\\n"', service)
         self.assertIn('response_string(cp, "OFFLINE CONNECTING\\r\\n")', service)
         self.assertIn('response_string(cp, "OFFLINE WIFI OFF\\r\\n")', service)
@@ -345,14 +371,14 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("lda #240\n sta drv_svc_response_count", driver)
         self.assertIn("lda #100", driver)
         self.assertIn("lda #19", driver)
-        self.assertIn("cmp #&21\n bcc service_driver_no_response", driver)
-        self.assertIn("cmp #&7F\n bcs service_driver_no_response", driver)
+        self.assertIn("cmp #&21\n bcs service_driver_response_visible", driver)
+        self.assertIn("cmp #&7F\n bcc service_driver_response_ascii", driver)
         self.assertIn("jmp service_driver_version", driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.7"', identity)
+        self.assertIn('romversion         equs "0.1.8"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.7 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.8 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
@@ -390,7 +416,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("net_transfer_ok = heap+&EF", wget)
         self.assertIn("net_received = heap+&F0", wget)
         self.assertIn("net_bytes_lo = heap+&F3", wget)
-        self.assertIn('equs "WGET OK &"', wget)
+        self.assertIn('equs "WGET "', wget)
+        self.assertIn('equs "OK &"', wget)
         self.assertIn('equs " head &"', wget)
         self.assertIn('equs "Empty response"', wget)
         menu = (ROOT / "rom-side/elkwifi-0.23/menu.asm").read_text()
@@ -420,7 +447,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("#>(menu_return_addr-1)", menu)
         self.assertNotIn('equs "CALL &E00"', menu)
         self.assertIn('equs "Menu download failed"', menu)
-        self.assertIn('equs "WGET OK &"', wget)
+        self.assertIn('equs "WGET "', wget)
+        self.assertIn('equs "OK &"', wget)
         self.assertIn("equb &AD,&34,&FC,&09,&08,&8D,&34,&FC", menusrc)
         self.assertIn("equb &20,&C5,&1F,&EA,&EA,&EA,&EA,&EA", menusrc)
         menu_doc = (ROOT / "docs/menu-runtime-patch.md").read_text()

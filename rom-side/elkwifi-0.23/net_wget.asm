@@ -327,6 +327,30 @@ net_primary_page = heap+&E6
  sta &FDFE
  lda net_bytes_hi
  sta &FDFF
+ lda uflag
+ beq pi_wget_normalized
+ jsr service_driver_uef_normalize
+ cmp #'I'
+ bne pi_wget_not_invalid_uef
+ jsr pi_wget_close
+ jsr set_bank_0
+ jmp uef_invalid
+.pi_wget_not_invalid_uef
+ cmp #'T'
+ bne pi_wget_normalize_ok
+ jsr pi_wget_close
+ jsr set_bank_0
+ jmp uef_too_large
+.pi_wget_normalize_ok
+ sta net_result
+ \ Command 93 rewrites the authoritative trailer with the expanded length.
+ lda &FDFE
+ sta net_bytes_lo
+ sta sbufl
+ lda &FDFF
+ sta net_bytes_hi
+ sta sbufh
+.pi_wget_normalized
  jsr set_bank_0
  lda net_primary_page
  sta pagereg
@@ -336,7 +360,27 @@ net_primary_page = heap+&E6
 .pi_wget_finish_close
  jsr pi_wget_close
  jsr printtext
- equs "WGET OK &",&EA
+ equs "WGET ",&EA
+ lda uflag
+ beq pi_wget_report_format_done
+ lda net_result
+ cmp #'G'
+ bne pi_wget_report_zip
+ jsr printtext
+ equs "GZIP ",&EA
+ jmp pi_wget_report_format_done
+.pi_wget_report_zip
+ cmp #'Z'
+ bne pi_wget_report_raw
+ jsr printtext
+ equs "ZIP ",&EA
+ jmp pi_wget_report_format_done
+.pi_wget_report_raw
+ jsr printtext
+ equs "RAW ",&EA
+.pi_wget_report_format_done
+ jsr printtext
+ equs "OK &",&EA
  lda net_bytes_hi
  jsr printhex
  lda net_bytes_lo

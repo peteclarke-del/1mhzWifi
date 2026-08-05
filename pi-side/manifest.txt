@@ -4,6 +4,7 @@ Pi1MHz bare-metal integration for commit
 - install_bundle.sh
 - pi1mhz-current/integration.patch
 - pi1mhz-current/service-range-online.patch
+- pi1mhz-current/uef-normalize.patch
 - pi1mhz-current/wifi-security.patch
 - pi1mhz-current/wifi-radio.patch
 - pi1mhz-current/wifi-mac-fallback.patch
@@ -19,6 +20,10 @@ Pi1MHz bare-metal integration for commit
 - pi1mhz-current/wifi-scan-cancel.patch
 - pi1mhz-v1.30/src/elkwifi_service.c
 - pi1mhz-v1.30/src/elkwifi_service.h
+- pi1mhz-v1.30/src/uef_normalize.c
+- pi1mhz-v1.30/src/uef_normalize.h
+- pi1mhz-v1.30/src/puff.c
+- pi1mhz-v1.30/src/puff.h
 
 Host ROM integration sources:
 
@@ -47,6 +52,7 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/wicfs-osfile-metadata.patch
 - rom-side/elkwifi-0.23/wicfs-host-only.patch
 - rom-side/elkwifi-0.23/wicfs-vector-chain.patch
+- rom-side/elkwifi-0.23/wicfs-osfile-stack.patch
 - rom-side/elkwifi-0.23/wicfs-reentry-run.patch
 - rom-side/elkwifi-0.23/wicfs-loader-compat.patch
 - rom-side/elkwifi-0.23/wicfs-callable-init.patch
@@ -65,12 +71,14 @@ Repository validation:
 
 - tests/test_integration_contract.py
 - tests/test_rom_compat.py
+- tests/test_uef_normalize.py
 - TODO.md
 - README.md
 - CONTRIBUTING.md
 - SECURITY.md
 - THIRD_PARTY_NOTICES.md
 - docs/architecture.md
+- docs/building.md
 - docs/commands.md
 - docs/menu-runtime-patch.md
 - docs/hardware-validation.md

@@ -113,9 +113,40 @@ OSBGET = &FFD7
  jsr uef_select_length
  lda &FDFE
  ora &FDFF
- beq uef_empty
+ bne uef_nonempty
+ jmp uef_empty
+.uef_nonempty
+ jsr service_driver_uef_normalize
+ cmp #'I'
+ bne uef_not_invalid
+ jmp uef_invalid
+.uef_not_invalid
+ cmp #'T'
+ bne uef_normalized
+ jmp uef_too_large
+.uef_normalized
+ sta temp
+ jsr uef_select_length
  jsr printtext
- equs "UEF OK &",&EA
+ equs "UEF ",&EA
+ lda temp
+ cmp #'G'
+ bne uef_format_zip
+ jsr printtext
+ equs "GZIP ",&EA
+ jmp uef_format_done
+.uef_format_zip
+ cmp #'Z'
+ bne uef_format_raw
+ jsr printtext
+ equs "ZIP ",&EA
+ jmp uef_format_done
+.uef_format_raw
+ jsr printtext
+ equs "RAW ",&EA
+.uef_format_done
+ jsr printtext
+ equs "OK &",&EA
  lda &FDFF
  jsr printhex
  lda &FDFE
@@ -168,6 +199,16 @@ OSBGET = &FFD7
 .uef_empty
  jsr printtext
  equs "Empty UEF file",&0D,&EA
+ jmp call_claimed
+
+.uef_invalid
+ jsr printtext
+ equs "Invalid UEF, gzip or ZIP file",&0D,&EA
+ jmp call_claimed
+
+.uef_too_large
+ jsr printtext
+ equs "Expanded UEF exceeds &FFFE bytes",&0D,&EA
  jmp call_claimed
 
 .uef_open_failed

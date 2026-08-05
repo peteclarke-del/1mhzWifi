@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWifi ROM fb3c38607ef08e90611c3e199429ddc49c5365a26651ec4dafa361f2f3a363f0
-kernel.img   69a4cc2d44328929e95f98c37c84fe00b771bb1e47fccb6f91e3f42a6e4069c1
-kernel7.img  2cbb42d46af5a82af7a7e44d223c4d37df7448b78a93699799ea345e40ffd6be
-bundle ZIP   efcf1e7aec477a533f35443d1d407c15acdeadd2d71a2f28862469a0efd277be
+1MHzWifi ROM 13195ded90d41f197fa00da0562a8424af10071444db3b5142d78743b63ea5d2
+kernel.img   934c9371b5991f624963039218f57b5ad7e8528f002b14e006dcd2016832c43c
+kernel7.img  8938280dd1487a933ca6b905ab3d47d2ac1f2549270c358f2e515de6693aec49
+bundle ZIP   558742407fc86aa596d97a56096948426ca8d703261d39ad58b3ca977037ae0b
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -31,15 +31,15 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
-- [x] Repeat the Elkulator boot smoke test with the 0.1.7 ROM and Electron OS
+- [x] Repeat the Elkulator boot smoke test with the 0.1.8 ROM and Electron OS
   and BASIC. Elkulator does not reproduce the AP5 extended-vector path.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [x] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
-  return. The 0.1.7 emulator run returned directly to BASIC. Repeat this on
+  return. The 0.1.8 emulator run returned directly to BASIC. Repeat this on
   hardware because the emulator's previous filing vector is direct rather than
   the AP5 configuration that exposed the loop.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.7` before recording any further test result.
+  `1MHzWifi 0.1.8` before recording any further test result.
 - [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and
   ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
@@ -108,7 +108,8 @@ Expected error meanings:
 - [ ] Save a temporary HTTP URL with `*MENUSRC <url>` and read it back.
 - [ ] Run `*MENUSRC DEFAULT` and confirm the default persists after power cycle.
 - [ ] Run `*MENU` against the published ElkWiFi payload. Confirm
-  `Downloading menu`, the counted `WGET OK` line with range and header, and
+  `Downloading menu`, the counted `WGET RAW OK`, `WGET GZIP OK`, or
+  `WGET ZIP OK` line with expanded length, and
   `Starting menu` appear, the cartridge
   `&FC34` bank-select sequence becomes a full `&FCFD-&FCFE` JIM selection, and host `&E00` starts
   the menu without a BASIC `CALL`.
@@ -130,6 +131,11 @@ Expected error meanings:
 - [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
+- [ ] Retest Zalaga and Chuckie Egg with ROM 0.1.8. ROM 0.1.7 loaded each
+  initial file, printed its cassette title and length, then returned to the
+  BASIC prompt. The common cause was the OSFILE control-block pointer stored
+  in loaded host memory at `&09DA/&09DB`. Version 0.1.8 holds it on the active
+  6502 stack and returns the catalogue metadata after the load.
 - [ ] Run `*MENU`, press `L` for Zalaga, and confirm the published menu executes
   its original `*REWIND` followed by `CHAIN ""` after the download. The ROM
   must not substitute `*RUN`, `*/`, or another launch command.
@@ -138,14 +144,19 @@ Expected error meanings:
   second-stage vector-reset signature and subsequent `Scrunch` and
   `ElkZalaga3` files without changing the stock launch commands.
 - [x] Put the 29,794-byte Zalaga UEF on a DFS image, run
-  `*UEF LOAD ZALAGA`, verify `UEF OK &7462 bytes in JIM 1`, and confirm the
+  `*UEF LOAD ZALAGA`, verify `UEF RAW OK &7462 bytes in JIM 1`, and confirm the
   game reaches its title screen through the two-stage queued WiCFS launch with
   no additional keystrokes.
 - [ ] Repeat `*UEF LOAD` from the hardware ADFS hard disc and MMFS, including
   a path-qualified filename, Escape, missing file, empty file, and an image
   larger than `&FFFE` bytes.
+- [ ] Repeat the local import with raw UEF, gzip UEF, a single-entry ZIP
+  containing raw UEF, and a ZIP containing gzip UEF. Verify the reported
+  format and expanded byte count, then test bad CRC, truncated deflate data,
+  multiple-entry ZIP, and an expanded image larger than `&FFFE` bytes.
 - [ ] Select a MENU title with the Tube off and then on. In both cases confirm
-  `WGET OK`, WiCFS activation, and execution of the downloaded program.
+  a format-qualified `WGET ... OK`, WiCFS activation, and execution of the
+  downloaded program.
 - [ ] Test sequential open/read, EOF, rewind, Escape, malformed UEF, and recovery.
 - [ ] Confirm `*PRD` can inspect both defined JIM windows and restores the selector.
 - [ ] Test `*WGET -S` with valid sideways RAM and with no writable sideways RAM.

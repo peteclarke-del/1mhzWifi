@@ -52,11 +52,26 @@ if [ ! -f "$upstream/src/net_service.c" ]; then
     exit 1
 fi
 
-"$root_dir/build.sh"
-install -m 0644 "$script_dir/pi1mhz-v1.30/src/elkwifi_service.c" "$upstream/src/elkwifi_service.c"
-install -m 0644 "$script_dir/pi1mhz-v1.30/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
+# The ROM is an input to this build. Kernel and ZIP hashes are outputs and may
+# legitimately differ until the new bundle has been completed and recorded.
+"$root_dir/build.sh" --rom-only
 
-for patch_name in integration.patch service-range-online.patch services-capacity-test.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch tcp-diagnostics.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch; do
+install_if_changed() {
+    source_file=$1
+    destination_file=$2
+    if [ ! -f "$destination_file" ] || ! cmp -s "$source_file" "$destination_file"; then
+        install -m 0644 "$source_file" "$destination_file"
+    fi
+}
+
+install_if_changed "$script_dir/pi1mhz-v1.30/src/elkwifi_service.c" "$upstream/src/elkwifi_service.c"
+install_if_changed "$script_dir/pi1mhz-v1.30/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
+install_if_changed "$script_dir/pi1mhz-v1.30/src/uef_normalize.c" "$upstream/src/uef_normalize.c"
+install_if_changed "$script_dir/pi1mhz-v1.30/src/uef_normalize.h" "$upstream/src/uef_normalize.h"
+install_if_changed "$script_dir/pi1mhz-v1.30/src/puff.c" "$upstream/src/puff.c"
+install_if_changed "$script_dir/pi1mhz-v1.30/src/puff.h" "$upstream/src/puff.h"
+
+for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch tcp-diagnostics.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch; do
     patch_file="$script_dir/pi1mhz-current/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -67,8 +82,13 @@ for patch_name in integration.patch service-range-online.patch services-capacity
             patch_present=true
             ;;
         service-range-online.patch)
-            grep -q 'SERVICE_CMD_ELKWIFI_LAST  *92u' "$upstream/src/services.h" &&
-            grep -q '93\.\.255 unallocated' "$upstream/src/services.h" &&
+            grep -Eq 'SERVICE_CMD_ELKWIFI_LAST  *(92|93)u' "$upstream/src/services.h" &&
+            patch_present=true
+            ;;
+        uef-normalize.patch)
+            grep -q 'SERVICE_CMD_ELKWIFI_LAST  *93u' "$upstream/src/services.h" &&
+            grep -q '^    uef_normalize.c' "$upstream/src/CMakeLists.txt" &&
+            grep -q '^    puff.c' "$upstream/src/CMakeLists.txt" &&
             patch_present=true
             ;;
         services-capacity-test.patch)
@@ -146,7 +166,7 @@ for patch_name in integration.patch service-range-online.patch services-capacity
     esac
     if "$patch_present"; then
         echo "Pi1MHz $patch_name is already applied"
-    elif [ "$patch_name" = http-status.patch ] || [ "$patch_name" = service-range-online.patch ]; then
+    elif [ "$patch_name" = http-status.patch ] || [ "$patch_name" = service-range-online.patch ] || [ "$patch_name" = uef-normalize.patch ]; then
         # These small migration patches use zero-context hunks so they can
         # update an already-integrated checkout as well as a clean one.
         git -C "$upstream" apply --unidiff-zero --check "$patch_file"
@@ -157,7 +177,7 @@ for patch_name in integration.patch service-range-online.patch services-capacity
     fi
 done
 
-install -m 0644 "$root_dir/build/elkwifi_pi1mhz.rom" "$upstream/firmware/Pi1MHz/ElkWiFi.rom"
+install_if_changed "$root_dir/build/elkwifi_pi1mhz.rom" "$upstream/firmware/Pi1MHz/ElkWiFi.rom"
 
 # The raw socket/URL service is deliberately opt-in upstream.  This adapter
 # depends on it for OSWORD &65 TCP and *WGET, so enable it in the shipped
@@ -226,9 +246,11 @@ esac
 bundle="$root_dir/build/pi1mhz-$preset"
 mkdir -p "$bundle"
 cp -a "$upstream/firmware/." "$bundle/"
+bundle_epoch=${SOURCE_DATE_EPOCH:-$(git -C "$upstream" show -s --format=%ct "$expected_upstream")}
+find "$bundle" -exec touch -d "@$bundle_epoch" -- {} +
 archive="$root_dir/build/pi1mhz-$preset-hardware-test.zip"
 archive_tmp_dir=$(mktemp -d "$root_dir/build/.pi1mhz-bundle.XXXXXX")
-(cd "$root_dir/build" && zip -qr "$archive_tmp_dir/bundle.zip" "pi1mhz-$preset")
+(cd "$root_dir/build" && TZ=UTC zip -Xqr "$archive_tmp_dir/bundle.zip" "pi1mhz-$preset")
 mv "$archive_tmp_dir/bundle.zip" "$archive"
 rmdir "$archive_tmp_dir"
 echo "Hardware-test SD-card bundle: $bundle"

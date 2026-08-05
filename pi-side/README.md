@@ -24,7 +24,9 @@ Required build tools:
 
 The installer changes the supplied Pi1MHz checkout. Use a dedicated checkout,
 inspect its diff after installation, and retain the exact upstream commit in
-hardware test records.
+hardware test records. Keep the checkout outside this repository and use an
+absolute path without spaces because the upstream CMake files do not quote all
+generated include paths. See [the complete build procedure](../docs/building.md).
 
 ## Install and build
 
@@ -55,11 +57,12 @@ The installer performs the following operations:
 
 The installer is intended to be repeatable. Each patch has an explicit
 already-applied test. It preserves active configuration values rather than
-replacing them.
+replacing them. It also normalizes bundle timestamps and ZIP metadata so a
+repeat build from the same integrated checkout produces identical artifacts.
 
 ## Service command range
 
-The overlay registers commands 80-92 at the Pi1MHz Services mailbox. FIQ
+The overlay registers commands 80-93 at the Pi1MHz Services mailbox. FIQ
 context captures a request and marks it busy. Filesystem, scan, association,
 DNS, ICMP, and NTP work runs in a main-loop poll callback.
 
@@ -78,9 +81,12 @@ DNS, ICMP, and NTP work runs in a main-loop poll callback.
 | 90 | Cancel an outstanding scan, DNS, ICMP or NTP request |
 | 91 | Reserved secure-open ABI; unsupported |
 | 92 | Concise association and IPv4 readiness status |
+| 93 | Validate and normalize raw, gzip or ZIP UEF data in JIM |
 
 Raw TCP and HTTP use the existing Pi1MHz net-service command range. Secure
 open is registered only as a reserved ABI value and returns unsupported.
+Command 93 performs CPU-only decompression and CRC checks in the main poll,
+never in FIQ context.
 
 ## MENU compatibility
 

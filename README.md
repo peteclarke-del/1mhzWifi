@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.7` host ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.8` host ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -62,10 +62,9 @@ fit or load `Pi1MHz/ElkWiFi.rom` as an Acorn sideways ROM.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.7 changes the WiCFS host code, so the ROM must be
-replaced. A kernel from 0.1.6 already provides the required service command 92,
-but using the matched bundle removes version ambiguity. Changes confined to
-one side do not otherwise require replacing the other side.
+host ROM. Release 0.1.8 changes the WiCFS host code and adds Pi service command
+93 for UEF normalization, so both the ROM and the applicable kernel must be
+replaced with the matched bundle.
 
 The bundle does not contain a BeebSCSI disc image. Preserve the card's
 `/BeebSCSI0` directory when updating it. A clean card needs at least
@@ -83,10 +82,10 @@ The bundle contains both supported kernel families:
 Release hashes:
 
 ```text
-1MHzWifi ROM fb3c38607ef08e90611c3e199429ddc49c5365a26651ec4dafa361f2f3a363f0
-kernel.img   69a4cc2d44328929e95f98c37c84fe00b771bb1e47fccb6f91e3f42a6e4069c1
-kernel7.img  2cbb42d46af5a82af7a7e44d223c4d37df7448b78a93699799ea345e40ffd6be
-bundle ZIP   efcf1e7aec477a533f35443d1d407c15acdeadd2d71a2f28862469a0efd277be
+1MHzWifi ROM 13195ded90d41f197fa00da0562a8424af10071444db3b5142d78743b63ea5d2
+kernel.img   934c9371b5991f624963039218f57b5ad7e8528f002b14e006dcd2016832c43c
+kernel7.img  8938280dd1487a933ca6b905ab3d47d2ac1f2549270c358f2e515de6693aec49
+bundle ZIP   558742407fc86aa596d97a56096948426ca8d703261d39ad58b3ca977037ae0b
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -113,18 +112,25 @@ precedence over the compiled default URL. The UTC offset is expressed in
 minutes east of UTC. Use `0` for GMT and `60` for BST.
 
 `*UEF LOAD <filename>` reads a UEF image from the currently selected MOS filing
-system, including ADFS, DFS, or MMFS, into the WiCFS JIM window. It then selects
+system, including ADFS, DFS, or MMFS, into the WiCFS JIM window. Raw UEF,
+gzip-compressed UEF, single-entry ZIP containing UEF, and ZIP containing a
+gzip-compressed UEF are recognized by their contents. CRC and expanded-size
+checks run on the Pi before launch. It then selects
 the tape filing system, installs WiCFS, runs `*REWIND`, and executes `CHAIN ""`
 without further input. The setup and launch are queued in two stages so they
-fit the Electron keyboard buffer. The file may contain at most `&FFFE` bytes
-because the last two bytes of the 64 KiB window hold its length.
+fit the Electron keyboard buffer. The expanded UEF may contain at most `&FFFE`
+bytes because the last two bytes of the 64 KiB window hold its length.
+The same normalization is applied to `*WGET -U`, including MENU title
+downloads, and the success line identifies the detected format.
 
 Credentials and saved settings are plaintext files on the FAT partition.
 Protect the card and do not publish production credentials in bug reports.
 
 ## Build from source
 
-Two upstream source trees are required:
+The complete, reproducible procedure is in
+[Building and release hygiene](docs/building.md). In summary, two clean
+upstream source trees are required:
 
 - ElkWiFi commit `7bf366c97bec18bd238963c95e6f2aa6893cdb3a`
 - Pi1MHz commit `8468a38f63b25785007a50912a3b32a596db8ff9`
@@ -146,8 +152,10 @@ git -C Pi1MHz checkout 8468a38f63b25785007a50912a3b32a596db8ff9
 ./pi-side/install_bundle.sh /path/to/Pi1MHz all
 ```
 
-The installer modifies the supplied Pi1MHz checkout. Use a dedicated clean
-checkout so that the resulting patch state is easy to inspect and reproduce.
+The installer modifies the supplied Pi1MHz checkout. Keep both upstream
+checkouts outside this repository and use a path without spaces. This avoids
+an upstream Pi1MHz CMake quoting limitation and prevents generated source trees
+from accumulating in the project workspace.
 
 The root `build.sh` verifies the size and SHA-256 of the already-built ROM. It
 does not fetch or compile either upstream project.
@@ -156,7 +164,7 @@ does not fetch or compile either upstream project.
 
 ```sh
 ./build.sh
-python3 -m unittest discover -s tests -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 unzip -t build/pi1mhz-all-hardware-test.zip
 ```
 
@@ -177,9 +185,17 @@ without manual commands. Elkulator does not emulate the live Pi1MHz services
 mailbox, so WiFi association, HTTP transfer, AP5 forwarding, and Tube
 coexistence still require Pi1MHz hardware.
 
+Real hardware with the 0.1.7 ROM loaded the first Zalaga and Chuckie Egg files
+but returned to the BASIC prompt after `CHAIN ""`. Both files span the old
+`&09DA/&09DB` OSFILE pointer save, so the load overwrote the pointer before
+WiCFS returned catalogue metadata. Version 0.1.8 keeps that pointer on the
+active 6502 stack. This correction is built and emulator-tested, but remains
+the first hardware release gate for this image.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Building and release hygiene](docs/building.md)
 - [Command reference](docs/commands.md)
 - [MENU runtime adaptation](docs/menu-runtime-patch.md)
 - [Pi1MHz integration](pi-side/README.md)

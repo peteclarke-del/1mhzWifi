@@ -19,6 +19,7 @@
 #include "elkwifi_service.h"
 #include "ram_emulator.h"
 #include "services.h"
+#include "uef_normalize.h"
 #include "wifi/sdio.h"
 #include "wifi/wifi.h"
 #include "wifi/wifi_lwip.h"
@@ -51,6 +52,7 @@ static volatile uint32_t request_status_address;
 static bool service_initialised;
 static bool scan_waiting;
 static uint8_t scan_fields = 127u;
+static uint8_t uef_scratch[0xfffeu];
 
 typedef enum {
    NETOP_IDLE = 0,
@@ -785,7 +787,9 @@ static bool command_string(uint32_t cp, const char **value)
 
 static void response_string(uint32_t cp, const char *value)
 {
-   size_t length = strnlen(value, MENU_MAX);
+   size_t length = 0u;
+   while (length < MENU_MAX && value[length] != '\0')
+      length++;
    memcpy(&Pi1MHz->JIM_ram[cp + 1u], value, length);
    Pi1MHz->JIM_ram[cp + 1u + length] = 0u;
 }
@@ -821,6 +825,31 @@ static uint8_t process_request(uint32_t cp)
 
       case ELKWIFI_CMD_ONLINE:
          return wifi_online(cp);
+
+      case ELKWIFI_CMD_UEF_NORMALIZE:
+      {
+         const uint32_t base = DISC_RAM_BASE + 0x10000u;
+         const uint32_t trailer = DISC_RAM_BASE + 0x1fffeu;
+         size_t length = (size_t)Pi1MHz->JIM_ram[trailer]
+                       | ((size_t)Pi1MHz->JIM_ram[trailer + 1u] << 8);
+         uef_normalize_result_t normalized = uef_normalize(
+            &Pi1MHz->JIM_ram[base], &length, 0xfffeu,
+            uef_scratch, sizeof uef_scratch);
+         if (normalized == UEF_NORMALIZE_TOO_LARGE) {
+            response_string(cp, "TOO LARGE\r\n");
+            return ELKWIFI_OK;
+         }
+         if (normalized == UEF_NORMALIZE_INVALID) {
+            response_string(cp, "INVALID\r\n");
+            return ELKWIFI_OK;
+         }
+         Pi1MHz->JIM_ram[trailer] = (uint8_t)length;
+         Pi1MHz->JIM_ram[trailer + 1u] = (uint8_t)(length >> 8);
+         response_string(cp, normalized == UEF_NORMALIZE_RAW ? "RAW\r\n"
+                          : normalized == UEF_NORMALIZE_GZIP ? "GZIP\r\n"
+                                                            : "ZIP\r\n");
+         return ELKWIFI_OK;
+      }
 
       case ELKWIFI_CMD_MENU_GET:
          response_string(cp, menu_url);
@@ -962,7 +991,7 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
     * every init, not just the Pi's first cold-start init. This also covers an
     * Acorn power cycle while the separately powered Pi remains running. */
    wifi_credentials_load();
-   (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_ONLINE,
+   (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_UEF_NORMALIZE,
                            elkwifi_command);
    asynchronous_close();
    request_pending = false;

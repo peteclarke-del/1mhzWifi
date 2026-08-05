@@ -1,0 +1,15 @@
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -399,0 +400,3 @@ set( Pi1MHz_sources
++    uef_normalize.c
++    puff.c
++    puff.h
+diff --git a/src/services.h b/src/services.h
+--- a/src/services.h
++++ b/src/services.h
+@@ -26,2 +26,2 @@
+-#define SERVICE_CMD_ELKWIFI_LAST  92u
+-/* 93..255 unallocated */
++#define SERVICE_CMD_ELKWIFI_LAST  93u
++/* 94..255 unallocated */

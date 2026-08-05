@@ -17,6 +17,7 @@ drv_svc_ping = 88
 drv_svc_datetime = 89
 drv_svc_cancel = 90
 drv_svc_online = 92
+drv_svc_uef_normalize = 93
 
 drv_svc_timeout_lo = errorspace+3
 drv_svc_timeout_hi = errorspace+4
@@ -57,6 +58,14 @@ drv_net_close = 53
 .service_driver_online
  lda #drv_svc_online
  jmp service_driver_begin
+
+\Normalize the UEF window in place. Return only the first response character
+\in A: copying the response into pageram would overwrite the UEF header.
+.service_driver_uef_normalize
+ lda #drv_svc_uef_normalize
+ jsr service_driver_write_command
+ jsr service_driver_dispatch
+ rts
 
 .service_driver_lapopt
  lda #drv_svc_lapopt
@@ -655,6 +664,9 @@ drv_net_close = 53
 .service_driver_result
  cmp #0
  bne service_driver_error
+ lda drv_svc_command_copy
+ cmp #drv_svc_uef_normalize
+ beq service_driver_result_no_copy
  lda #1
  sta &FC00+drv_svc_addr_lo
  \ Every implemented service response starts with visible non-space ASCII.
@@ -662,9 +674,13 @@ drv_net_close = 53
  \ AP5 open-bus values are commonly &20, &FF or &00.
  lda &FC00+drv_svc_data
  cmp #&21
- bcc service_driver_no_response
+ bcs service_driver_response_visible
+ jmp service_driver_no_response
+.service_driver_response_visible
  cmp #&7F
- bcs service_driver_no_response
+ bcc service_driver_response_ascii
+ jmp service_driver_no_response
+.service_driver_response_ascii
  pha
  lda #0
  sta data_pointer
@@ -693,6 +709,11 @@ drv_net_close = 53
 .service_driver_response_done
  ldx data_pointer
  jmp restore_env
+.service_driver_result_no_copy
+ lda #1
+ sta &FC00+drv_svc_addr_lo
+ lda &FC00+drv_svc_data
+ rts
 
 .service_driver_error
  cmp #&42

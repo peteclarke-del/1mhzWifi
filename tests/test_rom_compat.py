@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "fb3c38607ef08e90611c3e199429ddc49c5365a26651ec4dafa361f2f3a363f0"
+ROM_SHA256 = "13195ded90d41f197fa00da0562a8424af10071444db3b5142d78743b63ea5d2"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -21,8 +21,8 @@ class RomCompatibilityTest(unittest.TestCase):
             self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x17, 1))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:24], b"0.1.7\0")
-        self.assertIn(b"1MHzWifi 0.1.7 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:24], b"0.1.8\0")
+        self.assertIn(b"1MHzWifi 0.1.8 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -72,7 +72,7 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(self.rom.count(bytes.fromhex("8C DC 09")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("AC DC 09")), 1)
         osfile_metadata = bytes.fromhex(
-            "AD DA 09 85 B8 AD DB 09 85 B9 A0 02 A2 00 BD BE 03 91 B8 "
+            "A0 02 A2 00 BD BE 03 91 B8 "
             "E8 C8 E0 08 D0 F5 A5 B5 91 B8 C8 AD C6 03 91 B8 C8 A9 "
             "00 91 B8 C8 91 B8 A2 04 C8 91 B8 CA D0 FA A9 01 60"
         )
@@ -105,7 +105,11 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(b'*REWIND|MCHAIN ""|M\r', self.rom)
         self.assertNotIn(b'*RUN ""|M\r', self.rom)
         self.assertIn(b"Usage: *UEF LOAD <filename>", self.rom)
-        self.assertIn(b"UEF OK &", self.rom)
+        self.assertIn(b"UEF ", self.rom)
+        self.assertIn(b"RAW ", self.rom)
+        self.assertIn(b"OK &", self.rom)
+        self.assertIn(b"GZIP ", self.rom)
+        self.assertIn(b"ZIP ", self.rom)
         self.assertIn(b"*QUPRUN\r", self.rom)
         self.assertIn(b"*REWIND\rCHAIN \"\"\r", self.rom)
         self.assertNotIn(b"*QUPRUN\r*REWIND", self.rom)

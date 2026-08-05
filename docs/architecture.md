@@ -24,7 +24,7 @@ transport.
 | `&FCA9` | Auto-incrementing data register |
 | `&FCAA` | Command dispatch and completion status |
 
-The ElkWiFi service owns command numbers 80-92. Commands 80-90 and 92 are
+The ElkWiFi service owns command numbers 80-93. Commands 80-90 and 92-93 are
 assigned. Command 91 returns unsupported and is reserved in the source ABI for
 a future secure-open operation.
 
@@ -73,6 +73,7 @@ does not perform a matching cold boot.
 | 90 | Cancel an outstanding foreground network request |
 | 91 | Reserved secure-open ABI; returns unsupported |
 | 92 | Concise association and IPv4 readiness status |
+| 93 | Validate and normalize raw, gzip or ZIP UEF data in JIM |
 
 HTTP WGET uses the existing Pi1MHz net-service commands 60, 61, and 63. Raw
 TCP compatibility uses net-service commands 45-53. Host buffers are copied

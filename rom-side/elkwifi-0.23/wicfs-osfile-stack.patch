@@ -1,0 +1,44 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -414,5 +414,29 @@
+-.upf_a1	JSR	starload		\goto action file load
+-	BEQ	upf_a1_done		\not found, leave A=0 and do not invent metadata
+-	JSR	filev_load_info		\return the CFS catalogue data required by CHAIN
+-.upf_a1_done
+-	JMP	filev_actioned		\claim and preserve OSFILE X/Y
++.upf_a1
++\Keep the OSFILE control-block pointer below the active stack. The loaded file
++\may occupy any normal host-memory range, including the old &09DA/&09DB save
++\area, but a usable load cannot overwrite the active 6502 stack.
++	TXA
++	PHA
++	TYA
++	PHA
++	JSR	starload		\goto action file load
++	BEQ	upf_a1_not_found
++	TSX
++	LDA	&0102,X		\original X is below original Y
++	STA	pbl
++	LDA	&0101,X
++	STA	pbh
++	JSR	filev_load_info		\return catalogue data required by CHAIN
++	PLA
++	TAY
++	PLA
++	TAX
++	LDA	#1			\file found
++	RTS
++.upf_a1_not_found
++	PLA
++	TAY
++	PLA
++	TAX
++	LDA	#0			\file not found
++	RTS
+@@ -438,5 +462,0 @@
+-	LDA	filev_x
+-	STA	pbl
+-	LDA	filev_y
+-	STA	pbh
+-

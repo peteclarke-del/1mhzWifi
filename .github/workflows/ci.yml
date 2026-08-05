@@ -18,7 +18,7 @@ jobs:
       - name: Verify shipped ROM
         run: ./build.sh
       - name: Run contract tests
-        run: python3 -m unittest discover -s tests -v
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
       - name: Verify hardware bundle
         run: unzip -t build/pi1mhz-all-hardware-test.zip
       - name: Reject typographic dashes in documentation

@@ -29,6 +29,10 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 - [x] Filing-system-neutral local UEF import through OSFIND/OSBGET, with JIM
   selector restoration, bounded storage, Escape handling, and a two-stage
   automatic queue for the stock WiCFS `*REWIND`, `CHAIN ""` launch sequence.
+- [x] Content-based raw, gzip and single-entry ZIP UEF normalization in the
+  Pi kernel, including gzip-in-ZIP, CRC validation and expanded-size bounds.
+- [x] Stack-safe OSFILE control-block preservation for loads which overwrite
+  the previous `&09DA/&09DB` save area.
 - [x] Removal of emitted UART, AT-command, flash updater, printer, baud-rate,
   CRC diagnostic and unused ROM helper code.
 - [x] Explicit `Not implemented` errors for every retained driver entry which
@@ -75,7 +79,9 @@ half-written path in this release:
 ## Release gate
 
 No known implementation placeholder remains on the declared station-mode,
-plain-HTTP hardware milestone. Release acceptance now depends on completing
+plain-HTTP hardware milestone. ROM 0.1.8 specifically requires hardware
+confirmation that Zalaga and Chuckie Egg now continue after their initial
+`CHAIN ""` load. Release acceptance also depends on completing
 the real Electron, AP5, Pi1MHz and Tube checks in
 [`docs/hardware-validation.md`](docs/hardware-validation.md). Failures found
 there must be recorded as new implementation defects before changing this
