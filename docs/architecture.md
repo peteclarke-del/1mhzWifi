@@ -51,8 +51,10 @@ WiFi poll.
 The current mailbox holds one outstanding ElkWiFi request. Escape uses command
 90 to close ICMP and NTP PCBs, invalidate DNS and packet callback generations,
 clear enhanced-scan state, and retire the pending request. WGET and raw TCP use
-the net-service close path. Reinitialisation performs the same ElkWiFi cleanup
-before registering the poll callback again.
+the net-service close path. Reinitialisation performs the same ElkWiFi cleanup,
+reloads the profile saved by `*JOIN`, and registers the poll callback again.
+Reloading on every Acorn reset is necessary when the Pi remains powered and
+does not perform a matching cold boot.
 
 ## Service command map
 
@@ -88,6 +90,16 @@ After a successful `*WGET -U`, WGET updates the JIM length trailer. `*REWIND`
 reloads that authoritative value and resets the WiCFS cursor. It does not keep
 the length in the ROM's `&0900` heap because that workspace is volatile and can
 be overwritten by the menu or BASIC before a title is selected.
+
+WiCFS records the handler address and owning ROM behind each MOS extended
+filing vector before installing its own entries. Unsupported operations are
+tail-called through that recorded handler. This is required for OSCLI: the
+active filing system sees `*REWIND` before the service ROM gets an opportunity
+to claim the command. Sending an unclaimed request back to the MOS dispatcher
+without restoring the previous entry would select WiCFS repeatedly. Sideways
+ROM hand-off uses a temporary trampoline in filing-system workspace so the CPU
+does not fetch an instruction from a different ROM immediately after ROMSEL is
+changed.
 
 The service command page is at JIM offset `&FFF000`; URL scratch data is at
 `&FFF100`. WiCFS content occupies `&010000-&01FFFF`. The ROM keeps an

@@ -84,6 +84,21 @@ downloaded length metadata. These changes preserve the exact address of the
 catalogue-working MENU code. Screen output remains enabled so queue, filing
 and UEF errors are visible on real hardware.
 
+The MOS direct vector can already point at its extended-vector dispatcher when
+WiCFS starts. WiCFS therefore saves the previous handler address and owning ROM
+from the extended-vector table before replacing it. An unclaimed FSCV request,
+including the OSCLI pass that precedes the ROM's own `*REWIND` command, is
+forwarded to that saved handler. Redispatching it through `&FF2D` would select
+WiCFS again and recurse indefinitely. The saved ROM identifiers occupy the
+same cassette filing-system workspace as the saved vector addresses, so a
+later handler cannot erase them through shared zero-page workspace.
+
+When the previous handler belongs to a sideways ROM, WiCFS tail-calls it
+through a short trampoline copied into ordinary filing-system workspace. The
+ROM switch is the trampoline's final setup action, so execution never continues
+from the same address in a newly selected ROM. The trampoline is outside
+`&0400-&07FF` and neither detects nor accesses a Tube.
+
 The stock menu installs key 0 as `*REWIND|MCHAIN ""|M` and later inserts that
 key into the keyboard buffer after a selected UEF has downloaded. The ROM does
 not alter this launch contract. OSFILE requires X and Y to be preserved across

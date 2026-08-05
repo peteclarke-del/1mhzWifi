@@ -1,0 +1,211 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -41,6 +41,17 @@ sbufl	=	&F8		\number of bytes left (lo)
+ sbufh	=	&F9		\number of bytes left (hi)
+ temp	=	&C4		\zp temporary
+ slotid	=	&C5		\WiCFS ROM slot used by extended vectors
++filev_prev_rom = &03A0  \previous extended FILEV owner, or &FF for direct
++findv_prev_rom = &03A1  \previous extended FINDV owner, or &FF for direct
++fscv_prev_rom  = &03A2  \previous extended FSCV owner, or &FF for direct
++fscv_x         = &C6    \original FSCV command-line pointer (transient)
++fscv_y         = &C7
++chain_rom      = &C8    \transient state for the RAM ROM-switch trampoline
++chain_a        = &C9
++chain_x        = &CA
++chain_y        = &CB
++chain_target   = &CC    \two-byte indirect target
++chain_exec     = heap+&B0
+ currom	=	&CF		\previous ROM slot saved by extended FSCV
+ tmpidx	=	&C1		\temporary store for index pointers
+ fnlen	=	&C2		\length of current CFS block filename
+@@ -194,6 +205,12 @@ __debug =   0       \print debug information
+ \so these are the MOS cassette handlers rather than another extended owner.
+ 	LDA	#6
+ 	JSR	OSFSC
++	LDA	#&A8		\OSFSC may use B8/B9; refresh the extended table pointer
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	evptr
++	STY	evptr+1
+ 
+ \and external code for *TAPE trap
+ 	LDX	#0		        \index on X
+@@ -205,19 +222,70 @@ __debug =   0       \print debug information
+ 	BNE	b_a2	    	\no, loop for next
+ 
+ \now set the UPCFS vectors
++	LDA	#&FF
++	STA	filev_prev_rom
++	STA	findv_prev_rom
++	STA	fscv_prev_rom
+ 	LDA	OSFILEV		    \preserve OS tape vector addresses
+ 	STA	FILVRTN
+ 	LDA	OSFILEV+1
+ 	STA	FILVRTN+1
++	CMP	#>&FF1B
++	BNE	b_capture_findv
++	LDA	FILVRTN
++	CMP	#<&FF1B
++	BNE	b_capture_findv
++	LDY	#27
++	LDA	(evptr),Y
++	STA	FILVRTN
++	INY
++	LDA	(evptr),Y
++	STA	FILVRTN+1
++	INY
++	LDA	(evptr),Y
++	STA	filev_prev_rom
++
++.b_capture_findv
+ 	LDA	OSFINDV
+ 	STA	findv_rtn
+ 	LDA	OSFINDV+1
+ 	STA	findv_rtn+1
++	CMP	#>&FF2A
++	BNE	b_capture_fscv
++	LDA	findv_rtn
++	CMP	#<&FF2A
++	BNE	b_capture_fscv
++	LDY	#42
++	LDA	(evptr),Y
++	STA	findv_rtn
++	INY
++	LDA	(evptr),Y
++	STA	findv_rtn+1
++	INY
++	LDA	(evptr),Y
++	STA	findv_prev_rom
+ 
++.b_capture_fscv
+ 	LDA	OSFSCV
+ 	STA	FSCVRTN
+ 	LDA	OSFSCV+1
+ 	STA	FSCVRTN+1
++	CMP	#>&FF2D
++	BNE	b_previous_vectors_saved
++	LDA	FSCVRTN
++	CMP	#<&FF2D
++	BNE	b_previous_vectors_saved
++	LDY	#45
++	LDA	(evptr),Y
++	STA	FSCVRTN
++	INY
++	LDA	(evptr),Y
++	STA	FSCVRTN+1
++	INY
++	LDA	(evptr),Y
++	STA	fscv_prev_rom
++
++.b_previous_vectors_saved
+ 
+ \Use MOS extended vectors so vector entry never occupies &0400-&07FF. That
+ \range may contain the host implementation for an independently fitted Tube.
+@@ -417,12 +485,63 @@ __debug =   0       \print debug information
+ \OSFILE metadata return complete
+ 
+ .xfilev
++	PHA
+ 	LDX	filev_x
+ 	LDY	filev_y
+ 	BIT	filev_source
+ 	BMI	xfindv
++	LDA	filev_prev_rom
++	BMI	xfilev_direct
++	STA	chain_rom
++	LDA	#<FILVRTN
++	STA	chain_target
++	LDA	#>FILVRTN
++	STA	chain_target+1
++	JMP	chain_from_stack
++.xfilev_direct
++	PLA
+ 	JMP	(FILVRTN)
+ .xfindv
++	LDA	findv_prev_rom
++	BMI	xfindv_direct
++	STA	chain_rom
++	LDA	#<findv_rtn
++	STA	chain_target
++	LDA	#>findv_rtn
++	STA	chain_target+1
++	JMP	chain_from_stack
++.xfindv_direct
++	PLA
+ 	JMP	(findv_rtn)
++
++.chain_from_stack
++	PLA
++	STA	chain_a
++	STX	chain_x
++	STY	chain_y
++	JMP	chain_previous_rom
++
++\Changing ROMSEL while executing sideways ROM changes the very next opcode.
++\Copy a short tail-call into non-Tube filing workspace before selecting the
++\previous extended-vector owner. Its RTS returns through the existing MOS
++\extended-vector frame, so MOS restores the caller's original ROM normally.
++.chain_previous_rom
++	LDX	#chain_code_end-chain_code-1
++.chain_copy
++	LDA	chain_code,X
++	STA	chain_exec,X
++	DEX
++	BPL	chain_copy
++	LDA	chain_rom
++	STA	&F4
++	JMP	chain_exec
++.chain_code
++	LDA	chain_rom
++	STA	&FE05
++	LDA	chain_a
++	LDX	chain_x
++	LDY	chain_y
++	JMP	(chain_target)
++.chain_code_end
+ 
+ .filev_actioned
+@@ -435,9 +554,13 @@ __debug =   0       \print debug information
+ 
+ .upfscv
+ 	STA	fscv_reason
++	STX	fscv_x
++	STY	fscv_y
+ 	TSX				\previous ROM is byte three in the MOS vector frame
+ 	LDA	&0103,X
+ 	STA	currom
++	LDX	fscv_x
++	LDY	fscv_y
+ 	LDA	fscv_reason
+     if __debug = 1
+     php:jsr debug
+@@ -482,7 +605,26 @@ __debug =   0       \print debug information
+ 
+ .clfscv	JMP	actioned		\return command claimed
+ 
+-.xfscv	JMP	(FSCVRTN)		\return command unclaimed
++.xfscv
++	LDA	fscv_prev_rom
++	BMI	xfscv_direct
++	STA	chain_rom
++	LDA	fscv_reason
++	STA	chain_a
++	LDX	fscv_x
++	STX	chain_x
++	LDY	fscv_y
++	STY	chain_y
++	LDA	#<FSCVRTN
++	STA	chain_target
++	LDA	#>FSCVRTN
++	STA	chain_target+1
++	JMP	chain_previous_rom
++.xfscv_direct
++	LDA	fscv_reason
++	LDX	fscv_x
++	LDY	fscv_y
++	JMP	(FSCVRTN)		\return command unclaimed
+ 
+ \...............................................................................
+ \Handles BGET (single byte read from sequential access file)

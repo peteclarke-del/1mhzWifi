@@ -66,7 +66,7 @@ class IntegrationContractTest(unittest.TestCase):
         tcp_diagnostics_patch = (ROOT / "pi-side/pi1mhz-current/tcp-diagnostics.patch").read_text()
         http_user_agent_patch = (ROOT / "pi-side/pi1mhz-current/http-user-agent.patch").read_text()
         off_state_patch = (ROOT / "pi-side/pi1mhz-current/wifi-off-state.patch").read_text()
-        self.assertIn('WIFI_FILE "Pi1MHz/ElkWiFi.wifi"', service)
+        self.assertIn('WIFI_FILE "/Pi1MHz/ElkWiFi.wifi"', service)
         self.assertIn('WIFI_PROFILE_HEADER "ELKWIFI1"', service)
         self.assertIn("wifi_credentials_load", service)
         self.assertIn("wifi_disconnect", service)
@@ -89,7 +89,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("WIFI_SDIO_TX_PROBE_COMMAND_DISASSOC", leave_patch)
         self.assertIn("g_runtime_rejoin_allowed = false", leave_patch)
         self.assertIn("wifi-leave.patch", installer)
-        self.assertIn('LAPOPT_FILE "Pi1MHz/ElkWiFi.lapopt"', service)
+        self.assertIn('LAPOPT_FILE "/Pi1MHz/ElkWiFi.lapopt"', service)
         self.assertIn("ELKWIFI_CMD_LAPOPT", service)
         self.assertIn("scan_fields == 7u", service)
         self.assertIn("ELKWIFI_CMD_PING", service)
@@ -118,6 +118,12 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("bool wifi_disable_radio(void)", off_state_patch)
         self.assertIn("ELKWIFI_JOIN_RADIO_OFF", service)
         self.assertIn("if (radio.link_up && live != NULL", service)
+        init_body = service.split("void elkwifi_service_init", 1)[1]
+        initial_once = init_body.split("if (!service_initialised)", 1)[1].split(
+            "   }", 1
+        )[0]
+        self.assertNotIn("wifi_credentials_load();", initial_once)
+        self.assertIn("   wifi_credentials_load();", init_body)
         self.assertIn('config_get("elkwifi_utc_offset_minutes")', service)
         self.assertIn('"+WIFI:STATE,\\"%s\\",\\"%.48s\\"\\r\\n"', service)
         self.assertIn('snprintf(response, sizeof response, "OK\\r\\n")', service)
@@ -251,6 +257,23 @@ class IntegrationContractTest(unittest.TestCase):
         for forbidden in ("&027A", "&0406", "&FEE4", "&FEE5", "tube_target"):
             self.assertNotIn(forbidden, host_patch)
 
+        vector_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-vector-chain.patch"
+        ).read_text()
+        self.assertIn("filev_prev_rom = &03A0", vector_patch)
+        self.assertIn("fscv_prev_rom  = &03A2", vector_patch)
+        self.assertIn("OSFSC may use B8/B9", vector_patch)
+        self.assertIn("CMP\t#>&FF2D", vector_patch)
+        self.assertIn("STA\tfscv_prev_rom", vector_patch)
+        self.assertIn("STX\tfscv_x", vector_patch)
+        self.assertIn("STY\tfscv_y", vector_patch)
+        self.assertIn("LDA\tfscv_prev_rom", vector_patch)
+        self.assertIn("STA\tchain_exec,X", vector_patch)
+        self.assertIn("STA\t&FE05", vector_patch)
+        self.assertIn("JMP\t(chain_target)", vector_patch)
+        self.assertIn("JMP\t(FSCVRTN)", vector_patch)
+        self.assertNotIn("+.xfscv\tJMP\t(FSCVRTN)", vector_patch)
+
         rewind_patch = (
             ROOT / "rom-side/elkwifi-0.23/wicfs-rewind.patch"
         ).read_text()
@@ -289,9 +312,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.2"', identity)
+        self.assertIn('romversion         equs "0.1.3"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.2 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.3 (C) 2026 Peter Clarke", version)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
         self.assertIn("cmp #&44\n beq service_driver_error_no_wifi", driver)
         self.assertIn("cmp &FC00+drv_svc_data\n bne service_driver_port_missing_near", driver)
@@ -313,7 +336,7 @@ class IntegrationContractTest(unittest.TestCase):
     def test_menu_source_is_persistent_and_used_by_menu(self) -> None:
         service = (ROOT / "pi-side/pi1mhz-v1.30/src/elkwifi_service.c").read_text()
         rom_patch = (ROOT / "rom-side/elkwifi-0.23/integration.patch").read_text()
-        self.assertIn('MENU_FILE "Pi1MHz/ElkWiFi.menu"', service)
+        self.assertIn('MENU_FILE "/Pi1MHz/ElkWiFi.menu"', service)
         self.assertIn("filesystemWriteFile", service)
         self.assertIn('config_get("elkwifi_menu_url")', service)
         self.assertIn("if (valid_menu_url(configured))", service)

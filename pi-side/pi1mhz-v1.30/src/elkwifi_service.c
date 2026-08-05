@@ -31,12 +31,12 @@
 #include "lwip/raw.h"
 #include "lwip/udp.h"
 
-#define MENU_FILE "Pi1MHz/ElkWiFi.menu"
+#define MENU_FILE "/Pi1MHz/ElkWiFi.menu"
 #define MENU_DEFAULT "http://acornelectron.nl/uefarchive/MENU"
 #define MENU_MAX 240u
-#define WIFI_FILE "Pi1MHz/ElkWiFi.wifi"
+#define WIFI_FILE "/Pi1MHz/ElkWiFi.wifi"
 #define WIFI_PROFILE_HEADER "ELKWIFI1"
-#define LAPOPT_FILE "Pi1MHz/ElkWiFi.lapopt"
+#define LAPOPT_FILE "/Pi1MHz/ElkWiFi.lapopt"
 
 _Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
                "ElkWiFi service range start disagrees with services.h");
@@ -928,8 +928,12 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
       lapopt_load();
       time_utc_offset_minutes = utc_offset_parse(
          config_get("elkwifi_utc_offset_minutes"));
-      wifi_credentials_load();
    }
+   /* wifi_emulator_init() runs before this function on every Acorn reset and
+    * reloads the Pi1MHz.cfg defaults. Reapply the profile saved by *JOIN on
+    * every init, not just the Pi's first cold-start init. This also covers an
+    * Acorn power cycle while the separately powered Pi remains running. */
+   wifi_credentials_load();
    (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_SECURE_OPEN,
                            elkwifi_command);
    asynchronous_close();

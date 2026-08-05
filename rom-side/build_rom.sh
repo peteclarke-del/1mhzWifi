@@ -26,7 +26,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.
 install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/version.asm" "$upstream/rom/version.asm"
-for patch_name in identity.patch integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-rewind.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch integration.patch command-surface.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-rewind.patch rom-prune.patch routines-prune.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -38,8 +38,8 @@ for patch_name in identity.patch integration.patch command-surface.patch disconn
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.2"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q 'equs "1MHzWifi 0.1.2",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.3"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q 'equs "1MHzWifi 0.1.3",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         command-surface.patch)
@@ -65,6 +65,12 @@ for patch_name in identity.patch integration.patch command-surface.patch disconn
             ;;
         wicfs-host-only.patch)
             grep -q '^\\1MHz-bus filing system and must not claim' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-vector-chain.patch)
+            grep -q '^filev_prev_rom = &03A0' "$upstream/rom/wicfs.asm" &&
+            grep -q 'refresh the extended table pointer' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.xfscv_direct' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         wicfs-rewind.patch)

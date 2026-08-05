@@ -153,9 +153,10 @@ report live state without holding the shared mailbox request open.
 
 The radio-only startup path performs CLM/country, PHY, and event-mask setup so
 that `*LAP` works before association. A saved profile is loaded during Pi boot
-and association starts automatically. `*LEAVE` sends `WLC_DISASSOC`, releases
-the live DHCP state, clears the interface addresses, and pauses automatic
-rejoin until the next explicit join.
+and reapplied after every Acorn reset, even when the separately powered Pi has
+not restarted. Association starts automatically. `*LEAVE` sends
+`WLC_DISASSOC`, releases the live DHCP state, clears the interface addresses,
+and pauses automatic rejoin until the next explicit join.
 
 `*WIFI OFF` is distinct from LEAVE. It sends `WLC_DOWN`, clears the live
 network state, and marks the radio disabled while keeping SDIO, firmware, and
