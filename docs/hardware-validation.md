@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWifi ROM b7dfe0ac296c33f9f6d6f128e9b955132414546db932b91cfdecb393af3239b8
-kernel.img   8049f604eb0c01bda7d3c70e4359a338946802e36529e26e104310d7b923e852
-kernel7.img  209ab7a35e89508fcaff026c9dd77ff5028a2f48b51313ea78a94e54c4fc052d
-bundle ZIP   3c6a7bb8ed770a0f9a6d48787299e583f7d5bc13beb9db55894201b9585b832c
+1MHzWifi ROM 25f8e939d061c52f469f5715cd5b84e9b80eaa54210f65309628ffeae777f051
+kernel.img   f8ab4c94b71e8cae1e240ccd5550079ce206fd24d43d932461c8dc433e5d9bdd
+kernel7.img  ed8c25299ed93e7eeb9cd18d949d3ef087e04b8b187812857d9872c93d6bd638
+bundle ZIP   6fc04d2c5d0033fecd1c302d3300f5f7760e3723f34ca8ca96d66ea16039c99f
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -26,20 +26,33 @@ fresh configuration template.
 Also preserve `/BeebSCSI0` and its `scsi*.dat` images. The bundle supplies the
 ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
+## Pi target matrix
+
+| Board | Image | Required result |
+| --- | --- | --- |
+| Pi Zero | `kernel.img` | Boot succeeds; `*WIFI ON` reports no WiFi device |
+| Pi Zero W | `kernel.img` | WiFi on, scan, join, reconnect, WGET |
+| Pi Zero 2 W | `kernel7.img` | WiFi on, scan, join, reconnect, WGET |
+| Pi 3A+, 3B, 3B+ | `kernel7.img` | WiFi on, scan, join, reconnect, WGET |
+
+Run the same command sequence on every wireless board. Record the exact board
+revision because the bundle selects among CYW43430, CYW43436/43436s, and
+CYW43455 firmware at runtime.
+
 ## Automated and emulator gate
 
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
-- [x] Repeat the Elkulator boot smoke test with the 0.1.9 ROM and Electron OS
+- [ ] Repeat the Elkulator boot smoke test with the 0.1.12 ROM and Electron OS
   and BASIC. Elkulator does not reproduce the AP5 extended-vector path.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [x] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
-  return. The 0.1.9 emulator run returned directly to BASIC. Repeat this on
+  return. The 0.1.9 emulator run returned directly to BASIC. Repeat 0.1.12 on
   hardware because the emulator's previous filing vector is direct rather than
   the AP5 configuration that exposed the loop.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.9` before recording any further test result.
+  `1MHzWifi 0.1.12` before recording any further test result.
 - [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and
   ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
@@ -131,11 +144,13 @@ Expected error meanings:
 - [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
-- [ ] Retest Zalaga and Chuckie Egg with ROM 0.1.9. ROM 0.1.7 loaded each
+- [ ] Retest Zalaga, Arcadians, Chuckie Egg and DeskDiary with ROM 0.1.12.
+  Earlier ROMs loaded each
   initial file, printed its cassette title and length, then returned to the
   BASIC prompt. The common cause was the OSFILE control-block pointer stored
-  in loaded host memory at `&09DA/&09DB`. Version 0.1.9 holds it on the active
-  6502 stack and returns the catalogue metadata after the load.
+  in loaded host memory at `&09DA/&09DB`. Version 0.1.12 holds OSFILE metadata
+  on the active 6502 stack and keeps the persistent UEF cursor at `&C7/&C8`,
+  outside page `&09` used by loaded programs.
 - [ ] Run `*MENU`, press `L` for Zalaga, and confirm the published menu executes
   its original `*REWIND` followed by `CHAIN ""` after the download. The ROM
   must not substitute `*RUN`, `*/`, or another launch command.
@@ -150,6 +165,9 @@ Expected error meanings:
 - [ ] Repeat `*UEF LOAD` from the hardware ADFS hard disc and MMFS, including
   a path-qualified filename, Escape, missing file, empty file, and an image
   larger than `&FFFE` bytes.
+- [ ] Run `*UEF LOAD DESKDIARY` with the 20,580-byte expanded image. Confirm
+  the final zero-byte `V1` CFS marker completes without `Unexpected EOF` and
+  the application continues through its intended launch path.
 - [ ] Repeat the local import with raw UEF, gzip UEF, a single-entry ZIP
   containing raw UEF, and a ZIP containing gzip UEF. Verify the reported
   format and expanded byte count, then test bad CRC, truncated deflate data,
@@ -158,6 +176,8 @@ Expected error meanings:
   a format-qualified `WGET ... OK`, WiCFS activation, and execution of the
   downloaded program.
 - [ ] Test sequential open/read, EOF, rewind, Escape, malformed UEF, and recovery.
+- [ ] While associated, press BREAK and time `*ONLINE`. Confirm the preserved
+  Pi-side association is available within seconds and no full rejoin starts.
 - [ ] Confirm `*PRD` can inspect both defined JIM windows and restores the selector.
 - [ ] Test `*WGET -S` with valid sideways RAM and with no writable sideways RAM.
 - [ ] Run WiCFS and another Pi1MHz JIM-using service concurrently; check for scratch-page collision.
@@ -190,6 +210,22 @@ Expected error meanings:
   without token text, a BASIC prompt or any Tube activity.
 - [ ] Confirm no WiCFS vector code occupies Tube workspace `&0400-&07FF` and no
   parasite pointer is passed to JIM or the 1MHz-bus Pi service.
+
+## OSWORD application compatibility gate
+
+- [ ] Run ElkChat's `ELKNET` diagnostic with `*RUN ELKNET` against the original
+  ElkWiFi 0.23 ROM. Record function 18 IFCFG, function 4 JOIN query and
+  function 8 TCP-open responses.
+- [ ] Repeat with 1MHzWifi 0.1.12 and matched kernel revision
+  `V1.30-80-g8468a38-dirty.27671981`. None of the three calls may block or
+  raise `Not implemented`.
+- [ ] Call function 9 with a CR-terminated `0` parameter before function 8.
+  Confirm it returns `OK` and leaves the single connection available.
+- [ ] Send an HTTP request with function 13, receive through functions 13/20,
+  and close through function 14. Confirm the Chat64 response is present in JIM
+  `00:00:page` and not in an MMFS-selected bank.
+- [ ] Repeat with AP5 and MMFS active, then with a Tube fitted. The Pi transport
+  must remain the 1MHz bus and the application must not depend on the Tube.
 
 ## Reset and fault-recovery gate
 

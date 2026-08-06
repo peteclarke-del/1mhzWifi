@@ -83,7 +83,7 @@
 .service_driver_not_7
  cmp #9
  bne service_driver_not_9
- jmp service_driver_unsupported
+ jmp service_driver_cpmux
 .service_driver_not_9
  cmp #11
  bne service_driver_not_11

@@ -1,0 +1,40 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -47,10 +47,10 @@ fscv_prev_rom  = &03A2  \previous extended FSCV owner, or &FF for direct
+-fscv_x         = &C6    \original FSCV command-line pointer (transient)
+-fscv_y         = &C7
+-chain_rom      = &C8    \transient state for the RAM ROM-switch trampoline
+-chain_a        = &C9
+-chain_x        = &CA
+-chain_y        = &CB
+-chain_target   = &CC    \two-byte indirect target
++fscv_x         = &C9    \must be zero page for (fscv_x),Y
++fscv_y         = &CA
++chain_rom      = heap+&E1 \transient state for the RAM ROM-switch trampoline
++chain_a        = heap+&E2
++chain_x        = heap+&E3
++chain_y        = heap+&E4
++chain_target   = heap+&E5 \two-byte indirect target
+ chain_exec     = heap+&B0
+ currom	= &CF		\previous ROM slot saved by extended FSCV
+ tmpidx	= &C1		\temporary store for index pointers
+@@ -71,11 +71,11 @@ optmask	= &B7		\mask for *OPT setting (two values)
+-\ Keep the WiCFS cursor out of transient MOS and language zero page. BASIC,
+-\ Tube filing calls and service polling may run between vector invocations.
++\ Tape loaders routinely reuse &0900-&09FF between vector calls. Keep the UEF
++\ cursor in the original CFS zero-page workspace so loaded code cannot move it.
+-pr_y    =   heap+&D8 \data pointer to paged ram (offset)
+-pr_r    =   heap+&D9 \data pointer to paged ram (page-register shadow)
++pr_y    =   &C7     \persistent UEF offset used by the original WiCFS contract
++pr_r    =   &C8     \persistent UEF page-register shadow
+ filev_x =   heap+&DA \OSFILE/OSFIND require X and Y to be preserved
+ filev_y =   heap+&DB
+ bget_y  =   heap+&DC \OSBGET returns data in A and preserves X and Y
+-findv_rtn = heap+&DD \saved FINDV for calls WiCFS does not claim
++findv_rtn = &CB       \persistent saved FINDV for calls WiCFS does not claim
+ evptr     = pbl      \temporary zero-page extended-vector table pointer
+-filev_source = heap+&E2 \zero for FILEV, negative for FINDV
+-fscv_reason = heap+&E3 \FSCV A while reading the extended-vector stack frame
++filev_source = heap+&DF \zero for FILEV, negative for FINDV
++fscv_reason = heap+&E0 \FSCV A while reading the extended-vector stack frame

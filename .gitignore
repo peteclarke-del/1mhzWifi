@@ -16,3 +16,5 @@ __pycache__/
 build/.pi1mhz-bundle.*/
 *.tmp
 
+# Local hardware-test media. Do not publish third-party UEF images.
+/samples/

@@ -110,6 +110,24 @@ drv_net_close = 53
  ldy #>service_driver_mode_text
  jmp service_driver_rom_response
 
+\ Function 9 selects connection multiplexing. Pi1MHz exposes exactly one raw
+\ TCP connection, so the original single-connection request is a successful
+\ no-op. Reject multiplexed mode rather than silently promising five sockets.
+.service_driver_cpmux
+ ldy #0
+ lda (paramblok),y
+ cmp #'0'
+ bne service_driver_cpmux_bad
+ iny
+ lda (paramblok),y
+ cmp #&0D
+ bne service_driver_cpmux_bad
+ ldx #<service_driver_ok_text
+ ldy #>service_driver_ok_text
+ jmp service_driver_rom_response
+.service_driver_cpmux_bad
+ jmp service_driver_error_parameter
+
 .service_driver_unsupported
  ldx #(error_not_implemented-error_table)
  jmp error
@@ -239,13 +257,13 @@ drv_net_close = 53
  lda #4
  jsr net_address_low
  lda #0
- sta drv_net_index
+ sta drv_net_copy_count
 .service_driver_copy_ip
  jsr net_read_a
- ldx drv_net_index
+ ldx drv_net_copy_count
  sta heap+&E0,x
- inc drv_net_index
- lda drv_net_index
+ inc drv_net_copy_count
+ lda drv_net_copy_count
  cmp #4
  bne service_driver_copy_ip
 
@@ -515,13 +533,16 @@ drv_net_close = 53
  equs "CLOSED",&0D,&0A,&0D,&0A,"OK",&0D,&0A,&0D,&0A,0
 .service_driver_mode_text
  equs "+CWMODE:1",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
+.service_driver_ok_text
+ equs "OK",&0D,&0A,0
 .service_driver_ping_text
  equs "+1",&0D,&0A,0
 
 .service_driver_join
  lda #drv_svc_join
  jsr service_driver_write_command
- lda heap
+ ldy #0
+ lda (paramblok),y
  beq service_driver_join_query
  ldy #1
  jsr service_driver_write_y
@@ -529,7 +550,9 @@ drv_net_close = 53
  sta drv_svc_strings
  ldx #0
 .service_driver_join_copy
- lda heap,x
+ txa
+ tay
+ lda (paramblok),y
  cmp #&0D
  bne service_driver_join_char
  lda #0

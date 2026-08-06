@@ -39,6 +39,9 @@
 #define WIFI_FILE "/Pi1MHz/ElkWiFi.wifi"
 #define WIFI_PROFILE_HEADER "ELKWIFI1"
 #define LAPOPT_FILE "/Pi1MHz/ElkWiFi.lapopt"
+#define ELKWIFI_UEF_BASE 0x10000u
+#define ELKWIFI_VERSION_RESPONSE \
+   "Pi1MHz ElkWiFi 0.1.12, kernel " GITVERSION "\r\n\r\nOK\r\n"
 
 _Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
                "ElkWiFi service range start disagrees with services.h");
@@ -486,6 +489,18 @@ static void wifi_credentials_load(void)
       data[end] = '\0';
    }
    password = (const char *)&data[split];
+   /* A BBC/Electron reset re-registers this service but does not reset the
+    * Pi or CYW43. Do not turn an already-live association into a full rejoin
+    * merely because the saved profile was read again. That rejoin can take
+    * more than a minute on a busy access point and was the slow-reset
+    * regression. Changed credentials still take the normal rejoin path. */
+   if (sdio_runtime_started()) {
+      const wifi_config_t *current = wifi_get_config();
+      if (current != NULL && strcmp(current->ssid, ssid) == 0
+          && strcmp(current->password, password) == 0
+          && current->security == security)
+         return;
+   }
    (void)wifi_reconfigure_and_rejoin(ssid, password, security);
 }
 
@@ -811,8 +826,7 @@ static uint8_t process_request(uint32_t cp)
             return ELKWIFI_ERR_NO_WIFI;
          if (wifi_get_state() < WIFI_STATE_FIRMWARE_READY)
             return ELKWIFI_BUSY;
-         response_printf(cp, "Pi1MHz ElkWiFi 1.0 (%s), kernel %s\r\n\r\nOK\r\n",
-                         wifi_state_name(wifi_get_state()), GITVERSION);
+         response_string(cp, ELKWIFI_VERSION_RESPONSE);
          return ELKWIFI_OK;
 
       case ELKWIFI_CMD_SCAN:
@@ -829,8 +843,11 @@ static uint8_t process_request(uint32_t cp)
 
       case ELKWIFI_CMD_UEF_NORMALIZE:
       {
-         const uint32_t base = DISC_RAM_BASE + 0x10000u;
-         const uint32_t trailer = DISC_RAM_BASE + 0x1fffeu;
+         /* The host selects Rampage JIM address 00:01:page.  This is absolute
+          * JIM offset &010000, not an offset into the services mailbox's
+          * reserved DISC_RAM region at the top of RAM. */
+         const uint32_t base = ELKWIFI_UEF_BASE;
+         const uint32_t trailer = ELKWIFI_UEF_BASE + 0xfffeu;
          size_t length = (size_t)Pi1MHz->JIM_ram[trailer]
                        | ((size_t)Pi1MHz->JIM_ram[trailer + 1u] << 8);
          uef_normalize_result_t normalized = uef_normalize(
@@ -937,7 +954,7 @@ static void elkwifi_command(uint32_t cp, uint32_t addr, uint8_t data)
    if (Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS
        && wifi_get_state() >= WIFI_STATE_FIRMWARE_READY
        && wifi_get_state() < WIFI_STATE_ERROR) {
-      response_string(cp, "Pi1MHz ElkWiFi\r\n\r\nOK\r\n");
+      response_string(cp, ELKWIFI_VERSION_RESPONSE);
       Pi1MHz_MemoryWrite(addr, ELKWIFI_OK);
       return;
    }
@@ -987,10 +1004,8 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
       time_utc_offset_minutes = utc_offset_parse(
          config_get("elkwifi_utc_offset_minutes"));
    }
-   /* wifi_emulator_init() runs before this function on every Acorn reset and
-    * reloads the Pi1MHz.cfg defaults. Reapply the profile saved by *JOIN on
-    * every init, not just the Pi's first cold-start init. This also covers an
-    * Acorn power cycle while the separately powered Pi remains running. */
+   /* Re-read the saved profile on every host reset, but credentials_load
+    * preserves an already-running association when the profile is unchanged. */
    wifi_credentials_load();
    (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_UEF_NORMALIZE,
                            elkwifi_command);

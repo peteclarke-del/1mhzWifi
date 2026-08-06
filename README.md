@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.9` host ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.12` host ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -62,11 +62,24 @@ fit or load `Pi1MHz/ElkWiFi.rom` as an Acorn sideways ROM.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.9 retains the WiCFS host changes and compressed-UEF Pi
-service introduced in 0.1.8, and restores the original `WGET -U` contract for
+host ROM. Release 0.1.12 retains the WiCFS host changes and compressed-UEF Pi
+service introduced in 0.1.8, supports zero-byte CFS marker files, preserves a
+live WiFi association across host resets, and restores the `WGET -U` contract for
 raw paged-RAM data such as the published menu TITLES catalogue. The matched
 kernel still provides service command 93 for ZIP and gzip UEF normalization,
 so replace both the ROM and the kernel from the same bundle.
+
+Release 0.1.12 also repairs the public application ABI. OSWORD `&65` function
+4 reads the caller's JOIN block, function 8 preserves the port field across
+DNS resolution, and function 9 accepts the original single-connection setup
+as a successful no-op. These paths are used by ElkChat and other applications
+which call the driver directly rather than issuing star commands.
+
+Release 0.1.12 restores the persistent WiCFS UEF cursor to its reserved
+filing-system zero-page workspace. Earlier builds placed that cursor in page
+`&09`, where multi-part tape loaders could overwrite it between filing-vector
+calls. On hardware this appeared as a hang after `*REWIND`, an impossible
+chunk type such as `D5FF`, or `End of UEF` before the loaded title executed.
 
 The bundle does not contain a BeebSCSI disc image. Preserve the card's
 `/BeebSCSI0` directory when updating it. A clean card needs at least
@@ -74,20 +87,30 @@ The bundle does not contain a BeebSCSI disc image. Preserve the card's
 image before ADFS can mount a hard disc. `Pi1MHz/defscsi.cfg` is only the
 default geometry description; it is not a disc image.
 
-The bundle contains both supported kernel families:
+The bundle contains both required kernel families and all CYW43 firmware used
+by the target boards:
 
-| File | Target |
-| --- | --- |
-| `kernel.img` | Raspberry Pi 1 and Pi Zero family |
-| `kernel7.img` | Raspberry Pi 2 and Pi 3 family |
+| Board | Kernel | WiFi result |
+| --- | --- | --- |
+| Raspberry Pi Zero | `kernel.img` | No onboard WiFi; `*WIFI ON` reports `Device not found` |
+| Raspberry Pi Zero W | `kernel.img` | Supported, CYW43430 firmware included |
+| Raspberry Pi Zero 2 W | `kernel7.img` | Supported, CYW43436 firmware included |
+| Raspberry Pi 3A+, 3B, 3B+ | `kernel7.img` | Supported, CYW43430/CYW43455 firmware included |
+
+There was no production Pi Zero 2 without wireless, nor a Pi 3A without the
+plus suffix. The nearest real targets are Zero 2 W and 3A+, listed above.
+On `kernel7.img`, the driver distinguishes the original Pi 3B's BCM43430 from
+the Zero 2 W's BCM43436 by SOCRAM revision and from the 3A+/3B+'s BCM43455 by
+chip ID. The Pi 3B/Zero W NVRAM is the calibrated Raspberry Pi board file, not
+the generic placeholder configuration.
 
 Release hashes:
 
 ```text
-1MHzWifi ROM b7dfe0ac296c33f9f6d6f128e9b955132414546db932b91cfdecb393af3239b8
-kernel.img   8049f604eb0c01bda7d3c70e4359a338946802e36529e26e104310d7b923e852
-kernel7.img  209ab7a35e89508fcaff026c9dd77ff5028a2f48b51313ea78a94e54c4fc052d
-bundle ZIP   3c6a7bb8ed770a0f9a6d48787299e583f7d5bc13beb9db55894201b9585b832c
+1MHzWifi ROM 25f8e939d061c52f469f5715cd5b84e9b80eaa54210f65309628ffeae777f051
+kernel.img   f8ab4c94b71e8cae1e240ccd5550079ce206fd24d43d932461c8dc433e5d9bdd
+kernel7.img  ed8c25299ed93e7eeb9cd18d949d3ef087e04b8b187812857d9872c93d6bd638
+bundle ZIP   6fc04d2c5d0033fecd1c302d3300f5f7760e3723f34ca8ca96d66ea16039c99f
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -117,7 +140,8 @@ minutes east of UTC. Use `0` for GMT and `60` for BST.
 system, including ADFS, DFS, or MMFS, into the WiCFS JIM window. Raw UEF,
 gzip-compressed UEF, single-entry ZIP containing UEF, and ZIP containing a
 gzip-compressed UEF are recognized by their contents. CRC and expanded-size
-checks run on the Pi before launch. It then selects
+checks run on the Pi before launch. The normalizer uses the host-visible JIM
+window at `&010000`, not Pi1MHz's private disc-memory base. It then selects
 the tape filing system, installs WiCFS, runs `*REWIND`, and executes `CHAIN ""`
 without further input. The setup and launch are queued in two stages so they
 fit the Electron keyboard buffer. The expanded UEF may contain at most `&FFFE`
@@ -190,7 +214,7 @@ coexistence still require Pi1MHz hardware.
 Real hardware with the 0.1.7 ROM loaded the first Zalaga and Chuckie Egg files
 but returned to the BASIC prompt after `CHAIN ""`. Both files span the old
 `&09DA/&09DB` OSFILE pointer save, so the load overwrote the pointer before
-WiCFS returned catalogue metadata. Version 0.1.9 keeps that pointer on the
+WiCFS returned catalogue metadata. Version 0.1.10 keeps that pointer on the
 active 6502 stack. This correction is built and emulator-tested, but remains
 the first hardware release gate for this image.
 

@@ -21,6 +21,9 @@ class IntegrationContractTest(unittest.TestCase):
         for source in (ROOT / "pi-side/pi1mhz-v1.30/src").iterdir():
             if source.is_file():
                 self.assertIn(source.name, pi_installer, source.name)
+        for source in (ROOT / "pi-side/firmware").iterdir():
+            if source.is_file():
+                self.assertIn(source.name, pi_installer, source.name)
 
         self.assertIn('"$root_dir/build.sh" --rom-only', pi_installer)
         self.assertIn("install_if_changed", pi_installer)
@@ -58,12 +61,37 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("eighth range registers", capacity_test)
         self.assertIn("identical reset-time claim renews", capacity_test)
 
+    def test_pi_zero_and_pi3_wifi_firmware_matrix_is_packaged(self) -> None:
+        bundle = ROOT / "build/pi1mhz-all"
+        self.assertTrue((bundle / "kernel.img").is_file())
+        self.assertTrue((bundle / "kernel7.img").is_file())
+        for chip in ("43430", "43436", "43436s", "43455"):
+            stem = bundle / "Pi1MHz/wifi" / f"brcmfmac{chip}-sdio"
+            for suffix in (".bin", ".clm_blob", ".txt"):
+                self.assertTrue(stem.with_suffix(suffix).is_file(), f"{stem}{suffix}")
+        pi3b_patch = (ROOT / "pi-side/pi1mhz-current/wifi-pi3b.patch").read_text()
+        self.assertIn("need_legacy = socramrev < 23u", pi3b_patch)
+        self.assertIn("g_cyw43_legacy_firmware_path", pi3b_patch)
+        calibrated = (bundle / "Pi1MHz/wifi/brcmfmac43430-sdio.txt").read_text()
+        self.assertIn("Raspberry Pi 3 Model B", calibrated)
+        self.assertIn("boardflags3=0x08000000", calibrated)
+
     def test_linux_bridge_scaffold_is_absent(self) -> None:
         for name in (
             "bridge_daemon.py", "bridge_protocol.py", "linux_network_backend.py",
             "pi_runtime.py", "pi_wifi_bridge.py", "run_bridge.sh",
         ):
             self.assertFalse(any(ROOT.rglob(name)), name)
+
+    def test_kernel_revision_fingerprints_untracked_overlay_contents(self) -> None:
+        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        version_patch = (
+            ROOT / "pi-side/pi1mhz-current/gitversion-untracked-content.patch"
+        ).read_text()
+        self.assertIn("gitversion-untracked-content.patch", installer)
+        self.assertIn("ls-files --others --exclude-standard", version_patch)
+        self.assertIn("file(SHA256", version_patch)
+        self.assertIn("GIT_UNTRACKED_CONTENT", version_patch)
 
     def test_pi_overlay_uses_services_mailbox_not_fc30_uart(self) -> None:
         service = (ROOT / "pi-side/pi1mhz-v1.30/src/elkwifi_service.c").read_text()
@@ -90,11 +118,16 @@ class IntegrationContractTest(unittest.TestCase):
         network_tools_patch = (ROOT / "pi-side/pi1mhz-current/wifi-network-tools.patch").read_text()
         http_status_patch = (ROOT / "pi-side/pi1mhz-current/http-status.patch").read_text()
         tcp_diagnostics_patch = (ROOT / "pi-side/pi1mhz-current/tcp-diagnostics.patch").read_text()
+        truncated_http_patch = (ROOT / "pi-side/pi1mhz-current/http-truncated-body.patch").read_text()
         http_user_agent_patch = (ROOT / "pi-side/pi1mhz-current/http-user-agent.patch").read_text()
         off_state_patch = (ROOT / "pi-side/pi1mhz-current/wifi-off-state.patch").read_text()
         self.assertIn('WIFI_FILE "/Pi1MHz/ElkWiFi.wifi"', service)
         self.assertIn('WIFI_PROFILE_HEADER "ELKWIFI1"', service)
         self.assertIn("wifi_credentials_load", service)
+        self.assertIn("Do not turn an already-live association into a full rejoin", service)
+        self.assertIn("if (sdio_runtime_started())", service)
+        self.assertIn("strcmp(current->ssid, ssid) == 0", service)
+        self.assertIn("current->security == security", service)
         self.assertIn("wifi_disconnect", service)
         self.assertIn("wifi_enable_radio", service)
         self.assertIn("sdio_runtime_scan_start", service)
@@ -142,6 +175,10 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("static uint8_t net_tcp_result", tcp_diagnostics_patch)
         self.assertIn("NET_ERR_TCP_RESET", tcp_diagnostics_patch)
         self.assertIn("NET_ERR_HTTP_STATUS", tcp_diagnostics_patch)
+        self.assertIn("http-truncated-body.patch", installer)
+        self.assertIn("h->http_body_read < h->http_content_length", truncated_http_patch)
+        self.assertIn("NET_ERR_TCP_CLOSED", truncated_http_patch)
+        self.assertIn("truncated HTTP body -> TCP_CLOSED", truncated_http_patch)
         self.assertIn("http-user-agent.patch", installer)
         self.assertIn("User-Agent: ElkWiFi/0.23", http_user_agent_patch)
         self.assertIn("wifi-off-state.patch", installer)
@@ -164,7 +201,12 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_ERR_NO_WIFI", service)
         self.assertIn("wifi_get_state() == WIFI_STATE_ERROR", service)
         self.assertIn("Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS", service)
-        self.assertIn('response_string(cp, "Pi1MHz ElkWiFi\\r\\n\\r\\nOK\\r\\n")', service)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.12, kernel " GITVERSION', service)
+        self.assertEqual(service.count("response_string(cp, ELKWIFI_VERSION_RESPONSE)"), 2)
+        self.assertIn("#define ELKWIFI_UEF_BASE 0x10000u", service)
+        self.assertIn("const uint32_t base = ELKWIFI_UEF_BASE", service)
+        self.assertIn("const uint32_t trailer = ELKWIFI_UEF_BASE + 0xfffeu", service)
+        self.assertNotIn("DISC_RAM_BASE + 0x10000u", service)
         self.assertIn("WLC_E_ESCAN_RESULT", security_patch)
         self.assertIn('memcpy(p, "escan", name_length)', security_patch)
         for mode in ("AUTO", "OPEN", "WEP", "WPA", "WPA2"):
@@ -263,6 +305,16 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("+\tSTA\tslotid", wicfs_patch)
         self.assertIn("FCFF is write-only through AP5/Pi1MHz", wicfs_patch)
         self.assertNotIn("+    inc pagereg", wicfs_patch)
+
+        cursor_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-cursor-zp.patch"
+        ).read_text()
+        self.assertIn("pr_y    =   &C7", cursor_patch)
+        self.assertIn("pr_r    =   &C8", cursor_patch)
+        self.assertIn("fscv_x         = &C9", cursor_patch)
+        self.assertIn("findv_rtn = &CB", cursor_patch)
+        self.assertNotIn("+pr_y    =   heap+&D8", cursor_patch)
+        self.assertNotIn("+pr_r    =   heap+&D9", cursor_patch)
 
         metadata_patch = (
             ROOT / "rom-side/elkwifi-0.23/wicfs-osfile-metadata.patch"
@@ -377,8 +429,10 @@ class IntegrationContractTest(unittest.TestCase):
         identity = (ROOT / "rom-side/elkwifi-0.23/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
         self.assertIn('romversion         equs "0.1.9"', identity)
+        release_patch = (ROOT / "rom-side/elkwifi-0.23/version-0.1.12.patch").read_text()
+        self.assertIn('romversion         equs "0.1.12"', release_patch)
         version = (ROOT / "rom-side/elkwifi-0.23/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.9 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.12 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
@@ -404,7 +458,6 @@ class IntegrationContractTest(unittest.TestCase):
         rom_patch = (ROOT / "rom-side/elkwifi-0.23/integration.patch").read_text()
         self.assertIn('MENU_FILE "/Pi1MHz/ElkWiFi.menu"', service)
         self.assertIn('#include "scripts/gitversion.h"', service)
-        self.assertIn('kernel %s', service)
         self.assertIn('GITVERSION', service)
         self.assertIn("filesystemWriteFile", service)
         self.assertIn('config_get("elkwifi_menu_url")', service)
@@ -511,6 +564,13 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("wicfs-loader-compat.patch", rom_installer)
         self.assertIn("wicfs-callable-init.patch", rom_installer)
         self.assertIn("wicfs-long-branches.patch", rom_installer)
+        self.assertIn("wicfs-zero-length.patch", rom_installer)
+        zero_length_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-zero-length.patch"
+        ).read_text()
+        self.assertIn("zero-byte CFS files have no data byte to fetch", zero_length_patch)
+        self.assertIn("JSR\tadjlen", zero_length_patch)
+        self.assertIn("JSR\tchskip", zero_length_patch)
         self.assertIn("uef-command.patch", rom_installer)
         self.assertIn('elkwifi-0.23/uef.asm', rom_installer)
         self.assertLess(

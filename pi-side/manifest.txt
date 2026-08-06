@@ -5,6 +5,7 @@ Pi1MHz bare-metal integration for commit
 - pi1mhz-current/integration.patch
 - pi1mhz-current/service-range-online.patch
 - pi1mhz-current/uef-normalize.patch
+- pi1mhz-current/gitversion-untracked-content.patch
 - pi1mhz-current/wifi-security.patch
 - pi1mhz-current/wifi-radio.patch
 - pi1mhz-current/wifi-mac-fallback.patch
@@ -15,6 +16,9 @@ Pi1MHz bare-metal integration for commit
 - pi1mhz-current/wifi-network-tools.patch
 - pi1mhz-current/http-status.patch
 - pi1mhz-current/tcp-diagnostics.patch
+- pi1mhz-current/http-truncated-body.patch
+- pi1mhz-current/wifi-pi3b.patch
+- firmware/brcmfmac43430-sdio.txt
 - pi1mhz-current/http-user-agent.patch
 - pi1mhz-current/wifi-off-state.patch
 - pi1mhz-current/wifi-scan-cancel.patch
@@ -31,6 +35,9 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/integration.patch
 - rom-side/elkwifi-0.23/banner-spacing.patch
 - rom-side/elkwifi-0.23/identity.patch
+- rom-side/elkwifi-0.23/version-0.1.10.patch
+- rom-side/elkwifi-0.23/version-0.1.11.patch
+- rom-side/elkwifi-0.23/version-0.1.12.patch
 - rom-side/elkwifi-0.23/command-surface.patch
 - rom-side/elkwifi-0.23/online-command.patch
 - rom-side/elkwifi-0.23/online.asm
@@ -58,6 +65,8 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/wicfs-callable-init.patch
 - rom-side/elkwifi-0.23/wicfs-rewind.patch
 - rom-side/elkwifi-0.23/wicfs-long-branches.patch
+- rom-side/elkwifi-0.23/wicfs-zero-length.patch
+- rom-side/elkwifi-0.23/wicfs-cursor-zp.patch
 - rom-side/elkwifi-0.23/rom-prune.patch
 - rom-side/elkwifi-0.23/routines-prune.patch
 

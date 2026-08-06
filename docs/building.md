@@ -73,8 +73,8 @@ If it is already on `PATH`:
 
 The `all` preset is the release build. It produces:
 
-- `build/pi1mhz-all/kernel.img` for Raspberry Pi 1 and Pi Zero
-- `build/pi1mhz-all/kernel7.img` for Raspberry Pi 2 and Pi 3
+- `build/pi1mhz-all/kernel.img` for Pi Zero and Pi Zero W
+- `build/pi1mhz-all/kernel7.img` for Pi Zero 2 W and Pi 3A+/3B/3B+
 - `build/pi1mhz-all/` as the complete FAT boot-partition candidate
 - `build/pi1mhz-all-hardware-test.zip` as the equivalent archive
 
@@ -83,9 +83,24 @@ sources, preserves active `Pi1MHz.cfg` values, builds both upstream targets,
 and packages the firmware tree. Bundle timestamps and ZIP metadata are
 normalized, so repeating the installer against the same integrated checkout
 produces the same kernel and ZIP hashes.
+The normalized file dates therefore identify the pinned upstream source epoch,
+not the time of the local build. Use the SHA-256 values and the kernel revision
+reported by `*VERSION` to identify a test image.
+
+The kernel revision shown by `*VERSION` fingerprints tracked Pi1MHz changes
+and the contents of the untracked 1MHzWifi overlay sources. Changing an
+overlay source therefore produces a different revision suffix even before the
+Pi1MHz integration is committed upstream.
 
 The `rpi` and `rpi3` presets are useful for local iteration, but they are not a
 substitute for the `all` release build.
+
+The complete bundle must retain the `brcmfmac43430`, `brcmfmac43436`,
+`brcmfmac43436s`, and `brcmfmac43455` firmware triplets under
+`Pi1MHz/wifi/`. A plain Pi Zero has no WiFi device and is expected to run the
+rest of Pi1MHz while returning `Device not found` from `*WIFI ON`.
+The installer replaces the generic 43430 NVRAM template with Raspberry Pi's
+GPL-2.0+ Pi 3B calibration file, which Raspberry Pi OS also uses for Zero W.
 
 ## Verify the finished release
 

@@ -71,7 +71,7 @@ install_if_changed "$script_dir/pi1mhz-v1.30/src/uef_normalize.h" "$upstream/src
 install_if_changed "$script_dir/pi1mhz-v1.30/src/puff.c" "$upstream/src/puff.c"
 install_if_changed "$script_dir/pi1mhz-v1.30/src/puff.h" "$upstream/src/puff.h"
 
-for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch http-status.patch tcp-diagnostics.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch; do
+for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch gitversion-untracked-content.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch; do
     patch_file="$script_dir/pi1mhz-current/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -94,6 +94,11 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
         services-capacity-test.patch)
             grep -q 'eighth range registers' "$upstream/src/tests/services/test_services.c" &&
             grep -q 'identical reset-time claim renews' "$upstream/src/tests/services/test_services.c" &&
+            patch_present=true
+            ;;
+        gitversion-untracked-content.patch)
+            grep -q 'GIT_UNTRACKED_CONTENT' "$upstream/src/scripts/gitversion.cmake" &&
+            grep -q 'file(SHA256.*UNTRACKED_FILE' "$upstream/src/scripts/gitversion.cmake" &&
             patch_present=true
             ;;
         wifi-security.patch)
@@ -136,6 +141,11 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
             grep -q 'src/core/raw.c' "$upstream/src/CMakeLists.txt" &&
             patch_present=true
             ;;
+        wifi-pi3b.patch)
+            grep -q 'original Pi 3B is ARMv8' "$upstream/src/wifi/cyw43.c" &&
+            grep -q 'need_legacy = socramrev < 23u' "$upstream/src/wifi/cyw43.c" &&
+            patch_present=true
+            ;;
         http-status.patch)
             grep -q 'A completed TCP request is not a successful WGET' "$upstream/src/net_service.c" &&
             grep -q 'h->http_code >= 300u' "$upstream/src/net_service.c" &&
@@ -146,6 +156,11 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
         tcp-diagnostics.patch)
             grep -q 'static uint8_t net_tcp_result' "$upstream/src/net_service.c" &&
             grep -q 'NET_ERR_HTTP_STATUS' "$upstream/src/net_service.h" &&
+            patch_present=true
+            ;;
+        http-truncated-body.patch)
+            grep -q 'declared HTTP body ended early' "$upstream/src/net_service.c" &&
+            grep -q 'truncated HTTP body -> TCP_CLOSED' "$upstream/src/tests/net/test_net.c" &&
             patch_present=true
             ;;
         http-user-agent.patch)
@@ -176,6 +191,11 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
         git -C "$upstream" apply "$patch_file"
     fi
 done
+
+# Raspberry Pi OS uses this calibrated NVRAM for both the original Pi 3B and
+# Zero W. The generic upstream file contains placeholder calibration values.
+install_if_changed "$script_dir/firmware/brcmfmac43430-sdio.txt" \
+                   "$upstream/firmware/Pi1MHz/wifi/brcmfmac43430-sdio.txt"
 
 install_if_changed "$root_dir/build/elkwifi_pi1mhz.rom" "$upstream/firmware/Pi1MHz/ElkWiFi.rom"
 

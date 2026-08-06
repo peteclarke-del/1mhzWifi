@@ -42,6 +42,14 @@ Build presets:
 | `rpi` | `kernel.img` and `build/pi1mhz-rpi/` |
 | `rpi3` | `kernel7.img` and `build/pi1mhz-rpi3/` |
 
+Use `kernel.img` for Pi Zero and Zero W. Use `kernel7.img` for Zero 2 W and
+Pi 3A+/3B/3B+. The `all` bundle includes CYW43430, CYW43436/43436s, and
+CYW43455 firmware. Plain Pi Zero has no onboard WiFi, so the ElkWiFi service
+remains available but `*WIFI ON` reports `Device not found`.
+The ARMv8 image preloads 43430, 43436, and 43455 candidates, then selects the
+original Pi 3B, Zero 2 W, or Pi 3A+/3B+ image from the detected chip and SOCRAM
+revision before firmware download.
+
 Set `ARM_GCC` to the compiler path when `arm-none-eabi-gcc` is not on `PATH`.
 
 The installer performs the following operations:

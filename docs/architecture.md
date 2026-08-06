@@ -80,6 +80,22 @@ TCP compatibility uses net-service commands 45-53. Host buffers are copied
 through reserved JIM scratch pages instead of passing host or parasite pointers
 to the Pi.
 
+## Public OSWORD path
+
+MOS service reason 8 enters the retained ElkWiFi `OSWORD &65` handler. It
+unpacks driver A, X and Y from the caller's three-byte block and calls the same
+`wifidriver` entry used by ROM commands. Function 4 reads its query or JOIN
+strings from that public pointer. Function 8 preserves the port-string offset
+while copying the DNS result to scratch memory, then opens the socket with the
+parsed address and port. Function 9 accepts single-connection mode as a no-op;
+multiplexed mode is rejected because the Pi net service owns one raw socket.
+
+Automated ROM checks begin at the emitted OSWORD handler and verify its A/X/Y
+unpacking sequence, function 9 routing, caller-owned JOIN parameters, TCP port
+offset preservation and all three JIM selectors. Hardware acceptance still
+uses an application binary through `OSWORD &65`, since star commands alone do
+not exercise this boundary.
+
 ## JIM memory use
 
 Pi1MHz exposes a 24-bit JIM page address through `&FCFD` (high), `&FCFE`
@@ -93,6 +109,10 @@ reloads that authoritative value and resets the WiCFS cursor. It does not keep
 the length in the ROM's `&0900` heap because that workspace is volatile and can
 be overwritten by the menu or BASIC before a title is selected.
 
+The cursor itself uses the original CFS zero-page allocation at `&C7/&C8`.
+Loaded tape programs routinely use page `&09` between OSFILE, OSFIND and FSCV
+calls, so only transient vector state is stored in the ROM heap there.
+
 `*UEF LOAD` produces the same JIM image from a file on the current MOS filing
 system. It uses OSFIND and OSBGET rather than reading ADFS or DFS structures
 directly. No importer state is kept in `&0900`: the open handle remains in the
@@ -104,6 +124,11 @@ and WiCFS setup sequence. A hidden second-stage command performs the same
 callable WiCFS vector installation as `*QUPCFS`, then queues only `*REWIND` and
 `CHAIN ""`. This split keeps each insertion below the Electron keyboard-buffer
 limit while retaining the published launch sequence.
+
+Before entering the CFS data-copy loop, WiCFS tests the block length. A
+zero-byte block skips the data read, accounts for the already-consumed header
+and CRC, and returns success. This is required by applications which end a
+multi-file tape with a zero-byte version or capability marker.
 
 WiCFS records the handler address and owning ROM behind each MOS extended
 filing vector before installing its own entries. Unsupported operations are
@@ -178,6 +203,17 @@ The ROM distinguishes transport failures where the hardware permits it:
 | `Device not found` | Services mailbox is absent, or the Pi reports no usable WiFi hardware |
 | `Not implemented` | Services mailbox responds but the command is unregistered or unsupported |
 | `No response from device` | A claimed command remained busy past its deadline |
+
+HTTP EOF is accepted only after the declared `Content-Length` has been read.
+An early close returns `&2E` so truncated MENU and UEF payloads never become a
+successful WGET. UEF normalization operates on absolute JIM `&010000-&01FFFF`;
+Pi1MHz's private disc-memory base is deliberately not involved.
+
+An Acorn reset rebuilds Pi1MHz's emulator and poll registration tables but
+does not reset the CYW43. The ElkWiFi service therefore reloads the saved
+profile for comparison and preserves an existing association when SSID,
+password and security mode are unchanged. Credential changes still use the
+normal asynchronous rejoin path.
 
 Unsupported OSWORD functions return before the inherited UART and flash
 dispatcher. Secure transports also fail closed. TLS or SSH support must include

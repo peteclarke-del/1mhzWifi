@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "b7dfe0ac296c33f9f6d6f128e9b955132414546db932b91cfdecb393af3239b8"
+ROM_SHA256 = "25f8e939d061c52f469f5715cd5b84e9b80eaa54210f65309628ffeae777f051"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -18,11 +18,11 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(len(self.rom), 16 * 1024)
         self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
-            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x17, 1))
+            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x18, 0x0C))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:24], b"0.1.9\0")
-        self.assertIn(b"1MHzWifi 0.1.9 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.12\0")
+        self.assertIn(b"1MHzWifi 0.1.12 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -113,6 +113,40 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(b"*QUPRUN\r", self.rom)
         self.assertIn(b"*REWIND\rCHAIN \"\"\r", self.rom)
         self.assertNotIn(b"*QUPRUN\r*REWIND", self.rom)
+
+    def test_public_osword_driver_abi_reaches_single_socket_transport(self) -> None:
+        # The emitted OSWORD &65 handler must unpack driver A/X/Y from the
+        # caller's three-byte block before entering wifidriver.
+        self.assertIn(bytes.fromhex(
+            "A5 EF C9 65 F0 03 A9 08 60 98 48 8A 48 A0 00 B1 F0 48 "
+            "C8 B1 F0 AA C8 B1 F0 A8 68 20"
+        ), self.rom)
+
+        driver = (ROOT / "rom-side/elkwifi-0.23/driver.asm").read_text()
+        service = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()
+        serial = (ROOT / "rom-side/elkwifi-0.23/serial.asm").read_text()
+        self.assertIn("cmp #9\n bne service_driver_not_9\n jmp service_driver_cpmux", driver)
+        self.assertIn(".service_driver_cpmux", service)
+        self.assertIn("cmp #'0'", service)
+        self.assertIn("cmp #&0D", service)
+
+        join = service.split(".service_driver_join", 1)[1].split(
+            ".service_driver_leave", 1
+        )[0]
+        self.assertIn("lda (paramblok),y", join)
+        self.assertNotIn("lda heap", join)
+
+        open_tcp = service.split(".service_driver_cipstart", 1)[1].split(
+            ".service_driver_cipsend", 1
+        )[0]
+        self.assertIn("sta drv_net_copy_count", open_tcp)
+        self.assertIn("ldy drv_net_index", open_tcp)
+        self.assertNotIn("sta drv_net_index\n.service_driver_copy_ip", open_tcp)
+
+        for selector in (".set_bank_0", ".set_bank_1", ".set_bank_a"):
+            routine = serial.split(selector, 1)[1].split("\n\n", 1)[0]
+            self.assertIn("sta &FCFD", routine)
+            self.assertIn("sta &FCFE", routine)
 
     def test_retired_cartridge_code_is_not_emitted(self) -> None:
         for legacy in (

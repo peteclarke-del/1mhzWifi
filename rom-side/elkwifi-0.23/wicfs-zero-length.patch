@@ -1,0 +1,13 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -914,1 +914,9 @@
++	LDA	&3C8		\zero-byte CFS files have no data byte to fetch
++	ORA	&3C9
++	BNE	ldb_data
++	JSR	adjlen		\remove the already-consumed header and CRC bytes
++	JSR	chskip		\skip any valid chunk padding without entering data loop
++	RTS			\preserve chskip carry as the load result
++
++.ldb_data
+ 	JSR	getbyte		\get a block data byte from PC

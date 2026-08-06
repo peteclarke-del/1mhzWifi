@@ -1,0 +1,52 @@
+diff --git a/src/net_service.c b/src/net_service.c
+--- a/src/net_service.c
++++ b/src/net_service.c
+@@ -1466,6 +1466,16 @@ static uint8_t do_url_read(net_handle_t *h, uint32_t cp)
+    jim_wr24(cp + 1u, got);
+    if (got == 0u && h->rx_count == 0u) {
+-      if (h->rx_eof)                 return NET_EOF;
++      if (h->rx_eof) {
++         /* EOF is success only after the declared HTTP body has arrived.
++            Treat an early FIN as a transport failure so WGET cannot report
++            success for a truncated UEF which WiCFS will reject much later. */
++         if (h->url_adapter == NET_URL_HTTP && h->http_has_length &&
++             h->http_body_read < h->http_content_length) {
++            h->last_err = NET_ERR_TCP_CLOSED;
++            return NET_ERR_TCP_CLOSED; /* declared HTTP body ended early */
++         }
++         return NET_EOF;
++      }
+       if (h->state == NET_ST_ERROR)  return h->last_err ? h->last_err : NET_ERR_CONN;
+    }
+    return NET_OK;
+diff --git a/src/tests/net/test_net.c b/src/tests/net/test_net.c
+--- a/src/tests/net/test_net.c
++++ b/src/tests/net/test_net.c
+@@ -1008,6 +1008,27 @@ int main(void)
+    CHECK((jrd8(CP(0)+7) | (jrd8(CP(0)+8)<<8)) == 200u, "url status reports HTTP 200 (+7..8)");
+    CHECK(jrd8(CP(0)+3) == 1u, "DVSTAT connected byte set");
+ 
++   printf("== N: device - truncated HTTP body ==\n");
++   world_reset();
++   strcpy((char *)&Pi1MHz->JIM_ram[CP(0) + 2u], "HTTP://1.2.3.4/game.uef");
++   CHECK(issue(NET_CMD_URL_OPEN, 0) == NET_PENDING, "truncated HTTP open -> PENDING");
++   g_last_pcb->connected(g_last_pcb->arg, g_last_pcb, ERR_OK);
++   CHECK(issue(NET_CMD_URL_OPEN, 0) == NET_OK, "truncated HTTP open -> OK");
++   {
++      static const char resp[] =
++         "HTTP/1.0 200 OK\r\nContent-Length: 10\r\n\r\nshort";
++      struct pbuf *p = make_pbuf(resp, (u16_t)(sizeof resp - 1u));
++      g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, p, ERR_OK);
++      g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, NULL, ERR_OK);
++   }
++   jwr24(CP(0)+1, 200); jwr32(CP(0)+4, 0x9000);
++   CHECK(issue(NET_CMD_URL_READ, 0) == NET_OK,
++         "truncated HTTP returns bytes received before FIN");
++   CHECK(jrd24(CP(0)+1) == 5u, "truncated HTTP returned five-byte partial body");
++   jwr24(CP(0)+1, 200); jwr32(CP(0)+4, 0x9100);
++   CHECK(issue(NET_CMD_URL_READ, 0) == NET_ERR_TCP_CLOSED,
++         "truncated HTTP body -> TCP_CLOSED, not successful EOF");
++
+    printf("== N: device - malformed URL ==\n");
+    world_reset();
+    strcpy((char *)&Pi1MHz->JIM_ram[CP(0) + 2u], "notaurl");

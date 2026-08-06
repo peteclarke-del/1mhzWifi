@@ -76,10 +76,11 @@ the hardware register back. Without this second fix, downloading a title can
 succeed but WiCFS loses its position after 256 bytes and never reaches the
 program stored later in the UEF stream.
 
-The WiCFS page and offset cursor live in private ROM workspace at `&09D8` and
-`&09D9`, not the inherited zero-page locations `&C7` and `&C8`. This keeps the
-cursor stable when BASIC, MOS filing code or another service runs between WiCFS
-vector calls.
+The WiCFS page and offset cursor live at `&C7` and `&C8` in the original CFS
+zero-page workspace. Multi-part tape loaders can use page `&09` between filing
+vector calls, so persistent stream state must not be kept there. Transient
+vector and ROM-switch state remains in private workspace and is recreated for
+each call.
 
 When `*QUPCFS` runs, WiCFS installs MOS extended vectors without copying a ROM
 switcher into language or Tube workspace. The installed filing vectors do not
