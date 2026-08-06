@@ -14,7 +14,7 @@ laddr = heap+&FE
 
 .wget_context_switch_in
  pha
- lda pagereg
+ lda net_primary_page
  sta load_addr+1
  jsr set_bank_1
  lda pr_r
@@ -25,11 +25,10 @@ laddr = heap+&FE
 
 .wget_context_switch_out
  pha
- lda pagereg
- sta pr_r
  sty pr_y
  jsr set_bank_0
  lda load_addr+1
+ sta net_primary_page
  sta pagereg
  pla
  rts
@@ -71,6 +70,7 @@ laddr = heap+&FE
  sta switch
  sei
  ldx #0
+ stx pr_r
  stx pagereg
  stx zp+2
  lda #&80
@@ -86,7 +86,9 @@ laddr = heap+&FE
  inx
  iny
  bne wget_swramload_l1
- inc pagereg
+ inc pr_r
+ lda pr_r
+ sta pagereg
  inc zp+3
  dec zp+4
  bne wget_swramload_l1

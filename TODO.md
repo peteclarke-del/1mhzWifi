@@ -23,16 +23,25 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   cancellation releases PCBs, clears scan state and invalidates late callback
   generations.
 - [x] WiCFS MOS extended-vector installation without occupying Tube workspace.
+- [x] Ownership-checked reset teardown for FILEV, BGETV, FINDV, FSCV and
+  BYTEV, including preservation of every predecessor address and ROM owner.
 - [x] Full 32-bit WiCFS catalogue addresses, OSFILE metadata returns,
   sequential reads and Electron-only load and execution. WiCFS does not use
   an optional Tube as a source, destination or transport.
 - [x] Filing-system-neutral local UEF import through OSFIND/OSBGET, with JIM
   selector restoration, bounded storage, Escape handling, and a two-stage
   automatic queue for the stock WiCFS `*REWIND`, `CHAIN ""` launch sequence.
+- [x] DFS-neutral source import and ownership-checked DFS vector restoration.
+  The ROM does not inspect DFS structures or retain state in DFS workspace.
 - [x] Content-based raw, gzip and single-entry ZIP UEF normalization in the
   Pi kernel, including gzip-in-ZIP, CRC validation and expanded-size bounds.
 - [x] Stack-safe OSFILE control-block preservation for loads which overwrite
   the previous `&09DA/&09DB` save area.
+- [x] Write-only `&FCFF` handling across the public OSWORD driver. Function 9
+  returns a local four-byte `OK` response, and function 13 advances multi-page
+  receive data through a RAM page shadow rather than hardware readback.
+- [x] Original-compatible OSWORD function 18 response limited to station IP,
+  real station MAC, and `OK`; Pi-only status fields moved to `*ONLINE`.
 - [x] Removal of emitted UART, AT-command, flash updater, printer, baud-rate,
   CRC diagnostic and unused ROM helper code.
 - [x] Explicit `Not implemented` errors for every retained driver entry which
@@ -79,9 +88,11 @@ half-written path in this release:
 ## Release gate
 
 No known implementation placeholder remains on the declared station-mode,
-plain-HTTP hardware milestone. ROM 0.1.13 specifically requires hardware
-confirmation that Zalaga and Chuckie Egg now continue after their initial
-`CHAIN ""` load. Release acceptance also depends on completing
+plain-HTTP hardware milestone. ROM 0.1.17 specifically requires hardware
+confirmation that Zalaga and Chuckie Egg continue after their initial
+`CHAIN ""` load without consuming subsequent UEF files or reporting `End of
+UEF`, and that Break restores ADFS and DFS after DeskDiary completes. Release
+acceptance also depends on completing
 the real Electron, AP5, Pi1MHz and Tube checks in
 [`docs/hardware-validation.md`](docs/hardware-validation.md). Failures found
 there must be recorded as new implementation defects before changing this

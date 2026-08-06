@@ -89,6 +89,9 @@ strings from that public pointer. Function 8 preserves the port-string offset
 while copying the DNS result to scratch memory, then opens the socket with the
 parsed address and port. Function 9 accepts single-connection mode as a no-op;
 multiplexed mode is rejected because the Pi net service owns one raw socket.
+Its response is generated locally, leaves JIM at `00:00:00`, and records the
+four-byte response length without dispatching a Pi mailbox request. Function
+13 uses the same RAM page shadow while copying up to 4096 response bytes.
 
 Automated ROM checks begin at the emitted OSWORD handler and verify its A/X/Y
 unpacking sequence, function 9 routing, caller-owned JOIN parameters, TCP port
@@ -99,8 +102,9 @@ not exercise this boundary.
 ## JIM memory use
 
 Pi1MHz exposes a 24-bit JIM page address through `&FCFD` (high), `&FCFE`
-(middle), and `&FCFF` (low). This ROM reserves addresses `00:00:page` for
-command responses and `00:01:page` for UEF and sideways-RAM downloads. Every
+(middle), and `&FCFF` (low). This ROM uses addresses `00:00:page` for command
+responses and `00:01:page` for UEF and sideways-RAM downloads. This integration
+reserves Pi1MHz top-service-RAM page `&FFF200` for WiCFS vector ownership state. Every
 entry point establishes the high byte explicitly, so ADFS, MMFS, DFS helpers,
 or another application ROM cannot redirect WiCFS into another JIM region.
 
@@ -109,18 +113,27 @@ reloads that authoritative value and resets the WiCFS cursor. It does not keep
 the length in the ROM's `&0900` heap because that workspace is volatile and can
 be overwritten by the menu or BASIC before a title is selected.
 
-The cursor, remaining-byte count, start flag, saved FINDV and ROM slot use
-`&0D80-&0D87`. This host workspace is below Electron PAGE and below the MOS
-extended-vector table at `&0D9D`. The Electron cassette MOS and loaded tape
-programs reuse both zero page and page `&09` between OSFILE, OSFIND and FSCV
-calls, so neither area holds persistent WiCFS state.
+The MOS keyboard input buffer occupies `&03E0-&03FF`; WiCFS never writes it.
+The active stream cursor and counters use the original WiCFS cassette zero-page
+ABI. Vector ownership and predecessor addresses are copied to page `&FFF200`,
+reserved by this integration in Pi1MHz top service RAM, after installation and
+reloaded only for installation or reset.
+The public ElkWiFi driver page shadow is transient at `heap+&D8`. No persistent
+state is kept in application memory, ADFS `&0Dxx`, Tube workspace, or the
+keyboard command queue.
+
+Every reset invokes an ownership-checked WiCFS teardown. An extended-vector
+entry is restored only when its address and ROM owner still identify the
+1MHzWifi handler. BYTEV is restored only while it still points at the WiCFS
+`*TAPE` trap. This releases a stale virtual cassette without overwriting ADFS,
+DFS, MMFS or another ROM which has subsequently claimed a vector.
 
 `*UEF LOAD` produces the same JIM image from a file on the current MOS filing
 system. It uses OSFIND and OSBGET rather than reading ADFS or DFS structures
 directly. No importer state is kept in `&0900`: the open handle remains in the
 OSBGET-preserved X register and the byte count remains in the final JIM page.
-After each source byte, the ROM reselects JIM address `00:01:page`, so an ADFS
-or MMFS read cannot redirect the destination by changing the shared selector.
+After each source byte, the ROM reselects JIM address `00:01:page`, so an ADFS,
+DFS or MMFS read cannot redirect the destination by changing the shared selector.
 Once the source file is closed, the command queues the normal tape, PAGE, NEW,
 and WiCFS setup sequence. A hidden second-stage command performs the same
 callable WiCFS vector installation as `*QUPCFS`, then queues only `*REWIND` and
@@ -152,7 +165,8 @@ command. Repeated MENU invocations therefore remain possible without weakening
 the active virtual-tape contract.
 
 The service command page is at JIM offset `&FFF000`; URL scratch data is at
-`&FFF100`. WiCFS content occupies `&010000-&01FFFF`. The ROM keeps an
+`&FFF100`; WiCFS vector state is at `&FFF200`. WiCFS content occupies
+`&010000-&01FFFF`. The ROM keeps an
 independent low-page shadow and never reads AP5's write-only `&FCFF` register.
 Large transfers and simultaneous-service use remain hardware stress tests.
 

@@ -41,7 +41,7 @@
 #define LAPOPT_FILE "/Pi1MHz/ElkWiFi.lapopt"
 #define ELKWIFI_UEF_BASE 0x10000u
 #define ELKWIFI_VERSION_RESPONSE \
-   "Pi1MHz ElkWiFi 0.1.13, kernel " GITVERSION "\r\n\r\nOK\r\n"
+   "Pi1MHz ElkWiFi 0.1.17, kernel " GITVERSION "\r\n\r\nOK\r\n"
 
 _Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
                "ElkWiFi service range start disagrees with services.h");
@@ -633,43 +633,27 @@ static uint8_t wifi_ifcfg(uint32_t cp)
    const wifi_network_config_t *net = wifi_get_network_config();
    const wifi_lwip_context_t *live = wifi_lwip_get_context();
    sdio_runtime_status_t radio = sdio_runtime_get_status();
-   const char *wifi_error = wifi_last_error();
    uint8_t mac[6] = {0};
    char ip[16] = "0.0.0.0";
-   char gateway[16] = "0.0.0.0";
-   char netmask[16] = "0.0.0.0";
    if (net->has_address) ip_text(ip, &net->address);
-   if (net->has_gateway) ip_text(gateway, &net->gateway);
-   if (net->has_netmask) ip_text(netmask, &net->netmask);
    /* DHCP owns the live values in lwIP; the parsed configuration object
       intentionally contains no address in DHCP mode.  Report the netif so
       *IFCFG changes from zeroes as soon as JOIN has obtained its lease. */
    if (radio.link_up && live != NULL && live->netif_added) {
       const ip4_addr_t *live_ip = netif_ip4_addr(&live->netif);
-      const ip4_addr_t *live_gateway = netif_ip4_gw(&live->netif);
-      const ip4_addr_t *live_netmask = netif_ip4_netmask(&live->netif);
       (void)snprintf(ip, sizeof ip, "%u.%u.%u.%u", ip4_addr1(live_ip),
                      ip4_addr2(live_ip), ip4_addr3(live_ip), ip4_addr4(live_ip));
-      (void)snprintf(gateway, sizeof gateway, "%u.%u.%u.%u",
-                     ip4_addr1(live_gateway), ip4_addr2(live_gateway),
-                     ip4_addr3(live_gateway), ip4_addr4(live_gateway));
-      (void)snprintf(netmask, sizeof netmask, "%u.%u.%u.%u",
-                     ip4_addr1(live_netmask), ip4_addr2(live_netmask),
-                     ip4_addr3(live_netmask), ip4_addr4(live_netmask));
    }
    (void)sdio_runtime_get_chip_mac(mac);
+   /* Function 18 is a public ElkWiFi ABI, not the Pi diagnostic surface.
+      Keep it original-compatible and comfortably below the ROM's bounded
+      239-byte mailbox copy. Applications such as ElkChat consume these exact
+      records; Pi-specific link detail is available through *ONLINE. */
    response_printf(cp,
-      "+WIFI:STATE,\"%s\",\"%.48s\"\r\n"
-      "+WIFI:LINK,\"%s\",\"%s\",%lu,%lu,%lu\r\n"
       "+CIFSR:STAIP,\"%s\"\r\n+CIFSR:STAMAC,\"%02x:%02x:%02x:%02x:%02x:%02x\"\r\n"
-      "+CIFSR:GATEWAY,\"%s\"\r\n+CIFSR:NETMASK,\"%s\"\r\n\r\nOK\r\n",
-      wifi_state_name(wifi_get_state()), wifi_error,
-      radio.link_up ? "UP" : "DOWN", radio.join_busy ? "JOINING" : "IDLE",
-      (unsigned long)radio.last_event_type,
-      (unsigned long)radio.last_event_status,
-      (unsigned long)radio.last_event_reason,
+      "\r\nOK\r\n",
       ip, (unsigned)mac[0], (unsigned)mac[1], (unsigned)mac[2],
-      (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5], gateway, netmask);
+      (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5]);
    return ELKWIFI_OK;
 }
 

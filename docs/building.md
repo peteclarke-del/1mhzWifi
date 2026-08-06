@@ -80,12 +80,11 @@ The `all` preset is the release build. It produces:
 
 The installer applies every Pi patch, copies the two maintained ElkWiFi service
 sources, preserves active `Pi1MHz.cfg` values, builds both upstream targets,
-and packages the firmware tree. Bundle timestamps and ZIP metadata are
-normalized, so repeating the installer against the same integrated checkout
-produces the same kernel and ZIP hashes.
-The normalized file dates therefore identify the pinned upstream source epoch,
-not the time of the local build. Use the SHA-256 values and the kernel revision
-reported by `*VERSION` to identify a test image.
+and packages the firmware tree. Normal hardware-test bundles retain each
+kernel's real link timestamp so a stale SD-card copy can be detected visually.
+Set `SOURCE_DATE_EPOCH` only for a release job which requires normalized
+timestamps. Use the SHA-256 values and the kernel revision reported by
+`*VERSION` as the authoritative image identity.
 
 The kernel revision shown by `*VERSION` fingerprints tracked Pi1MHz changes
 and the contents of the untracked 1MHzWifi overlay sources. Changing an

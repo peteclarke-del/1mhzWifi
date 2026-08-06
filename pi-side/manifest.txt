@@ -39,6 +39,12 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/version-0.1.11.patch
 - rom-side/elkwifi-0.23/version-0.1.12.patch
 - rom-side/elkwifi-0.23/version-0.1.13.patch
+- rom-side/elkwifi-0.23/version-0.1.14.patch
+- rom-side/elkwifi-0.23/version-0.1.15.patch
+- rom-side/elkwifi-0.23/version-0.1.16.patch
+- rom-side/elkwifi-0.23/version-0.1.17.patch
+- rom-side/elkwifi-0.23/wicfs-lifecycle.patch
+- rom-side/elkwifi-0.23/wicfs-jim-state.patch
 - rom-side/elkwifi-0.23/command-surface.patch
 - rom-side/elkwifi-0.23/online-command.patch
 - rom-side/elkwifi-0.23/online.asm
@@ -63,12 +69,13 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/wicfs-osfile-stack.patch
 - rom-side/elkwifi-0.23/wicfs-reentry-run.patch
 - rom-side/elkwifi-0.23/wicfs-loader-compat.patch
+- rom-side/elkwifi-0.23/wicfs-final-block.patch
 - rom-side/elkwifi-0.23/wicfs-callable-init.patch
 - rom-side/elkwifi-0.23/wicfs-rewind.patch
 - rom-side/elkwifi-0.23/wicfs-long-branches.patch
 - rom-side/elkwifi-0.23/wicfs-zero-length.patch
 - rom-side/elkwifi-0.23/wicfs-cursor-zp.patch
-- rom-side/elkwifi-0.23/wicfs-persistent-state.patch
+- rom-side/elkwifi-0.23/wicfs-safe-state.patch
 - rom-side/elkwifi-0.23/rom-prune.patch
 - rom-side/elkwifi-0.23/routines-prune.patch
 

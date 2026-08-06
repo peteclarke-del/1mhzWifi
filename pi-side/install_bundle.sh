@@ -266,8 +266,12 @@ esac
 bundle="$root_dir/build/pi1mhz-$preset"
 mkdir -p "$bundle"
 cp -a "$upstream/firmware/." "$bundle/"
-bundle_epoch=${SOURCE_DATE_EPOCH:-$(git -C "$upstream" show -s --format=%ct "$expected_upstream")}
-find "$bundle" -exec touch -d "@$bundle_epoch" -- {} +
+# Preserve the actual kernel build times in a normal hardware-test bundle so
+# an SD-card operator can distinguish a newly linked image from a stale copy.
+# Reproducible release jobs may still request normalized timestamps explicitly.
+if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+    find "$bundle" -exec touch -d "@$SOURCE_DATE_EPOCH" -- {} +
+fi
 archive="$root_dir/build/pi1mhz-$preset-hardware-test.zip"
 archive_tmp_dir=$(mktemp -d "$root_dir/build/.pi1mhz-bundle.XXXXXX")
 (cd "$root_dir/build" && TZ=UTC zip -Xqr "$archive_tmp_dir/bundle.zip" "pi1mhz-$preset")

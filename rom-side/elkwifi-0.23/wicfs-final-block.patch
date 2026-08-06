@@ -1,0 +1,12 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -1048,6 +1048,7 @@
+ .stl_block_ok
+ 	LDA	&3CA		\last block?
+ 	AND	#&80
++	BEQ	stl_a2		\no: continue before any helper changes flags
+ 	JSR	protect_loader_vectors	\retain WiCFS across legacy loader resets
+-	BNE	stl_end		\yes, load complete
++	JMP	stl_end		\yes, load complete
+ .stl_a2	LDA	curblk		\else update current/next block

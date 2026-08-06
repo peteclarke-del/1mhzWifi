@@ -5,30 +5,29 @@ diff --git a/rom/wicfs.asm b/rom/wicfs.asm
 -sbuft	=	&F5		\flag to indicate start of UEF
 -sbufl	=	&F8		\number of bytes left (lo)
 -sbufh	=	&F9		\number of bytes left (hi)
-+sbuft	=	&D84		\persistent start-of-UEF flag below Electron PAGE
-+sbufl	=	&D82		\persistent bytes-left count (lo)
-+sbufh	=	&D83		\persistent bytes-left count (hi)
++sbuft	=	&03E4		\persistent start-of-UEF flag
++sbufl	=	&03E2		\persistent bytes-left count (lo)
++sbufh	=	&03E3		\persistent bytes-left count (hi)
  temp	=	&C4		\zp temporary
 -slotid	=	&C5		\WiCFS ROM slot used by extended vectors
-+slotid	=	&D87		\persistent WiCFS ROM slot used by extended vectors
++slotid	=	&03E5		\persistent WiCFS ROM slot
  filev_prev_rom = &03A0  \previous extended FILEV owner, or &FF for direct
  findv_prev_rom = &03A1  \previous extended FINDV owner, or &FF for direct
  fscv_prev_rom  = &03A2  \previous extended FSCV owner, or &FF for direct
-@@ -69,11 +69,12 @@ optmask	= &B7		\mask for *OPT setting (two values)
+@@ -69,11 +69,11 @@ optmask	= &B7		\mask for *OPT setting (two values)
 -\ Tape loaders routinely reuse &0900-&09FF between vector calls. Keep the UEF
 -\ cursor in the original CFS zero-page workspace so loaded code cannot move it.
 -pr_y    =   &C7     \persistent UEF offset used by the original WiCFS contract
 -pr_r    =   &C8     \persistent UEF page-register shadow
-+\ Loaded programs and the Electron cassette MOS use both application zero page
-+\ and &0900-&09FF between vector calls. Keep all persistent stream state in
-+\ reserved host workspace below PAGE and below the MOS extended-vector table.
-+pr_y    =   &D80     \persistent UEF offset
-+pr_r    =   &D81     \persistent UEF page-register shadow
++\Keep the stream cursor in unused cassette filing-system workspace. Loaded
++\programs may reuse application zero page and &0900-&09FF between stages.
++pr_y    =   &03E0    \persistent UEF offset
++pr_r    =   &03E1    \persistent UEF page-register shadow
  filev_x =   heap+&DA \OSFILE/OSFIND require X and Y to be preserved
  filev_y =   heap+&DB
  bget_y  =   heap+&DC \OSBGET returns data in A and preserves X and Y
 -findv_rtn = &CB       \persistent saved FINDV for calls WiCFS does not claim
-+findv_rtn = &D85      \persistent saved FINDV for calls WiCFS does not claim
++findv_rtn = &03E6     \persistent saved predecessor FINDV address
  evptr     = pbl      \temporary zero-page extended-vector table pointer
  filev_source = heap+&DF \zero for FILEV, negative for FINDV
  fscv_reason = heap+&E0 \FSCV A while reading the extended-vector stack frame

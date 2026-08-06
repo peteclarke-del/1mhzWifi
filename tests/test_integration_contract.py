@@ -139,7 +139,20 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("sdio_runtime_rejoin_busy", service)
         self.assertIn("operation == (uint8_t)'?'", service)
         self.assertIn("Never keep the shared ElkWiFi command page", service)
-        self.assertIn("+WIFI:LINK", service)
+        self.assertNotIn("+WIFI:LINK", service)
+        self.assertIn('+CIFSR:STAIP,\\"%s\\"', service)
+        self.assertIn('+CIFSR:STAMAC,\\"%02x:%02x:%02x:%02x:%02x:%02x\\"', service)
+        ifcfg = service.split("static uint8_t wifi_ifcfg", 1)[1].split(
+            "static uint8_t wifi_online", 1
+        )[0]
+        self.assertNotIn("+WIFI:", ifcfg)
+        self.assertNotIn("GATEWAY", ifcfg)
+        self.assertNotIn("NETMASK", ifcfg)
+        longest_ifcfg = (
+            '+CIFSR:STAIP,"255.255.255.255"\r\n'
+            '+CIFSR:STAMAC,"FF:FF:FF:FF:FF:FF"\r\n\r\nOK\r\n'
+        )
+        self.assertLess(len(longest_ifcfg), 240)
         self.assertIn("last_event_reason", join_diagnostics_patch)
         self.assertIn("wifi-join-diagnostics.patch", installer)
         self.assertIn("wifi-join-reference.patch", installer)
@@ -196,12 +209,14 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("wifi_credentials_load();", initial_once)
         self.assertIn("   wifi_credentials_load();", init_body)
         self.assertIn('config_get("elkwifi_utc_offset_minutes")', service)
-        self.assertIn('"+WIFI:STATE,\\"%s\\",\\"%.48s\\"\\r\\n"', service)
+        self.assertIn("Function 18 is a public ElkWiFi ABI", service)
+        self.assertNotIn("+CIFSR:GATEWAY", service)
+        self.assertNotIn("+CIFSR:NETMASK", service)
         self.assertIn('snprintf(response, sizeof response, "OK\\r\\n")', service)
         self.assertIn("ELKWIFI_ERR_NO_WIFI", service)
         self.assertIn("wifi_get_state() == WIFI_STATE_ERROR", service)
         self.assertIn("Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS", service)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.13, kernel " GITVERSION', service)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.17, kernel " GITVERSION', service)
         self.assertEqual(service.count("response_string(cp, ELKWIFI_VERSION_RESPONSE)"), 2)
         self.assertIn("#define ELKWIFI_UEF_BASE 0x10000u", service)
         self.assertIn("const uint32_t base = ELKWIFI_UEF_BASE", service)
@@ -316,14 +331,53 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("+pr_y    =   heap+&D8", cursor_patch)
         self.assertNotIn("+pr_r    =   heap+&D9", cursor_patch)
 
-        state_patch = (
-            ROOT / "rom-side/elkwifi-0.23/wicfs-persistent-state.patch"
+        jim_state_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-jim-state.patch"
         ).read_text()
-        for address in ("&D80", "&D81", "&D82", "&D83", "&D84", "&D85", "&D87"):
-            self.assertIn(address, state_patch)
-        self.assertIn("Electron cassette MOS", state_patch)
-        self.assertNotIn("+pr_y    =   &C7", state_patch)
-        self.assertNotIn("+pr_r    =   &C8", state_patch)
+        self.assertIn("MOS keyboard input buffer occupies &03E0-&03FF", jim_state_patch)
+        self.assertIn("1MHzWifi-reserved Pi1MHz service page &FFF200", jim_state_patch)
+        self.assertEqual(jim_state_patch.count("+\tLDA\t#&FF"), 2)
+        self.assertEqual(jim_state_patch.count("+\tLDA\t#&F2"), 2)
+        self.assertIn("wicfs_state_ram = heap+&E8", jim_state_patch)
+        self.assertIn(".wicfs_state_load", jim_state_patch)
+        self.assertIn(".wicfs_state_save", jim_state_patch)
+        self.assertIn("pr_y    =   &C7", jim_state_patch)
+        self.assertIn("pr_r    =   &C8", jim_state_patch)
+
+        driver = (ROOT / "rom-side/elkwifi-0.23/driver.asm").read_text()
+        service_driver = (
+            ROOT / "rom-side/elkwifi-0.23/service_driver.asm"
+        ).read_text()
+        self.assertIn("driver_page_shadow = heap+&D8", driver)
+        self.assertNotIn("ldx pagereg", driver)
+        self.assertNotIn("inc pagereg", service_driver)
+
+        wget_helpers = (
+            ROOT / "rom-side/elkwifi-0.23/wget_helpers.asm"
+        ).read_text()
+        self.assertNotRegex(wget_helpers, r"\blda\s+pagereg\b")
+        self.assertNotRegex(wget_helpers, r"\binc\s+pagereg\b")
+        self.assertIn("inc pr_r", wget_helpers)
+
+        lifecycle_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-lifecycle.patch"
+        ).read_text()
+        for symbol in (
+            "BGETRTN", "bget_prev_rom", "bytev_rtn", "wicfs_magic",
+            ".wicfs_reset", ".wicfs_restore_bget", ".wicfs_restore_find",
+            ".wicfs_restore_fsc", ".wicfs_restore_byte",
+        ):
+            self.assertIn(symbol, lifecycle_patch)
+        self.assertIn("CMP\tslotid", lifecycle_patch)
+        self.assertIn("jsr wicfs_reset", lifecycle_patch)
+        self.assertLess(
+            lifecycle_patch.index("+.wicfs_reset_get_table"),
+            lifecycle_patch.index("+\tLDA\t#&A8", lifecycle_patch.index("+.wicfs_reset_active")),
+        )
+        self.assertIn("+FILVRTN        = &03E8", lifecycle_patch)
+        self.assertIn("+wicfs_magic    = &03F4", lifecycle_patch)
+        self.assertIn("outside Tube and ADFS workspace", lifecycle_patch)
+        self.assertNotRegex(lifecycle_patch, r"&D[0-9A-Fa-f]{2}")
 
         metadata_patch = (
             ROOT / "rom-side/elkwifi-0.23/wicfs-osfile-metadata.patch"
@@ -398,6 +452,16 @@ class IntegrationContractTest(unittest.TestCase):
             loader_patch,
         )
 
+        final_block_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-final-block.patch"
+        ).read_text()
+        branch = final_block_patch.index("BEQ\tstl_a2")
+        helper = final_block_patch.index("JSR\tprotect_loader_vectors")
+        finish = final_block_patch.index("JMP\tstl_end")
+        self.assertLess(branch, helper)
+        self.assertLess(helper, finish)
+        self.assertNotIn("JSR\tprotect_loader_vectors\n+\tBNE\tstl_end", final_block_patch)
+
         rewind_patch = (
             ROOT / "rom-side/elkwifi-0.23/wicfs-rewind.patch"
         ).read_text()
@@ -438,10 +502,10 @@ class IntegrationContractTest(unittest.TestCase):
         identity = (ROOT / "rom-side/elkwifi-0.23/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
         self.assertIn('romversion         equs "0.1.9"', identity)
-        release_patch = (ROOT / "rom-side/elkwifi-0.23/version-0.1.13.patch").read_text()
-        self.assertIn('romversion         equs "0.1.13"', release_patch)
+        release_patch = (ROOT / "rom-side/elkwifi-0.23/version-0.1.17.patch").read_text()
+        self.assertIn('romversion         equs "0.1.17"', release_patch)
         version = (ROOT / "rom-side/elkwifi-0.23/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.13 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.17 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
@@ -571,6 +635,7 @@ class IntegrationContractTest(unittest.TestCase):
 
         rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()
         self.assertIn("wicfs-loader-compat.patch", rom_installer)
+        self.assertIn("wicfs-final-block.patch", rom_installer)
         self.assertIn("wicfs-callable-init.patch", rom_installer)
         self.assertIn("wicfs-long-branches.patch", rom_installer)
         self.assertIn("wicfs-zero-length.patch", rom_installer)
@@ -587,8 +652,12 @@ class IntegrationContractTest(unittest.TestCase):
             rom_installer.index("wicfs-loader-compat.patch"),
         )
         self.assertLess(
-            rom_installer.index("wicfs-loader-compat.patch"),
-            rom_installer.index("wicfs-callable-init.patch"),
+            rom_installer.index("wicfs-long-branches.patch"),
+            rom_installer.index("wicfs-final-block.patch"),
+        )
+        self.assertLess(
+            rom_installer.index("wicfs-final-block.patch"),
+            rom_installer.index("wicfs-zero-length.patch"),
         )
         self.assertLess(
             rom_installer.index("wicfs-callable-init.patch"),

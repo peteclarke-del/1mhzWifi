@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "90505ad49cad4a8dd4abe1b62fee28d4bf7e9a90baed4227f8a343a231e8506a"
+ROM_SHA256 = "b9811c904b4fb2149b4a87ba0694d066f4f1c927148d28868bcfab0be58674d0"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -18,11 +18,11 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(len(self.rom), 16 * 1024)
         self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
-            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x18, 0x0D))
+            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x18, 0x11))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.13\0")
-        self.assertIn(b"1MHzWifi 0.1.13 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.17\0")
+        self.assertIn(b"1MHzWifi 0.1.17 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -38,6 +38,19 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(bytes.fromhex("C9 8C D0 01 60 4C 00 00 EA"), self.rom)
 
     def test_wicfs_uses_mos_vectors_and_never_touches_the_tube(self) -> None:
+        # Test the cassette final-block flag before the loader-compatibility
+        # helper can alter N/Z. A final block must call the helper and then
+        # jump unconditionally to the completed OSFILE path.
+        final_block = re.compile(
+            re.escape(bytes.fromhex("AD CA 03 29 80 F0"))
+            + b"."
+            + re.escape(bytes.fromhex("20"))
+            + b".."
+            + re.escape(bytes.fromhex("4C"))
+            + b"..",
+            re.DOTALL,
+        )
+        self.assertEqual(len(final_block.findall(self.rom)), 1)
         # No ROM switcher may be copied into &07A4. Pages 4-7 belong to the
         # Tube host code whenever a parasite is active.
         self.assertNotIn(bytes.fromhex("A5 F4 8D C2 07"), self.rom)
@@ -55,9 +68,9 @@ class RomCompatibilityTest(unittest.TestCase):
         length_read = re.compile(
             bytes.fromhex("20")
             + b".."
-            + bytes.fromhex("A9 FF 8D FF FC AD FE FD 8D 82 0D")
+            + bytes.fromhex("A9 FF 8D FF FC AD FE FD 85 F8")
             + b".{0,12}"
-            + bytes.fromhex("AD FF FD 8D 83 0D"),
+            + bytes.fromhex("AD FF FD 85 F9"),
             re.DOTALL,
         )
         self.assertEqual(len(length_read.findall(self.rom)), 1)
@@ -66,13 +79,13 @@ class RomCompatibilityTest(unittest.TestCase):
         # individual trailer reads are expected in both implementations.
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FE FD")), 1)
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FF FD")), 1)
-        self.assertNotIn(bytes.fromhex("AD FE FD 85 F8 20 FC 87"), self.rom)
-        # Persistent tape position, remaining length, start flag, saved FINDV
-        # and ROM slot live below PAGE, outside application zero page, the
-        # volatile &0900 filing heap and the MOS vector table at &0D9D.
-        for address in range(0x0D80, 0x0D88):
-            operand = bytes((address & 0xFF, address >> 8))
-            self.assertIn(operand, self.rom)
+        # &03E0-&03FF is the MOS keyboard input buffer containing MENU/UEF's
+        # queued REWIND and CHAIN commands. The ROM must never mutate it.
+        mutating_absolute_opcodes = (0x8D, 0x8E, 0x8C, 0xEE, 0xCE,
+                                     0x0E, 0x4E, 0x2E, 0x6E)
+        for opcode in mutating_absolute_opcodes:
+            for address in range(0x03E0, 0x0400):
+                self.assertNotIn(bytes((opcode, address & 0xFF, 0x03)), self.rom)
         self.assertEqual(self.rom.count(bytes.fromhex("8E DA 09 8C DB 09")), 1)
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AE DA 09 AC DB 09")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("8C DC 09")), 1)
@@ -135,6 +148,15 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(".service_driver_cpmux", service)
         self.assertIn("cmp #'0'", service)
         self.assertIn("cmp #&0D", service)
+        self.assertIn("driver_page_shadow = heap+&D8", driver)
+        common_entry = driver.split("jsr set_bank_0", 1)[1].split("lda save_a", 1)[0]
+        self.assertIn("sta driver_page_shadow", common_entry)
+        self.assertIn("sta pagereg", common_entry)
+        self.assertIn("ldx driver_page_shadow", driver)
+        self.assertNotIn("ldx pagereg", driver)
+        self.assertNotIn("inc pagereg", service)
+        self.assertGreaterEqual(service.count("stx driver_page_shadow"), 4)
+        self.assertIn("inc driver_page_shadow", service)
 
         join = service.split(".service_driver_join", 1)[1].split(
             ".service_driver_leave", 1

@@ -1,0 +1,12 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -22 +22 @@
+-                    equb &0F                    \ 1MHzWifi ROM release 0.1.15
++                    equb &10                    \ 1MHzWifi ROM release 0.1.16
+@@ -25 +25 @@
+-.romversion         equs "0.1.15"               \ project test version
++.romversion         equs "0.1.16"               \ project test version
+@@ -138 +138 @@
+-                    equs "1MHzWifi 0.1.15",&EA
++                    equs "1MHzWifi 0.1.16",&EA

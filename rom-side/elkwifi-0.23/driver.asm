@@ -4,6 +4,11 @@
 \ Main service ROM
 \ Version 1.00
 
+\ AP5/Pi1MHz exposes &FCFF as a write-only JIM page selector. This value is
+\ transient within one driver call, so keep it in the ROM heap. &03E0-&03FF is
+\ the MOS keyboard buffer and must remain untouched by MENU/UEF command queues.
+driver_page_shadow = heap+&D8
+
 \ Please note that some functions or routines are not quite logical
 \ but they are implemented to keep driver compatibility with the 
 \ Atom wifi driver.
@@ -32,6 +37,9 @@
  stx save_x
  sty save_y
  jsr set_bank_0             \ ElkWiFi buffers are in JIM address 00:00:page
+ lda #0
+ sta driver_page_shadow
+ sta pagereg                \ every public call starts at 00:00:00
  lda save_a
  cmp #0
  bne service_driver_not_0
@@ -147,6 +155,7 @@
 \ is executed and the response is processed.
 .reset_buffer
  ldx #&00
+ stx driver_page_shadow
  stx pagereg
  rts
 
@@ -205,7 +214,7 @@
 .restore_env
 .set_buffer
  stx datalen            \ save end of data
- ldx pagereg      
+ ldx driver_page_shadow
  stx datalen+1
  ldx datalen            \ restore x register
 rts
@@ -215,9 +224,10 @@ rts
 \ to &00 and the Z flag is set. The pageregister and X will not be updated and the routine
 \ returns with Z=1. The calling routine can test this flag for the end of buffer.
 .inc_page_reg
- ldx pagereg            \ load page register
+ ldx driver_page_shadow \ use the write-only page register's RAM shadow
  inx                    \ increment the value
  beq buffer_end         \ if it becomes zero then the end of the buffer (paged ram) is reached
+ stx driver_page_shadow
  stx pagereg            \ write back to page register (i.e. select next page)
  ldx #0                 \ reset y register
  cpx #1                 \ clears Z-flag

@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.13` host ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.17` host ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -62,25 +62,34 @@ fit or load `Pi1MHz/ElkWiFi.rom` as an Acorn sideways ROM.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.13 retains the WiCFS host changes and compressed-UEF Pi
+host ROM. Release 0.1.17 retains the WiCFS host changes and compressed-UEF Pi
 service introduced in 0.1.8, supports zero-byte CFS marker files, preserves a
 live WiFi association across host resets, and restores the `WGET -U` contract for
 raw paged-RAM data such as the published menu TITLES catalogue. The matched
 kernel still provides service command 93 for ZIP and gzip UEF normalization,
 so replace both the ROM and the kernel from the same bundle.
 
-Release 0.1.13 also repairs the public application ABI. OSWORD `&65` function
+Release 0.1.17 also includes the public application ABI repairs. OSWORD `&65` function
 4 reads the caller's JOIN block, function 8 preserves the port field across
 DNS resolution, and function 9 accepts the original single-connection setup
 as a successful no-op. These paths are used by ElkChat and other applications
 which call the driver directly rather than issuing star commands.
 
-Release 0.1.13 keeps all persistent WiCFS stream state at `&0D80-&0D87`, below
-Electron PAGE and below the MOS extended-vector table. Earlier builds placed
-part of that state in page `&09` or zero page, both of which the cassette MOS
-and multi-part loaders reuse between filing-vector calls. On hardware this
-appeared as a hang after `*REWIND`, an impossible chunk type such as `D55F` or
-`D5FF`, or `End of UEF` before the loaded title executed.
+Release 0.1.17 removes all WiCFS state from `&03E0-&03FF`, the MOS keyboard
+input buffer which holds the queued `*REWIND` and `CHAIN ""` launch. Stream
+state again uses the original WiCFS cassette-workspace zero-page locations.
+Vector ownership and predecessor state is persisted in Pi1MHz top service RAM,
+on page `&FFF200` reserved by this integration. Its host copy exists only while
+installing or releasing WiCFS.
+The public driver's page shadow is similarly transient in ROM heap. On reset,
+the ROM releases only vector entries which it still owns, so ADFS or DFS can
+reclaim their vectors safely.
+
+Release 0.1.17 also corrects the common WiCFS completion path used by `*MENU`
+and `*UEF LOAD`. The cassette last-block bit is now tested before the legacy
+loader compatibility helper can change the processor flags. A completed file
+therefore returns to MOS at its own final block instead of consuming later
+files and eventually reporting `End of UEF` or an invalid chunk type.
 
 The bundle does not contain a BeebSCSI disc image. Preserve the card's
 `/BeebSCSI0` directory when updating it. A clean card needs at least
@@ -108,10 +117,10 @@ the generic placeholder configuration.
 Release hashes:
 
 ```text
-1MHzWifi ROM 90505ad49cad4a8dd4abe1b62fee28d4bf7e9a90baed4227f8a343a231e8506a
-kernel.img   9ff858e0ece9574f60861091b4f8adbd3567a85f3d10623fa428caebc5fcaff9
-kernel7.img  244e044853d8a7a6475a95e815f667a657d31bbdb54e3e4594ca715cc8dd1462
-bundle ZIP   bc74ad42d816d07979fe3a67812945106e680de3dc12a3d4e040e3ceade00411
+1MHzWifi ROM b9811c904b4fb2149b4a87ba0694d066f4f1c927148d28868bcfab0be58674d0
+kernel.img   77d8904ad65c543ca2c015abf10dd5dfdb5b1e286d44446344e6cda0d68495ca
+kernel7.img  abbdb49c13e09b1cc7cec1173ebdbaf3f71c40835cd6688cb530e3d2c341d08f
+bundle ZIP   e415359f40a4782664a1b0705467de278df5a2d69c05c939b46411263fb12bbb
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -203,14 +212,14 @@ suites also run under ASan and UBSan during release validation. WiCFS treats
 Pi1MHz strictly as a 1MHz-bus service and never transfers through an optional
 Tube.
 
-Elkulator smoke-test captures are under `tests/elkulator/screenshots/`. A
-development harness that preloads Pi1MHz JIM data has also exercised literal
-`*REWIND`, the stock `CHAIN ""` sequence, and every stage of the published
-Zalaga image through to gameplay. A second cold-start test loaded the same UEF
-from a DFS image with one `*UEF LOAD ZALAGA` command and reached its title screen
-without manual commands. Elkulator does not emulate the live Pi1MHz services
-mailbox, so WiFi association, HTTP transfer, AP5 forwarding, and Tube
-coexistence still require Pi1MHz hardware.
+Elkulator smoke-test captures are under `tests/elkulator/screenshots/`. The
+earlier 0.1.16 harness confirmed that the ROM and ACP 1770 DFS could boot
+together. The 0.1.17 keyboard-buffer correction must repeat that emulator and
+hardware gate before release.
+Elkulator's emulated expansion ROM becomes unavailable after `*TAPE`, so it
+cannot provide an authoritative end-to-end WiCFS result for this AP5 setup.
+`*UEF LOAD` from DFS, post-WiCFS DFS restoration, WiFi association, HTTP
+transfer, AP5 forwarding and Tube coexistence remain hardware gates.
 
 Real hardware with the 0.1.7 ROM loaded the first Zalaga and Chuckie Egg files
 but returned to the BASIC prompt after `CHAIN ""`. Both files span the old

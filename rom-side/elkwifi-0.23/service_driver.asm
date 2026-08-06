@@ -405,6 +405,7 @@ drv_net_close = 53
 .service_driver_ipd
 .service_driver_receive
  ldx #0
+ stx driver_page_shadow
  stx pagereg
  stx drv_net_seen
  stx drv_net_buf_x
@@ -451,7 +452,9 @@ drv_net_close = 53
  inx
  stx drv_net_buf_x
  bne service_driver_receive_copy_next
- inc pagereg
+ inc driver_page_shadow
+ lda driver_page_shadow
+ sta pagereg
  bne service_driver_receive_copy_next
  jmp service_driver_net_error
 .service_driver_receive_copy_next
@@ -494,6 +497,7 @@ drv_net_close = 53
  jsr service_driver_net_close_silent
  pla
  ldx #0
+ stx driver_page_shadow
  stx pagereg
  lda #'E'
  sta pageram,x
@@ -515,6 +519,7 @@ drv_net_close = 53
  stx zp
  sty zp+1
  ldx #0
+ stx driver_page_shadow
  stx pagereg
  ldy #0
 .service_driver_rom_response_copy
@@ -710,6 +715,7 @@ drv_net_close = 53
  lda #240
  sta drv_svc_response_count
  ldx #0
+ stx driver_page_shadow
  stx pagereg
  pla
  sta pageram,x

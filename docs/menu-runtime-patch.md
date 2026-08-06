@@ -70,17 +70,22 @@ through this hardware path can return the floating-bus value `&FF`; using that
 readback as the next page would falsely report a full 64 KiB window at the
 first 256-byte boundary.
 
+The same rule applies to `*WGET -S`: the 16 KiB sideways-RAM copy advances its
+JIM source page through the WGET shadow and never reads or modifies `&FCFF`
+in place.
+
 WiCFS uses the same shadow rule while consuming the downloaded UEF. At a page
 boundary it increments `pr_r` and writes that value to `&FCFF`; it never reads
 the hardware register back. Without this second fix, downloading a title can
 succeed but WiCFS loses its position after 256 bytes and never reaches the
 program stored later in the UEF stream.
 
-Persistent WiCFS stream state lives at `&0D80-&0D87`, below Electron PAGE and
-below the MOS extended-vector table at `&0D9D`. The Electron cassette MOS and
-multi-part tape loaders reuse both zero page and page `&09` between filing
-vector calls. Transient vector and ROM-switch state remains in private
-workspace and is recreated for each call.
+The MOS keyboard command queue occupies `&03E0-&03FF`, so the ROM never uses
+that range for WiCFS state. Stream state uses the original WiCFS cassette
+zero-page ABI. Saved filing-vector and BYTEV predecessor state is persisted on
+page `&FFF200`, reserved by this integration in Pi1MHz top service RAM, and
+mirrored in ROM heap only during install and reset. The public-driver page
+shadow is also transient in ROM heap.
 
 When `*QUPCFS` runs, WiCFS installs MOS extended vectors without copying a ROM
 switcher into language or Tube workspace. The installed filing vectors do not
@@ -89,6 +94,11 @@ completed. WiCFS also restores the JIM page register to zero after reading the
 downloaded length metadata. These changes preserve the exact address of the
 catalogue-working MENU code. Screen output remains enabled so queue, filing
 and UEF errors are visible on real hardware.
+
+On reset, WiCFS checks the address and ROM owner of every entry before
+restoring its predecessor. This removes the virtual cassette claim and its
+`*TAPE` OSBYTE trap without overwriting ADFS, DFS or another later filing-system
+claim.
 
 The MOS direct vector can already point at its extended-vector dispatcher when
 WiCFS starts. WiCFS therefore saves the previous handler address and owning ROM

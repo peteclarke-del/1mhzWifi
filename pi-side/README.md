@@ -65,8 +65,9 @@ The installer performs the following operations:
 
 The installer is intended to be repeatable. Each patch has an explicit
 already-applied test. It preserves active configuration values rather than
-replacing them. It also normalizes bundle timestamps and ZIP metadata so a
-repeat build from the same integrated checkout produces identical artifacts.
+replacing them. Normal hardware-test bundles preserve the linked kernels'
+actual modification times so stale copies are visible on an SD card. Set
+`SOURCE_DATE_EPOCH` when a release job requires normalized timestamps.
 
 ## Service command range
 
