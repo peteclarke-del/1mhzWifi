@@ -83,7 +83,7 @@ program stored later in the UEF stream.
 The MOS keyboard command queue occupies `&03E0-&03FF`, so the ROM never uses
 that range for WiCFS state. Stream state uses the original WiCFS cassette
 zero-page ABI. Saved filing-vector and BYTEV predecessor state is persisted on
-page `&FFF200`, reserved by this integration in Pi1MHz top service RAM, and
+JIM page `00:02:00`, outside the Pi1MHz `DISC_RAM` allocation, and
 mirrored in ROM heap only during install and reset. The public-driver page
 shadow is also transient in ROM heap.
 
@@ -134,11 +134,10 @@ can overwrite the old `&09DA/&09DB` save area while loading. Forwarded FILEV
 calls retain their separate vector-chain state. OSBGET similarly preserves X
 and Y while returning the byte in A.
 
-WiCFS also returns the CFS header's load address, execution address and complete
-file length in the caller's 18-byte OSFILE control block. The inherited code
-loaded the bytes but discarded that catalogue metadata after using the control
-block pointer to find the filename. Returning the catalogue data remains
-necessary for programs which call OSFILE during later UEF stages.
+WiCFS leaves the caller's 18-byte OSFILE control block unchanged, matching the
+original implementation. In particular, BASIC's explicit PAGE destination is
+not replaced with the cassette header's nominal load address after the file has
+loaded. The found result in A and the caller's X/Y pointer are preserved.
 
 WiCFS is strictly a 1MHz-bus filing system. All bytes are written to Electron
 I/O-processor memory and all run addresses execute there. It does not inspect
@@ -158,8 +157,8 @@ without relying on the ElkWiFi sideways ROM still being selected.
 
 The published title-launch key expansion contains two commands: `*REWIND`, then
 `CHAIN ""`. The ROM preserves that sequence exactly. `*REWIND` resets the WiCFS
-cursor to the UEF installed by `*WGET -U`; `CHAIN ""` then uses the cassette
-file's OSFILE metadata and BASIC's normal chain semantics. The adaptation does
+cursor to the UEF installed by `*WGET -U`; `CHAIN ""` then uses BASIC's normal
+OSFILE load and chain semantics. The adaptation does
 not replace it with `*RUN`, `*/`, or another inferred launch path.
 
 ## Byte-level replacement

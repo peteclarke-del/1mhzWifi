@@ -1,6 +1,6 @@
 --- a/rom/wicfs.asm
 +++ b/rom/wicfs.asm
-@@ -28,28 +28,33 @@
+@@ -28,28 +28,34 @@
  OSFINDV	=	&021C		\OSFIND vector (Open sequential)
  OSBGETV	=	&0216		\OSBGET vector (sequential read)
  
@@ -18,7 +18,8 @@
 +\The MOS keyboard input buffer occupies &03E0-&03FF. Never place WiCFS state
 +\there: MENU and *UEF depend on the queued *REWIND and CHAIN commands remaining
 +\intact. Lifecycle state is mirrored transiently in ROM heap and persisted in
-+\t1MHzWifi-reserved Pi1MHz service page &FFF200, outside shared low JIM RAM.
++\t1MHzWifi-reserved low JIM page &000200, outside response bank 00:00 and
++\tUEF bank 00:01. Do not use a clamped &FF high selector: it aliases DISC_RAM.
 +wicfs_state_ram = heap+&E8
 +slotid          = wicfs_state_ram+0
 +findv_rtn       = wicfs_state_ram+1
@@ -49,7 +50,7 @@
  fscv_x         = &C9    \must be zero page for (fscv_x),Y
  fscv_y         = &CA
  chain_rom      = heap+&E1 \transient state for the RAM ROM-switch trampoline
-@@ -74,14 +79,12 @@
+@@ -74,14 +80,12 @@
  blklen	=	&B5		\copy of block length ls byte
  optmask	= &B7		\mask for *OPT setting (two values)
  
@@ -87,9 +88,9 @@
 +	PHA
 +	TYA
 +	PHA
-+	LDA	#&FF
++	LDA	#0
 +	STA	&FCFD
-+	LDA	#&F2
++	LDA	#2
 +	STA	&FCFE
 +	LDA	#0
 +	STA	pagereg
@@ -119,9 +120,9 @@
 +	PHA
 +	TYA
 +	PHA
-+	LDA	#&FF
++	LDA	#0
 +	STA	&FCFD
-+	LDA	#&F2
++	LDA	#2
 +	STA	&FCFE
 +	LDA	#0
 +	STA	pagereg

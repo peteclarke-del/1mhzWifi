@@ -43,6 +43,7 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/version-0.1.15.patch
 - rom-side/elkwifi-0.23/version-0.1.16.patch
 - rom-side/elkwifi-0.23/version-0.1.17.patch
+- rom-side/elkwifi-0.23/version-0.1.18.patch
 - rom-side/elkwifi-0.23/wicfs-lifecycle.patch
 - rom-side/elkwifi-0.23/wicfs-jim-state.patch
 - rom-side/elkwifi-0.23/command-surface.patch
@@ -67,6 +68,7 @@ Host ROM integration sources:
 - rom-side/elkwifi-0.23/wicfs-host-only.patch
 - rom-side/elkwifi-0.23/wicfs-vector-chain.patch
 - rom-side/elkwifi-0.23/wicfs-osfile-stack.patch
+- rom-side/elkwifi-0.23/wicfs-original-osfile.patch
 - rom-side/elkwifi-0.23/wicfs-reentry-run.patch
 - rom-side/elkwifi-0.23/wicfs-loader-compat.patch
 - rom-side/elkwifi-0.23/wicfs-final-block.patch

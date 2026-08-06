@@ -104,7 +104,7 @@ not exercise this boundary.
 Pi1MHz exposes a 24-bit JIM page address through `&FCFD` (high), `&FCFE`
 (middle), and `&FCFF` (low). This ROM uses addresses `00:00:page` for command
 responses and `00:01:page` for UEF and sideways-RAM downloads. This integration
-reserves Pi1MHz top-service-RAM page `&FFF200` for WiCFS vector ownership state. Every
+reserves low JIM page `00:02:00` for WiCFS vector ownership state. Every
 entry point establishes the high byte explicitly, so ADFS, MMFS, DFS helpers,
 or another application ROM cannot redirect WiCFS into another JIM region.
 
@@ -115,9 +115,10 @@ be overwritten by the menu or BASIC before a title is selected.
 
 The MOS keyboard input buffer occupies `&03E0-&03FF`; WiCFS never writes it.
 The active stream cursor and counters use the original WiCFS cassette zero-page
-ABI. Vector ownership and predecessor addresses are copied to page `&FFF200`,
-reserved by this integration in Pi1MHz top service RAM, after installation and
-reloaded only for installation or reset.
+ABI. Vector ownership and predecessor addresses are copied to page `00:02:00`,
+reserved outside response bank `00:00`, UEF bank `00:01` and Pi1MHz's top
+`DISC_RAM` allocation, after installation and reloaded only for installation
+or reset.
 The public ElkWiFi driver page shadow is transient at `heap+&D8`. No persistent
 state is kept in application memory, ADFS `&0Dxx`, Tube workspace, or the
 keyboard command queue.
@@ -164,9 +165,9 @@ restores the BYTEV entry saved by WiCFS and then issues the normal `*TAPE`
 command. Repeated MENU invocations therefore remain possible without weakening
 the active virtual-tape contract.
 
-The service command page is at JIM offset `&FFF000`; URL scratch data is at
-`&FFF100`; WiCFS vector state is at `&FFF200`. WiCFS content occupies
-`&010000-&01FFFF`. The ROM keeps an
+The service command page and URL scratch data remain inside the Pi1MHz service
+allocation. WiCFS vector state is at JIM page `00:02:00`, while WiCFS content
+occupies `&010000-&01FFFF`. The ROM keeps an
 independent low-page shadow and never reads AP5's write-only `&FCFF` register.
 Large transfers and simultaneous-service use remain hardware stress tests.
 

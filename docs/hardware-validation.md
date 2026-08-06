@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWifi ROM b9811c904b4fb2149b4a87ba0694d066f4f1c927148d28868bcfab0be58674d0
-kernel.img   77d8904ad65c543ca2c015abf10dd5dfdb5b1e286d44446344e6cda0d68495ca
-kernel7.img  abbdb49c13e09b1cc7cec1173ebdbaf3f71c40835cd6688cb530e3d2c341d08f
-bundle ZIP   e415359f40a4782664a1b0705467de278df5a2d69c05c939b46411263fb12bbb
+1MHzWifi ROM 9f1a95afce028bcf4535b18c33b24f280ebbf1b010588df3c7adfd72912e5e06
+kernel.img   81d3446e1da6c2747ace14f1586d68c57ba222b9981af398fbbfd7277e44332a
+kernel7.img  7ddc1fe15d6417488272fee5b6a27c29f83ca381ef746d0ebf8d2a3633e8163e
+bundle ZIP   24ed7c84e0abb916d28c45bc1296415903a759cf8998de0a6fd3f6a3ac0109d6
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -44,14 +44,14 @@ CYW43455 firmware at runtime.
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
-- [ ] Boot ROM 0.1.17 with Electron OS, BASIC and ACP 1770 DFS in Elkulator.
+- [ ] Boot ROM 0.1.18 with Electron OS, BASIC and ACP 1770 DFS in Elkulator.
   Confirm both ROM banners and a BASIC prompt.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [ ] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
   return. Elkulator's expansion ROM becomes unavailable after `*TAPE`, so this
   transition must be proved on AP5 hardware.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.17` before recording any further test result.
+  `1MHzWifi 0.1.18` before recording any further test result.
 - [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and
   ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
@@ -145,14 +145,14 @@ Expected error meanings:
 - [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
-- [ ] Retest Zalaga, Arcadians, Chuckie Egg and DeskDiary with ROM 0.1.17.
+- [ ] Retest Zalaga, Arcadians, Chuckie Egg and DeskDiary with ROM 0.1.18.
   Confirm every requested cassette file stops on its own final CFS block.
   Earlier ROMs called the loader compatibility helper before branching on
   that block's last-block bit. The helper changed the processor flags, so an
   OSFILE load could consume later files and finally report `End of UEF` or an
-  invalid chunk type. Version 0.1.17 branches on the bit first, holds OSFILE
-  metadata on the active 6502 stack, and leaves the `&03E0-&03FF` keyboard
-  command queue untouched.
+  invalid chunk type. Version 0.1.18 branches on the bit first, preserves the
+  OSFILE control-block pointer on the active 6502 stack, leaves the caller's
+  block unchanged, and does not touch the `&03E0-&03FF` keyboard command queue.
 - [ ] After a title finishes or an explicit catalogue operation reaches the
   physical end of its UEF, press Break and
   confirm `*ADFS` is immediately available. Repeat with `*DISC`, Ctrl-Break
@@ -227,8 +227,8 @@ Expected error meanings:
 - [ ] Run ElkChat's `ELKNET` diagnostic with `*RUN ELKNET` against the original
   ElkWiFi 0.23 ROM. Record function 18 IFCFG, function 4 JOIN query and
   function 8 TCP-open responses.
-- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with 1MHzWifi 0.1.17
-  and matched kernel revision `V1.30-80-g8468a38-dirty.5ca5cd71`. None of the
+- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with 1MHzWifi 0.1.18
+  and matched kernel revision `V1.30-80-g8468a38-dirty.01b459a6`. None of the
   calls may block or
   raise `Not implemented`.
 - [ ] Call function 9 with a CR-terminated `0` parameter before function 8.

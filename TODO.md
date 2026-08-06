@@ -25,7 +25,8 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 - [x] WiCFS MOS extended-vector installation without occupying Tube workspace.
 - [x] Ownership-checked reset teardown for FILEV, BGETV, FINDV, FSCV and
   BYTEV, including preservation of every predecessor address and ROM owner.
-- [x] Full 32-bit WiCFS catalogue addresses, OSFILE metadata returns,
+- [x] Full 32-bit WiCFS catalogue addresses, caller-owned OSFILE control-block
+  preservation,
   sequential reads and Electron-only load and execution. WiCFS does not use
   an optional Tube as a source, destination or transport.
 - [x] Filing-system-neutral local UEF import through OSFIND/OSBGET, with JIM
@@ -88,7 +89,7 @@ half-written path in this release:
 ## Release gate
 
 No known implementation placeholder remains on the declared station-mode,
-plain-HTTP hardware milestone. ROM 0.1.17 specifically requires hardware
+plain-HTTP hardware milestone. ROM 0.1.18 specifically requires hardware
 confirmation that Zalaga and Chuckie Egg continue after their initial
 `CHAIN ""` load without consuming subsequent UEF files or reporting `End of
 UEF`, and that Break restores ADFS and DFS after DeskDiary completes. Release

@@ -1,0 +1,73 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -519,29 +519,16 @@
+ .upf_a1
+ \Keep the OSFILE control-block pointer below the active stack. The loaded file
+ \may occupy any normal host-memory range, including the old &09DA/&09DB save
+ \area, but a usable load cannot overwrite the active 6502 stack.
+ 	TXA
+ 	PHA
+ 	TYA
+ 	PHA
+ 	JSR	starload		\goto action file load
+-	BEQ	upf_a1_not_found
+-	TSX
+-	LDA	&0102,X		\original X is below original Y
+-	STA	pbl
+-	LDA	&0101,X
+-	STA	pbh
+-	JSR	filev_load_info		\return catalogue data required by CHAIN
++	STA	temp			\preserve the original WiCFS found result
+ 	PLA
+ 	TAY
+ 	PLA
+ 	TAX
+-	LDA	#1			\file found
+-	RTS
+-.upf_a1_not_found
+-	PLA
+-	TAY
+-	PLA
+-	TAX
+-	LDA	#0			\file not found
++	LDA	temp			\leave the caller's OSFILE block unchanged
+ 	RTS
+@@ -563,38 +550,0 @@
+-\OSFILE A=&FF must return the loaded file's catalogue information in the
+-\caller's 18-byte control block. flinit repurposes pbl/pbh for the filename,
+-\so recover the original pointer saved at vector entry. BASIC CHAIN uses the
+-\returned execution address and length to complete each stage of a UEF loader.
+-.filev_load_info
+-	LDY	#2			\load and execution addresses
+-	LDX	#0
+-.filev_info_addresses
+-	LDA	&03BE,X
+-	STA	(pbl),Y
+-	INX
+-	INY
+-	CPX	#8
+-	BNE	filev_info_addresses
+-
+-	LDA	blklen			\total length = block number:final block length
+-	STA	(pbl),Y
+-	INY
+-	LDA	&03C6
+-	STA	(pbl),Y
+-	INY
+-	LDA	#0
+-	STA	(pbl),Y
+-	INY
+-	STA	(pbl),Y
+-
+-\Cassette files have no catalogue attributes. Clear the four returned bytes
+-\rather than exposing stale caller memory; the CFS locked flag is handled by
+-\the existing break-type compatibility code in starload.
+-	LDX	#4
+-.filev_info_attributes
+-	INY
+-	STA	(pbl),Y
+-	DEX
+-	BNE	filev_info_attributes
+-	LDA	#1			\OSFILE successfully loaded and found the file
+-	RTS
+-

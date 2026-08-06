@@ -28,7 +28,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/uef.asm" "$upstream/rom/uef.asm"
-for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch version-0.1.12.patch version-0.1.13.patch version-0.1.14.patch version-0.1.15.patch version-0.1.16.patch version-0.1.17.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-loader-compat.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch version-0.1.12.patch version-0.1.13.patch version-0.1.14.patch version-0.1.15.patch version-0.1.16.patch version-0.1.17.patch version-0.1.18.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-loader-compat.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-original-osfile.patch rom-prune.patch routines-prune.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -40,47 +40,52 @@ for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch versi
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq '^\.romversion.*equs "0\.1\.(9|10|11|12|13|14|15|16|17)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(9|10|11|12|13|14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.10.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(10|11|12|13|14|15|16|17)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(10|11|12|13|14|15|16|17)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(10|11|12|13|14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(10|11|12|13|14|15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.11.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(11|12|13|14|15|16|17)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(11|12|13|14|15|16|17)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(11|12|13|14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(11|12|13|14|15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.12.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(12|13|14|15|16|17)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(12|13|14|15|16|17)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(12|13|14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(12|13|14|15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.13.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(13|14|15|16|17)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(13|14|15|16|17)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(13|14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(13|14|15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.14.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(14|15|16|17)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(14|15|16|17)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(14|15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.15.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(15|16|17)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(15|16|17)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.16.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(16|17)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(16|17)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.17.patch)
-            grep -q '^\.romversion.*equs "0.1.17"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q 'equs "1MHzWifi 0.1.17",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(17|18)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            patch_present=true
+            ;;
+        version-0.1.18.patch)
+            grep -q '^\.romversion.*equs "0.1.18"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q 'equs "1MHzWifi 0.1.18",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)
@@ -132,7 +137,8 @@ for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch versi
             ;;
         wicfs-osfile-stack.patch)
             grep -q 'Keep the OSFILE control-block pointer below the active stack' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.upf_a1_not_found' "$upstream/rom/wicfs.asm" &&
+            { grep -q '^\.upf_a1_not_found' "$upstream/rom/wicfs.asm" ||
+              grep -q "leave the caller's OSFILE block unchanged" "$upstream/rom/wicfs.asm"; } &&
             patch_present=true
             ;;
         wicfs-reentry-run.patch)
@@ -194,6 +200,11 @@ for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch versi
             ! grep -Eq '^([^\\]|.*=).*&03E[0-9A-Fa-f]' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
+        wicfs-original-osfile.patch)
+            grep -q "leave the caller's OSFILE block unchanged" "$upstream/rom/wicfs.asm" &&
+            ! grep -q '^\.filev_load_info' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
         rom-prune.patch)
             ! grep -q 'incbin "flash.bin"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
@@ -207,7 +218,7 @@ for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch versi
         echo "ElkWiFi $patch_name is already applied"
     else
         apply_options=()
-        if [[ "$patch_name" = identity.patch || "$patch_name" = version-0.1.10.patch || "$patch_name" = version-0.1.11.patch || "$patch_name" = version-0.1.12.patch || "$patch_name" = version-0.1.13.patch || "$patch_name" = version-0.1.14.patch || "$patch_name" = version-0.1.15.patch || "$patch_name" = version-0.1.16.patch || "$patch_name" = version-0.1.17.patch || "$patch_name" = banner-spacing.patch ]]; then
+        if [[ "$patch_name" = identity.patch || "$patch_name" = version-0.1.10.patch || "$patch_name" = version-0.1.11.patch || "$patch_name" = version-0.1.12.patch || "$patch_name" = version-0.1.13.patch || "$patch_name" = version-0.1.14.patch || "$patch_name" = version-0.1.15.patch || "$patch_name" = version-0.1.16.patch || "$patch_name" = version-0.1.17.patch || "$patch_name" = version-0.1.18.patch || "$patch_name" = banner-spacing.patch ]]; then
             # The banner replacement is deliberately a one-line hunk so it
             # remains independent of upstream startup-flow changes.
             apply_options+=(--unidiff-zero)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "b9811c904b4fb2149b4a87ba0694d066f4f1c927148d28868bcfab0be58674d0"
+ROM_SHA256 = "9f1a95afce028bcf4535b18c33b24f280ebbf1b010588df3c7adfd72912e5e06"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -18,11 +18,11 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(len(self.rom), 16 * 1024)
         self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
-            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x18, 0x11))
+            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x18, 0x12))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.17\0")
-        self.assertIn(b"1MHzWifi 0.1.17 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.18\0")
+        self.assertIn(b"1MHzWifi 0.1.18 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -90,12 +90,15 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AE DA 09 AC DB 09")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("8C DC 09")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("AC DC 09")), 1)
-        osfile_metadata = bytes.fromhex(
+        # Original WiCFS returns the OSFILE result without rewriting the
+        # caller-owned control block. The synthetic catalogue writeback
+        # diverged from that contract and is deliberately absent from 0.1.18.
+        retired_osfile_metadata = bytes.fromhex(
             "A0 02 A2 00 BD BE 03 91 B8 "
             "E8 C8 E0 08 D0 F5 A5 B5 91 B8 C8 AD C6 03 91 B8 C8 A9 "
             "00 91 B8 C8 91 B8 A2 04 C8 91 B8 CA D0 FA A9 01 60"
         )
-        self.assertEqual(self.rom.count(osfile_metadata), 1)
+        self.assertEqual(self.rom.count(retired_osfile_metadata), 0)
         # The UEF length remains authoritative in JIM. Do not reintroduce the
         # discarded cache in volatile &09D6/&09D7 host heap.
         self.assertNotIn(bytes.fromhex("A5 F8 8D D6 09 A5 F9 8D D7 09"), self.rom)
