@@ -28,7 +28,7 @@ install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$script_dir/elkwifi-0.23/uef.asm" "$upstream/rom/uef.asm"
-for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch version-0.1.12.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-loader-compat.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-zero-length.patch wicfs-cursor-zp.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch version-0.1.12.patch version-0.1.13.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-loader-compat.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-persistent-state.patch rom-prune.patch routines-prune.patch; do
     patch_file="$script_dir/elkwifi-0.23/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -40,22 +40,27 @@ for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch versi
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq '^\.romversion.*equs "0\.1\.(9|10|11|12)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(9|10|11|12|13)"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.10.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(10|11)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(10|11)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(10|11|12|13)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(10|11|12|13)",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.11.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(11|12)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(11|12)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(11|12|13)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(11|12|13)",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         version-0.1.12.patch)
-            grep -q '^\.romversion.*equs "0.1.12"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q 'equs "1MHzWifi 0.1.12",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq '^\.romversion.*equs "0\.1\.(12|13)"' "$upstream/rom/ElkWifi.asm" &&
+            grep -Eq 'equs "1MHzWifi 0\.1\.(12|13)",&EA' "$upstream/rom/ElkWifi.asm" &&
+            patch_present=true
+            ;;
+        version-0.1.13.patch)
+            grep -q '^\.romversion.*equs "0.1.13"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q 'equs "1MHzWifi 0.1.13",&EA' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)
@@ -141,10 +146,20 @@ for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch versi
             patch_present=true
             ;;
         wicfs-cursor-zp.patch)
-            grep -q '^pr_y    =   &C7' "$upstream/rom/wicfs.asm" &&
-            grep -q '^pr_r    =   &C8' "$upstream/rom/wicfs.asm" &&
+            grep -Eq '^pr_y    =   (&C7|&D80)' "$upstream/rom/wicfs.asm" &&
+            grep -Eq '^pr_r    =   (&C8|&D81)' "$upstream/rom/wicfs.asm" &&
             grep -q '^fscv_x         = &C9' "$upstream/rom/wicfs.asm" &&
-            grep -q '^findv_rtn = &CB' "$upstream/rom/wicfs.asm" &&
+            grep -Eq '^findv_rtn = (&CB|&D85)' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-persistent-state.patch)
+            grep -q '^pr_y    =   &D80' "$upstream/rom/wicfs.asm" &&
+            grep -q '^pr_r    =   &D81' "$upstream/rom/wicfs.asm" &&
+            grep -q '^sbufl.*&D82' "$upstream/rom/wicfs.asm" &&
+            grep -q '^sbufh.*&D83' "$upstream/rom/wicfs.asm" &&
+            grep -q '^sbuft.*&D84' "$upstream/rom/wicfs.asm" &&
+            grep -q '^findv_rtn = &D85' "$upstream/rom/wicfs.asm" &&
+            grep -q '^slotid.*&D87' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         rom-prune.patch)
@@ -160,7 +175,7 @@ for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch versi
         echo "ElkWiFi $patch_name is already applied"
     else
         apply_options=()
-        if [[ "$patch_name" = identity.patch || "$patch_name" = version-0.1.10.patch || "$patch_name" = version-0.1.11.patch || "$patch_name" = version-0.1.12.patch || "$patch_name" = banner-spacing.patch ]]; then
+        if [[ "$patch_name" = identity.patch || "$patch_name" = version-0.1.10.patch || "$patch_name" = version-0.1.11.patch || "$patch_name" = version-0.1.12.patch || "$patch_name" = version-0.1.13.patch || "$patch_name" = banner-spacing.patch ]]; then
             # The banner replacement is deliberately a one-line hunk so it
             # remains independent of upstream startup-flow changes.
             apply_options+=(--unidiff-zero)

@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.12` host ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.13` host ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -62,24 +62,25 @@ fit or load `Pi1MHz/ElkWiFi.rom` as an Acorn sideways ROM.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.12 retains the WiCFS host changes and compressed-UEF Pi
+host ROM. Release 0.1.13 retains the WiCFS host changes and compressed-UEF Pi
 service introduced in 0.1.8, supports zero-byte CFS marker files, preserves a
 live WiFi association across host resets, and restores the `WGET -U` contract for
 raw paged-RAM data such as the published menu TITLES catalogue. The matched
 kernel still provides service command 93 for ZIP and gzip UEF normalization,
 so replace both the ROM and the kernel from the same bundle.
 
-Release 0.1.12 also repairs the public application ABI. OSWORD `&65` function
+Release 0.1.13 also repairs the public application ABI. OSWORD `&65` function
 4 reads the caller's JOIN block, function 8 preserves the port field across
 DNS resolution, and function 9 accepts the original single-connection setup
 as a successful no-op. These paths are used by ElkChat and other applications
 which call the driver directly rather than issuing star commands.
 
-Release 0.1.12 restores the persistent WiCFS UEF cursor to its reserved
-filing-system zero-page workspace. Earlier builds placed that cursor in page
-`&09`, where multi-part tape loaders could overwrite it between filing-vector
-calls. On hardware this appeared as a hang after `*REWIND`, an impossible
-chunk type such as `D5FF`, or `End of UEF` before the loaded title executed.
+Release 0.1.13 keeps all persistent WiCFS stream state at `&0D80-&0D87`, below
+Electron PAGE and below the MOS extended-vector table. Earlier builds placed
+part of that state in page `&09` or zero page, both of which the cassette MOS
+and multi-part loaders reuse between filing-vector calls. On hardware this
+appeared as a hang after `*REWIND`, an impossible chunk type such as `D55F` or
+`D5FF`, or `End of UEF` before the loaded title executed.
 
 The bundle does not contain a BeebSCSI disc image. Preserve the card's
 `/BeebSCSI0` directory when updating it. A clean card needs at least
@@ -107,10 +108,10 @@ the generic placeholder configuration.
 Release hashes:
 
 ```text
-1MHzWifi ROM 25f8e939d061c52f469f5715cd5b84e9b80eaa54210f65309628ffeae777f051
-kernel.img   f8ab4c94b71e8cae1e240ccd5550079ce206fd24d43d932461c8dc433e5d9bdd
-kernel7.img  ed8c25299ed93e7eeb9cd18d949d3ef087e04b8b187812857d9872c93d6bd638
-bundle ZIP   6fc04d2c5d0033fecd1c302d3300f5f7760e3723f34ca8ca96d66ea16039c99f
+1MHzWifi ROM 90505ad49cad4a8dd4abe1b62fee28d4bf7e9a90baed4227f8a343a231e8506a
+kernel.img   9ff858e0ece9574f60861091b4f8adbd3567a85f3d10623fa428caebc5fcaff9
+kernel7.img  244e044853d8a7a6475a95e815f667a657d31bbdb54e3e4594ca715cc8dd1462
+bundle ZIP   bc74ad42d816d07979fe3a67812945106e680de3dc12a3d4e040e3ceade00411
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.

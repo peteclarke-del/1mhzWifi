@@ -1,6 +1,7 @@
 import ctypes
 import gzip
 import io
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -64,6 +65,25 @@ class UefNormalizeTest(unittest.TestCase):
         self.assertEqual(self.run_normalize(archive.getvalue())[0], 3)
         oversized = gzip.compress(b"UEF File!\0" + bytes(0xFFFE))
         self.assertEqual(self.run_normalize(oversized)[0], 4)
+
+    def test_local_deskdiary_hardware_sample_when_present(self) -> None:
+        sample = ROOT / "samples/Acornsoft Desk Diary (198x)(Acornsoft).uef"
+        if not sample.is_file():
+            self.skipTest("local third-party DeskDiary sample is not installed")
+        result, raw = self.run_normalize(sample.read_bytes())
+        self.assertEqual(result, 1)
+        self.assertEqual(len(raw), 20580)
+        self.assertEqual(raw[:12], b"UEF File!\0\x05\0")
+        offset = 12
+        while offset < len(raw):
+            self.assertLessEqual(offset + 6, len(raw))
+            chunk_type, length = struct.unpack_from("<HI", raw, offset)
+            self.assertTrue(chunk_type < 0x0500 or chunk_type >= 0xFF00)
+            offset += 6 + length
+            self.assertLessEqual(offset, len(raw))
+        self.assertEqual(offset, len(raw))
+        self.assertNotIn(b"\xD5\x5F", raw)
+        self.assertNotIn(b"\x5F\xD5", raw)
 
 
 if __name__ == "__main__":

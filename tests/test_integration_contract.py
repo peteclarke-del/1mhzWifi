@@ -201,7 +201,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_ERR_NO_WIFI", service)
         self.assertIn("wifi_get_state() == WIFI_STATE_ERROR", service)
         self.assertIn("Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS", service)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.12, kernel " GITVERSION', service)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.13, kernel " GITVERSION', service)
         self.assertEqual(service.count("response_string(cp, ELKWIFI_VERSION_RESPONSE)"), 2)
         self.assertIn("#define ELKWIFI_UEF_BASE 0x10000u", service)
         self.assertIn("const uint32_t base = ELKWIFI_UEF_BASE", service)
@@ -316,6 +316,15 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("+pr_y    =   heap+&D8", cursor_patch)
         self.assertNotIn("+pr_r    =   heap+&D9", cursor_patch)
 
+        state_patch = (
+            ROOT / "rom-side/elkwifi-0.23/wicfs-persistent-state.patch"
+        ).read_text()
+        for address in ("&D80", "&D81", "&D82", "&D83", "&D84", "&D85", "&D87"):
+            self.assertIn(address, state_patch)
+        self.assertIn("Electron cassette MOS", state_patch)
+        self.assertNotIn("+pr_y    =   &C7", state_patch)
+        self.assertNotIn("+pr_r    =   &C8", state_patch)
+
         metadata_patch = (
             ROOT / "rom-side/elkwifi-0.23/wicfs-osfile-metadata.patch"
         ).read_text()
@@ -429,10 +438,10 @@ class IntegrationContractTest(unittest.TestCase):
         identity = (ROOT / "rom-side/elkwifi-0.23/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
         self.assertIn('romversion         equs "0.1.9"', identity)
-        release_patch = (ROOT / "rom-side/elkwifi-0.23/version-0.1.12.patch").read_text()
-        self.assertIn('romversion         equs "0.1.12"', release_patch)
+        release_patch = (ROOT / "rom-side/elkwifi-0.23/version-0.1.13.patch").read_text()
+        self.assertIn('romversion         equs "0.1.13"', release_patch)
         version = (ROOT / "rom-side/elkwifi-0.23/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.12 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.13 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)

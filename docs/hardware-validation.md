@@ -12,10 +12,10 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWifi ROM 25f8e939d061c52f469f5715cd5b84e9b80eaa54210f65309628ffeae777f051
-kernel.img   f8ab4c94b71e8cae1e240ccd5550079ce206fd24d43d932461c8dc433e5d9bdd
-kernel7.img  ed8c25299ed93e7eeb9cd18d949d3ef087e04b8b187812857d9872c93d6bd638
-bundle ZIP   6fc04d2c5d0033fecd1c302d3300f5f7760e3723f34ca8ca96d66ea16039c99f
+1MHzWifi ROM 90505ad49cad4a8dd4abe1b62fee28d4bf7e9a90baed4227f8a343a231e8506a
+kernel.img   9ff858e0ece9574f60861091b4f8adbd3567a85f3d10623fa428caebc5fcaff9
+kernel7.img  244e044853d8a7a6475a95e815f667a657d31bbdb54e3e4594ca715cc8dd1462
+bundle ZIP   bc74ad42d816d07979fe3a67812945106e680de3dc12a3d4e040e3ceade00411
 ```
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -44,15 +44,15 @@ CYW43455 firmware at runtime.
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
-- [ ] Repeat the Elkulator boot smoke test with the 0.1.12 ROM and Electron OS
+- [ ] Repeat the Elkulator boot smoke test with the 0.1.13 ROM and Electron OS
   and BASIC. Elkulator does not reproduce the AP5 extended-vector path.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [x] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
-  return. The 0.1.9 emulator run returned directly to BASIC. Repeat 0.1.12 on
+  return. The 0.1.9 emulator run returned directly to BASIC. Repeat 0.1.13 on
   hardware because the emulator's previous filing vector is direct rather than
   the AP5 configuration that exposed the loop.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.12` before recording any further test result.
+  `1MHzWifi 0.1.13` before recording any further test result.
 - [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and
   ADFS banners reach the BASIC prompt without `Buffer full`.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
@@ -144,13 +144,14 @@ Expected error meanings:
 - [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
-- [ ] Retest Zalaga, Arcadians, Chuckie Egg and DeskDiary with ROM 0.1.12.
+- [ ] Retest Zalaga, Arcadians, Chuckie Egg and DeskDiary with ROM 0.1.13.
   Earlier ROMs loaded each
   initial file, printed its cassette title and length, then returned to the
   BASIC prompt. The common cause was the OSFILE control-block pointer stored
-  in loaded host memory at `&09DA/&09DB`. Version 0.1.12 holds OSFILE metadata
-  on the active 6502 stack and keeps the persistent UEF cursor at `&C7/&C8`,
-  outside page `&09` used by loaded programs.
+  in loaded host memory at `&09DA/&09DB`. Version 0.1.13 holds OSFILE metadata
+  on the active 6502 stack and keeps all persistent UEF state at
+  `&0D80-&0D87`, outside zero page and page `&09` used by the cassette MOS and
+  loaded programs.
 - [ ] Run `*MENU`, press `L` for Zalaga, and confirm the published menu executes
   its original `*REWIND` followed by `CHAIN ""` after the download. The ROM
   must not substitute `*RUN`, `*/`, or another launch command.
@@ -216,8 +217,8 @@ Expected error meanings:
 - [ ] Run ElkChat's `ELKNET` diagnostic with `*RUN ELKNET` against the original
   ElkWiFi 0.23 ROM. Record function 18 IFCFG, function 4 JOIN query and
   function 8 TCP-open responses.
-- [ ] Repeat with 1MHzWifi 0.1.12 and matched kernel revision
-  `V1.30-80-g8468a38-dirty.27671981`. None of the three calls may block or
+- [ ] Repeat with 1MHzWifi 0.1.13 and matched kernel revision
+  `V1.30-80-g8468a38-dirty.888a0ba8`. None of the three calls may block or
   raise `Not implemented`.
 - [ ] Call function 9 with a CR-terminated `0` parameter before function 8.
   Confirm it returns `OK` and leaves the single connection available.

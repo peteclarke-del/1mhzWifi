@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "25f8e939d061c52f469f5715cd5b84e9b80eaa54210f65309628ffeae777f051"
+ROM_SHA256 = "90505ad49cad4a8dd4abe1b62fee28d4bf7e9a90baed4227f8a343a231e8506a"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -18,11 +18,11 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(len(self.rom), 16 * 1024)
         self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
-            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x18, 0x0C))
+            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x18, 0x0D))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.12\0")
-        self.assertIn(b"1MHzWifi 0.1.12 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.13\0")
+        self.assertIn(b"1MHzWifi 0.1.13 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -55,9 +55,9 @@ class RomCompatibilityTest(unittest.TestCase):
         length_read = re.compile(
             bytes.fromhex("20")
             + b".."
-            + bytes.fromhex("A9 FF 8D FF FC AD FE FD 85 F8")
+            + bytes.fromhex("A9 FF 8D FF FC AD FE FD 8D 82 0D")
             + b".{0,12}"
-            + bytes.fromhex("AD FF FD 85 F9"),
+            + bytes.fromhex("AD FF FD 8D 83 0D"),
             re.DOTALL,
         )
         self.assertEqual(len(length_read.findall(self.rom)), 1)
@@ -67,6 +67,12 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FE FD")), 1)
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FF FD")), 1)
         self.assertNotIn(bytes.fromhex("AD FE FD 85 F8 20 FC 87"), self.rom)
+        # Persistent tape position, remaining length, start flag, saved FINDV
+        # and ROM slot live below PAGE, outside application zero page, the
+        # volatile &0900 filing heap and the MOS vector table at &0D9D.
+        for address in range(0x0D80, 0x0D88):
+            operand = bytes((address & 0xFF, address >> 8))
+            self.assertIn(operand, self.rom)
         self.assertEqual(self.rom.count(bytes.fromhex("8E DA 09 8C DB 09")), 1)
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AE DA 09 AC DB 09")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("8C DC 09")), 1)

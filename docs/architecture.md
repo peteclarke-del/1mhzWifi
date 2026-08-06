@@ -109,9 +109,11 @@ reloads that authoritative value and resets the WiCFS cursor. It does not keep
 the length in the ROM's `&0900` heap because that workspace is volatile and can
 be overwritten by the menu or BASIC before a title is selected.
 
-The cursor itself uses the original CFS zero-page allocation at `&C7/&C8`.
-Loaded tape programs routinely use page `&09` between OSFILE, OSFIND and FSCV
-calls, so only transient vector state is stored in the ROM heap there.
+The cursor, remaining-byte count, start flag, saved FINDV and ROM slot use
+`&0D80-&0D87`. This host workspace is below Electron PAGE and below the MOS
+extended-vector table at `&0D9D`. The Electron cassette MOS and loaded tape
+programs reuse both zero page and page `&09` between OSFILE, OSFIND and FSCV
+calls, so neither area holds persistent WiCFS state.
 
 `*UEF LOAD` produces the same JIM image from a file on the current MOS filing
 system. It uses OSFIND and OSBGET rather than reading ADFS or DFS structures

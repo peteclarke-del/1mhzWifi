@@ -79,7 +79,7 @@ half-written path in this release:
 ## Release gate
 
 No known implementation placeholder remains on the declared station-mode,
-plain-HTTP hardware milestone. ROM 0.1.12 specifically requires hardware
+plain-HTTP hardware milestone. ROM 0.1.13 specifically requires hardware
 confirmation that Zalaga and Chuckie Egg now continue after their initial
 `CHAIN ""` load. Release acceptance also depends on completing
 the real Electron, AP5, Pi1MHz and Tube checks in
