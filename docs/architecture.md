@@ -95,18 +95,17 @@ four-byte response length without dispatching a Pi mailbox request. Function
 
 Automated ROM checks begin at the emitted OSWORD handler and verify its A/X/Y
 unpacking sequence, function 9 routing, caller-owned JOIN parameters, TCP port
-offset preservation and all three JIM selectors. Hardware acceptance still
+offset preservation and the AP5-visible JIM selector. Hardware acceptance still
 uses an application binary through `OSWORD &65`, since star commands alone do
 not exercise this boundary.
 
 ## JIM memory use
 
-Pi1MHz exposes a 24-bit JIM page address through `&FCFD` (high), `&FCFE`
-(middle), and `&FCFF` (low). This ROM uses addresses `00:00:page` for command
-responses and `00:01:page` for UEF and sideways-RAM downloads. This integration
-reserves low JIM page `00:02:00` for WiCFS vector ownership state. Every
-entry point establishes the high byte explicitly, so ADFS, MMFS, DFS helpers,
-or another application ROM cannot redirect WiCFS into another JIM region.
+Pi1MHz itself exposes a 24-bit JIM page address through `&FCFD` (high), `&FCFE`
+(middle), and `&FCFF` (low). The AP5 forwards only `&FCFF` and JIM to its 1MHz
+connector, so an Electron can access one standard 64K window. The ROM keeps
+responses, UEF data and sideways-RAM downloads in that window. It never relies
+on `&FCFD` or `&FCFE` reaching the Pi.
 
 After a successful `*WGET -U`, WGET updates the JIM length trailer. `*REWIND`
 reloads that authoritative value and resets the WiCFS cursor. It does not keep
@@ -115,10 +114,10 @@ be overwritten by the menu or BASIC before a title is selected.
 
 The MOS keyboard input buffer occupies `&03E0-&03FF`; WiCFS never writes it.
 The active stream cursor and counters use the original WiCFS cassette zero-page
-ABI. Vector ownership and predecessor addresses are copied to page `00:02:00`,
-reserved outside response bank `00:00`, UEF bank `00:01` and Pi1MHz's top
-`DISC_RAM` allocation, after installation and reloaded only for installation
-or reset.
+ABI. Vector ownership and predecessor addresses are copied through
+`&FCA6-&FCA9` to `&FFEF00-&FFEF10` in the Pi1MHz services buffer. This range
+sits directly below the command pages at `&FFF000` and outside the AP5-visible
+UEF window. State is reloaded only for installation or reset.
 The public ElkWiFi driver page shadow is transient at `heap+&D8`. No persistent
 state is kept in application memory, ADFS `&0Dxx`, Tube workspace, or the
 keyboard command queue.
@@ -133,8 +132,8 @@ DFS, MMFS or another ROM which has subsequently claimed a vector.
 system. It uses OSFIND and OSBGET rather than reading ADFS or DFS structures
 directly. No importer state is kept in `&0900`: the open handle remains in the
 OSBGET-preserved X register and the byte count remains in the final JIM page.
-After each source byte, the ROM reselects JIM address `00:01:page`, so an ADFS,
-DFS or MMFS read cannot redirect the destination by changing the shared selector.
+After each source byte, the ROM reselects its `&FCFF` page, so an ADFS, DFS or
+MMFS read cannot redirect the destination by changing the shared selector.
 Once the source file is closed, the command queues the normal tape, PAGE, NEW,
 and WiCFS setup sequence. A hidden second-stage command performs the same
 callable WiCFS vector installation as `*QUPCFS`, then queues only `*REWIND` and
@@ -145,6 +144,15 @@ Before entering the CFS data-copy loop, WiCFS tests the block length. A
 zero-byte block skips the data read, accounts for the already-consumed header
 and CRC, and returns success. This is required by applications which end a
 multi-file tape with a zero-byte version or capability marker.
+
+WiCFS retains all four bytes of the caller's OSFILE load address. For a normal
+host address it writes directly to I/O-processor memory. When the upper address
+bytes are `&FFFF` and OSBYTE `&EA` reports an active Tube, it uses the standard
+MMFS filing-system sequence: claim Tube ID `&0A`, initialise an I/O-to-parasite
+transfer through the Tube host entry at `&0406`, write the already-received UEF
+bytes to Electron Tube R3 at `&FCE5`, and release the claim on every completion
+or error exit. The UEF source remains the Pi1MHz JIM window throughout. No Pi
+request, JIM selector or network payload is routed through the Tube.
 
 WiCFS records the handler address and owning ROM behind each MOS extended
 filing vector before installing its own entries. Unsupported operations are
@@ -165,9 +173,9 @@ restores the BYTEV entry saved by WiCFS and then issues the normal `*TAPE`
 command. Repeated MENU invocations therefore remain possible without weakening
 the active virtual-tape contract.
 
-The service command page and URL scratch data remain inside the Pi1MHz service
-allocation. WiCFS vector state is at JIM page `00:02:00`, while WiCFS content
-occupies `&010000-&01FFFF`. The ROM keeps an
+The service command page, URL scratch data and WiCFS vector state remain inside
+the Pi1MHz service allocation. WiCFS content occupies the standard JIM range
+`&000000-&00FFFF`. The ROM keeps an
 independent low-page shadow and never reads AP5's write-only `&FCFF` register.
 Large transfers and simultaneous-service use remain hardware stress tests.
 
@@ -198,7 +206,7 @@ remaining selected.
 The published menu is itself cartridge-specific. It selects the second paged
 RAM bank through an inlined `&FC34` sequence. After download, the ROM scans
 `&0E00-&1FFF` and replaces that exact eight-byte sequence with an equal-length
-Pi1MHz helper call that selects JIM address `00:01:page`. Equal length preserves
+Pi1MHz helper call that removes the cartridge bank operation. Equal length preserves
 the downloaded program's addresses and relative branches. Custom payloads
 without the exact signature are unchanged. The complete contract is documented in
 [MENU runtime adaptation](menu-runtime-patch.md).
@@ -223,7 +231,7 @@ The ROM distinguishes transport failures where the hardware permits it:
 
 HTTP EOF is accepted only after the declared `Content-Length` has been read.
 An early close returns `&2E` so truncated MENU and UEF payloads never become a
-successful WGET. UEF normalization operates on absolute JIM `&010000-&01FFFF`;
+successful WGET. UEF normalization operates on absolute JIM `&000000-&00FFFF`;
 Pi1MHz's private disc-memory base is deliberately not involved.
 
 An Acorn reset rebuilds Pi1MHz's emulator and poll registration tables but

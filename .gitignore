@@ -18,3 +18,8 @@ build/.pi1mhz-bundle.*/
 
 # Local hardware-test media. Do not publish third-party UEF images.
 /samples/
+
+# Unified host-tool and emulator outputs
+/host-tools/build/
+/host-tools/.test-deps/
+/emulator/pi1mhz-mailbox/.build/

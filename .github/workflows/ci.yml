@@ -8,22 +8,20 @@ permissions:
   contents: read
 
 jobs:
-  contract-tests:
+  unified-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Verify shipped ROM
-        run: ./build.sh
-      - name: Run contract tests
-        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-      - name: Verify hardware bundle
-        run: unzip -t build/pi1mhz-all-hardware-test.zip
-      - name: Reject typographic dashes in documentation
+      - name: Install test tools
         run: |
-          if grep -RIn --include='*.md' --include='*.txt' -e '—' -e '–' .; then
-            echo "Documentation contains a typographic dash" >&2
-            exit 1
-          fi
+          sudo apt-get update
+          sudo apt-get install -y build-essential git ripgrep unzip zlib1g-dev
+          git clone https://github.com/stardot/beebasm.git /tmp/beebasm
+          git -C /tmp/beebasm checkout ca2cc5fd2fa3f73da3b0682ad004b2aca99840c3
+          make -C /tmp/beebasm/src code
+          make deps
+      - name: Run unified tests
+        run: make test BEEBASM=/tmp/beebasm/beebasm

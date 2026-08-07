@@ -1,0 +1,45 @@
+BEEBASM ?= beebasm
+WOLFSSH_PREFIX ?= /tmp/wolf-install
+
+.PHONY: test test-rom test-emulator test-host test-package test-ssh-real \
+	test-elkulator test-elkulator-ssh-real test-pi-firmware test-all deps clean
+
+test: test-rom test-emulator test-host test-package
+
+test-rom:
+	./build.sh
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+
+test-emulator:
+	$(MAKE) -C emulator/pi1mhz-mailbox test
+
+test-host:
+	$(MAKE) -C host-tools test BEEBASM="$(BEEBASM)"
+
+test-package:
+	unzip -t build/pi1mhz-all-hardware-test.zip
+	git diff --check
+	@if rg -n '—|–' --glob '*.md' --glob '*.txt' .; then \
+		echo "Documentation contains a typographic dash" >&2; exit 1; \
+	fi
+
+test-ssh-real:
+	$(MAKE) -C host-tools test-ssh-real WOLFSSH_PREFIX="$(WOLFSSH_PREFIX)"
+
+test-elkulator:
+	$(MAKE) -C host-tools test-elkulator BEEBASM="$(BEEBASM)"
+
+test-elkulator-ssh-real:
+	$(MAKE) -C host-tools test-elkulator-ssh-real \
+		BEEBASM="$(BEEBASM)" WOLFSSH_PREFIX="$(WOLFSSH_PREFIX)"
+
+test-pi-firmware:
+	./pi-side/tests/run_secure_build.sh
+
+test-all: test test-ssh-real test-elkulator test-elkulator-ssh-real
+
+deps:
+	$(MAKE) -C host-tools emulator-deps
+
+clean:
+	$(MAKE) -C host-tools clean

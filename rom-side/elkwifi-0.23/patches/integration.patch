@@ -1,0 +1,84 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+index 156730a..c15993e 100644
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -145,8 +145,6 @@ include "electron.asm"
+                     jsr oswrch
+                     cpx #1                      \ was it a power on reset
+                     bne autorun_l1              \ no, then jump to the logo print
+-                    txa                         \ load A with 1 (driver function hardware reset)
+-                    jsr wifidriver              \ perform a hard reset
+ .autorun_l1         jsr print_logo              \ print the logo if wifi is enabled
+                     jsr printtext               \ perform new line
+                     equb &D,&D,&EA
+@@ -163,6 +163,8 @@ include "electron.asm"
+-                    equb >wget_cmd, <wget_cmd
++                    equb >pi_wget_cmd, <pi_wget_cmd
+-                    equs "MENU"
+-                    equb >menu_cmd, <menu_cmd
++                    equs "MENUSRC"
++                    equb >menusrc_cmd, <menusrc_cmd
++                    equs "MENU"
++                    equb >menu_cmd, <menu_cmd
+                     equs "WIFI" 
+                     equb >wifi_cmd, <wifi_cmd 
+                     equs "VERSION"
+@@ -229,6 +231,7 @@ include "electron.asm"
+                     equs " LAPOPT    Set LAP options",&0D
+                     equs " LEAVE     Disconnect from network",&0D
+                     equs " MENU      start the menu program",&0D   
++                    equs " MENUSRC   Show/set menu URL",&0D
+                     equs " MODE      Set device mode",&0D
+                     equs " PING      ping a host on network",&0D
+                     equs " PRD       Paged Ram Dump",&0D
+@@ -273,6 +276,7 @@
+ include "routines.asm"
+ include "errors.asm"
+ include "serial.asm"
++include "service_driver.asm"
+ include "driver.asm"
+ include "version.asm"
+ include "time.asm"
+@@ -286,6 +290,8 @@ include "update.asm"
+ include "wicfs.asm"
+ include "wget.asm"
++include "net_wget.asm"
+ include "menu.asm"
++include "menusrc.asm"
+ include "ping.asm"
+ include "printer.asm"
+
+diff --git a/rom/routines.asm b/rom/routines.asm
+index 2cd2fd2..10cb31c 100644
+--- a/rom/routines.asm
++++ b/rom/routines.asm
+@@ -261,12 +261,25 @@ if __ELECTRON__
+ .print_logo
+  jsr test_wifi_ena          \ test wifi enabled status
+  bne logo2                  \ jump if wifi is disabled
+- ldx #7                     \ load index for copy
++ \ The stock ROM copied the glyph to fixed address &60A0, permanently tying
++ \ it to row zero while the MOS banner followed the current boot cursor.
++ \ Define a user character and print it through the VDU so the icon stays on
++ \ the same row as "Acorn Electron WiFi" with any ROM ordering or scrolling.
++ lda #' '
++ jsr oswrch
++ lda #23
++ jsr oswrch
++ lda #255
++ jsr oswrch
++ ldx #0
+ .logo1
+  lda wifi_symbol,x          \ load data
+- sta &60A0,x                \ write to screen
+- dex                        \ decrement index
+- bpl logo1                  \ jump if bytes follow
++ jsr oswrch
++ inx
++ cpx #8
++ bne logo1
++ lda #255
++ jsr oswrch
+ .logo2
+  rts                        \ end of routine
+ else

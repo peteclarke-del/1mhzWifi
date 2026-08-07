@@ -1,0 +1,87 @@
+--- a/src/main.c
++++ b/src/main.c
+@@ -105,20 +105,23 @@
+ char serialname[512];
+ extern int serial_debug;
+ char romnames[16][1024];
++int rambanks[16];
+ 
+ void initelk(int argc, char *argv[])
+ {
+         int c;
+         char *p;
+-        int tapenext=0,discnext=0,romnext=-2,parallelnext=0,serialnext=0,serialdebugnext=0;
++        int tapenext=0,discnext=0,romnext=-2,ramnext=0,parallelnext=0,serialnext=0,serialdebugnext=0;
+         int elkwifinext=0,elkwifidebugnext=0,autoboot_requested=0,autokeynext=0,autokeysnext=0;
+         get_executable_name(exedir,MAX_PATH_FILENAME_BUFFER_SIZE - 1);
+         p=get_filename(exedir);
+         p[0]=0;
+         discname[0]=discname2[0]=tapename[0]=0;
+         parallelname[0]=0;serialname[0]=0;elkwifiname[0]=0;
+-        for (int i = 0; i < 16; i++)
++        for (int i = 0; i < 16; i++) {
+             romnames[i][0] = 0;
++            rambanks[i] = 0;
++        }
+ //        printf("Load config\n");
+         loadconfig();
+ //printf("commandline\n");
+@@ -149,6 +152,7 @@
+                         printf("-autokey n      - press Allegro keycode n once after autoboot\n");
+                         printf("-autokeys list  - scripted delay:keycode pairs, comma separated\n");
+                         printf("-rom number rom - load rom into the numbered bank\n");
++                        printf("-ram number     - make the numbered bank writable\n");
+                         printf("-debug          - start debugger\n");
+                         exit(-1);
+                 }
+@@ -170,6 +174,10 @@
+                 {
+                         romnext=-1;
+                 }
++                else if (!strcasecmp(argv[c],"-ram"))
++                {
++                        ramnext=1;
++                }
+                 else if (!strcasecmp(argv[c],"-parallel"))
+                 {
+                         parallelnext=1;
+@@ -225,6 +233,12 @@
+                         romnext = -2;
+                     }
+                 }
++                else if (ramnext)
++                {
++                        int bank = atoi(argv[c]);
++                        if (bank >= 0 && bank < 16) rambanks[bank] = 1;
++                        ramnext=0;
++                }
+                 else if (parallelnext)
+                 {
+                         strcpy(parallelname,argv[c]);
+@@ -268,6 +282,12 @@
+         initalmain(0,NULL);
+ //printf("loadroms\n"); fflush(stdout);
+         loadroms();
++        /* Command-line expansion ROMs and RAM must be visible when
++           reset6502() performs the MOS service-ROM scan. */
++        for (int i = 0; i < 16; i++) {
++            if (romnames[i][0] != 0) loadrom_n(i, romnames[i]);
++            if (rambanks[i]) enable_ram_n(i);
++        }
+ //printf("reset6502\n");
+         reset6502();
+         initula();
+@@ -281,13 +301,6 @@
+         loadtape(tapename);
+         loaddisc(0,discname);
+         loaddisc(1,discname2);
+-        /* For temporary compatibility: */
+-        if (romnames[0][0] != 0) loadcart(romnames[0]);
+-        if (romnames[1][0] != 0) loadcart2(romnames[1]);
+-        /* Load ROMs normally. */
+-        for (int i = 0; i < 16; i++) {
+-            if (romnames[i][0] != 0) loadrom_n(i, romnames[i]);
+-        }
+         if (defaultwriteprot) writeprot[0]=writeprot[1]=1;
+ #ifndef WIN32
+         install_keyboard();

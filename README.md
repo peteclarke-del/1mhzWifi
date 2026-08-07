@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.18` host ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.25` host ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -20,8 +20,10 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-The following command paths are implemented. WiCFS load and execution stay on
-the Electron or BBC I/O processor and use only the 1MHz-bus Pi service:
+The following command paths are implemented. Pi and JIM traffic stays on the
+1MHz bus. WiCFS follows the standard MOS OSFILE address contract: host loads
+remain on the I/O processor, while a Tube caller's `&FFFFxxxx` destination is
+delivered through Tube R3 after the bytes arrive over the 1MHz bus:
 
 | Area | Implemented behavior |
 | --- | --- |
@@ -37,8 +39,18 @@ depend on cartridge hardware that Pi1MHz does not expose. Unknown OSWORD
 functions and the direct flash function return `Not implemented` before they
 can reach the inherited UART or flash code.
 
-HTTPS, TLS, and SSH are not implemented. Secure requests fail closed; they are
-never downgraded to plaintext.
+The ElkWiFi-compatible ROM does not add HTTPS or TLS to `*WGET`; unsupported
+secure URLs fail closed and are never downgraded to plaintext. The separate
+native `host-tools/SSH` client uses the managed Pi secure service and wolfSSH.
+
+The maintained upstream changes are grouped by target. ElkWiFi changes live
+under `rom-side/elkwifi-0.23/`, and Pi1MHz changes live under
+`pi-side/pi1mhz-8468a38/`. Each package separates ordered patches from complete
+source overlays and records its required upstream commit.
+
+The former 1mhzNetTools project is incorporated under `host-tools/`,
+`emulator/pi1mhz-mailbox/` and the central Pi overlay. Its disposition and
+validation are recorded in [the merge record](docs/nettools-merge.md).
 
 The release boundary and deliberately unsupported cartridge-only features are
 recorded in [TODO.md](TODO.md). Asynchronous scan, DNS, ICMP, NTP, WGET and raw
@@ -48,8 +60,9 @@ late callbacks and clears scan state before returning to MOS.
 The published ElkWiFi menu contains a direct `&FC34` cartridge bank-selection
 sequence. At runtime, `*MENU` replaces that exact eight-byte sequence with an
 equal-length call to a Pi1MHz JIM address selector after WGET succeeds and
-before it enters host `&E00` through a RAM return trampoline. The code does not
-inspect, claim or access a fitted Tube. See
+before it enters host `&E00` through a RAM return trampoline. The menu itself
+remains host code. Subsequent OSFILE loads use the normal MOS host or parasite
+destination supplied by the caller. See
 [the MENU runtime adaptation](docs/menu-runtime-patch.md) for the byte-level
 contract and failure behavior.
 
@@ -59,38 +72,70 @@ The ready-to-copy SD-card image tree is `build/pi1mhz-all/`. The equivalent ZIP
 archive is [build/pi1mhz-all-hardware-test.zip](build/pi1mhz-all-hardware-test.zip).
 Copy the contents of `pi1mhz-all/` to a FAT-formatted Pi boot partition, then
 fit or load `Pi1MHz/ElkWiFi.rom` as an Acorn sideways ROM.
+The same tree includes `host-tools/nettools.ssd`. Install or select that SSD
+through DFS/MMFS when testing `*SSH` or `*TERM`; replacing the Pi files alone
+does not replace host programs already held on another disc image.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.18 retains the WiCFS host changes and compressed-UEF Pi
+host ROM. Release 0.1.25 retains the WiCFS changes and compressed-UEF Pi
 service introduced in 0.1.8, supports zero-byte CFS marker files, preserves a
 live WiFi association across host resets, and restores the `WGET -U` contract for
 raw paged-RAM data such as the published menu TITLES catalogue. The matched
 kernel still provides service command 93 for ZIP and gzip UEF normalization,
 so replace both the ROM and the kernel from the same bundle.
 
-Release 0.1.18 also includes the public application ABI repairs. OSWORD `&65` function
-4 reads the caller's JOIN block, function 8 preserves the port field across
+Release 0.1.25 includes the public application ABI repairs. OSWORD `&65`
+functions 0 and 1 reset volatile TCP state without dropping the saved
+association, function 4 reads the caller's JOIN block, function 8 preserves
+the port field across
 DNS resolution, and function 9 accepts the original single-connection setup
 as a successful no-op. These paths are used by ElkChat and other applications
 which call the driver directly rather than issuing star commands.
 
-Release 0.1.18 removes all WiCFS state from `&03E0-&03FF`, the MOS keyboard
+Release 0.1.25 keeps all WiCFS state out of `&03E0-&03FF`, the MOS keyboard
 input buffer which holds the queued `*REWIND` and `CHAIN ""` launch. Stream
 state again uses the original WiCFS cassette-workspace zero-page locations.
-Vector ownership and predecessor state is persisted on reserved JIM page
-`00:02:00`. Earlier builds used the clamped `&FFF200` selector, which resolves
-inside Pi1MHz's top 32 MB `DISC_RAM` allocation and could overwrite BeebSCSI
-or ADFS data. Its host copy exists only while installing or releasing WiCFS.
+Vector ownership and predecessor state is persisted through the AP5-forwarded
+Pi1MHz byte port at reserved services-buffer address `&FFEF00`. ROM 0.1.19
+attempted to use JIM page `00:02:00`, but an unmodified AP5 does not forward
+`&FCFD` or `&FCFE`; the write therefore aliased page zero and corrupted the
+start of every downloaded UEF. Its host copy exists only while installing or
+releasing WiCFS.
 The public driver's page shadow is similarly transient in ROM heap. On reset,
 the ROM releases only vector entries which it still owns, so ADFS or DFS can
 reclaim their vectors safely.
 
-Release 0.1.18 also corrects the common WiCFS completion path used by `*MENU`
+Release 0.1.25 also corrects the common WiCFS completion path used by `*MENU`
 and `*UEF LOAD`. The cassette last-block bit is now tested before the legacy
 loader compatibility helper can change the processor flags. A completed file
 therefore returns to MOS at its own final block instead of consuming later
 files and eventually reporting `End of UEF` or an invalid chunk type.
+
+Release 0.1.25 uses the single standard 64K JIM window which the AP5 actually
+exposes through `&FCFF` and `&FD00-&FDFF`. Each WiCFS read is an interrupt-safe
+page-select and data transaction. The data byte is recovered before
+the saved processor flags because both values occupy the 6502 hardware stack
+during the transaction.
+
+Release 0.1.25 corrects the Tube-active OSFILE path exposed by the physical
+hardware photographs. Earlier builds copied only the low 16 bits of the
+caller's load address and always stored UEF data in host RAM. With Tube BASIC
+active, `CHAIN ""` therefore printed the first cassette filename and returned
+to the parasite prompt. WiCFS now retains all four OSFILE address bytes and
+uses OSBYTE `&EA`, a filing-system Tube claim, Tube command 1 for the required
+host-to-parasite direction, R3 transfer and release. Version 0.1.24 incorrectly
+issued Tube command 0, the opposite parasite-to-host direction, so it still
+printed the first filename and returned to Tube BASIC. The Tube is never used
+for Pi transport.
+
+Release 0.1.25 also fixes the original Zalaga loader's cassette `/` handoff.
+WiCFS now handles FSCV reason 8 locally while it is the active filing system.
+Earlier builds forwarded that notification through the displaced cassette
+handler's extended-vector frame, so the following FSCV reason 2 never reached
+WiCFS. A live Elkulator run with the photographed ROM order now downloads the
+published Zalaga UEF and reaches gameplay through the unchanged `CHAIN ""`
+and `/` sequence.
 
 The bundle does not contain a BeebSCSI disc image. Preserve the card's
 `/BeebSCSI0` directory when updating it. A clean card needs at least
@@ -118,10 +163,10 @@ the generic placeholder configuration.
 Release hashes:
 
 ```text
-1MHzWifi ROM 9f1a95afce028bcf4535b18c33b24f280ebbf1b010588df3c7adfd72912e5e06
-kernel.img   81d3446e1da6c2747ace14f1586d68c57ba222b9981af398fbbfd7277e44332a
-kernel7.img  7ddc1fe15d6417488272fee5b6a27c29f83ca381ef746d0ebf8d2a3633e8163e
-bundle ZIP   24ed7c84e0abb916d28c45bc1296415903a759cf8998de0a6fd3f6a3ac0109d6
+1MHzWifi ROM 38eb83c0fcbcea406df40b8c518ceea7824e1758722242efeaa8269b3c7f6a0f
+kernel.img   1a3b1dd35fdac995b1c18d12486a8d10cb9c237bb340d400e142df5e18ce614b
+kernel7.img  dfc968ba955b3c3646e42a4a7e7c2d1f2eef4bff35ae842847825095ac1a846b
+bundle ZIP   f1cb66dc272a7bc4d6b7bcdfa067855dd1d613d9ced8f7420cd91843da886c8f
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -152,7 +197,7 @@ system, including ADFS, DFS, or MMFS, into the WiCFS JIM window. Raw UEF,
 gzip-compressed UEF, single-entry ZIP containing UEF, and ZIP containing a
 gzip-compressed UEF are recognized by their contents. CRC and expanded-size
 checks run on the Pi before launch. The normalizer uses the host-visible JIM
-window at `&010000`, not Pi1MHz's private disc-memory base. It then selects
+window at `&000000`, not Pi1MHz's private disc-memory base. It then selects
 the tape filing system, installs WiCFS, runs `*REWIND`, and executes `CHAIN ""`
 without further input. The setup and launch are queued in two stages so they
 fit the Electron keyboard buffer. The expanded UEF may contain at most `&FFFE`
@@ -170,7 +215,11 @@ The complete, reproducible procedure is in
 upstream source trees are required:
 
 - ElkWiFi commit `7bf366c97bec18bd238963c95e6f2aa6893cdb3a`
-- Pi1MHz commit `8468a38f63b25785007a50912a3b32a596db8ff9`
+- Pi1MHz commit `8468a38f63b25785007a50912a3b32a596db8ff9`, the official
+  `master` tip verified on 7 August 2026
+
+Pi1MHz has no `main` branch. Run `./pi-side/check_upstream.sh` before a release;
+it fails if the official default branch or its tip has changed.
 
 Build the host ROM with BeebAsm:
 
@@ -200,36 +249,43 @@ does not fetch or compile either upstream project.
 ## Test
 
 ```sh
-./build.sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-unzip -t build/pi1mhz-all-hardware-test.zip
+make deps
+make test
 ```
 
-The test suite checks ROM identity, command presence, mailbox addressing,
-safe rejection of unsupported functions, WGET, WiCFS host-only execution,
+The unified test target builds the host-tools DFS image, runs its executable
+py65 tests, runs the mailbox/JIM and secure-service core tests, checks the
+hardware bundle, and runs the ROM integration suite. The latter checks ROM
+identity, command presence, mailbox addressing,
+safe rejection of unsupported functions, WGET, WiCFS host and Tube OSFILE destinations,
 cancellation, configuration integration, and the absence of retired
 UART/flash and Linux bridge code. The Pi1MHz services, net and web parser
 suites also run under ASan and UBSan during release validation. WiCFS treats
-Pi1MHz strictly as a 1MHz-bus service and never transfers through an optional
-Tube.
+Pi1MHz strictly as a 1MHz-bus service. Tube R3 is used only after a standard
+MOS OSFILE caller explicitly requests a parasite destination.
 
-Elkulator smoke-test captures are under `tests/elkulator/screenshots/`. The
-earlier 0.1.16 harness confirmed that the ROM and ACP 1770 DFS could boot
-together. The 0.1.18 WiCFS correction must repeat that emulator and
-hardware gate before release.
-Elkulator's emulated expansion ROM becomes unavailable after `*TAPE`, so it
-cannot provide an authoritative end-to-end WiCFS result for this AP5 setup.
-`*UEF LOAD` from DFS, post-WiCFS DFS restoration, WiFi association, HTTP
-transfer, AP5 forwarding and Tube coexistence remain hardware gates.
+The real wolfSSH and Elkulator gates are available as `make test-ssh-real`,
+`make test-elkulator`, and `make test-elkulator-ssh-real`. A clean two-kernel
+build uses `make test-pi-firmware PI1MHZ_SOURCE=/path/to/Pi1MHz` with the
+pinned wolfSSL and wolfSSH source paths described in the build guide.
 
-Real hardware with earlier ROMs loaded the first Zalaga and Chuckie Egg files
-but sometimes returned to the BASIC prompt after `CHAIN ""`. An instrumented
-0.1.18 Elkulator run reconstructed the first Zalaga CFS payload and proved that
-all 1,518 bytes loaded at `PAGE` match the UEF data exactly. It also confirmed
-that BASIC continues into the loaded program and that WiCFS leaves the caller's
-OSFILE control block unchanged. The remaining Electron, Plus 5, BeebSCSI and
-Tube-coexistence cases are therefore explicit hardware release gates rather
-than assumptions derived from the earlier symptom.
+Elkulator smoke-test captures are under `tests/elkulator/screenshots/`. A live
+Pi1MHz mailbox and JIM bridge now exercises the real Internet path rather than
+preloading a response. With ROM 0.1.19, the published menu downloaded and ran
+both Zalaga and Arcadians through the unchanged `*REWIND`, `CHAIN ""` sequence
+to gameplay. Zalaga fetched 29,794 bytes (`&7462`) from the published URL.
+The local-import test placed the 10,631-byte gzip DeskDiary sample on an
+emulated DFS disc, ran `*UEF LOAD DESK`, normalized it to its 20,580-byte raw
+UEF, and reached the Desk Diary `ADDRESS`/`PLANNER` program menu.
+
+Physical Electron tests of 0.1.22 exposed the missing Tube OSFILE destination:
+the `&7462`-byte Zalaga UEF loaded `ZALAGA 05 05EE` and returned to Tube BASIC.
+The SD-card ZIP proves that the tested ROM and kernels matched the published
+0.1.22 artifacts. Physical 0.1.24 testing then isolated its reversed Tube
+transfer command: the same ROM order works after a Tube-off reboot and fails
+when BASIC is running on the parasite. Version 0.1.25 corrects that direction
+and retains the FSCV reason-8 correction. Physical gameplay, BeebSCSI, ADFS/DFS
+restoration and Tube coexistence remain release gates.
 
 ## Documentation
 

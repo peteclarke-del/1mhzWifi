@@ -1,6 +1,8 @@
 # Pi1MHz bare-metal integration
 
-This directory contains the Pi1MHz source overlay and patch set. Raspberry Pi
+This directory contains the Pi1MHz integration package and installer. The
+versioned package is under `pi1mhz-8468a38/`, with source changes separated into
+`patches/` and complete replacement files under `overlay/`. Raspberry Pi
 boot firmware loads the resulting `kernel.img` or `kernel7.img` directly. No
 Linux service is installed or required.
 
@@ -12,9 +14,21 @@ needed by the retained ElkWiFi commands.
 ## Upstream requirements
 
 Use Pi1MHz commit `8468a38f63b25785007a50912a3b32a596db8ff9`.
-The installer rejects any other revision so an upstream change cannot alter a
-release build without review. This commit contains tag `V1.30` in its history
-and includes the later net service required by WGET and OSWORD TCP.
+This was the tip of the official `master` branch when checked on 7 August
+2026. Pi1MHz does not have a `main` branch. The commit is 80 commits after the
+V1.30 tag and includes the later net service required by WGET and OSWORD TCP.
+The installer rejects any other revision and performs a live upstream check by
+default, so a new upstream commit stops the release build pending review.
+
+Run the same check independently with:
+
+```sh
+./pi-side/check_upstream.sh /path/to/Pi1MHz
+```
+
+For a deliberately offline, reproducible rebuild, set
+`PI1MHZ_VERIFY_REMOTE=0`. This skips only the network query. The exact reviewed
+commit is still mandatory.
 
 Required build tools:
 
@@ -55,13 +69,15 @@ Set `ARM_GCC` to the compiler path when `arm-none-eabi-gcc` is not on `PATH`.
 The installer performs the following operations:
 
 1. Verifies the Pi1MHz checkout and compiler.
-2. Copies `elkwifi_service.c` and `elkwifi_service.h` into `src/`.
+2. Copies the maintained service and UEF normalisation sources into `src/`.
 3. Applies the Pi1MHz integration and CYW43 patches in a fixed order.
 4. Installs the matched host ROM as `firmware/Pi1MHz/ElkWiFi.rom`.
-5. Enables the Services mailbox, ElkWiFi service, and net service defaults.
-6. Enables the three BeebSCSI defaults when no active value exists.
-7. Invokes the upstream Pi1MHz build script.
-8. Copies the firmware tree into a model-specific SD-card directory and ZIP.
+5. Installs Electron MMFS Pi1MHz 1.60 as `firmware/Pi1MHz/EMMFS.rom` for
+   minimum 32K Electron systems which do not have sideways RAM.
+6. Enables the Services mailbox, ElkWiFi service, and net service defaults.
+7. Enables the three BeebSCSI defaults when no active value exists.
+8. Invokes the upstream Pi1MHz build script.
+9. Copies the firmware tree into a model-specific SD-card directory and ZIP.
 
 The installer is intended to be repeatable. Each patch has an explicit
 already-applied test. It preserves active configuration values rather than
@@ -102,7 +118,7 @@ never in FIQ context.
 Menu URL persistence is implemented by service commands 84-86. The downloaded
 upstream MENU is also adapted by the host ROM because it contains a direct
 `&FC34` cartridge bank-selection sequence. The ROM replaces that exact
-eight-byte sequence with a Pi1MHz `&FCFE` window-1 selection before entering
+eight-byte sequence with an AP5-compatible no-bank helper before entering
 host `&E00`. No Pi-side binary rewrite occurs. See
 [the byte-level runtime contract](../docs/menu-runtime-patch.md).
 
@@ -137,8 +153,8 @@ when neither value is valid.
 
 The installer preserves an active `Pi1MHz.cfg` value in its source checkout,
 except that it rejects a `Rampage_addr` other than `0xFD`. The ROM uses the
-standard page-mode JIM registers at `&FCFD-&FCFF`; relocating or disabling
-Rampage would disconnect WiCFS and WGET storage from the 1MHz bus.
+standard `&FCFF` page selector and JIM window forwarded by the AP5; relocating
+or disabling Rampage would disconnect WiCFS and WGET storage from the 1MHz bus.
 It does not merge a previously deployed SD card back into a newly generated
 bundle. Preserve deployed configuration separately before replacing an SD-card
 tree.
@@ -147,6 +163,11 @@ The generated bundle includes `ADFS.rom` and `defscsi.cfg`, but it deliberately
 does not include BeebSCSI LUN data. Preserve `/BeebSCSI0` and any other
 `/BeebSCSI*` directories when updating a card. A clean card needs a
 `/BeebSCSI0/scsi0.dat` image before ADFS has a hard disc to mount.
+
+The bundle retains upstream `SWMMFS.rom` for systems with writable sideways
+RAM and adds `EMMFS.rom` for a 32K Electron with only ROM storage. Both use
+the Pi1MHz FAT service and the `BEEB.MMB` file in the SD-card root. `EMMFS.rom`
+is the Electron normal-ROM, Pi1MHz-device build from MMFS 1.60.
 
 ## Persistent files
 

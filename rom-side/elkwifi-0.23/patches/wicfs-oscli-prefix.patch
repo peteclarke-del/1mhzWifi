@@ -1,0 +1,27 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -568,2 +568,10 @@
++\FSCV reason 8 announces that OSCLI is about to process a command. WiCFS is
++\the active filing system, so handle this notification locally. Forwarding it
++\to the displaced cassette filing system returns through a different extended
++\vector frame and prevents the following reason 2 for the cassette '/' run
++\shorthand from reaching WiCFS.
++	CMP	#8
++	BEQ	upv_about_to_process
++
+ 	CMP	#3		\unrecognised OSCLI command?
+ 	BNE	upv_cat
+@@ -622,6 +631,12 @@
+ 	STA	loadrun		\do not enter actioned's stale execution path
+ 	JMP	clfscv
+ 
++.upv_about_to_process
++	LDA	loadrun
++	AND	#&7F		\reason 8 is never a pending *RUN completion
++	STA	loadrun
++	JMP	clfscv
++
+ .upv_cat
+ 	CMP	#5		\*CAT ?
+ 	BNE	upv_a1		\no, next check

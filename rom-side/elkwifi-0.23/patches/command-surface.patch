@@ -1,0 +1,71 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -186,16 +186,8 @@
+                     equb >ping_cmd, <ping_cmd
+                     equs "MODE"
+                     equb >mode_cmd, <mode_cmd
+-                    equs "UPDATE"
+-                    equb >update_cmd, <update_cmd
+-                    equs "CRC"
+-                    equb >crc_cmd, <crc_cmd
+                     equs "DISCONNECT"
+                     equb >wget_close, <wget_close
+-                    equs "PRINTER"
+-                    equb >printer_cmd, <printer_cmd
+-                    equs "SETSERIAL"
+-                    equb >setserial_cmd, <setserial_cmd
+                     equs "WICFS"
+                     equb >wicfs_cmd, <wicfs_cmd
+                     equs "REWIND"
+@@ -233,10 +225,7 @@
+                     equs " MODE      Set device mode",&0D
+                     equs " PING      ping a host on network",&0D
+                     equs " PRD       Paged Ram Dump",&0D
+-                    equs " PRINTER   Enable printer driver",&0D
+-                    equs " SETSERIAL Configure serial port A",&0D
+                     equs " TIME      Print current time",&0D
+-                    equs " UPDATE    Install ElkWifi ROM update",&0D
+                     equs " VERSION   Print firmware version",&0D
+                     equs " WGET      Get a file from a webserver",&0D
+                     equs " WICFS     Enable WiFi CFS",&0D
+@@ -284,14 +273,12 @@ include "ifcfg.asm"
+ include "wificmd.asm"
+ include "pdump.asm"
+ include "join.asm"
+ include "mode.asm"
+-include "update.asm"
+ include "wicfs.asm"
+ include "wget.asm"
+ include "net_wget.asm"
+ include "menu.asm"
+ include "menusrc.asm"
+ include "ping.asm"
+-include "printer.asm"
+ 
+ equs "This is the end!"
+diff --git a/rom/errors.asm b/rom/errors.asm
+--- a/rom/errors.asm
++++ b/rom/errors.asm
+@@ -37,5 +37,4 @@
+ .error_no_pagedram          equs "No paged ram",&0D
+ .error_disabled             equs "Wifi is disabled",&0D
+ .error_opencon              equs "Connect error",&0D
+-.error_bad_crc              equs "CRC error, aborted",&0D
+ .error_bad_param            equs "Wrong parameter",&0D
+diff --git a/rom/mode.asm b/rom/mode.asm
+--- a/rom/mode.asm
++++ b/rom/mode.asm
+@@ -10,10 +10,9 @@
+  cpx #&00                   \ test if ssid given, x will be > 0
+  bne mode_init_heap         \ continue as the ssid is on the command line
+  jsr printtext              \ no ssid, print a message
+- equs "Usage: *MODE <1..3>",&0D
++ equs "Usage: *MODE <1|?>",&0D
+  equs "MODE 1 -> STATION",&0D
+- equs "MODE 2 -> ACCESS POINT",&0D
+- equs "MODE 3 -> BOTH",&0D,&EA
++ equb &EA
+  jmp call_claimed           \ end of command
+ 
+ .mode_init_heap

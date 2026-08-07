@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "9f1a95afce028bcf4535b18c33b24f280ebbf1b010588df3c7adfd72912e5e06"
+ROM_SHA256 = "38eb83c0fcbcea406df40b8c518ceea7824e1758722242efeaa8269b3c7f6a0f"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -18,26 +18,25 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(len(self.rom), 16 * 1024)
         self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
-            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x18, 0x12))
+            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x18, 0x19))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.18\0")
-        self.assertIn(b"1MHzWifi 0.1.18 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.25\0")
+        self.assertIn(b"1MHzWifi 0.1.25 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
-        helper = bytes.fromhex("A9 00 8D FD FC A9 01 8D FE FC B9 00 FD 60")
+        helper = bytes.fromhex("EA EA EA EA EA EA EA EA EA B9 00 FD 60")
         self.assertEqual(self.rom.count(helper), 1)
         self.assertIn(bytes.fromhex("20 C5 1F EA EA EA EA EA"), self.rom)
-        self.assertGreaterEqual(
-            self.rom.count(bytes.fromhex("A9 00 8D FD FC A9 01 8D FE FC")), 3
-        )
+        self.assertNotIn(bytes.fromhex("8D FD FC"), self.rom)
+        self.assertNotIn(bytes.fromhex("8D FE FC"), self.rom)
         self.assertIn(b"TAPE\r", self.rom)
         # WiCFS retains its original OSBYTE &8C trap so a protected loader's
         # internal *TAPE cannot disconnect a multi-stage virtual tape.
         self.assertIn(bytes.fromhex("C9 8C D0 01 60 4C 00 00 EA"), self.rom)
 
-    def test_wicfs_uses_mos_vectors_and_never_touches_the_tube(self) -> None:
+    def test_wicfs_uses_mos_vectors_and_standard_tube_osfile_transfer(self) -> None:
         # Test the cassette final-block flag before the loader-compatibility
         # helper can alter N/Z. A final block must call the helper and then
         # jump unconditionally to the completed OSFILE path.
@@ -54,11 +53,17 @@ class RomCompatibilityTest(unittest.TestCase):
         # No ROM switcher may be copied into &07A4. Pages 4-7 belong to the
         # Tube host code whenever a parasite is active.
         self.assertNotIn(bytes.fromhex("A5 F4 8D C2 07"), self.rom)
-        # The Pi is a 1MHz-bus source, never a Tube destination. WiCFS stores
-        # bytes and executes programs in Electron I/O-processor memory only.
-        self.assertEqual(self.rom.count(bytes.fromhex("8D E5 FE")), 0)
-        self.assertEqual(self.rom.count(bytes.fromhex("2C E4 FE")), 0)
-        self.assertEqual(self.rom.count(bytes.fromhex("A9 C0 20 06 04 90 F9")), 0)
+        # Pi/JIM transport remains on the 1MHz bus. When standard OSFILE upper
+        # address bytes are &FFFF and OSBYTE &EA reports a Tube, WiCFS delivers
+        # bytes through the Electron AP5 Tube R3 data register. Host loads keep
+        # the original indirect store path.
+        self.assertEqual(self.rom.count(bytes.fromhex("8D E5 FC")), 1)
+        self.assertIn(bytes.fromhex("A9 EA A2 00 A0 FF 20 F4 FF"), self.rom)
+        self.assertIn(bytes.fromhex("20 06 04"), self.rom)
+        # Acorn Tube command 1 is the multi-byte host-to-parasite direction.
+        # Command 0 would make a Tube BASIC CHAIN print the filename but load
+        # no usable program into parasite memory.
+        self.assertEqual(self.rom.count(bytes.fromhex("A9 01 20 06 04")), 1)
         self.assertIn(bytes.fromhex("A0 00 91 B0 E6 B0"), self.rom)
         # Extended vector entry points for FILEV/BGETV/FINDV/FSCV.
         for entry in (0x1B, 0x21, 0x2A, 0x2D):
@@ -92,7 +97,7 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(self.rom.count(bytes.fromhex("AC DC 09")), 1)
         # Original WiCFS returns the OSFILE result without rewriting the
         # caller-owned control block. The synthetic catalogue writeback
-        # diverged from that contract and is deliberately absent from 0.1.18.
+        # diverged from that contract and remains deliberately absent.
         retired_osfile_metadata = bytes.fromhex(
             "A0 02 A2 00 BD BE 03 91 B8 "
             "E8 C8 E0 08 D0 F5 A5 B5 91 B8 C8 AD C6 03 91 B8 C8 A9 "
@@ -144,10 +149,17 @@ class RomCompatibilityTest(unittest.TestCase):
             "C8 B1 F0 AA C8 B1 F0 A8 68 20"
         ), self.rom)
 
-        driver = (ROOT / "rom-side/elkwifi-0.23/driver.asm").read_text()
-        service = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()
-        serial = (ROOT / "rom-side/elkwifi-0.23/serial.asm").read_text()
+        driver = (ROOT / "rom-side/elkwifi-0.23/overlay/driver.asm").read_text()
+        service = (ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm").read_text()
+        serial = (ROOT / "rom-side/elkwifi-0.23/overlay/serial.asm").read_text()
         self.assertIn("cmp #9\n bne service_driver_not_9\n jmp service_driver_cpmux", driver)
+        self.assertIn("cmp #0\n bne service_driver_not_0\n jmp service_driver_init", driver)
+        self.assertIn("cmp #1\n bne service_driver_not_1\n jmp service_driver_reset", driver)
+        reset = service.split(".service_driver_init", 1)[1].split(
+            ".service_driver_version", 1
+        )[0]
+        self.assertIn("jsr service_driver_net_close_silent", reset)
+        self.assertIn("jmp service_driver_rom_response", reset)
         self.assertIn(".service_driver_cpmux", service)
         self.assertIn("cmp #'0'", service)
         self.assertIn("cmp #&0D", service)
@@ -176,8 +188,8 @@ class RomCompatibilityTest(unittest.TestCase):
 
         for selector in (".set_bank_0", ".set_bank_1", ".set_bank_a"):
             routine = serial.split(selector, 1)[1].split("\n\n", 1)[0]
-            self.assertIn("sta &FCFD", routine)
-            self.assertIn("sta &FCFE", routine)
+            self.assertNotIn("sta &FCFD", routine)
+            self.assertNotIn("sta &FCFE", routine)
 
     def test_retired_cartridge_code_is_not_emitted(self) -> None:
         for legacy in (
@@ -193,7 +205,7 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertNotIn(b"ACORNELECTRON.NL/uefarchive/MENU", self.rom)
 
     def test_join_uses_the_long_async_service_timeout(self) -> None:
-        source = (ROOT / "rom-side/elkwifi-0.23/service_driver.asm").read_text()
+        source = (ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm").read_text()
         self.assertIn("cmp #drv_svc_join", source)
 
     def test_startup_does_not_probe_legacy_uart_or_reset_pi_service(self) -> None:

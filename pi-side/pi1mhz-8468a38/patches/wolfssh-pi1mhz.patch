@@ -1,0 +1,22 @@
+--- a/wolfssh/internal.h
++++ b/wolfssh/internal.h
+@@ -549,2 +549,2 @@
+-#define TERMINAL_WIDTH_DEFAULT 80 /* used when there is no terminal */
++#define TERMINAL_WIDTH_DEFAULT 40 /* BBC/Electron display */
+ #define TERMINAL_HEIGHT_DEFAULT 24
+--- a/src/ssh.c
++++ b/src/ssh.c
+@@ -1059 +1059 @@
+-        #if defined(WOLFSSH_TERM) && !defined(NO_FILESYSTEM)
++        #if defined(WOLFSSH_TERM)
+@@ -1576 +1576 @@
+-#if defined(WOLFSSH_TERM) && !defined(NO_FILESYSTEM)
++#if defined(WOLFSSH_TERM)
+--- a/src/internal.c
++++ b/src/internal.c
+@@ -19813 +19813 @@
+-#if defined(WOLFSSH_TERM) && !defined(NO_FILESYSTEM)
++#if defined(WOLFSSH_TERM)
+@@ -20104 +20104 @@
+-            term = "xterm";
++            term = "vt100";

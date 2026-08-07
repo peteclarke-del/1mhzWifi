@@ -1,0 +1,86 @@
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -266,6 +266,12 @@
+ set(services_emulator_files
+    services_emulator.c
+    fat_service.c
++   secure_service.c
++   secure_service.h
++   secure_service_core.c
++   secure_service_core.h
++   secure_service_wolfssh.c
++   secure_service_wolfssh.h
+    net_service.c
+    net_service.h
+    net_tnfs.c
+@@ -421,9 +427,35 @@
+    lib/newlib-str/strcasestr.c
+    PROPERTIES COMPILE_OPTIONS "-Os;-Wno-cast-qual;-Wno-conversion" )
+ 
++# Pinned crypto-only wolfCrypt and wolfSSH client. Their source revisions are
++# installed and verified by the 1MHzWifi Pi1MHz installer.
++set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
++set(WOLFSSL_USER_SETTINGS yes CACHE STRING "" FORCE)
++set(WOLFSSL_EXAMPLES no CACHE STRING "" FORCE)
++set(WOLFSSL_CRYPT_TESTS no CACHE STRING "" FORCE)
++add_subdirectory(third_party/wolfssl wolfssl-build EXCLUDE_FROM_ALL)
++target_include_directories(wolfssl PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
++target_compile_options(wolfssl PRIVATE -w -Os -fno-lto)
++
++add_library(nettools_wolfssh STATIC
++   third_party/wolfssh/src/ssh.c
++   third_party/wolfssh/src/internal.c
++   third_party/wolfssh/src/log.c
++   third_party/wolfssh/src/io.c
++   third_party/wolfssh/src/port.c
++   third_party/wolfssh/src/wolfterm.c
++   third_party/wolfssh/src/ossh.c)
++target_include_directories(nettools_wolfssh PUBLIC
++   third_party/wolfssh third_party/wolfssl ${CMAKE_CURRENT_SOURCE_DIR})
++target_compile_definitions(nettools_wolfssh PRIVATE
++   BUILDING_WOLFSSH WOLFSSL_USER_SETTINGS)
++target_compile_options(nettools_wolfssh PRIVATE -w -Os -fno-lto)
++target_link_libraries(nettools_wolfssh PUBLIC wolfssl)
++
+ add_executable( Pi1MHz ${Pi1MHz_sources} )
+ 
+-target_link_libraries( Pi1MHz PRIVATE m )
++target_compile_definitions(Pi1MHz PRIVATE WOLFSSL_USER_SETTINGS)
++target_link_libraries( Pi1MHz PRIVATE m nettools_wolfssh wolfssl )
+ 
+ # Kernel images always go to the top-level firmware/ directory, regardless of
+ # where the build directory is (so out-of-source build/<config> dirs work).
+diff --git a/src/Pi1MHz.c b/src/Pi1MHz.c
+--- a/src/Pi1MHz.c
++++ b/src/Pi1MHz.c
+@@ -125,6 +125,7 @@
+ #include "usb.h"
+ #include "wifi/wifi.h"
+ #include "elkwifi_service.h"
++#include "secure_service.h"
+ #include "AUN/aun_emulator.h"
+ #include "teletext_emulator.h"
+ #include "watchdog.h"
+@@ -158,6 +159,7 @@
+       net_enable=1 in Pi1MHz.cfg. */
+    {"net",net_service_init, 0x00, 1 },
+    {"ElkWiFi",elkwifi_service_init, 0x00, 1 },
++   {"secure",secure_service_init, 0x00, 1 },
+    {"Teletext",teletext_emulator_init, 0x10, 1 },  // Acorn Teletext Adapter at &FC10
+    /* Last, so its poll callback re-arms the watchdog only after every other
+       emulator has had its turn - a poll that stops responding still trips it. */
+diff --git a/src/services.h b/src/services.h
+--- a/src/services.h
++++ b/src/services.h
+@@ -24,7 +24,9 @@
+ #define SERVICE_CMD_NET_LAST    79u   /* sockets 45-56, IRQ 57, N: dev 60-65   */
+ #define SERVICE_CMD_ELKWIFI_FIRST 80u /* ElkWiFi compatibility service        */
+ #define SERVICE_CMD_ELKWIFI_LAST  93u
+-/* 94..255 unallocated */
++#define SERVICE_CMD_SECURE_FIRST  94u /* RNG and managed SSH service          */
++#define SERVICE_CMD_SECURE_LAST  113u
++/* 114..255 unallocated */
+ 
+ /* Handler for one service's command range.  FIQ context: called from the
+    FRED write callback, so anything slow must be queued for the main loop

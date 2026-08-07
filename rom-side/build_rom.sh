@@ -9,6 +9,9 @@ fi
 upstream=$1
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 root_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
+package_dir="$script_dir/elkwifi-0.23"
+patch_dir="$package_dir/patches"
+overlay_dir="$package_dir/overlay"
 
 if [ ! -e "$upstream/.git" ] || [ ! -f "$upstream/rom/ElkWifi.asm" ]; then
     echo "$upstream is not an ElkWiFi source checkout" >&2
@@ -20,72 +23,26 @@ if ! git -C "$upstream" merge-base --is-ancestor "$expected" HEAD; then
     exit 1
 fi
 
-install -m 0644 "$script_dir/elkwifi-0.23/menusrc.asm" "$upstream/rom/menusrc.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/service_driver.asm" "$upstream/rom/service_driver.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/net_wget.asm" "$upstream/rom/net_wget.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/online.asm" "$upstream/rom/online.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/ping.asm" "$upstream/rom/ping.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/time.asm" "$upstream/rom/time.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/version.asm" "$upstream/rom/version.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/uef.asm" "$upstream/rom/uef.asm"
-for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch version-0.1.12.patch version-0.1.13.patch version-0.1.14.patch version-0.1.15.patch version-0.1.16.patch version-0.1.17.patch version-0.1.18.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-loader-compat.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-original-osfile.patch rom-prune.patch routines-prune.patch; do
-    patch_file="$script_dir/elkwifi-0.23/$patch_name"
+install -m 0644 "$overlay_dir/menusrc.asm" "$upstream/rom/menusrc.asm"
+install -m 0644 "$overlay_dir/service_driver.asm" "$upstream/rom/service_driver.asm"
+install -m 0644 "$overlay_dir/net_wget.asm" "$upstream/rom/net_wget.asm"
+install -m 0644 "$overlay_dir/online.asm" "$upstream/rom/online.asm"
+install -m 0644 "$overlay_dir/ping.asm" "$upstream/rom/ping.asm"
+install -m 0644 "$overlay_dir/time.asm" "$upstream/rom/time.asm"
+install -m 0644 "$overlay_dir/version.asm" "$upstream/rom/version.asm"
+install -m 0644 "$overlay_dir/uef.asm" "$upstream/rom/uef.asm"
+for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-loader-compat.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-original-osfile.patch wicfs-jim-atomic.patch wicfs-tube-osfile.patch wicfs-oscli-prefix.patch rom-prune.patch routines-prune.patch; do
+    patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
         integration.patch)
             grep -q 'include "menusrc.asm"' "$upstream/rom/ElkWifi.asm" &&
             grep -q 'include "service_driver.asm"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.service_driver_not_0' "$upstream/rom/driver.asm" &&
             patch_present=true
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq '^\.romversion.*equs "0\.1\.(9|10|11|12|13|14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
-            patch_present=true
-            ;;
-        version-0.1.10.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(10|11|12|13|14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(10|11|12|13|14|15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
-            patch_present=true
-            ;;
-        version-0.1.11.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(11|12|13|14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(11|12|13|14|15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
-            patch_present=true
-            ;;
-        version-0.1.12.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(12|13|14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(12|13|14|15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
-            patch_present=true
-            ;;
-        version-0.1.13.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(13|14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(13|14|15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
-            patch_present=true
-            ;;
-        version-0.1.14.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(14|15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(14|15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
-            patch_present=true
-            ;;
-        version-0.1.15.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(15|16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(15|16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
-            patch_present=true
-            ;;
-        version-0.1.16.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(16|17|18)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(16|17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
-            patch_present=true
-            ;;
-        version-0.1.17.patch)
-            grep -Eq '^\.romversion.*equs "0\.1\.(17|18)"' "$upstream/rom/ElkWifi.asm" &&
-            grep -Eq 'equs "1MHzWifi 0\.1\.(17|18)",&EA' "$upstream/rom/ElkWifi.asm" &&
-            patch_present=true
-            ;;
-        version-0.1.18.patch)
-            grep -q '^\.romversion.*equs "0.1.18"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q 'equs "1MHzWifi 0.1.18",&EA' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.25"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)
@@ -126,7 +83,8 @@ for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch versi
             patch_present=true
             ;;
         wicfs-host-only.patch)
-            grep -q '^\\1MHz-bus filing system and must not claim' "$upstream/rom/wicfs.asm" &&
+            { grep -q '^\\1MHz-bus filing system and must not claim' "$upstream/rom/wicfs.asm" ||
+              grep -q 'Tube is used only as the MOS OSFILE destination' "$upstream/rom/wicfs.asm"; } &&
             patch_present=true
             ;;
         wicfs-vector-chain.patch)
@@ -205,6 +163,21 @@ for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch versi
             ! grep -q '^\.filev_load_info' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
+        wicfs-jim-atomic.patch)
+            grep -q 'keep bank, page and data read one atomic transaction' "$upstream/rom/wicfs.asm" &&
+            grep -q 'leave the complete public JIM address at 00:00:00' "$upstream/rom/wicfs.asm" &&
+            grep -q 'recover data before the older saved flags below it' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-oscli-prefix.patch)
+            grep -q '^\.upv_about_to_process' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-tube-osfile.patch)
+            grep -q '^\.tube_prepare' "$upstream/rom/wicfs.asm" &&
+            grep -q 'Tube is used only as the MOS OSFILE destination' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
         rom-prune.patch)
             ! grep -q 'incbin "flash.bin"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
@@ -218,7 +191,7 @@ for patch_name in identity.patch version-0.1.10.patch version-0.1.11.patch versi
         echo "ElkWiFi $patch_name is already applied"
     else
         apply_options=()
-        if [[ "$patch_name" = identity.patch || "$patch_name" = version-0.1.10.patch || "$patch_name" = version-0.1.11.patch || "$patch_name" = version-0.1.12.patch || "$patch_name" = version-0.1.13.patch || "$patch_name" = version-0.1.14.patch || "$patch_name" = version-0.1.15.patch || "$patch_name" = version-0.1.16.patch || "$patch_name" = version-0.1.17.patch || "$patch_name" = version-0.1.18.patch || "$patch_name" = banner-spacing.patch ]]; then
+        if [[ "$patch_name" = identity.patch || "$patch_name" = banner-spacing.patch ]]; then
             # The banner replacement is deliberately a one-line hunk so it
             # remains independent of upstream startup-flow changes.
             apply_options+=(--unidiff-zero)
@@ -234,11 +207,11 @@ done
 
 # integration.patch must first match the upstream menu source. Replace the
 # patched file with the complete Pi1MHz implementation before assembly.
-install -m 0644 "$script_dir/elkwifi-0.23/menu.asm" "$upstream/rom/menu.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/wificmd.asm" "$upstream/rom/wificmd.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/driver.asm" "$upstream/rom/driver.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/serial.asm" "$upstream/rom/serial.asm"
-install -m 0644 "$script_dir/elkwifi-0.23/wget_helpers.asm" "$upstream/rom/wget.asm"
+install -m 0644 "$overlay_dir/menu.asm" "$upstream/rom/menu.asm"
+install -m 0644 "$overlay_dir/wificmd.asm" "$upstream/rom/wificmd.asm"
+install -m 0644 "$overlay_dir/driver.asm" "$upstream/rom/driver.asm"
+install -m 0644 "$overlay_dir/serial.asm" "$upstream/rom/serial.asm"
+install -m 0644 "$overlay_dir/wget_helpers.asm" "$upstream/rom/wget.asm"
 
 (cd "$upstream/rom" && beebasm -i ElkWifi.asm)
 install -m 0644 "$upstream/rom/bbcwifi.rom" "$root_dir/build/elkwifi_pi1mhz.rom"

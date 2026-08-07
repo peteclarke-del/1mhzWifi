@@ -12,11 +12,14 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       8468a38f63b25785007a50912a3b32a596db8ff9
-1MHzWifi ROM 9f1a95afce028bcf4535b18c33b24f280ebbf1b010588df3c7adfd72912e5e06
-kernel.img   81d3446e1da6c2747ace14f1586d68c57ba222b9981af398fbbfd7277e44332a
-kernel7.img  7ddc1fe15d6417488272fee5b6a27c29f83ca381ef746d0ebf8d2a3633e8163e
-bundle ZIP   24ed7c84e0abb916d28c45bc1296415903a759cf8998de0a6fd3f6a3ac0109d6
+1MHzWifi ROM 38eb83c0fcbcea406df40b8c518ceea7824e1758722242efeaa8269b3c7f6a0f
+kernel.img   1a3b1dd35fdac995b1c18d12486a8d10cb9c237bb340d400e142df5e18ce614b
+kernel7.img  dfc968ba955b3c3646e42a4a7e7c2d1f2eef4bff35ae842847825095ac1a846b
+bundle ZIP   f1cb66dc272a7bc4d6b7bcdfa067855dd1d613d9ced8f7420cd91843da886c8f
 ```
+
+The Pi1MHz commit was the official `master` tip verified on 7 August 2026. Run
+`./pi-side/check_upstream.sh` before producing another hardware-test bundle.
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
 files. Replace only `kernel.img` or `kernel7.img` for the fitted Pi, plus the
@@ -44,23 +47,76 @@ CYW43455 firmware at runtime.
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
-- [ ] Boot ROM 0.1.18 with Electron OS, BASIC and ACP 1770 DFS in Elkulator.
+- [x] Boot ROM 0.1.22 with Electron OS, BASIC and ADFS in Elkulator.
   Confirm both ROM banners and a BASIC prompt.
+- [ ] Repeat the full boot and gameplay matrix with ROM 0.1.25. The non-Tube
+  Zalaga path passes, but the Tube OSFILE destination change is not covered by
+  the existing Elkulator core.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [ ] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
   return. Elkulator's expansion ROM becomes unavailable after `*TAPE`, so this
   transition must be proved on AP5 hardware.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.18` before recording any further test result.
-- [x] Boot with ADFS, MMFS/SWRAM, and a Tube ROM present. Confirm the WiFi and
-  ADFS banners reach the BASIC prompt without `Buffer full`.
+  `1MHzWifi 0.1.25` before recording any further hardware test result.
+- [x] Boot the photographed non-Tube ROM layout in Elkulator: RH Plus 1 1.33
+  in C, BASIC in B, writable sideways RAM in 7 and 6, AFM 1.09 in 5,
+  1MHzWifi 0.1.25 in 3, and Acorn ADFS 1.00 in 1. Run the live `*MENU`, select
+  Zalaga with `L`, and confirm the unmodified loader reaches visible gameplay.
+- [x] Boot the minimum supported layout in Elkulator: 32K Electron, Plus 1,
+  AP5-constrained Pi1MHz mailbox, 1MHzWifi 0.1.22 and the Electron normal-ROM
+  Pi1MHz build of MMFS 1.60. No Plus 2, sideways RAM, ADFS or Tube is present.
+  Mount a FAT32 Pi SD-card image containing `BEEB.MMB`, select fixture disc
+  507, catalogue `DESK`, run `*UEF LOAD DESK`, and reach the running Desk
+  Diary program menu.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
 - [x] Run `*MENUSRC` with no services-mailbox device. Confirm a bounded error and return to BASIC.
-- [ ] Add a Pi1MHz services-mailbox device to Elkulator and run live command tests.
+- [x] Add a Pi1MHz services-mailbox and JIM bridge to Elkulator and run live
+  Internet command tests.
 
-Existing captures are stored under `tests/elkulator/screenshots/`. They prove
-ROM startup, identity, command return and missing-service behavior. Elkulator
-does not model the Pi1MHz mailbox, Plus 5 forwarding, or Tube transfers.
+Existing captures are stored under `tests/elkulator/screenshots/`. The
+maintained adapter models the Pi1MHz mailbox, JIM and AP5 address decoder. It
+does not emulate a Tube parasite, so Tube coexistence remains a physical gate.
+
+## Filing-system matrix
+
+Use the same ROM and matched Pi kernel for every row. Changing the filing
+system must not require a 1MHzWifi ROM rebuild, a different command path, or a
+fixed sideways-bank allocation. For every source filing system, run `*UEF
+LOAD` on the same raw UEF and compressed Desk Diary fixture, reach the
+application rather than the BASIC prompt, then reselect and catalogue the
+source filing system after WiCFS finishes or after Break.
+
+| Source filing system | Required setup | Entry and recovery checks | Status |
+| --- | --- | --- | --- |
+| BeebSCSI ADFS | Acorn ADFS 1.00, AP5 and the existing `/BeebSCSI0/scsi0.dat` | `*ADFS`, `*CAT`, load, Break, `*ADFS`, `*CAT` | Physical gate |
+| Normal ADFS | Plus 3 or equivalent 1770 ADFS media | `*ADFS`, `*CAT`, load, Break, `*ADFS`, `*CAT` | Pending with a MOS-valid writable fixture |
+| DFS | 1770 DFS media containing the fixture | `*DISC`, `*.` (`@.` in Elkulator), load, Break, `*DISC`, `*.` | Desk Diary launch passed; recovery pending |
+| MMFS | Electron MMFS in any suitable ROM or sideways-RAM bank with its normal SD/MMB backing | select image, `*CAT`, load, Break, reselect image, `*CAT` | Minimum-profile emulator launch passed; recovery and physical runs pending |
+| TAPE/CFS | Native cassette UEF selected before 1MHzWifi use | `*TAPE`, catalogue/load, MENU or UEF launch, Break, `*TAPE` | Pending exact-profile rerun |
+
+The ROM-side import is deliberately filing-system neutral. It opens the
+caller's filename with MOS `OSFIND`, consumes it with `OSBGET`, and reselects
+the Pi1MHz JIM window after every byte. Tests must nevertheless exercise each
+row because ADFS, DFS and MMFS have different vector owners and workspace
+usage. A DFS pass is not evidence for either ADFS variant or MMFS.
+
+The first normal-ADFS fixture created with the legacy host `fstool` is not
+valid acceptance evidence. Acorn ADFS itself reports `Bad FS map` from a plain
+`*TYPE DESK`, before 1MHzWifi is entered. Keep that image out of regression
+results and use media which passes a native ADFS open/read check first.
+
+## Supported configuration profiles
+
+The minimum release profile is a 32K Electron with a Plus 1, AP5, Pi1MHz on
+the 1MHz bus, 1MHzWifi and Electron MMFS. The normal-ROM Pi1MHz MMFS build is
+`MMFS/1/EMMFS.rom` in the official MMFS 1.60 release. This profile must not
+require a Plus 2, sideways RAM, ADFS or Tube.
+
+The stress profile reproduces the photographed machine: Plus 2, Plus 1, AP5,
+Pi1MHz, BeebSCSI ADFS, MMFS, 32K sideways RAM and an optional Tube. Its ROM
+order is useful regression evidence but is not an ABI. 1MHzWifi must discover
+and coexist with the installed filing systems and expansion ROMs regardless
+of their bank numbers.
 
 ## Cold boot and bus gate
 
@@ -125,7 +181,7 @@ Expected error meanings:
   `Downloading menu`, the counted `WGET RAW OK`, `WGET GZIP OK`, or
   `WGET ZIP OK` line with expanded length, and
   `Starting menu` appear, the cartridge
-  `&FC34` bank-select sequence becomes a full `&FCFD-&FCFE` JIM selection, and host `&E00` starts
+  `&FC34` bank-select sequence becomes an AP5-compatible no-bank helper, and host `&E00` starts
   the menu without a BASIC `CALL`.
 - [ ] Confirm the first screen renders all 21 catalogue entries.
 - [ ] With ADFS current, run `*MENU` without entering `*TAPE` first. Confirm
@@ -138,6 +194,44 @@ Expected error meanings:
 
 ## WiCFS and JIM gate
 
+### Local physical-hardware evidence
+
+The ignored `samples/` directory is retained as local test evidence. It is not
+build output and must not be removed by repository cleanup. The current files
+record tests on the Electron installation with Plus 2, Plus 1, AP5, a 6502
+Tube, Pi1MHz on the 1MHz bus, ADFS, MMFS/SWRAM and BeebSCSI support present.
+
+The 7 August 2026 photographs record these ROM 0.1.22 results:
+
+- `20260807_180750.jpg`: raw Zalaga downloads as `&7462` bytes, WiCFS starts,
+  `CHAIN ""` loads `ZALAGA 05 05EE`, then returns to the Tube BASIC prompt.
+- `20260807_180801.jpg`: `*ROMS` and `*VERSION` identify 1MHzWifi 0.1.22,
+  Acorn Tube 6502 64K, Acorn ADFS, RH Plus 1 and BASIC. The Pi reports kernel
+  `V1.30-80-g8468a38-dirty.5cd08bdf`.
+- `20260807_181024.jpg`: `*ONLINE` succeeds, but the native `*SSH` capability
+  probe returns local timeout `&2A`.
+
+`samples/sdcard.zip` is the complete FAT boot-partition capture from that
+test. Its ROM and both kernels match the then-current 0.1.22 release hashes,
+so these failures are not stale-deployment results. It also preserves the
+active AP5, Services, BeebSCSI and WiFi configuration for comparison.
+
+`Acornsoft Desk Diary (198x)(Acornsoft).uef` is the local compressed-UEF test
+fixture used by the normalisation test. It remains ignored because it is
+third-party test media. These files are observations from physical hardware,
+not emulator acceptance evidence.
+
+Earlier releases corrected the AP5 selector and WiCFS state corruption, but
+the current photographs isolate a second defect. ROM 0.1.22 copied only the
+low 16 bits of the caller's OSFILE load address and always wrote into host RAM.
+Tube BASIC supplied a parasite destination, so it received no tokenised BASIC
+program and returned to its prompt after the filename was printed. ROM 0.1.24
+retained all four address bytes but commanded a parasite-to-host transfer while
+writing host-to-parasite bytes. Physical testing with the same ROM order proved
+that a Tube-off reboot works and a Tube-active boot fails. ROM 0.1.25 uses Tube
+command 1 for the host-to-parasite load. Physical gameplay remains the
+acceptance gate.
+
 - [ ] Confirm `Pi1MHz.cfg` contains active `Rampage_addr=0xFD`. Boot with ADFS,
   DFS, MMFS/SWRAM and other JIM users present; verify each can reselect its own
   address after 1MHzWifi commands.
@@ -145,12 +239,15 @@ Expected error meanings:
 - [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
-- [ ] Retest Zalaga, Arcadians, Chuckie Egg and DeskDiary with ROM 0.1.18.
+- [ ] Retest Zalaga, Arcadians, Chuckie Egg and DeskDiary with ROM
+  0.1.25 on the physical Electron and AP5. Zalaga and
+  DeskDiary currently fail as recorded above, although Zalaga and Arcadians
+  reach gameplay end to end through the live Elkulator bridge.
   Confirm every requested cassette file stops on its own final CFS block.
   Earlier ROMs called the loader compatibility helper before branching on
   that block's last-block bit. The helper changed the processor flags, so an
   OSFILE load could consume later files and finally report `End of UEF` or an
-  invalid chunk type. Version 0.1.18 branches on the bit first, preserves the
+  invalid chunk type. Version 0.1.19 branches on the bit first, preserves the
   OSFILE control-block pointer on the active 6502 stack, leaves the caller's
   block unchanged, and does not touch the `&03E0-&03FF` keyboard command queue.
 - [ ] After a title finishes or an explicit catalogue operation reaches the
@@ -161,12 +258,21 @@ Expected error meanings:
 - [ ] Run `*MENU`, press `L` for Zalaga, and confirm the published menu executes
   its original `*REWIND` followed by `CHAIN ""` after the download. The ROM
   must not substitute `*RUN`, `*/`, or another launch command.
-- [ ] In the Elkulator preload harness, execute the complete published Zalaga
-  UEF through WiCFS and confirm the title reaches gameplay. This covers the
+- [x] In the live Elkulator bridge, execute the complete published Zalaga UEF
+  through WiCFS and confirm the title reaches gameplay. This covers the
   second-stage vector-reset signature and subsequent `Scrunch` and
   `ElkZalaga3` files without changing the stock launch commands.
+- [x] Trace the initial Zalaga file under the photographed non-Tube ROM order.
+  Confirm its relocated entry at `&13DA` matches the UEF byte for byte, issues
+  the original `/` OSCLI shorthand, and reaches WiCFS FSCV reason 2 after the
+  reason-8 notification is handled locally.
+- [x] Select Arcadians as menu entry `O`; confirm the live 24,946-byte
+  `Acornsoft/Arcadians_E.uef` download reaches its runnable game screen.
+- [x] Put the gzip DeskDiary sample on an emulated DFS disc as `DESK`, run
+  `*UEF LOAD DESK`, confirm normalization from 10,631 to 20,580 bytes, and
+  reach the application's `ADDRESS`/`PLANNER` menu without another command.
 - [ ] Put the 29,794-byte Zalaga UEF on a DFS image, run
-  `*UEF LOAD ZALAGA`, verify `UEF RAW OK &7462 bytes in JIM 1`, and confirm the
+  `*UEF LOAD ZALAGA`, verify `UEF RAW OK &7462 bytes in JIM`, and confirm the
   game reaches its title screen through the two-stage queued WiCFS launch with
   no additional keystrokes.
 - [ ] Repeat `*UEF LOAD` from hardware DFS, the ADFS hard disc and MMFS, including
@@ -174,7 +280,8 @@ Expected error meanings:
   larger than `&FFFE` bytes.
 - [ ] Run `*UEF LOAD DESKDIARY` with the 20,580-byte expanded image. Confirm
   the final zero-byte `V1` CFS marker completes without `Unexpected EOF` and
-  the application continues through its intended launch path.
+  the application continues through its intended launch path on physical
+  hardware. This path has passed under Elkulator from an emulated DFS disc.
 - [ ] Repeat the local import with raw UEF, gzip UEF, a single-entry ZIP
   containing raw UEF, and a ZIP containing gzip UEF. Verify the reported
   format and expanded byte count, then test bad CRC, truncated deflate data,
@@ -202,19 +309,21 @@ Expected error meanings:
 
 - [ ] Run `*HELP WIFI`, `*MENUSRC`, `*MENU`, `*WGET`, and `*WICFS` from the I/O processor.
 - [ ] Repeat applicable commands while each supported Tube is fitted and active.
-  Any Tube traffic must be normal MOS or application activity, never ElkWiFi or
-  WiCFS transport.
+  Any Pi, network or JIM traffic must remain on the 1MHz bus. Tube traffic is
+  permitted only for normal MOS or application activity, including an OSFILE
+  caller's explicit parasite load destination.
 - [ ] Run `*MENU` with the Tube enabled. Confirm the menu UI executes on the
-  I/O processor, title data uses host JIM address `00:01:page`, and no parasite `&0E00`
+  I/O processor, title data uses the AP5-visible JIM window, and no parasite `&0E00`
   execution or BASIC `CALL` occurs.
 - [ ] Trace calls and confirm only the I/O processor accesses `&FCxx` and `&FDxx`.
 - [ ] Exercise every pointer-bearing OSWORD `&65` call with buffers in parasite memory.
-- [ ] Trace a complete title load and confirm WiCFS never accesses `&0406`,
-  `&FEE4` or `&FEE5`, never claims the Tube and never transfers game data to a
-  parasite. Repeat with no Tube fitted and with a Tube fitted and active.
+- [ ] Trace a complete title load. Confirm host OSFILE addresses never access
+  Tube registers. Confirm an `&FFFFxxxx` parasite address uses the Electron
+  Tube entry `&0406` and R3 data register `&FCE5`, releases filing-system Tube
+  ID `&0A`, and never routes Pi or JIM traffic through the Tube.
 - [ ] Select `Aardvark/Zalaga_E.uef` from `*MENU` with the Tube enabled. Confirm
-  each stage remains in Electron memory and the game reaches its title screen
-  without token text, a BASIC prompt or any Tube activity.
+  each stage reaches the destination requested by MOS and the game reaches its
+  title screen without token text or an unexpected BASIC prompt.
 - [ ] Confirm no WiCFS vector code occupies Tube workspace `&0400-&07FF` and no
   parasite pointer is passed to JIM or the 1MHz-bus Pi service.
 
@@ -227,8 +336,8 @@ Expected error meanings:
 - [ ] Run ElkChat's `ELKNET` diagnostic with `*RUN ELKNET` against the original
   ElkWiFi 0.23 ROM. Record function 18 IFCFG, function 4 JOIN query and
   function 8 TCP-open responses.
-- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with 1MHzWifi 0.1.18
-  and matched kernel revision `V1.30-80-g8468a38-dirty.01b459a6`. None of the
+- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with 1MHzWifi 0.1.25
+  and matched kernel revision `V1.30-80-g8468a38-dirty.29afd03a`. None of the
   calls may block or
   raise `Not implemented`.
 - [ ] Call function 9 with a CR-terminated `0` parameter before function 8.

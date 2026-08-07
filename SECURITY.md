@@ -8,7 +8,9 @@ current form.
 
 - Saved WiFi profiles and `Pi1MHz.cfg` passwords are plaintext on the FAT partition.
 - HTTP and raw TCP are plaintext.
-- TLS, HTTPS, and SSH are not implemented.
+- The ElkWiFi-compatible WGET and raw TCP paths do not provide TLS or HTTPS.
+- SSH is available only through the separate native `SSH` host tool and the
+  managed Pi secure service. It is not an ElkWiFi OSWORD extension.
 - WEP and WPA1 are available only for compatibility with legacy access points.
 - The Acorn host does not provide process or memory isolation.
 
@@ -24,4 +26,3 @@ privately before publishing details.
 
 Include affected ROM and kernel hashes, hardware models, the shortest command
 sequence that reproduces the issue, and sanitised logs.
-

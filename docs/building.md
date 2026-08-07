@@ -4,6 +4,16 @@ This repository contains the maintained 1MHzWifi overlays, patches, tests, and
 release artifacts. It does not contain patched copies of ElkWiFi or Pi1MHz.
 Both upstream projects must be checked out separately at the pinned commits.
 
+Each upstream target has a self-contained package:
+
+- `rom-side/elkwifi-0.23/patches/` contains the ElkWiFi source patches.
+- `rom-side/elkwifi-0.23/overlay/` contains complete ROM assembly sources.
+- `pi-side/pi1mhz-8468a38/patches/` contains the Pi1MHz source patches.
+- `pi-side/pi1mhz-8468a38/overlay/` contains complete Pi service sources.
+
+The corresponding build script is the authority for patch order. Package
+files must not depend on an unrecorded change in an upstream checkout.
+
 ## Required tools
 
 - Git
@@ -13,13 +23,32 @@ Both upstream projects must be checked out separately at the pinned commits.
 - CMake and Make for Pi1MHz
 - Arm GNU Toolchain 13 or later, including `arm-none-eabi-gcc`
 
+Install the Python test dependency and run the normal unified gate with:
+
+```sh
+make deps
+make test
+```
+
 Use an external build directory with an absolute path containing no spaces.
 The upstream Pi1MHz CMake files do not quote every generated include path. If
 BeebAsm is installed as a confined Snap, its ElkWiFi checkout must also be in a
 location the Snap can read. A short directory directly below the user home
 directory satisfies both constraints on a normal Linux workstation.
 
-## Obtain the pinned upstream sources
+## Verify and obtain the current reviewed upstream sources
+
+The Pi1MHz revision was verified against the official repository on 7 August
+2026. Its default branch is `master`, not `main`, and the reviewed commit was
+the branch tip at that time. Before preparing a release, confirm that upstream
+has not advanced:
+
+```sh
+./pi-side/check_upstream.sh
+```
+
+If the check reports a newer commit, review and rebase the integration instead
+of changing the hash without qualification.
 
 The following example uses `/home/your-user/1mhzwifi-build`. Replace it with an
 explicit path suitable for the build machine.
@@ -34,6 +63,7 @@ git -C "$build_root/ElkWiFi" checkout 7bf366c97bec18bd238963c95e6f2aa6893cdb3a
 git clone https://github.com/dp111/Pi1MHz.git "$build_root/Pi1MHz"
 git -C "$build_root/Pi1MHz" checkout 8468a38f63b25785007a50912a3b32a596db8ff9
 git -C "$build_root/Pi1MHz" submodule update --init --recursive
+./pi-side/check_upstream.sh "$build_root/Pi1MHz"
 ```
 
 Do not reuse a checkout carrying unrelated local changes. The integration
@@ -77,9 +107,17 @@ The `all` preset is the release build. It produces:
 - `build/pi1mhz-all/kernel7.img` for Pi Zero 2 W and Pi 3A+/3B/3B+
 - `build/pi1mhz-all/` as the complete FAT boot-partition candidate
 - `build/pi1mhz-all-hardware-test.zip` as the equivalent archive
+- `build/pi1mhz-all/Pi1MHz/EMMFS.rom` for a 32K Electron without sideways RAM
+- `build/pi1mhz-all/host-tools/nettools.ssd`, paired with the secure-service
+  ABI in those kernels
 
-The installer applies every Pi patch, copies the two maintained ElkWiFi service
-sources, preserves active `Pi1MHz.cfg` values, builds both upstream targets,
+The `host-tools` directory is release payload, not Pi firmware. Copy or select
+`nettools.ssd` using the target machine's DFS/MMFS workflow. Updating only the
+boot files cannot update an older `SSH` executable stored in an existing disc
+image.
+
+The installer applies every Pi patch, copies the maintained ElkWiFi service
+and UEF normalisation sources, preserves active `Pi1MHz.cfg` values, builds both upstream targets,
 and packages the firmware tree. Normal hardware-test bundles retain each
 kernel's real link timestamp so a stale SD-card copy can be detected visually.
 Set `SOURCE_DATE_EPOCH` only for a release job which requires normalized
