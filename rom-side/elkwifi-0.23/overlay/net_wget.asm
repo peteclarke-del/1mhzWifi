@@ -469,6 +469,8 @@ net_primary_page = heap+&E6
  jmp pi_wget_close_claimed
 
 .pi_wget_store_paged
+ php
+ sei                         \ FCFF and the JIM aperture are shared by AP5 users
  pha
  jsr set_bank_1
  lda net_paged_page
@@ -487,11 +489,13 @@ net_primary_page = heap+&E6
  jsr set_bank_0
  lda net_primary_page
  sta pagereg
+ plp
  rts
 .pi_wget_paged_full
  jsr set_bank_0
  lda net_primary_page
  sta pagereg
+ plp
  jsr pi_wget_close
  ldx #(error_buffer_full-error_table)
  jmp error

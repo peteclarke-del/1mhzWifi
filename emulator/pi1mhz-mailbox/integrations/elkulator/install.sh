@@ -21,11 +21,17 @@ cp "$component_dir/include/pi1mhz_wolfssh.h" "$target/src/"
 cp "$component_dir/src/pi1mhz_wolfssh.c" "$target/src/"
 cp "$integration_dir/pi1mhz_elkulator.h" "$target/src/"
 cp "$integration_dir/pi1mhz_elkulator.c" "$target/src/"
+cp "$integration_dir/tube/ap5_tube.h" "$target/src/"
+cp "$integration_dir/tube/ap5_tube.c" "$target/src/"
+cp "$integration_dir/tube/vrEmu6502.h" "$target/src/"
+cp "$integration_dir/tube/vrEmu6502.c" "$target/src/"
+cp "$integration_dir/tube/LICENSE.vrEmu6502" "$target/src/"
 
 # Elkulator snapshots may mix CRLF and LF. Normalise the patch targets so the
 # versioned patches remain deterministic on Linux and macOS.
 for source in "$target/src/mem.c" "$target/src/main.c" \
-              "$target/src/elk.h" "$target/src/Makefile.am"; do
+              "$target/src/elk.h" "$target/src/Makefile.am" \
+              "$target/src/6502.c" "$target/src/ula.c"; do
     if grep -q "$(printf '\r')" "$source"; then
         tr -d '\r' < "$source" > "$source.pi1mhz-tmp"
         mv "$source.pi1mhz-tmp" "$source"
@@ -75,6 +81,43 @@ if ! grep -q '^elkulator_LDADD += -lz$' "$target/src/Makefile.am"; then
     printf '%s\n' 'elkulator_LDADD += -lz' >> "$target/src/Makefile.am"
 fi
 
+apply_tube_section() {
+    source_path=$1
+    section_patch="$target/.pi1mhz-tube-$(basename "$source_path").patch"
+    awk -v header="--- a/$source_path" '
+        $0 == header { emit = 1 }
+        emit && /^--- a\// && $0 != header { exit }
+        emit { print }
+    ' "$integration_dir/elkulator-ap5-tube.patch" > "$section_patch"
+    test -s "$section_patch"
+    patch --batch -d "$target" -p1 < "$section_patch"
+    rm -f "$section_patch"
+}
+
+if ! grep -q 'ap5_tube_run_host_cycles' "$target/src/6502.c"; then
+    apply_tube_section src/6502.c
+fi
+if ! grep -q 'ap5_tube.c' "$target/src/Makefile.am"; then
+    apply_tube_section src/Makefile.am
+fi
+if ! grep -q 'void updateulaints(void);' "$target/src/elk.h"; then
+    apply_tube_section src/elk.h
+fi
+if ! grep -q 'ap5_tube_handles' "$target/src/mem.c"; then
+    apply_tube_section src/mem.c
+fi
+if ! grep -q 'ap5_tube_host_irq' "$target/src/ula.c"; then
+    apply_tube_section src/ula.c
+fi
+if ! grep -q 'ap5_tube_init' "$target/src/main.c"; then
+    if grep -q 'elkwifiname' "$target/src/main.c"; then
+        patch --batch -d "$target" -p1 \
+            < "$integration_dir/elkulator-ap5-tube-elkwifi.patch"
+    else
+        apply_tube_section src/main.c
+    fi
+fi
+
 if [ -n "${PI1MHZ_WOLFSSH_PREFIX:-}" ]; then
     test -f "$PI1MHZ_WOLFSSH_PREFIX/lib/libwolfssh.a"
     test -f "$PI1MHZ_WOLFSSH_PREFIX/lib/libwolfssl.a"
@@ -96,4 +139,4 @@ if [ -n "${PI1MHZ_WOLFSSH_PREFIX:-}" ]; then
     fi
 fi
 
-echo "Installed reusable Pi1MHz mailbox device into $target"
+echo "Installed Pi1MHz mailbox and AP5 Tube devices into $target"

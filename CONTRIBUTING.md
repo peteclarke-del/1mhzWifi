@@ -17,9 +17,9 @@ renumbering stock OSWORD functions or changing established command syntax.
 Required local checks:
 
 ```sh
-./build.sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-unzip -t build/pi1mhz-all-hardware-test.zip
+make deps
+make test
+sha256sum --check --strict SHA256SUMS
 ```
 
 ## Change requirements
@@ -29,9 +29,10 @@ unzip -t build/pi1mhz-all-hardware-test.zip
 - Keep FIQ work bounded. Network and filesystem work belongs in the cooperative poll path.
 - Bound all host-visible buffers and every missing-device poll.
 - Preserve existing `Pi1MHz.cfg` values unless the change explicitly migrates them.
-- Never probe, claim, read or write Tube hardware. Rely on MOS to marshal calls
-  made by an independently running second processor, then copy I/O-processor
-  buffers through JIM for the Pi1MHz service.
+- Keep Pi1MHz mailbox, network and JIM traffic on the 1MHz bus. Tube access is
+  limited to the standard MOS OSFILE destination path: claim the filing-system
+  Tube channel, transfer a caller-requested `&FFFFxxxx` load through R3, and
+  release the claim on every exit.
 - Add a regression test for each corrected failure mode.
 - Record hardware model, hashes, and exact command output for hardware-only failures.
 

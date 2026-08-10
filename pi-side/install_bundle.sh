@@ -15,7 +15,7 @@ esac
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 root_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
-package_dir="$script_dir/pi1mhz-8468a38"
+package_dir="$script_dir/pi1mhz-516a267"
 patch_dir="$package_dir/patches"
 overlay_dir="$package_dir/overlay"
 # shellcheck source=upstream.env

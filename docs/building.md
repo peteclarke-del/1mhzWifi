@@ -8,8 +8,8 @@ Each upstream target has a self-contained package:
 
 - `rom-side/elkwifi-0.23/patches/` contains the ElkWiFi source patches.
 - `rom-side/elkwifi-0.23/overlay/` contains complete ROM assembly sources.
-- `pi-side/pi1mhz-8468a38/patches/` contains the Pi1MHz source patches.
-- `pi-side/pi1mhz-8468a38/overlay/` contains complete Pi service sources.
+- `pi-side/pi1mhz-516a267/patches/` contains the Pi1MHz source patches.
+- `pi-side/pi1mhz-516a267/overlay/` contains complete Pi service sources.
 
 The corresponding build script is the authority for patch order. Package
 files must not depend on an unrecorded change in an upstream checkout.
@@ -61,7 +61,7 @@ git clone https://github.com/hoglet67/ElkWiFi.git "$build_root/ElkWiFi"
 git -C "$build_root/ElkWiFi" checkout 7bf366c97bec18bd238963c95e6f2aa6893cdb3a
 
 git clone https://github.com/dp111/Pi1MHz.git "$build_root/Pi1MHz"
-git -C "$build_root/Pi1MHz" checkout 8468a38f63b25785007a50912a3b32a596db8ff9
+git -C "$build_root/Pi1MHz" checkout 516a267493d9f19e6bf2f4a2ea4c3e7472b12135
 git -C "$build_root/Pi1MHz" submodule update --init --recursive
 ./pi-side/check_upstream.sh "$build_root/Pi1MHz"
 ```
@@ -117,8 +117,9 @@ boot files cannot update an older `SSH` executable stored in an existing disc
 image.
 
 The installer applies every Pi patch, copies the maintained ElkWiFi service
-and UEF normalisation sources, preserves active `Pi1MHz.cfg` values, builds both upstream targets,
-and packages the firmware tree. Normal hardware-test bundles retain each
+and UEF normalisation sources, preserves active `Pi1MHz.cfg` values, builds
+both upstream targets, and packages the firmware tree. Normal hardware-test
+bundles retain each
 kernel's real link timestamp so a stale SD-card copy can be detected visually.
 Set `SOURCE_DATE_EPOCH` only for a release job which requires normalized
 timestamps. Use the SHA-256 values and the kernel revision reported by
@@ -142,15 +143,14 @@ GPL-2.0+ Pi 3B calibration file, which Raspberry Pi OS also uses for Zero W.
 ## Verify the finished release
 
 ```sh
-./build.sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-unzip -t build/pi1mhz-all-hardware-test.zip
-git diff --check
+make deps
+make test
+sha256sum --check --strict SHA256SUMS
 ```
 
 `build.sh --rom-only` is reserved for scripts which consume the ROM while
 regenerating the kernels and archive. Normal release validation must use
-`build.sh` without that option.
+the root `make test` target, which invokes `build.sh` without that option.
 
 The tests enforce the ROM contract, 1MHz-bus-only implementation, patch order,
 configuration defaults, absence of the retired Linux bridge and cartridge UART
@@ -174,10 +174,11 @@ find . -maxdepth 1 -type d -name '.build-*' -print
 find . -type d -name '__pycache__' -print
 ```
 
-All four commands should produce no output on a clean release checkout. Use
-`git clean -ndX` only as a preview of ignored files. Review its output before
-removing anything; never use a broad clean command when an upstream checkout or
-hardware test file has not been backed up.
+`git status --short` and the two `find` commands should produce no output on a
+clean release checkout. `git status --short --ignored` is an inventory check;
+review every ignored path it reports. Use `git clean -ndX` only as a preview.
+Never use a broad clean command when an upstream checkout or hardware test file
+has not been backed up.
 
 Do not commit WiFi credentials, saved `ElkWiFi.*` settings, BeebSCSI LUN data,
 UEF test media, emulator captures from ad hoc runs, or patched upstream trees.

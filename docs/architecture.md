@@ -80,6 +80,11 @@ TCP compatibility uses net-service commands 45-53. Host buffers are copied
 through reserved JIM scratch pages instead of passing host or parasite pointers
 to the Pi.
 
+NetTools uses a separate secure-service range. Commands 94-100 provide
+capability discovery, secure random data and managed SSH. Commands 101-113 are
+reserved. These commands are consumed by native programs from
+`host-tools/nettools.ssd`; they are not additions to the ElkWiFi OSWORD ABI.
+
 ## Public OSWORD path
 
 MOS service reason 8 enters the retained ElkWiFi `OSWORD &65` handler. It
@@ -117,16 +122,16 @@ The active stream cursor and counters use the original WiCFS cassette zero-page
 ABI. Vector ownership and predecessor addresses are copied through
 `&FCA6-&FCA9` to `&FFEF00-&FFEF10` in the Pi1MHz services buffer. This range
 sits directly below the command pages at `&FFF000` and outside the AP5-visible
-UEF window. State is reloaded only for installation or reset.
+UEF window. State is reloaded for installation and invalidated during reset.
 The public ElkWiFi driver page shadow is transient at `heap+&D8`. No persistent
 state is kept in application memory, ADFS `&0Dxx`, Tube workspace, or the
 keyboard command queue.
 
-Every reset invokes an ownership-checked WiCFS teardown. An extended-vector
-entry is restored only when its address and ROM owner still identify the
-1MHzWifi handler. BYTEV is restored only while it still points at the WiCFS
-`*TAPE` trap. This releases a stale virtual cassette without overwriting ADFS,
-DFS, MMFS or another ROM which has subsequently claimed a vector.
+MOS rebuilds its standard and extended vector tables before issuing reset
+service calls. Every reset therefore invalidates the saved WiCFS ownership
+record without restoring its predecessor entries. Restoring those stale
+entries during the service-ROM pass can overwrite ADFS, DFS, MMFS or another
+ROM which has already reclaimed a vector.
 
 `*UEF LOAD` produces the same JIM image from a file on the current MOS filing
 system. It uses OSFIND and OSBGET rather than reading ADFS or DFS structures
@@ -145,14 +150,10 @@ zero-byte block skips the data read, accounts for the already-consumed header
 and CRC, and returns success. This is required by applications which end a
 multi-file tape with a zero-byte version or capability marker.
 
-WiCFS retains all four bytes of the caller's OSFILE load address. For a normal
-host address it writes directly to I/O-processor memory. When the upper address
-bytes are `&FFFF` and OSBYTE `&EA` reports an active Tube, it uses the standard
-MMFS filing-system sequence: claim Tube ID `&0A`, initialise an I/O-to-parasite
-transfer through the Tube host entry at `&0406`, write the already-received UEF
-bytes to Electron Tube R3 at `&FCE5`, and release the claim on every completion
-or error exit. The UEF source remains the Pi1MHz JIM window throughout. No Pi
-request, JIM selector or network payload is routed through the Tube.
+WiCFS is host-only. It writes downloaded UEF files directly to Electron
+I/O-processor memory and never probes or accesses Tube registers. The menu
+retains the stock `REWIND` and `CHAIN ""` sequence. A fitted Tube remains
+enabled and available to software which chooses to use it after launch.
 
 WiCFS records the handler address and owning ROM behind each MOS extended
 filing vector before installing its own entries. Unsupported operations are
@@ -206,9 +207,10 @@ remaining selected.
 The published menu is itself cartridge-specific. It selects the second paged
 RAM bank through an inlined `&FC34` sequence. After download, the ROM scans
 `&0E00-&1FFF` and replaces that exact eight-byte sequence with an equal-length
-Pi1MHz helper call that removes the cartridge bank operation. Equal length preserves
-the downloaded program's addresses and relative branches. Custom payloads
-without the exact signature are unchanged. The complete contract is documented in
+Pi1MHz helper call that removes the cartridge bank operation. Equal length
+preserves the downloaded program's addresses and relative branches. Custom
+payloads without the exact signature are unchanged. The complete contract is
+documented in
 [MENU runtime adaptation](menu-runtime-patch.md).
 
 One published title contains a second-stage loader at `&0400` which copies the

@@ -11,7 +11,7 @@ diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
                      equs "MENUSRC"
                      equb >menusrc_cmd, <menusrc_cmd
                      equs "MENU"
-@@ -236,6 +240,7 @@
+@@ -236,6 +242,7 @@
                      equs " TIME      Print current time",&0D
                      equs " VERSION   Print firmware version",&0D
                      equs " WGET      Get a file from a webserver",&0D
@@ -19,7 +19,7 @@ diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
                      equs " WICFS     Enable WiFi CFS",&0D
                      equs " WIFI      WiFi control ON|OFF|HR|SR",&0D
                      nop
-@@ -290,6 +295,7 @@
+@@ -290,6 +297,7 @@
  include "wicfs.asm"
  include "wget.asm"
  include "net_wget.asm"

@@ -1,5 +1,5 @@
 diff --git a/firmware/Pi1MHz/Pi1MHz.cfg b/firmware/Pi1MHz/Pi1MHz.cfg
-index 131e6d3..7f0a68e 100644
+index 49f2689..91bdd72 100644
 --- a/firmware/Pi1MHz/Pi1MHz.cfg
 +++ b/firmware/Pi1MHz/Pi1MHz.cfg
 @@ -29,7 +29,7 @@
@@ -24,7 +24,7 @@ index 131e6d3..7f0a68e 100644
  
  # ---- audio ----------------------------------------------------------------
  # BeebAudio_Off=1          # mute the Beeb's own audio passthrough (the
-@@ -106,3 +106,15 @@
+@@ -111,3 +111,15 @@
  # teletext_server3=a.b.c.d:port   # channel 3
  # teletext_server4=a.b.c.d:port   # channel 4 (port optional, default 19761)
  # teletext_debug=1                # log teletext events
@@ -146,7 +146,7 @@ index 25a4f9b..82faab9 100644
 -btc_params1=0x7530
 +xtalfreq=37400
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 13e03eb..f4a7321 100644
+index 9fd8185..a87e6d9 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
 @@ -36,7 +36,11 @@ project( Pi1MHz C ASM )
@@ -174,7 +174,7 @@ index 13e03eb..f4a7321 100644
  
  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Warith-conversion ")
  
-@@ -259,6 +266,12 @@ set(FrameBuffer_emulator_files
+@@ -260,6 +267,12 @@ set(FrameBuffer_emulator_files
  set(services_emulator_files
     services_emulator.c
     fat_service.c
@@ -187,7 +187,7 @@ index 13e03eb..f4a7321 100644
     net_service.c
     net_service.h
     net_tnfs.c
-@@ -312,6 +325,7 @@ set(lwip_files
+@@ -313,6 +326,7 @@ set(lwip_files
     ${LWIP_ROOT}/src/core/pbuf.c
     ${LWIP_ROOT}/src/core/stats.c
     ${LWIP_ROOT}/src/core/sys.c
@@ -195,7 +195,7 @@ index 13e03eb..f4a7321 100644
     ${LWIP_ROOT}/src/core/tcp.c
     ${LWIP_ROOT}/src/core/tcp_in.c
     ${LWIP_ROOT}/src/core/tcp_out.c
-@@ -351,6 +365,7 @@ set_source_files_properties(
+@@ -352,6 +366,7 @@ set_source_files_properties(
     ${LWIP_ROOT}/src/core/pbuf.c
     ${LWIP_ROOT}/src/core/stats.c
     ${LWIP_ROOT}/src/core/sys.c
@@ -203,13 +203,14 @@ index 13e03eb..f4a7321 100644
     ${LWIP_ROOT}/src/core/tcp.c
     ${LWIP_ROOT}/src/core/tcp_in.c
     ${LWIP_ROOT}/src/core/tcp_out.c
-@@ -390,10 +405,14 @@ set( Pi1MHz_sources
+@@ -390,11 +405,15 @@ set( Pi1MHz_sources
+     ${M5000_emulator_files}
      ${BeebSID_emulator_files}
      ${FrameBuffer_emulator_files}
-     ${services_emulator_files}
 +    uef_normalize.c
 +    puff.c
 +    puff.h
+     ${services_emulator_files}
      ${teletext_emulator_files}
      ${mouse_redirect_files}
      ${wifi_files}
@@ -218,7 +219,7 @@ index 13e03eb..f4a7321 100644
  )
  
  # These are cold (config/filename handling, ~12 call sites). We recompile them
-@@ -408,9 +427,35 @@ set_source_files_properties(
+@@ -409,9 +428,35 @@ set_source_files_properties(
     lib/newlib-str/strcasestr.c
     PROPERTIES COMPILE_OPTIONS "-Os;-Wno-cast-qual;-Wno-conversion" )
  
@@ -279,7 +280,7 @@ index 8a7a155..c1b8d63 100644
        emulator has had its turn - a poll that stops responding still trips it. */
 diff --git a/src/elkwifi_service.c b/src/elkwifi_service.c
 new file mode 100644
-index 0000000..477eddd
+index 0000000..c6a8583
 --- /dev/null
 +++ b/src/elkwifi_service.c
 @@ -0,0 +1,1003 @@
@@ -329,7 +330,7 @@ index 0000000..477eddd
 + * first 64K so the host and Pi always refer to the same physical bytes. */
 +#define ELKWIFI_UEF_BASE 0u
 +#define ELKWIFI_VERSION_RESPONSE \
-+   "Pi1MHz ElkWiFi 0.1.25, kernel " GITVERSION "\r\n\r\nOK\r\n"
++   "Pi1MHz ElkWiFi 0.1.30, kernel " GITVERSION "\r\n\r\nOK\r\n"
 +
 +_Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
 +               "ElkWiFi service range start disagrees with services.h");

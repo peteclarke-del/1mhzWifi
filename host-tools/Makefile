@@ -2,7 +2,7 @@ BEEBASM ?= beebasm
 CC ?= cc
 REPO_ROOT := ..
 MAILBOX := $(REPO_ROOT)/emulator/pi1mhz-mailbox
-PI_OVERLAY := $(REPO_ROOT)/pi-side/pi1mhz-8468a38/overlay/src
+PI_OVERLAY := $(REPO_ROOT)/pi-side/pi1mhz-516a267/overlay/src
 
 .PHONY: all test test-elkulator test-elkulator-ssh-real test-ssh-real test-pi-firmware emulator-deps emulator-smoke-images clean distclean
 

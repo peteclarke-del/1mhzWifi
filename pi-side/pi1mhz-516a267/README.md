@@ -1,9 +1,10 @@
-# Pi1MHz 8468a38 patch package
+# Pi1MHz 516a267 patch package
 
 This directory contains the changes applied to Pi1MHz commit
-`8468a38f63b25785007a50912a3b32a596db8ff9`. This was the tip of the official
-`master` branch when verified on 7 August 2026. It is 80 commits after the
-V1.30 tag and includes the later network-service foundation used by 1MHzWifi.
+`516a267493d9f19e6bf2f4a2ea4c3e7472b12135`. This was the tip of the official
+`master` branch when verified on 9 August 2026. It is 83 commits after the
+V1.30 tag and includes the later network-service foundation, H.264 decoder
+work and updated CYW43455 firmware.
 
 - `patches/` contains the ordered Pi1MHz source patches.
 - `overlay/` contains the ElkWiFi service and UEF normalisation sources copied

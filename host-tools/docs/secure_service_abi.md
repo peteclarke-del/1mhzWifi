@@ -1,9 +1,9 @@
 # Pi1MHz NetTools secure-service ABI
 
 The secure service reserves commands 94-113 after the 1MHzWifi service range.
-Pi1MHz services range. It uses the normal page-aligned command block selected
-by `&FCAA`; handle zero is at JIM `&FFF000`. All JIM addresses are offsets from
-the start of the services RAM.
+It uses the normal page-aligned command block selected by `&FCAA`; handle zero
+is at JIM `&FFF000`. All JIM addresses are offsets from the start of the
+services RAM.
 
 ## Implemented foundation
 

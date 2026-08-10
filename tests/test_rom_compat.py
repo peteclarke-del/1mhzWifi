@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "38eb83c0fcbcea406df40b8c518ceea7824e1758722242efeaa8269b3c7f6a0f"
+ROM_SHA256 = "e26c9b977421b7965c36f6ca65e58367cef04797a75628c8a6687a4525b4d896"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -18,11 +18,11 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(len(self.rom), 16 * 1024)
         self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
-            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x18, 0x19))
+            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x18, 0x1E))
         )
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.25\0")
-        self.assertIn(b"1MHzWifi 0.1.25 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.30\0")
+        self.assertIn(b"1MHzWifi 0.1.30 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -36,7 +36,7 @@ class RomCompatibilityTest(unittest.TestCase):
         # internal *TAPE cannot disconnect a multi-stage virtual tape.
         self.assertIn(bytes.fromhex("C9 8C D0 01 60 4C 00 00 EA"), self.rom)
 
-    def test_wicfs_uses_mos_vectors_and_standard_tube_osfile_transfer(self) -> None:
+    def test_wicfs_uses_mos_vectors_and_host_only_osfile_transfer(self) -> None:
         # Test the cassette final-block flag before the loader-compatibility
         # helper can alter N/Z. A final block must call the helper and then
         # jump unconditionally to the completed OSFILE path.
@@ -53,17 +53,15 @@ class RomCompatibilityTest(unittest.TestCase):
         # No ROM switcher may be copied into &07A4. Pages 4-7 belong to the
         # Tube host code whenever a parasite is active.
         self.assertNotIn(bytes.fromhex("A5 F4 8D C2 07"), self.rom)
-        # Pi/JIM transport remains on the 1MHz bus. When standard OSFILE upper
-        # address bytes are &FFFF and OSBYTE &EA reports a Tube, WiCFS delivers
-        # bytes through the Electron AP5 Tube R3 data register. Host loads keep
-        # the original indirect store path.
-        self.assertEqual(self.rom.count(bytes.fromhex("8D E5 FC")), 1)
-        self.assertIn(bytes.fromhex("A9 EA A2 00 A0 FF 20 F4 FF"), self.rom)
-        self.assertIn(bytes.fromhex("20 06 04"), self.rom)
-        # Acorn Tube command 1 is the multi-byte host-to-parasite direction.
-        # Command 0 would make a Tube BASIC CHAIN print the filename but load
-        # no usable program into parasite memory.
-        self.assertEqual(self.rom.count(bytes.fromhex("A9 01 20 06 04")), 1)
+        # WiCFS is an Electron-host filing system. It must not inspect, claim,
+        # write or otherwise use an optional Tube as a transfer destination.
+        self.assertNotIn(bytes.fromhex("8D E4 FC"), self.rom)
+        self.assertNotIn(bytes.fromhex("8D E5 FC"), self.rom)
+        self.assertNotIn(bytes.fromhex("AD E4 FC"), self.rom)
+        self.assertNotIn(bytes.fromhex("AD E5 FC"), self.rom)
+        self.assertNotIn(bytes.fromhex("A9 EA A2 00 A0 FF 20 F4 FF"), self.rom)
+        self.assertNotIn(bytes.fromhex("20 06 04"), self.rom)
+        # Every UEF byte follows the normal host indirect-store path.
         self.assertIn(bytes.fromhex("A0 00 91 B0 E6 B0"), self.rom)
         # Extended vector entry points for FILEV/BGETV/FINDV/FSCV.
         for entry in (0x1B, 0x21, 0x2A, 0x2D):
@@ -95,15 +93,14 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AE DA 09 AC DB 09")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("8C DC 09")), 1)
         self.assertEqual(self.rom.count(bytes.fromhex("AC DC 09")), 1)
-        # Original WiCFS returns the OSFILE result without rewriting the
-        # caller-owned control block. The synthetic catalogue writeback
-        # diverged from that contract and remains deliberately absent.
-        retired_osfile_metadata = bytes.fromhex(
+        # Successful host OSFILE loads return the cassette catalogue metadata
+        # which BASIC CHAIN needs to execute the loaded program.
+        osfile_metadata = bytes.fromhex(
             "A0 02 A2 00 BD BE 03 91 B8 "
             "E8 C8 E0 08 D0 F5 A5 B5 91 B8 C8 AD C6 03 91 B8 C8 A9 "
             "00 91 B8 C8 91 B8 A2 04 C8 91 B8 CA D0 FA A9 01 60"
         )
-        self.assertEqual(self.rom.count(retired_osfile_metadata), 0)
+        self.assertEqual(self.rom.count(osfile_metadata), 1)
         # The UEF length remains authoritative in JIM. Do not reintroduce the
         # discarded cache in volatile &09D6/&09D7 host heap.
         self.assertNotIn(bytes.fromhex("A5 F8 8D D6 09 A5 F9 8D D7 09"), self.rom)

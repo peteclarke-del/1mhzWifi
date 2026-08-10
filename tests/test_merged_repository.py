@@ -12,7 +12,7 @@ class MergedRepositoryTest(unittest.TestCase):
             ROOT / "emulator/pi1mhz-mailbox/src/pi1mhz_net_backend.c"
         ).read_text()
         header = (
-            ROOT / "pi-side/pi1mhz-8468a38/overlay/src/secure_service_core.h"
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service_core.h"
         ).read_text()
         expected = {
             "CAPS": 94,
@@ -93,6 +93,18 @@ class MergedRepositoryTest(unittest.TestCase):
             ROOT
             / "emulator/pi1mhz-mailbox/integrations/elkulator/elkulator-elkwifi-main.patch"
         ).read_text()
+        tube_patch = (
+            ROOT
+            / "emulator/pi1mhz-mailbox/integrations/elkulator/elkulator-ap5-tube.patch"
+        ).read_text()
+        tube_elkwifi_patch = (
+            ROOT
+            / "emulator/pi1mhz-mailbox/integrations/elkulator/elkulator-ap5-tube-elkwifi.patch"
+        ).read_text()
+        tube_device = (
+            ROOT
+            / "emulator/pi1mhz-mailbox/integrations/elkulator/tube/ap5_tube.c"
+        ).read_text()
         self.assertIn('printf("-ram number', patch)
         self.assertIn("if (bank >= 0 && bank < 16)", patch)
         self.assertIn("rombank_writable[rombank]", patch)
@@ -110,6 +122,21 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn("elkulator-elkwifi-main.patch", installer)
         self.assertIn("reset6502() performs the MOS service-ROM scan", elkwifi_main)
         self.assertIn("if (rambanks[i]) enable_ram_n(i)", elkwifi_main)
+        self.assertIn('printf("-tube6502 rom', tube_patch)
+        self.assertIn("elkwifiname", tube_elkwifi_patch)
+        self.assertIn("ap5_tube_run_host_cycles(oldcycs)", tube_patch)
+        self.assertIn("address >= 0xfce0 && address <= 0xfcef", tube_device)
+        self.assertIn("selected = value == 0 || value == 1", tube_device)
+        self.assertIn("ula.host_status[0] &= FLOW_BOTH", tube_device)
+        self.assertIn(
+            "+                        ap5_tube_reset();\n"
+            "                         reset6502();",
+            tube_patch,
+        )
+        self.assertIn("elkulator-ap5-tube.patch", installer)
+        self.assertIn("elkulator-ap5-tube-elkwifi.patch", installer)
+        self.assertIn('ram[0x0d6d] |= 0x20', tube_device)
+        self.assertIn("ap5_tube_prepare_cold_boot();", tube_patch)
 
     def test_emulator_preserves_pi1mhz_fat_service_for_mmfs(self) -> None:
         backend = (

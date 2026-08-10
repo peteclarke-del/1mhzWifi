@@ -7,8 +7,8 @@ directly. They do not require the 1MHzWifi/ElkWiFi service ROM.
 
 ## Current programs
 
-- `TERM host [port]`: interactive Telnet client using Pi1MHz's hardware-tested
-  `TELNET:` adapter and a native VT100 parser. Port 23 is the default. Press
+- `TERM host [port]`: interactive Telnet client using Pi1MHz's `TELNET:`
+  adapter and a native VT100 parser. Port 23 is the default. Press
   `Ctrl-]` to disconnect.
 - `SSH user@host [port]`: interactive SSH-2 VT100 client over the versioned
   Pi1MHz secure-service ABI. It displays and confirms unknown host-key
@@ -101,6 +101,11 @@ must pass `make test`, `make test-elkulator`, `make test-ssh-real` and
 prove Ed25519 authentication, PTY/shell setup, encrypted bidirectional data,
 changed-host rejection and bad-key authentication failure.
 
+The current assembled-SSD real-server gate completes public-key authentication,
+PTY allocation, shell input/output and close without returning `&2D`. In the
+secure-service ABI, `&2D` is reserved for genuine authentication failure. A
+valid password fallback or Pi-resident key must not report it.
+
 Install the complete combined package into the pinned Pi1MHz checkout and
 build both supported kernels from the repository root with:
 
@@ -137,8 +142,9 @@ The live emulator and Pi firmware use the same mailbox ABI and wolfSSH trust,
 authentication and channel model. The Pi provider uses raw lwIP callbacks,
 the BCM hardware RNG and FatFs; Pi 1/Zero `kernel.img` and Pi 2/3
 `kernel7.img` both cross-build successfully. Hardware execution remains the
-next gate after the emulator proofs, so retain the original firmware image
-for rollback during first-device testing.
+next gate after the emulator tests, so retain the original firmware image for
+rollback during first-device testing.
+
 Planned later SSD tools include implementations of the installed `PING`,
 `NSLOOK`, `FTP`, `HGET` HTTP/HTTPS and `VIEWDAT` Viewdata scaffolds. Viewdata
 will reuse the stream transport but has its own MODE 7/Prestel renderer and

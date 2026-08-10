@@ -17,9 +17,9 @@ upstream ElkWiFi repository in place.
 | `docs/secure_service_abi.md` | `host-tools/docs/secure_service_abi.md` | Imported with the reconciled command allocation |
 | `docs/ssh_https_plan.md` | `host-tools/docs/ssh_https_plan.md` | Imported and revised to reference central packages |
 | `patches/pi1mhz-mailbox-emulator/` | `emulator/pi1mhz-mailbox/` | Imported as the reusable mailbox/JIM implementation |
-| secure firmware source files | `pi-side/pi1mhz-8468a38/overlay/src/` | Imported into the central Pi overlay |
+| secure firmware source files | `pi-side/pi1mhz-516a267/overlay/src/` | Imported into the central Pi overlay |
 | secure core test | `pi-side/tests/test_secure_service_core.c` | Imported into central Pi tests |
-| `wolfssh-pi1mhz.patch` | `pi-side/pi1mhz-8468a38/patches/` | Imported unchanged |
+| `wolfssh-pi1mhz.patch` | `pi-side/pi1mhz-516a267/patches/` | Imported unchanged |
 | standalone firmware installer | `pi-side/install_bundle.sh` | Superseded by the combined installer |
 | standalone `pi1mhz.patch` | central Pi patch series and `pi-side/upstream/1mhzwifi-pi1mhz.patch` | Superseded and regenerated from the combined source |
 | standalone firmware build test | `pi-side/tests/run_secure_build.sh` | Superseded by the combined two-kernel build gate |
@@ -33,7 +33,7 @@ and commands 101-113 are reserved for that service.
 
 ## Validation completed before sibling removal
 
-- Root ROM, integration and UEF test suite: 33 tests.
+- Root ROM, integration and UEF test suite: 34 tests.
 - Host-tool assembled DFS image and py65 suite: 17 tests.
 - Mailbox/JIM unit and live loopback tests.
 - Secure-service ABI core test.
@@ -45,9 +45,8 @@ and commands 101-113 are reserved for that service.
 - Clean Pi 2/3 `kernel7.img` build.
 - Consolidated upstream patch generation and clean `git apply --check`.
 
-These tests establish the merge and build integrity. ROM 0.1.25 retains the
-non-Tube gameplay path already proved with 0.1.24 and corrects the Tube
-host-to-parasite command. The maintained Elkulator integration also reaches
-active Zalaga gameplay through the live Elkulator mailbox with the photographed
-non-Tube ROM order. The equivalent Tube-active and physical Electron results
-remain separate acceptance gates in the hardware checklist.
+These tests establish merge and build integrity. A live Elkulator test with
+the photographed ROM order, AP5 Tube model and Internet mailbox bridge reached
+the Arcadians program under ROM 0.1.28. 1MHzWifi did not access or disable the
+Tube. The physical Electron result remains a separate acceptance gate in the
+hardware checklist.

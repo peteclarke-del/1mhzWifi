@@ -1,7 +1,7 @@
 # Pi1MHz bare-metal integration
 
 This directory contains the Pi1MHz integration package and installer. The
-versioned package is under `pi1mhz-8468a38/`, with source changes separated into
+versioned package is under `pi1mhz-516a267/`, with source changes separated into
 `patches/` and complete replacement files under `overlay/`. Raspberry Pi
 boot firmware loads the resulting `kernel.img` or `kernel7.img` directly. No
 Linux service is installed or required.
@@ -13,9 +13,9 @@ needed by the retained ElkWiFi commands.
 
 ## Upstream requirements
 
-Use Pi1MHz commit `8468a38f63b25785007a50912a3b32a596db8ff9`.
-This was the tip of the official `master` branch when checked on 7 August
-2026. Pi1MHz does not have a `main` branch. The commit is 80 commits after the
+Use Pi1MHz commit `516a267493d9f19e6bf2f4a2ea4c3e7472b12135`.
+This was the tip of the official `master` branch when checked on 9 August
+2026. Pi1MHz does not have a `main` branch. The commit is 83 commits after the
 V1.30 tag and includes the later net service required by WGET and OSWORD TCP.
 The installer rejects any other revision and performs a live upstream check by
 default, so a new upstream commit stops the release build pending review.
@@ -213,8 +213,10 @@ net-service handle on cancellation.
 ## Security limits
 
 WEP, WPA, and WPA2 profile modes are implemented for compatibility with
-existing access points. WPA3 is not exposed. HTTPS, TLS, and SSH are not
-linked into the bare-metal image. Requests for secure transports fail closed.
+existing access points. WPA3 is not exposed. The bundled kernels link the
+managed wolfSSH service used by the separate NetTools `SSH` client. The
+ElkWiFi-compatible ROM does not expose SSH, TLS or HTTPS. HTTPS remains
+unimplemented and requests for it fail closed.
 
 Credentials are not protected at rest. Do not use a production WiFi password
 in public test artifacts.

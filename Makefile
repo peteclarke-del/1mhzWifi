@@ -6,7 +6,7 @@ WOLFSSH_PREFIX ?= /tmp/wolf-install
 
 test: test-rom test-emulator test-host test-package
 
-test-rom:
+test-rom: test-host
 	./build.sh
 	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 

@@ -54,8 +54,9 @@ Install into a disposable or maintained Elkulator source tree with:
 integrations/elkulator/install.sh /path/to/elkulator
 ```
 
-The installer copies the standalone sources and applies a small patch to
-`src/mem.c` and `src/Makefile.am`. The device is disabled unless selected:
+The installer copies the standalone sources and applies the mailbox,
+ROM-layout, scripted-key and AP5 Tube patches. The mailbox device is disabled
+unless selected:
 
 ```sh
 PI1MHZ_MAILBOX=fixture ./elkulator
@@ -88,3 +89,9 @@ The installer also adds `-autokeys <sequence>` for repeatable hardware-level
 tests. A sequence is a comma-separated list of `delay:keycode` entries. Codes
 `2000` and `2001` press and release Shift, which lets tests type the Electron
 `*` character as Shift plus `@` without relying on the host keyboard layout.
+
+Pass `-tube6502 /path/to/6502tube_120.rom` to configure the external AP5 Tube
+used by the physical PiTubeDirect profile. The Tube ULA and 3 MHz 65C02 are
+ready before the MOS service-ROM scan, and RH Plus starts the parasite during
+cold boot without a manual `*TUBE ON`. See
+`integrations/elkulator/tube/README.md` for scope and licence details.

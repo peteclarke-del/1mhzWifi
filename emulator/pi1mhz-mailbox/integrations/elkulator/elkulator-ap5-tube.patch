@@ -1,0 +1,194 @@
+diff --git a/src/6502.c b/src/6502.c
+index dc44f24..64d1710 100644
+--- a/src/6502.c
++++ b/src/6502.c
+@@ -3,6 +3,7 @@
+ #include <allegro.h>
+ #include <stdio.h>
+ #include "elk.h"
++#include "ap5_tube.h"
+ 
+ int timetolive;
+ int ins=0;
+@@ -1727,6 +1728,7 @@ void exec6502()
+                 }
+                 ins++;
+                 oldcycs=cycles-oldcycs;
++                ap5_tube_run_host_cycles(oldcycs);
+                 if (cpureset)
+                 {
+                         cpureset=0;
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 069bdf8..3820d3d 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -27,4 +27,5 @@ allegro_icon.c
+ 
+ 
+ elkulator_SOURCES += pi1mhz_mailbox.c pi1mhz_net_backend.c pi1mhz_elkulator.c
++elkulator_SOURCES += ap5_tube.c vrEmu6502.c
+ elkulator_LDADD += -lz
+diff --git a/src/elk.h b/src/elk.h
+index cbc87a0..3a9df9a 100644
+--- a/src/elk.h
++++ b/src/elk.h
+@@ -263,6 +263,7 @@ void save6502state(FILE *f);
+ 
+ void initula();
+ void resetula();
++void updateulaints(void);
+ uint8_t readula(uint16_t addr);
+ void writeula(uint16_t addr, uint8_t val);
+ void yield();
+diff --git a/src/main.c b/src/main.c
+index 475de07..8a29f49 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -5,6 +5,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include "elk.h"
++#include "ap5_tube.h"
+ #undef printf
+ int autoboot;
+ static int scripted_keys[256];
+@@ -102,6 +103,7 @@ char exedir[MAX_PATH_FILENAME_BUFFER_SIZE];
+ char tapename[512];
+ char parallelname[512];
+ char serialname[512];
++char tube6502name[512];
+ extern int serial_debug;
+ char romnames[16][1024];
+ int rambanks[16];
+@@ -111,12 +113,13 @@ void initelk(int argc, char *argv[])
+         int c;
+         char *p;
+         int tapenext=0,discnext=0,romnext=-2,ramnext=0,parallelnext=0,serialnext=0,serialdebugnext=0;
+-        int autokeysnext=0;
++        int autokeysnext=0,tube6502next=0;
+         get_executable_name(exedir,MAX_PATH_FILENAME_BUFFER_SIZE - 1);
+         p=get_filename(exedir);
+         p[0]=0;
+         discname[0]=discname2[0]=tapename[0]=0;
+         parallelname[0]=0;serialname[0]=0;
++        tube6502name[0]=0;
+         for (int i = 0; i < 16; i++) {
+             romnames[i][0] = 0;
+             rambanks[i] = 0;
+@@ -147,6 +150,7 @@ void initelk(int argc, char *argv[])
+                         printf("-serialdebug n  - set serial debugging output level to n\n");
+                         printf("-rom number rom - load rom into the numbered bank\n");
+                         printf("-autokeys list  - scripted delay:keycode pairs, comma separated\n");
++                        printf("-tube6502 rom   - enable an AP5 external 3 MHz 65C02 Tube\n");
+                         printf("-ram number     - make the numbered bank writable\n");
+                         printf("-debug          - start debugger\n");
+                         exit(-1);
+@@ -189,6 +193,10 @@ void initelk(int argc, char *argv[])
+                 {
+                         autokeysnext=1;
+                 }
++                else if (!strcasecmp(argv[c],"-tube6502"))
++                {
++                        tube6502next=1;
++                }
+                 else if (!strcasecmp(argv[c],"-debug"))
+                 {
+                         debug=debugon=1;
+@@ -222,6 +230,11 @@ void initelk(int argc, char *argv[])
+                         parse_scripted_keys(argv[c]);
+                         autokeysnext=0;
+                 }
++                else if (tube6502next)
++                {
++                        strcpy(tube6502name,argv[c]);
++                        tube6502next=0;
++                }
+                 else if (parallelnext)
+                 {
+                         strcpy(parallelname,argv[c]);
+@@ -250,6 +263,7 @@ void initelk(int argc, char *argv[])
+             if (romnames[i][0] != 0) loadrom_n(i, romnames[i]);
+             if (rambanks[i]) enable_ram_n(i);
+         }
++        if (tube6502name[0] && !ap5_tube_init(tube6502name)) exit(1);
+ //printf("reset6502\n");
+         reset6502();
+         initula();
+@@ -302,6 +316,7 @@ void runelk()
+                 if (resetit)
+                 {
+                         memset(ram,0,32768);
++                        ap5_tube_prepare_cold_boot();
+                         resetula();
+                         resetserial();
+                         reset6502();
+@@ -308,6 +323,7 @@ void runelk()
+                 }
+                 if (break_pressed() && !oldbreak)
+                 {
++                        ap5_tube_reset();
+                         reset6502();
+                 }
+                 oldbreak = break_pressed();
+@@ -356,6 +371,7 @@ void runelk()
+ 
+ void closeelk()
+ {
++        ap5_tube_close();
+         stopmovie();
+         saveconfig();
+ //        dumpram();
+diff --git a/src/mem.c b/src/mem.c
+index 08f011f..8ea2415 100644
+--- a/src/mem.c
++++ b/src/mem.c
+@@ -6,6 +6,7 @@
+ #include <string.h>
+ #include "elk.h"
+ #include "pi1mhz_elkulator.h"
++#include "ap5_tube.h"
+ 
+ static const char * roms = "roms";   // Name of directory containing rom files
+ 
+@@ -175,6 +176,8 @@ uint8_t readmem(uint16_t addr)
+         else          readc[addr]=31;
+         if (pi1mhz_elkulator_handles(addr))
+                 return pi1mhz_elkulator_read(addr);
++        if (ap5_tube_handles(addr))
++                return ap5_tube_host_read(addr);
+         if (addr<0x2000)
+         {
+                 if (FASTLOW) return ram2[addr];
+@@ -252,6 +255,11 @@ void writemem(uint16_t addr, uint8_t val)
+                 pi1mhz_elkulator_write(addr, val);
+                 return;
+         }
++        if (ap5_tube_handles(addr))
++        {
++                ap5_tube_host_write(addr, val);
++                return;
++        }
+ //        if (addr==0x5820) rpclog("Write 5820\n");
+ //        if (addr==0x5B10) rpclog("Write 5B10\n");
+ //        if (addr==0x5990) rpclog("Write 5990\n");
+diff --git a/src/ula.c b/src/ula.c
+index 515eae8..a5d2fd3 100644
+--- a/src/ula.c
++++ b/src/ula.c
+@@ -5,6 +5,7 @@
+ #include <zlib.h>
+ #include "elk.h"
+ #include "2xsai.h"
++#include "ap5_tube.h"
+ 
+ void dosavescrshot();
+ void saveframe();
+@@ -181,7 +182,7 @@ void updateulaints()
+                 irq=1;
+ //                printf("Interrupt %02X %02X\n",ula.isr,ula.ier);
+         }
+-        else if (plus1 && serial_irq)
++        else if ((plus1 && serial_irq) || ap5_tube_host_irq())
+                 irq = 1;
+         else
+         {

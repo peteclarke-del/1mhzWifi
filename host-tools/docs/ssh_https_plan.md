@@ -49,9 +49,10 @@ The Pi owns:
 
 - WiFi, DNS, TCP and URL transports;
 - SSH key exchange, authentication, packet protection and channels;
-- TLS and certificate validation;
 - entropy; and
 - persistent keys and known-host data on the Pi SD card.
+
+The Pi will also own TLS and certificate validation when HTTPS is implemented.
 
 Private keys and session keys do not cross JIM. Password fallback is temporary
 and is wiped from 6502 RAM, JIM and Pi RAM after use.
@@ -77,8 +78,8 @@ reports need a small renderer-to-transport reply queue. Until those parts are
 implemented, complete sequences are consumed without leaking bytes to the
 display.
 
-UTF-8, sixel, true colour and full VT220 behaviour are outside the first
-release.
+UTF-8, sixel, true colour and full VT220 behaviour are outside the initial
+terminal scope.
 
 ## Viewdata scope
 

@@ -31,7 +31,7 @@ install -m 0644 "$overlay_dir/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$overlay_dir/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$overlay_dir/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$overlay_dir/uef.asm" "$upstream/rom/uef.asm"
-for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-loader-compat.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-original-osfile.patch wicfs-jim-atomic.patch wicfs-tube-osfile.patch wicfs-oscli-prefix.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-loader-compat.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch rom-prune.patch routines-prune.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -42,7 +42,7 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.25"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.30"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)
@@ -83,8 +83,7 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             patch_present=true
             ;;
         wicfs-host-only.patch)
-            { grep -q '^\\1MHz-bus filing system and must not claim' "$upstream/rom/wicfs.asm" ||
-              grep -q 'Tube is used only as the MOS OSFILE destination' "$upstream/rom/wicfs.asm"; } &&
+            grep -q '^\\1MHz-bus filing system and must not claim' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         wicfs-vector-chain.patch)
@@ -158,11 +157,6 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ! grep -Eq '^([^\\]|.*=).*&03E[0-9A-Fa-f]' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
-        wicfs-original-osfile.patch)
-            grep -q "leave the caller's OSFILE block unchanged" "$upstream/rom/wicfs.asm" &&
-            ! grep -q '^\.filev_load_info' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
         wicfs-jim-atomic.patch)
             grep -q 'keep bank, page and data read one atomic transaction' "$upstream/rom/wicfs.asm" &&
             grep -q 'leave the complete public JIM address at 00:00:00' "$upstream/rom/wicfs.asm" &&
@@ -171,11 +165,6 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         wicfs-oscli-prefix.patch)
             grep -q '^\.upv_about_to_process' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-tube-osfile.patch)
-            grep -q '^\.tube_prepare' "$upstream/rom/wicfs.asm" &&
-            grep -q 'Tube is used only as the MOS OSFILE destination' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         rom-prune.patch)

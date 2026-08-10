@@ -7,7 +7,7 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 ## Complete in this build
 
 - [x] Bare-metal Pi1MHz service integration on reviewed upstream commit
-  `8468a38f63b25785007a50912a3b32a596db8ff9`.
+  `516a267493d9f19e6bf2f4a2ea4c3e7472b12135`.
 - [x] Both Raspberry Pi kernel families and the complete SD-card bundle.
 - [x] AP5-safe FRED/JIM transport with no dependency on cartridge `&FC30` UART
   registers.
@@ -23,8 +23,9 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   cancellation releases PCBs, clears scan state and invalidates late callback
   generations.
 - [x] WiCFS MOS extended-vector installation without occupying Tube workspace.
-- [x] Ownership-checked reset teardown for FILEV, BGETV, FINDV, FSCV and
-  BYTEV, including preservation of every predecessor address and ROM owner.
+- [x] Reset-safe WiCFS teardown. MOS rebuilds its vectors before ROM reset
+  service calls, so 1MHzWifi clears its saved ownership record without
+  restoring stale cassette predecessors over ADFS, DFS or MMFS.
 - [x] Full 32-bit WiCFS catalogue addresses, caller-owned OSFILE control-block
   preservation,
   sequential reads, host loads and standard `&FFFFxxxx` Tube OSFILE
@@ -89,10 +90,10 @@ half-written path in this release:
 - [x] Provide a Pi1MHz Services mailbox and JIM device for Elkulator. The
   maintained adapter is in `emulator/pi1mhz-mailbox` and includes command 93
   for compressed UEF tests.
-- [ ] Add a maintained AP5 Tube ULA and 6502 parasite model to the Elkulator
-  integration, or adopt an Electron emulator which already models both. The
-  current Elkulator source has no Tube device, so it cannot close the 0.1.25
-  Tube OSFILE gameplay gate by loading a Tube ROM alone.
+- [x] Add a maintained AP5 Tube ULA and external 3 MHz 65C02 parasite model to
+  the Elkulator integration. A configured Tube starts during cold boot, as it
+  does with PiTubeDirect, and reproduces the physical 0.1.25 failure after
+  `ZALAGA 05 05EE` loads.
 
 ## Outstanding ElkWiFi compatibility work
 
@@ -151,7 +152,9 @@ tracked elsewhere.
   `build/pi1mhz-all/host-tools/nettools.ssd`. The 0.1.22 client
   timed out at capability command 94 because its tight busy loop completed
   before the ordinary Pi firmware poll. The new bounded 300-frame dispatch
-  wait passes a delayed-poll 6502 emulator fixture.
+  wait passes a delayed-poll 6502 emulator fixture. The assembled SSD also
+  completes a real public-key-authenticated SSH shell under Elkulator without
+  `&2D`; physical hardware remains the open gate.
 - [ ] Run the complete secure-service test matrix on both shipped Pi kernel
   families and all supported WiFi boards. Include changed-host rejection,
   password failure, Escape cancellation, reconnect, long sessions and power
@@ -161,18 +164,29 @@ tracked elsewhere.
 
 No implementation placeholder remains on the declared 1MHzWifi ROM
 station-mode, plain-HTTP command surface. The unified native-tools SSD still
-contains the placeholders listed above. ROM 0.1.25 retains the AP5-accurate
-live Elkulator gameplay proof. Its exact non-Tube RH Plus, ADFS and AFM profile
-now reaches Zalaga gameplay after the FSCV reason-8 fix, but it has not passed
-the physical-hardware WiCFS gate.
+contains the placeholders listed above. ROM 0.1.30 reaches visible Zalaga,
+Arcadians, Last of the Free and E-Type gameplay in the AP5-accurate live
+Elkulator profile without a Tube. Castle of Riddles reaches its interactive
+command prompt. Frak still needs a fresh 0.1.30 gameplay capture. 1MHzWifi does
+not access or disable the Tube, but this build has not passed the Tube-enabled
+emulator gate or the physical-hardware WiCFS gate.
+
+The current Tube-enabled 0.1.30 reproduction downloads Zalaga, installs WiCFS,
+rewinds and loads `ZALAGA 05 05EE`, then returns to the parasite prompt. The
+remaining defect is command ownership: the remote menu returns before its
+`CHAIN ""` input is interpreted, so active parasite BASIC consumes it. Resolve
+that launch on the I/O processor without transferring the UEF to Tube RAM,
+issuing `TUBE OFF`, resetting the Tube, or changing the stock cassette command
+sequence. Then rerun the no-Tube game matrix before accepting the correction.
 The recorded 0.1.22 Electron test downloads Zalaga and loads its initial
 `ZALAGA 05 05EE` file, then returns to Tube BASIC. Review found that WiCFS
 discarded the upper half of the caller's OSFILE address and always wrote into
-host RAM. ROM 0.1.24 retained all four address bytes but used Tube command 0,
-the wrong direction for a host-to-parasite load. ROM 0.1.25 uses command 1 and
-keeps Pi and JIM transport entirely on the 1MHz bus. Release acceptance still
-depends on proving the correction on
-physical hardware, proving that
+host RAM. ROM 0.1.24 and 0.1.25 attempted Tube transfers and selected the wrong
+processor for host loaders. ROM 0.1.30 removes that path, preserves the stock
+menu `REWIND` and `CHAIN ""` sequence, and keeps Pi and JIM transport entirely
+on the 1MHz bus. Its five-pop extended-vector unwind fixes the returning
+first-stage loader used by E-Type. Release acceptance still depends on
+physical hardware and proving that
 Break restores BeebSCSI ADFS, normal ADFS, DFS, MMFS and TAPE/CFS, and
 completing the real Electron, AP5, Pi1MHz and Tube checks in
 [`docs/hardware-validation.md`](docs/hardware-validation.md). Failures found
@@ -184,3 +198,9 @@ Pi1MHz and Electron MMFS. It must pass without Plus 2, sideways RAM, ADFS or a
 Tube. The matching Elkulator profile now mounts MMFS and runs the Desk Diary
 UEF end to end; physical execution and filing-system recovery after Break are
 still required.
+
+After the 0.1.30 Tube-active and filing-system reset corrections pass on physical hardware, the ROM
+version moves to a 0.9.x release-candidate series. Version 1.0 requires the
+original-ElkWiFi OSWORD comparison and all filing-system coexistence gates.
+Unfinished NetTools clients do not block the ROM release unless they require a
+host-visible ABI change.

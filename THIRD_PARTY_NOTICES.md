@@ -6,11 +6,12 @@ upstream projects:
 | Project | Upstream | Revision basis |
 | --- | --- | --- |
 | ElkWiFi | <https://github.com/hoglet67/ElkWiFi> | `7bf366c97bec18bd238963c95e6f2aa6893cdb3a` |
-| Pi1MHz | <https://github.com/dp111/Pi1MHz> | `8468a38f63b25785007a50912a3b32a596db8ff9` |
+| Pi1MHz | <https://github.com/dp111/Pi1MHz> | `516a267493d9f19e6bf2f4a2ea4c3e7472b12135` |
 | MMFS | <https://github.com/hoglet67/MMFS> | 1.60 Electron Pi1MHz `EMMFS.rom` |
 | zlib puff | <https://github.com/madler/zlib/tree/v1.3.1/contrib/puff> | `v1.3.1`, puff 2.3 |
 | wolfSSL | <https://github.com/wolfSSL/wolfssl> | `65836b40693f8ea8d04daac0b1019d8e2e9394dd` |
 | wolfSSH | <https://github.com/wolfSSL/wolfssh> | `c2d169872e410251a6967fc47d4fc0c6f318b79c` |
+| vrEmu6502 | <https://github.com/visrealm/vrEmu6502> | `aae98cb14386d832cb7357c99626520b6590bc24` |
 
 ElkWiFi identifies Roland Leurs as the original ROM author and credits Martin
 Barr and Roland Leurs for WiCFS. Pi1MHz and its submodules contain their own
@@ -39,3 +40,7 @@ the Pi1MHz build. Their source is not vendored in this repository. Their GPLv3
 licence terms and commercial licensing options remain those published by
 wolfSSL Inc.; an upstream submission or binary distribution must retain and
 review the corresponding notices.
+
+The Elkulator AP5 Tube integration vendors the vrEmu6502 CPU core under its
+MIT licence. The exact upstream licence is retained at
+`emulator/pi1mhz-mailbox/integrations/elkulator/tube/LICENSE.vrEmu6502`.

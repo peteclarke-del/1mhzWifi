@@ -1,0 +1,96 @@
+--- a/src/main.c
++++ b/src/main.c
+@@ -5,6 +5,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include "elk.h"
++#include "ap5_tube.h"
+ #undef printf
+ int autoboot;
+ static int one_shot_key = -1;
+@@ -103,6 +104,7 @@
+ char tapename[512];
+ char parallelname[512];
+ char serialname[512];
++char tube6502name[512];
+ extern int serial_debug;
+ char romnames[16][1024];
+ int rambanks[16];
+@@ -112,12 +114,12 @@
+         int c;
+         char *p;
+         int tapenext=0,discnext=0,romnext=-2,ramnext=0,parallelnext=0,serialnext=0,serialdebugnext=0;
+-        int elkwifinext=0,elkwifidebugnext=0,autoboot_requested=0,autokeynext=0,autokeysnext=0;
++        int elkwifinext=0,elkwifidebugnext=0,autoboot_requested=0,autokeynext=0,autokeysnext=0,tube6502next=0;
+         get_executable_name(exedir,MAX_PATH_FILENAME_BUFFER_SIZE - 1);
+         p=get_filename(exedir);
+         p[0]=0;
+         discname[0]=discname2[0]=tapename[0]=0;
+-        parallelname[0]=0;serialname[0]=0;elkwifiname[0]=0;
++        parallelname[0]=0;serialname[0]=0;elkwifiname[0]=0;tube6502name[0]=0;
+         for (int i = 0; i < 16; i++) {
+             romnames[i][0] = 0;
+             rambanks[i] = 0;
+@@ -153,6 +155,7 @@
+                         printf("-autokeys list  - scripted delay:keycode pairs, comma separated\n");
+                         printf("-rom number rom - load rom into the numbered bank\n");
+                         printf("-ram number     - make the numbered bank writable\n");
++                        printf("-tube6502 rom   - enable an AP5 external 3 MHz 65C02 Tube\n");
+                         printf("-debug          - start debugger\n");
+                         exit(-1);
+                 }
+@@ -211,6 +214,10 @@
+                 {
+                         autokeysnext=1;
+                 }
++                else if (!strcasecmp(argv[c],"-tube6502"))
++                {
++                        tube6502next=1;
++                }
+                 else if (!strcasecmp(argv[c],"-debug"))
+                 {
+                         debug=debugon=1;
+@@ -275,6 +282,11 @@
+                         parse_scripted_keys(argv[c]);
+                         autokeysnext=0;
+                 }
++                else if (tube6502next)
++                {
++                        strcpy(tube6502name,argv[c]);
++                        tube6502next=0;
++                }
+                 if (tapenext) tapenext--;
+         }
+ //printf("initalmain\n"); fflush(stdout);
+@@ -288,6 +300,7 @@
+             if (romnames[i][0] != 0) loadrom_n(i, romnames[i]);
+             if (rambanks[i]) enable_ram_n(i);
+         }
++        if (tube6502name[0] && !ap5_tube_init(tube6502name)) exit(1);
+ //printf("reset6502\n");
+         reset6502();
+         initula();
+@@ -340,6 +353,7 @@
+                 if (resetit)
+                 {
+                         memset(ram,0,32768);
++                        ap5_tube_prepare_cold_boot();
+                         resetula();
+                         resetserial();
+                         reset6502();
+@@ -346,6 +360,7 @@
+                 }
+                 if (break_pressed() && !oldbreak)
+                 {
++                        ap5_tube_reset();
+                         reset6502();
+                 }
+                 oldbreak = break_pressed();
+@@ -395,6 +409,7 @@
+ 
+ void closeelk()
+ {
++        ap5_tube_close();
+         stopmovie();
+         saveconfig();
+ //        dumpram();

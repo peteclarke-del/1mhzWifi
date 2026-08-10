@@ -81,9 +81,9 @@ diff --git a/rom/wicfs.asm b/rom/wicfs.asm
  	LDA	currom
  	STA	&F4
  	STA	&FE05
-@@ -679,5 +743,4 @@
--	PLA
--	PLA
+@@ -679,5 +743,6 @@
+ 	PLA
+ 	PLA
  	JMP	(&03C2)
 +.run_code_end
  .ret_fscv

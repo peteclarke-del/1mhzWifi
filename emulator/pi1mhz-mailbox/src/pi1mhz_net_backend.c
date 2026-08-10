@@ -122,7 +122,7 @@ static uint8_t do_elkwifi_control(pi1mhz_net_backend *backend,
     case ELKWIFI_CMD_STATUS:
         if (!backend->wifi_enabled)
             backend->wifi_enabled = 1;
-        elkwifi_response(command, "Pi1MHz ElkWiFi 0.1.25\r\n");
+        elkwifi_response(command, "Pi1MHz ElkWiFi 0.1.27\r\n");
         return PI1MHZ_NET_OK;
     case ELKWIFI_CMD_SCAN:
         if (!backend->wifi_enabled)

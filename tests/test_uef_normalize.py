@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "pi-side/pi1mhz-8468a38/overlay/src"
+SOURCE = ROOT / "pi-side/pi1mhz-516a267/overlay/src"
 
 
 class UefNormalizeTest(unittest.TestCase):

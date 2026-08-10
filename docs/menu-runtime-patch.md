@@ -95,10 +95,10 @@ downloaded length metadata. These changes preserve the exact address of the
 catalogue-working MENU code. Screen output remains enabled so queue, filing
 and UEF errors are visible on real hardware.
 
-On reset, WiCFS checks the address and ROM owner of every entry before
-restoring its predecessor. This removes the virtual cassette claim and its
-`*TAPE` OSBYTE trap without overwriting ADFS, DFS or another later filing-system
-claim.
+On reset, MOS has already rebuilt the standard and extended vector tables.
+WiCFS clears its persisted ownership marker and leaves those new tables alone.
+It must not write the saved cassette predecessors over a filing system which
+has already reclaimed its vectors during the same reset pass.
 
 The MOS direct vector can already point at its extended-vector dispatcher when
 WiCFS starts. WiCFS therefore saves the previous handler address and owning ROM
@@ -118,11 +118,12 @@ from the same address in a newly selected ROM. The trampoline is outside
 WiCFS claims `*REWIND` directly when it is the active filing system. It leaves
 `*TAPE` functional, allowing every `*MENU` invocation to return to cassette
 state before reusing filing workspace. The successful `CHAIN` execution path
-also completes its ROMSEL change and extended-vector stack cleanup from the RAM
-trampoline. No instruction following a ROMSEL write is fetched from an
-unrelated sideways ROM. It removes the dispatcher's two-byte cleanup return and
-saved-ROM byte, but retains the original OSCLI return address required when a
-first-stage loader returns.
+copies its final ROMSEL switch and jump to filing-system RAM. No instruction
+following a ROMSEL write is fetched from an unrelated sideways ROM. The
+trampoline removes the complete five-byte extended-vector dispatch frame before
+jumping through `&03C2`. Retaining only three pops caused returning first-stage
+programs such as E-Type to execute a stack address and fall into a BRK instead
+of reaching their entry point.
 
 The stock menu installs key 0 as `*REWIND|MCHAIN ""|M` and later inserts that
 key into the keyboard buffer after a selected UEF has downloaded. The ROM does
@@ -139,11 +140,9 @@ original implementation. In particular, BASIC's explicit PAGE destination is
 not replaced with the cassette header's nominal load address after the file has
 loaded. The found result in A and the caller's X/Y pointer are preserved.
 
-WiCFS is strictly a 1MHz-bus filing system. All bytes are written to Electron
-I/O-processor memory and all run addresses execute there. It does not inspect
-the Tube-present flag, call `&0406`, access `&FEE4` or `&FEE5`, or claim Tube
-registers. A Tube may be absent, fitted or active without becoming part of the
-Pi1MHz transfer path.
+WiCFS receives every UEF byte from Pi1MHz through the 1MHz bus and JIM and
+writes it to Electron I/O-processor memory. It does not inspect or access the
+Tube. A fitted Tube remains active for software which deliberately uses it.
 
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a
@@ -155,11 +154,9 @@ to `&1FD0` and pushes that RAM address as the program's return target. The
 trampoline restores the service-call registers and returns cleanly to MOS
 without relying on the ElkWiFi sideways ROM still being selected.
 
-The published title-launch key expansion contains two commands: `*REWIND`, then
-`CHAIN ""`. The ROM preserves that sequence exactly. `*REWIND` resets the WiCFS
-cursor to the UEF installed by `*WGET -U`; `CHAIN ""` then uses BASIC's normal
-OSFILE load and chain semantics. The adaptation does
-not replace it with `*RUN`, `*/`, or another inferred launch path.
+The published title-launch key expansion contains `*REWIND`, then `CHAIN ""`.
+The ROM leaves that exact expansion unchanged. It does not disable or use the
+Tube and does not invent a different game command.
 
 ## Byte-level replacement
 
@@ -205,8 +202,9 @@ catalogue helpers are at `&1FE0` and `&1FF0`. These fixed blocks do not overlap.
 None is stored at `&0900`, which belongs to filing-system and ROM workspace
 when ADFS is present.
 
-The exact byte arrays are defined in `rom-side/elkwifi-0.23/overlay/menusrc.asm`. The
-download and validation path is in `rom-side/elkwifi-0.23/overlay/menu.asm`.
+The exact byte arrays are defined in
+`rom-side/elkwifi-0.23/overlay/menusrc.asm`. The download and validation path
+is in `rom-side/elkwifi-0.23/overlay/menu.asm`.
 
 ## Custom menu payloads
 
@@ -226,5 +224,5 @@ body, or leaves `&E00` unchanged. It prints `Menu download failed` for a
 completed transfer that does not produce an executable candidate at `&E00`.
 
 Real-hardware validation must confirm that the published menu starts, downloads
-`TITLES` through `*WGET -U`, uses the AP5-visible JIM window, enters WiCFS, and launches a
-title without accessing `&FC34`.
+`TITLES` through `*WGET -U`, uses the AP5-visible JIM window, enters WiCFS, and
+launches a title without accessing `&FC34`.
