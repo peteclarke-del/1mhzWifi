@@ -17,9 +17,10 @@ directly. They do not require the 1MHzWifi/ElkWiFi service ROM.
   when the key is rejected, and exchanges the decrypted shell byte stream
   without exposing private keys or session keys to the 6502.
 - `NETMENU`: concise on-disc launcher/help screen.
-- `PING`, `NSLOOK`, `FTP`, `HGET` and `VIEWDAT`: runnable protocol scaffolds
-  which currently report that implementation is pending. `VIEWDAT` is the
-  seven-character DFS command name for the planned Viewdata client.
+
+Unimplemented commands are not placed on the released SSD. Planned `PING`,
+`NSLOOK`, `FTP`, `HGET` and Viewdata clients remain in the engineering roadmap
+until they have complete implementations and functional tests.
 
 The executables have DFS load and execution addresses encoded as `&FFFF1900`.
 This makes Tube-aware filing systems load and execute them on the I/O
@@ -145,8 +146,8 @@ the BCM hardware RNG and FatFs; Pi 1/Zero `kernel.img` and Pi 2/3
 next gate after the emulator tests, so retain the original firmware image for
 rollback during first-device testing.
 
-Planned later SSD tools include implementations of the installed `PING`,
-`NSLOOK`, `FTP`, `HGET` HTTP/HTTPS and `VIEWDAT` Viewdata scaffolds. Viewdata
+Planned later SSD tools include `PING`, `NSLOOK`, `FTP`, `HGET` HTTP/HTTPS and
+`VIEWDAT`. Viewdata
 will reuse the stream transport but has its own MODE 7/Prestel renderer and
 key mapping rather than passing its data through the VT100 renderer.
 

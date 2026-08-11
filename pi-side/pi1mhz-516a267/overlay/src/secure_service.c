@@ -29,6 +29,10 @@ static void secure_command(uint32_t command_pointer, uint32_t addr,
                            uint8_t data)
 {
     (void)data;
+    if (pending) {
+        Pi1MHz_MemoryWrite(addr, SEC_BUSY);
+        return;
+    }
     pending_cp = command_pointer;
     pending_addr = addr;
     pending = true;
@@ -50,7 +54,6 @@ static void secure_poll(void)
         uint32_t cp = pending_cp;
         uint32_t addr = pending_addr;
         uint8_t result;
-        pending = false;
         if (cp < DISC_RAM_BASE) {
             result = NTS_ERR_PARAM;
         } else {
@@ -58,6 +61,7 @@ static void secure_poll(void)
                 &service, &Pi1MHz->JIM_ram[cp],
                 &Pi1MHz->JIM_ram[DISC_RAM_BASE], DISC_RAM_SIZE);
         }
+        pending = false;
         Pi1MHz_MemoryWrite(addr, result);
     }
 }

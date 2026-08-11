@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.30` host ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.37` host ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -20,15 +20,22 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-Version 0.1.30 is the corrective hardware-test build. If its Tube-active
-MENU and UEF paths reach gameplay on physical hardware, the next ROM series
-will be 0.9.x release candidates. Version 1.0 requires the public ElkWiFi
+Version 0.1.37 is the current corrective hardware-test build. A live
+ten-entry catalogue differential produced identical UEF hashes with Tube
+enabled and disabled. Nine pairs met the strict framebuffer threshold; the
+remaining pair reached the same animated attract screen at a different phase.
+Physical hardware remains the release gate. Version 0.1.37 also restores the
+BCM43455 7.45.241 firmware
+used before the Pi 3A+ DHCP regression. If these paths pass on physical
+hardware, the next ROM series will be 0.9.x release candidates. Version 1.0 requires the public ElkWiFi
 OSWORD comparison and the ADFS, DFS, MMFS and TAPE coexistence gates. NetTools
 can continue to evolve on the Pi side without changing the ROM ABI.
 
 The following command paths are implemented. Pi and JIM traffic stays on the
-1MHz bus. WiCFS loads into Electron host memory and does not inspect, disable
-or access a fitted Tube. A game remains free to use that Tube itself:
+1MHz bus. WiCFS loads into Electron host memory. The launcher uses MOS OSBYTE
+`&EA` only to detect whether host BASIC must be entered; it does not claim,
+disable or transfer through a fitted Tube. A game remains free to use that
+Tube itself:
 
 | Area | Implemented behavior |
 | --- | --- |
@@ -38,6 +45,12 @@ or access a fitted Tube. A game remains free to use that Tube itself:
 | Menu | Persistent `*MENUSRC`; `*MENU` downloads, validates, adapts, and runs the published payload on the I/O processor |
 | Storage | `*WGET -U`, `*UEF LOAD`, `*WICFS`, `*REWIND`, `*PRD`, and `*WGET -S` through Pi1MHz JIM windows |
 | Diagnostics | `*HELP WIFI`, `*VERSION`, station `*MODE`, bounded missing-service errors |
+
+The compiled `*MENU` source is Electron-only. On BBC B, B+, Master and
+Compact, `*MENU` explains this and asks for a machine-appropriate `*MENUSRC`.
+This restriction applies to the default payload, not to WiFi, OSWORD, WGET,
+custom menus or NetTools. Platform-sensitive ROM paging is selected at runtime
+with OSBYTE `&81`; common network and 1MHz-bus paths do not depend on it.
 
 `*PRINTER`, `*UPDATE`, update `*CRC`, and `*SETSERIAL` are not present. They
 depend on cartridge hardware that Pi1MHz does not expose. Unknown OSWORD
@@ -83,14 +96,14 @@ does not replace host programs already held on another disc image.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.30 retains the WiCFS changes and compressed-UEF Pi
+host ROM. Release 0.1.37 retains the WiCFS changes and compressed-UEF Pi
 service introduced in 0.1.8, supports zero-byte CFS marker files, preserves a
 live WiFi association across host resets, and restores the `WGET -U` contract for
 raw paged-RAM data such as the published menu TITLES catalogue. The matched
 kernel still provides service command 93 for ZIP and gzip UEF normalization,
 so replace both the ROM and the kernel from the same bundle.
 
-Release 0.1.30 includes the public application ABI repairs. OSWORD `&65`
+Release 0.1.37 includes the public application ABI repairs. OSWORD `&65`
 functions 0 and 1 reset volatile TCP state without dropping the saved
 association, function 4 reads the caller's JOIN block, function 8 preserves
 the port field across
@@ -98,7 +111,7 @@ DNS resolution, and function 9 accepts the original single-connection setup
 as a successful no-op. These paths are used by ElkChat and other applications
 which call the driver directly rather than issuing star commands.
 
-Release 0.1.30 keeps all WiCFS state out of `&03E0-&03FF`, the MOS keyboard
+Release 0.1.37 keeps all WiCFS state out of `&03E0-&03FF`, the MOS keyboard
 input buffer which holds the queued `*REWIND` and `CHAIN ""` launch. Stream
 state again uses the original WiCFS cassette-workspace zero-page locations.
 Vector ownership and predecessor state is persisted through the AP5-forwarded
@@ -113,25 +126,27 @@ service calls. The ROM therefore discards its saved WiCFS ownership record and
 does not restore stale predecessor vectors over ADFS, DFS, MMFS or another ROM
 which has already reclaimed them during the same reset pass.
 
-Release 0.1.30 also corrects the common WiCFS completion path used by `*MENU`
+Release 0.1.37 also retains the common WiCFS completion-path correction used by `*MENU`
 and `*UEF LOAD`. The cassette last-block bit is now tested before the legacy
 loader compatibility helper can change the processor flags. A completed file
 therefore returns to MOS at its own final block instead of consuming later
 files and eventually reporting `End of UEF` or an invalid chunk type.
 
-Release 0.1.30 uses the single standard 64K JIM window which the AP5 actually
+Release 0.1.37 uses the single standard 64K JIM window which the AP5 actually
 exposes through `&FCFF` and `&FD00-&FDFF`. Each WiCFS read is an interrupt-safe
 page-select and data transaction. The data byte is recovered before
 the saved processor flags because both values occupy the 6502 hardware stack
 during the transaction.
 
-Release 0.1.30 retains the removal of the incorrect Tube-transfer path exposed by physical
-testing. 1MHzWifi is an Electron 1MHz-bus filing system and always places UEF
-data in host memory. It does not probe, claim, disable or transfer through the
-Tube. The stock menu launch remains `REWIND`, then `CHAIN ""`. The Tube remains
-enabled and is available to games which deliberately support it.
+Release 0.1.37 retains the removal of the incorrect Tube-transfer path exposed
+by physical testing. 1MHzWifi is an Electron 1MHz-bus filing system and always
+places UEF data in host memory. The patched menu uses OSBYTE `&EA` only to
+detect an active Tube. It then enters the installed BASIC ROM directly on the
+Electron and queues `PAGE=&E00` before the internal WiCFS launch command. It
+does not access Tube registers, claim a channel, disable the Tube, or transfer
+code through it. The stock menu launch remains `REWIND`, then `CHAIN ""`.
 
-Release 0.1.30 also retains the original Zalaga loader's cassette `/` handoff fix.
+Release 0.1.37 also retains the original Zalaga loader's cassette `/` handoff fix.
 WiCFS now handles FSCV reason 8 locally while it is the active filing system.
 Earlier builds forwarded that notification through the displaced cassette
 handler's extended-vector frame, so the following FSCV reason 2 never reached
@@ -153,7 +168,7 @@ by the target boards:
 | Raspberry Pi Zero | `kernel.img` | No onboard WiFi; `*WIFI ON` reports `Device not found` |
 | Raspberry Pi Zero W | `kernel.img` | Supported, CYW43430 firmware included |
 | Raspberry Pi Zero 2 W | `kernel7.img` | Supported, CYW43436 firmware included |
-| Raspberry Pi 3A+, 3B, 3B+ | `kernel7.img` | Supported, CYW43430/CYW43455 firmware included |
+| Raspberry Pi 3A+, 3B, 3B+ | `kernel7.img` | Supported; BCM43455 7.45.241 compatibility firmware included |
 
 There was no production Pi Zero 2 without wireless, nor a Pi 3A without the
 plus suffix. The nearest real targets are Zero 2 W and 3A+, listed above.
@@ -161,16 +176,19 @@ On `kernel7.img`, the driver distinguishes the original Pi 3B's BCM43430 from
 the Zero 2 W's BCM43436 by SOCRAM revision and from the 3A+/3B+'s BCM43455 by
 chip ID. The Pi 3B/Zero W NVRAM is the calibrated Raspberry Pi board file, not
 the generic placeholder configuration.
+The Pi 3A+ hardware associated but remained at `0.0.0.0` with upstream
+BCM43455 firmware 7.45.265. This bundle pins the preceding 7.45.241 image while
+retaining the current Pi1MHz source revision.
 
 Release hashes:
 
 ```text
-1MHzWifi ROM e26c9b977421b7965c36f6ca65e58367cef04797a75628c8a6687a4525b4d896
-kernel.img   e4efcf39b62c448923ee9f68611725b93ae82e3d18a97cd13094a18bd9ebf15b
-kernel7.img  1aa61d5b199204054ec018effab0a39f7a19b8cc3069741a02a91d95f8e4a771
+1MHzWifi ROM f68a1776ada1977790802a2c049083b9cfd3b199082aac5b5130ca9c93dfcfd8
+kernel.img   9846a2112f83764167c01387499f89de2270928d0053304b7274f01f7ed0e617
+kernel7.img  e367ae7bb2afa8f16b8afd04f71ae275b4fc8f065acdb7eb1cf8a104bec340bb
 EMMFS.rom    b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955
-nettools.ssd a786f8c2ca59362e1c3bd02b25802e272cc8d6d080df06e9735c94ff22a1792f
-bundle ZIP   4f7c7a693f695f533e9367a6eaeca8ac78866a37c764951012aee11a10864a0e
+nettools.ssd cc702e4e2afc49a587d7a463c49ce688c34461a66b706c2503012072d7457276
+bundle ZIP   fe482d3bcbe5f906051fd683660413ea4e105767d291f00c57e2aef6b6c52c40
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -220,7 +238,7 @@ upstream source trees are required:
 
 - ElkWiFi commit `7bf366c97bec18bd238963c95e6f2aa6893cdb3a`
 - Pi1MHz commit `516a267493d9f19e6bf2f4a2ea4c3e7472b12135`, the official
-  `master` tip verified on 9 August 2026
+  `master` tip verified on 11 August 2026
 
 Pi1MHz has no `main` branch. Run `./pi-side/check_upstream.sh` before a release;
 it fails if the official default branch or its tip has changed.
@@ -275,8 +293,8 @@ pinned wolfSSL and wolfSSH source paths described in the build guide.
 The retained Elkulator captures under `tests/elkulator/screenshots/` cover ROM
 startup, missing-service behavior and earlier Tube diagnostics. Manual
 live-bridge sessions exercised the real Internet path rather than preloading a
-response. The corrected 0.1.30 loader has reached visible gameplay without a
-Tube for Zalaga, Arcadians, Last of the Free and E-Type. Castle of Riddles
+response. The corrected loader has reached visible gameplay without a Tube for
+Zalaga, Arcadians, Last of the Free, E-Type and Thrust. Castle of Riddles
 reaches its interactive command prompt. Zalaga fetched 29,794 bytes (`&7462`)
 from the published URL.
 The local-import test placed the 10,631-byte gzip DeskDiary sample on an
@@ -288,19 +306,25 @@ the `&7462`-byte Zalaga UEF loaded `ZALAGA 05 05EE` and returned to Tube BASIC.
 The SD-card ZIP proves that the tested ROM and kernels matched the published
 0.1.22 artifacts. Physical 0.1.24 testing then isolated its reversed Tube
 transfer command: the same ROM order works after a Tube-off reboot and fails
-when BASIC is running on the parasite. Version 0.1.30 contains no Tube transfer
-path and retains the FSCV reason-8 correction.
-Physical gameplay, BeebSCSI, ADFS/DFS restoration and Tube coexistence remain
-release gates.
+when BASIC is running on the parasite. Version 0.1.37 contains no Tube transfer
+path and retains the FSCV reason-8 correction. A symbol-guided trace found that
+a cold host BASIC selected while the Tube is active chooses PAGE in `&23xx`;
+the loaded Electron program remains at `&0Exx`, so a returning CHAIN stage
+scans the wrong continuation. `QHOST` now queues `PAGE=&E00` before the
+internal WiCFS launch. A live ten-entry catalogue differential produced
+identical UEF hashes in every Tube-on/off pair, with nine strict framebuffer
+matches and one animated-screen review item. Physical gameplay, BeebSCSI and
+ADFS/DFS restoration remain release gates.
 
 The maintained Elkulator adapter now includes an AP5 Tube ULA and external
 3 MHz 65C02. When `-tube6502` is configured, RH Plus starts the Tube during
 cold boot without manual intervention. A clean live run with the photographed
 ROM order first reproduced the hardware boundary exactly with 0.1.25: Zalaga
 downloaded, the initial `ZALAGA 05 05EE` file loaded, and execution returned to
-the Tube BASIC prompt. The current 0.1.30 no-Tube profile reaches the games
-listed above. Tube-enabled Elkulator and physical-hardware gameplay remain open
-release gates and must not be inferred from the no-Tube results.
+the Tube BASIC prompt. The current 0.1.37 differential exercises catalogue
+entries by sorted index, not by title-specific ROM behavior. Physical-hardware
+gameplay remains an open release gate and must not be inferred from the
+emulator result.
 
 ## Documentation
 
@@ -311,4 +335,7 @@ release gates and must not be inferred from the no-Tube results.
 - [Pi1MHz integration](pi-side/README.md)
 - [Hardware validation](docs/hardware-validation.md)
 - [Implementation backlog](TODO.md)
+- [ElkWiFi ROM patch kit](rom-side/README.md)
+- [Pi1MHz patch kit](pi-side/README.md)
+- [Elkulator mailbox patch kit](emulator/pi1mhz-mailbox/README.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)

@@ -48,6 +48,12 @@ selector.
 
 ## Elkulator adapter
 
+The Elkulator-specific patch record is
+[`integrations/elkulator/TECHNICAL.md`](integrations/elkulator/TECHNICAL.md).
+Distribute this complete mailbox directory, not only the integration
+subdirectory, because the installer copies the reusable device and backend
+sources into Elkulator.
+
 Install into a disposable or maintained Elkulator source tree with:
 
 ```sh

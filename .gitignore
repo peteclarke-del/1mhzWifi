@@ -23,3 +23,6 @@ build/.pi1mhz-bundle.*/
 /host-tools/build/
 /host-tools/.test-deps/
 /emulator/pi1mhz-mailbox/.build/
+
+# Generated standalone source patch kits
+/dist/

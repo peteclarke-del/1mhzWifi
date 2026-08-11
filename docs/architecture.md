@@ -155,15 +155,25 @@ I/O-processor memory and never probes or accesses Tube registers. The menu
 retains the stock `REWIND` and `CHAIN ""` sequence. A fitted Tube remains
 enabled and available to software which chooses to use it after launch.
 
+With a Tube active, the patched menu invokes the private `QHOST` service before
+the stock cassette launch. `QHOST` enters BASIC directly on the I/O processor
+and queues `PAGE=&E00` followed by the short internal `QR` command. `QR`
+installs WiCFS and queues the published `*REWIND`, `CHAIN ""` pair. The PAGE
+assignment is required because cold host BASIC otherwise derives a `&23xx`
+workspace from the active Tube environment while the Electron program is
+loaded at `&0Exx`.
+
 WiCFS records the handler address and owning ROM behind each MOS extended
 filing vector before installing its own entries. Unsupported operations are
 tail-called through that recorded handler. This is required for OSCLI: the
 active filing system sees `*REWIND` before the service ROM gets an opportunity
 to claim the command. Sending an unclaimed request back to the MOS dispatcher
-without restoring the previous entry would select WiCFS repeatedly. Sideways
-ROM hand-off uses a temporary trampoline in filing-system workspace so the CPU
-does not fetch an instruction from a different ROM immediately after ROMSEL is
-changed.
+without restoring the previous entry would select WiCFS repeatedly. For a
+sideways-ROM predecessor, WiCFS copies a short tail-call to host filing
+workspace, selects the saved ROM there and jumps to the saved handler. The
+handler returns through the existing MOS extended-vector frame. The RAM tail
+is necessary because the instruction after ROM selection cannot be fetched
+from the displaced 1MHzWifi ROM.
 
 While WiCFS is active it claims its own `*REWIND` during the FSCV OSCLI pass,
 before sideways-ROM command dispatch. Its original OSBYTE `&8C` trap remains
@@ -189,6 +199,12 @@ precedence:
 2. Valid `elkwifi_menu_url` value from `Pi1MHz.cfg`
 3. Compiled default URL
 
+The compiled URL serves the published Electron menu. Before downloading it,
+the ROM identifies the host with OSBYTE `&81`. Electron continues normally.
+BBC B, B+, Master and Compact return a bounded explanation and require a
+machine-appropriate custom `*MENUSRC`. This check does not restrict custom
+menu sources or any WiFi, TCP, WGET, OSWORD or NetTools operation.
+
 The ROM lists `MENUSRC` before `MENU` because the inherited command matcher
 claims a command when the table spelling ends. Reversing that order causes
 `*MENUSRC` to execute `*MENU`.
@@ -203,6 +219,19 @@ It does not queue a BASIC `CALL`, because that would execute parasite memory
 when a Tube processor is active. The RAM trampoline also permits the menu to
 change ROMSEL without making its eventual return depend on the ElkWiFi ROM
 remaining selected.
+
+Host-only ROM selection is performed by RAM trampolines after the same OSBYTE
+`&81` query. Electron uses its `&FE05` deselect/select sequence. BBC B, B+,
+Master and Compact use `&FE30`. The distinction is confined to host BASIC
+entry, WiCFS's successful `*RUN` return and `*WGET -S`; the 1MHz mailbox and
+JIM protocols are machine-independent.
+
+When a Tube language is active, the cold host BASIC default PAGE is not the
+normal Electron value. The private `QHOST` transition therefore queues the
+fourteen-byte `PAGE=&E00` and `*QR` sequence. `QR` is an internal alias for
+the normal `QUPRUN` second stage. It installs WiCFS and retains the published
+`*REWIND`, `CHAIN ""` launch. This corrects host BASIC state only; it does not
+inspect a title, transfer data through the Tube or reserve a Tube channel.
 
 The published menu is itself cartridge-specific. It selects the second paged
 RAM bank through an inlined `&FC34` sequence. After download, the ROM scans

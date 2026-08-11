@@ -12,15 +12,15 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       516a267493d9f19e6bf2f4a2ea4c3e7472b12135
-1MHzWifi ROM e26c9b977421b7965c36f6ca65e58367cef04797a75628c8a6687a4525b4d896
-kernel.img   e4efcf39b62c448923ee9f68611725b93ae82e3d18a97cd13094a18bd9ebf15b
-kernel7.img  1aa61d5b199204054ec018effab0a39f7a19b8cc3069741a02a91d95f8e4a771
+1MHzWifi ROM f68a1776ada1977790802a2c049083b9cfd3b199082aac5b5130ca9c93dfcfd8
+kernel.img   9846a2112f83764167c01387499f89de2270928d0053304b7274f01f7ed0e617
+kernel7.img  e367ae7bb2afa8f16b8afd04f71ae275b4fc8f065acdb7eb1cf8a104bec340bb
 EMMFS.rom    b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955
-nettools.ssd a786f8c2ca59362e1c3bd02b25802e272cc8d6d080df06e9735c94ff22a1792f
-bundle ZIP   4f7c7a693f695f533e9367a6eaeca8ac78866a37c764951012aee11a10864a0e
+nettools.ssd cc702e4e2afc49a587d7a463c49ce688c34461a66b706c2503012072d7457276
+bundle ZIP   fe482d3bcbe5f906051fd683660413ea4e105767d291f00c57e2aef6b6c52c40
 ```
 
-The Pi1MHz commit was the official `master` tip verified on 9 August 2026. Run
+The Pi1MHz commit was the official `master` tip verified on 11 August 2026. Run
 `./pi-side/check_upstream.sh` before producing another hardware-test bundle.
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -55,17 +55,21 @@ CYW43455 firmware at runtime.
   Tube. The maintained AP5 model reaches visible gameplay for Zalaga,
   Arcadians, Last of the Free and E-Type. Castle of Riddles reaches its
   interactive command prompt.
-- [ ] Repeat the complete 0.1.30 matrix after correcting Tube command ownership.
-  A live Zalaga run with the Tube enabled downloaded `&7462` bytes, executed
-  the stock `*REWIND` and `CHAIN ""`, loaded `ZALAGA 05 05EE`, then returned
-  to the parasite prompt. This is the current failure boundary, recorded in
-  `tube-zalaga-return-to-prompt-0.1.30.png`.
+- [x] Run exact `*UEF LOAD THRUST` acceptance tests with ROM 0.1.33 under the
+  photographed ROM order, first without a Tube and then with the AP5 Tube and
+  Acorn 1.20 parasite enabled. Both runs pass `THRUST1`, reach the controls
+  screen and enter gameplay. The final captures are
+  `tests/elkulator/screenshots/uef-thrust-gameplay-0.1.33-no-tube.png` and
+  `tests/elkulator/screenshots/uef-thrust-gameplay-0.1.33-tube.png`.
+- [ ] Repeat the complete MENU title matrix with ROM 0.1.37. The earlier
+  Tube-active Zalaga return to the parasite prompt remains a regression
+  fixture, not the current known boundary.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [ ] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
   return. Elkulator's expansion ROM becomes unavailable after `*TAPE`, so this
   transition must be proved on AP5 hardware.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.30` before recording any further hardware test result.
+  `1MHzWifi 0.1.37` before recording any further hardware test result.
 - [x] Boot the photographed non-Tube ROM layout in Elkulator: RH Plus 1 1.33
   in C, BASIC in B, writable sideways RAM in 7 and 6, AFM 1.09 in 5,
   1MHzWifi 0.1.28 in 3, and Acorn ADFS 1.00 in 1. Run the live `*MENU`, select
@@ -84,10 +88,11 @@ CYW43455 firmware at runtime.
 Existing captures are stored under `tests/elkulator/screenshots/`. The
 maintained adapter models the Pi1MHz mailbox, JIM, AP5 address decoder, Tube
 ULA and an external 3 MHz 65C02. A configured Tube starts during cold boot,
-matching PiTubeDirect. `tube-zalaga-return-to-prompt-0.1.25.png` records the
-clean-install reproduction of the physical failure. The corresponding
-`tube-arcadians-running-0.1.28.png` records the corrected host launch with the
-Tube enabled. Physical hardware remains the final acceptance gate.
+matching PiTubeDirect. ROM 0.1.37 has passed a live ten-entry Tube-on/off
+catalogue differential. Every pair received identical UEF bytes. Nine pairs
+met the strict framebuffer threshold; the remaining pair showed the same
+animated Starcade attract screen at different positions. Physical hardware
+remains the final acceptance gate.
 
 ## Filing-system matrix
 
@@ -239,12 +244,13 @@ Its SHA-256 is
 Exact-profile emulator runs load it in bank C. The earlier `ap6v133t.rom`
 substitute is not acceptance evidence for this AP5 configuration.
 
-Earlier releases corrected the AP5 selector and WiCFS state corruption, but
-the current photographs isolate a Tube coexistence defect. Versions 0.1.24 and
-0.1.25 attempted to solve it with Tube transfers. That was the wrong
-architecture. Version 0.1.30 contains no Tube transfer path and preserves the
-stock cassette sequence. Physical Tube-enabled gameplay remains the acceptance
-gate.
+Earlier releases corrected the AP5 selector and WiCFS state corruption.
+Versions 0.1.24 and 0.1.25 attempted Tube transfers, which was the wrong
+architecture. Version 0.1.37 contains no Tube transfer path and preserves the
+stock cassette sequence. The private host launch enters Electron BASIC and
+queues `PAGE=&E00` before WiCFS so a Tube-active cold BASIC does not retain its
+`&23xx` program workspace. Physical Tube-enabled gameplay remains the
+acceptance gate.
 
 The maintained Elkulator Tube model now provides a repeatable diagnostic gate.
 With the photographed ROM order, live Pi1MHz Internet backend, ROM 0.1.25 and
@@ -253,17 +259,11 @@ automatically. `*MENU`, entered using `@` for the emulator's `*` key mapping,
 downloads the `&7462`-byte Zalaga UEF and executes the stock `*TAPE`, `*WICFS`,
 `*REWIND`, `CHAIN ""` sequence. It then loads `ZALAGA 05 05EE` and returns to
 the prompt. This matches the physical failure boundary and remains a regression
-fixture. It is not evidence that the current 0.1.30 Tube-enabled path passes.
-The complete 0.1.30 game matrix must be rerun with the Tube model before the
-emulator gate can be marked complete.
-
-The 0.1.30 reproduction establishes that the UEF download, JIM transfer,
-WiCFS installation, rewind and first OSFILE load all complete. The outstanding
-Tube defect occurs after the published menu returns and its `CHAIN ""` input is
-interpreted by the active parasite BASIC. WiCFS deliberately wrote the file to
-Electron host memory, so returning to the parasite prompt is expected until the
-launch remains in an I/O-processor language context. A correction must not copy
-the UEF or game into parasite memory, issue `TUBE OFF`, or reset the fitted Tube.
+fixture. The current batch runner applies the same menu selection and WiCFS
+path to arbitrary sorted catalogue ranges. Its first ten-entry 0.1.37 run
+produced identical UEF hashes in every Tube-on/off pair. It does not copy a UEF
+or game into parasite memory, issue `TUBE OFF`, reset the fitted Tube, or access
+a Tube register.
 
 - [ ] Confirm `Pi1MHz.cfg` contains active `Rampage_addr=0xFD`. Boot with ADFS,
   DFS, MMFS/SWRAM and other JIM users present; verify each can reselect its own
@@ -273,7 +273,7 @@ the UEF or game into parasite memory, issue `TUBE OFF`, or reset the fitted Tube
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
 - [ ] Retest Zalaga, Arcadians, Last of the Free, E-Type, Frak, Chuckie Egg
-  and DeskDiary with ROM 0.1.30 on
+  and DeskDiary with ROM 0.1.37 on
   the physical Electron and AP5. Earlier physical builds failed on Zalaga and
   DeskDiary. Zalaga and Arcadians reach gameplay through the live Elkulator
   bridge without a Tube.
@@ -328,6 +328,9 @@ the UEF or game into parasite memory, issue `TUBE OFF`, or reset the fitted Tube
 - [ ] Select a MENU title with the Tube off and then on. In both cases confirm
   a format-qualified `WGET ... OK`, WiCFS activation, and execution of the
   downloaded program.
+- [x] Run the first ten published catalogue entries through the automated
+  Tube-on/off differential. Confirm identical UEF byte counts and SHA-256
+  values for all pairs. Retain strict screen mismatches for visual review.
 - [ ] Test sequential open/read, EOF, rewind, Escape, malformed UEF, and recovery.
 - [ ] While associated, press BREAK and time `*ONLINE`. Confirm the preserved
   Pi-side association is available within seconds and no full rejoin starts.
@@ -364,6 +367,9 @@ the UEF or game into parasite memory, issue `TUBE OFF`, or reset the fitted Tube
   title screen without token text or an unexpected BASIC prompt.
 - [ ] Confirm no WiCFS vector code occupies Tube workspace `&0400-&07FF` and no
   parasite pointer is passed to JIM or the 1MHz-bus Pi service.
+- [x] Run `*UEF LOAD THRUST` with Tube disabled and enabled. Confirm both reach
+  live gameplay and the Tube-enabled path does not use Tube registers or a
+  parasite destination.
 
 ## OSWORD application compatibility gate
 
@@ -374,8 +380,8 @@ the UEF or game into parasite memory, issue `TUBE OFF`, or reset the fitted Tube
 - [ ] Run ElkChat's `ELKNET` diagnostic with `*RUN ELKNET` against the original
   ElkWiFi 0.23 ROM. Record function 18 IFCFG, function 4 JOIN query and
   function 8 TCP-open responses.
-- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with 1MHzWifi 0.1.30
-  and matched kernel revision `V1.30-83-g516a267-dirty.5e877218`. None of the
+- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with 1MHzWifi 0.1.37
+  and the kernel revision reported by the bundled `*VERSION`. None of the
   calls may block or
   raise `Not implemented`.
 - [ ] Call function 9 with a CR-terminated `0` parameter before function 8.

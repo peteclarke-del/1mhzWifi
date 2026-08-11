@@ -150,10 +150,21 @@ OSBGET = &FFD7
  jsr printtext
  equs " bytes in JIM",&0D,&EA
 
+ \ A Tube language would otherwise consume the queued CHAIN. Enter the host
+ \ language without disabling, resetting or transferring through the Tube.
+ lda #&EA
+ ldx #0
+ ldy #&FF
+ jsr osbyte
+ cpx #&FF
+ bne uef_queue_start
+ jmp menu_host_cmd
+
  \ Match the stock *WICFS setup sequence. QUPRUN is an internal second-stage
  \ command: it installs WiCFS and then queues the shorter REWIND/CHAIN pair.
  \ Splitting the sequence is required because the Electron keyboard buffer
  \ cannot hold the setup and launch commands at the same time.
+.uef_queue_start
  ldx #0
 .uef_queue
  stx temp

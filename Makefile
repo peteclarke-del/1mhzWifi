@@ -1,8 +1,9 @@
 BEEBASM ?= beebasm
 WOLFSSH_PREFIX ?= /tmp/wolf-install
 
-.PHONY: test test-rom test-emulator test-host test-package test-ssh-real \
-	test-elkulator test-elkulator-ssh-real test-pi-firmware test-all deps clean
+.PHONY: test test-rom test-emulator test-host test-package patch-kits \
+ test-ssh-real test-elkulator test-elkulator-ssh-real test-pi-firmware \
+ test-all deps clean
 
 test: test-rom test-emulator test-host test-package
 
@@ -22,6 +23,9 @@ test-package:
 	@if rg -n '—|–' --glob '*.md' --glob '*.txt' .; then \
 		echo "Documentation contains a typographic dash" >&2; exit 1; \
 	fi
+
+patch-kits:
+	./scripts/package_patch_kits.sh
 
 test-ssh-real:
 	$(MAKE) -C host-tools test-ssh-real WOLFSSH_PREFIX="$(WOLFSSH_PREFIX)"

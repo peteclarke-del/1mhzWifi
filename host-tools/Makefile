@@ -12,7 +12,6 @@ build:
 	mkdir -p build
 
 COMMON_SOURCES := src/common/mos.inc src/common/pi1mhz_net.asm
-SCAFFOLD_TOOLS := PING NSLOOK FTP HGET VIEWDAT
 
 build/TERM: src/term.asm src/vt100.asm $(COMMON_SOURCES) | build
 	$(BEEBASM) -i src/term.asm -o $@
@@ -23,22 +22,7 @@ build/SSH: src/ssh.asm src/vt100.asm src/common/pi1mhz_secure.asm $(COMMON_SOURC
 build/NETMENU: src/netmenu.asm src/common/mos.inc | build
 	$(BEEBASM) -i src/netmenu.asm -o $@
 
-build/PING: src/ping.asm src/common/tool_scaffold.inc src/common/mos.inc | build
-	$(BEEBASM) -i src/ping.asm -o $@
-
-build/NSLOOK: src/nslook.asm src/common/tool_scaffold.inc src/common/mos.inc | build
-	$(BEEBASM) -i src/nslook.asm -o $@
-
-build/FTP: src/ftp.asm src/common/tool_scaffold.inc src/common/mos.inc | build
-	$(BEEBASM) -i src/ftp.asm -o $@
-
-build/HGET: src/hget.asm src/common/tool_scaffold.inc src/common/mos.inc | build
-	$(BEEBASM) -i src/hget.asm -o $@
-
-build/VIEWDAT: src/viewdat.asm src/common/tool_scaffold.inc src/common/mos.inc | build
-	$(BEEBASM) -i src/viewdat.asm -o $@
-
-build/nettools.ssd: src/disc.asm build/NETMENU build/TERM build/SSH $(addprefix build/,$(SCAFFOLD_TOOLS)) | build
+build/nettools.ssd: src/disc.asm build/NETMENU build/TERM build/SSH | build
 	rm -f $@
 	$(BEEBASM) -i src/disc.asm -do $@ -boot NETMENU -title NETTOOLS
 	truncate -s 204800 $@

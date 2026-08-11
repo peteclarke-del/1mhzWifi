@@ -109,11 +109,11 @@ WiCFS again and recurse indefinitely. The saved ROM identifiers occupy the
 same cassette filing-system workspace as the saved vector addresses, so a
 later handler cannot erase them through shared zero-page workspace.
 
-When the previous handler belongs to a sideways ROM, WiCFS tail-calls it
-through a short trampoline copied into ordinary filing-system workspace. The
-ROM switch is the trampoline's final setup action, so execution never continues
-from the same address in a newly selected ROM. The trampoline is outside
-`&0400-&07FF` and neither detects nor accesses a Tube.
+When the previous handler belongs to a sideways ROM, WiCFS copies a short
+tail-call into host filing workspace. That code selects the recorded owner and
+jumps to its handler without fetching another instruction from the now-paged
+out 1MHzWifi ROM. It returns through the existing MOS extended-vector frame.
+The path uses no private code in `&0400-&07FF` and does not access a Tube.
 
 WiCFS claims `*REWIND` directly when it is the active filing system. It leaves
 `*TAPE` functional, allowing every `*MENU` invocation to return to cassette
@@ -141,8 +141,18 @@ not replaced with the cassette header's nominal load address after the file has
 loaded. The found result in A and the caller's X/Y pointer are preserved.
 
 WiCFS receives every UEF byte from Pi1MHz through the 1MHz bus and JIM and
-writes it to Electron I/O-processor memory. It does not inspect or access the
-Tube. A fitted Tube remains active for software which deliberately uses it.
+writes it to Electron I/O-processor memory. The launcher queries Tube presence
+with MOS OSBYTE `&EA` so it can keep command interpretation on the host. It
+does not access Tube registers, transfer data to the Tube, or disable it. A
+fitted Tube remains active for software which deliberately uses it.
+
+Multi-stage loaders can later issue `BASIC` themselves. MOS normally relocates
+that language to an active parasite before the service-ROM command pass. While
+WiCFS is installed, its FSCV reason-8 handler recognises only the complete
+`BASIC` command. If OSBYTE `&EA` reports a Tube, it enters the installed BASIC
+ROM directly on the Electron. If no Tube is present, or the command differs,
+the original MOS path is left unchanged. This is the boundary which allows
+Thrust to pass its `THRUST1` stage without using the Tube as a destination.
 
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a

@@ -229,6 +229,43 @@ menusrc_timeout_hi = errorspace+2
 .menusrc_long_text
  equs "Menu source is too long",&0D,0
 
+\ Return carry set only when a non-Electron host is still configured to use
+\ the published Electron menu. OSBYTE &81 with X=0,Y=&FF is the documented
+\ machine-type query; X=1 identifies an Electron. Custom sources remain
+\ available on BBC B, B+, Master and Compact systems.
+.menusrc_check_menu_platform
+ lda #&81
+ ldx #0
+ ldy #&FF
+ jsr osbyte
+ cpx #1
+ beq menusrc_platform_ok
+ lda #svc_menu_get
+ jsr menusrc_start
+ bcs menusrc_platform_done
+ ldx #0
+.menusrc_platform_compare
+ lda &FC00+svc_data
+ cmp menusrc_builtin_url,x
+ bne menusrc_platform_ok
+ cmp #0
+ beq menusrc_platform_default
+ inx
+ bne menusrc_platform_compare
+.menusrc_platform_default
+ jsr printtext
+ equs "Default MENU is Electron only",&0D
+ equs "Use *MENUSRC <url>",&0D,&EA
+ sec
+.menusrc_platform_done
+ rts
+.menusrc_platform_ok
+ clc
+ rts
+
+.menusrc_builtin_url
+ equs "http://acornelectron.nl/uefarchive/MENU",0
+
 \ The published ElkWiFi MENU contains one inlined cartridge bank-select
 \ sequence: LDA &FC34 / ORA #8 / STA &FC34. Replace it in place with a
 \ length-preserving AP5 JIM selection. A custom menu without the
@@ -381,6 +418,21 @@ menusrc_timeout_hi = errorspace+2
  inx
  cpx #(menusrc_catalogue_read_end-menusrc_catalogue_read)
  bne menusrc_catalogue_copy_read
+ \ With a Tube language active, make the menu enter host BASIC before it
+ \ starts WiCFS. This changes only the stock, verified Electron payload.
+ lda #&EA
+ ldx #0
+ ldy #&FF
+ jsr osbyte
+ cpx #&FF
+ bne menusrc_patch_catalogue_done
+ ldx #0
+.menusrc_host_launch_copy
+ lda menusrc_host_launch,x
+ sta &137B,x
+ inx
+ cpx #(menusrc_host_launch_end-menusrc_host_launch)
+ bne menusrc_host_launch_copy
 .menusrc_patch_catalogue_done
  rts
 
@@ -393,6 +445,11 @@ menusrc_timeout_hi = errorspace+2
  equs "|M"
  equb &0D
 .menusrc_stock_launch_end
+
+.menusrc_host_launch
+ equs "*QHOST           |M"
+ equb &0D
+.menusrc_host_launch_end
 
 \ Copied to &1FC5, immediately after the temporary TAPE command at &1FC0.
 \ It leaves A=1, matching the earlier equal-length inline replacement. The

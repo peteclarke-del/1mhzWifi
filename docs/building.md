@@ -139,6 +139,10 @@ The complete bundle must retain the `brcmfmac43430`, `brcmfmac43436`,
 rest of Pi1MHz while returning `Device not found` from `*WIFI ON`.
 The installer replaces the generic 43430 NVRAM template with Raspberry Pi's
 GPL-2.0+ Pi 3B calibration file, which Raspberry Pi OS also uses for Zero W.
+It also extracts the hardware-proven BCM43455 7.45.241 binary from Pi1MHz
+revision `8468a38`, verifies its SHA-256, and installs it over the 7.45.265
+binary in the current upstream tree. This is a narrow Pi 3A+/3B+ firmware
+compatibility pin, not a rollback of the Pi1MHz source baseline.
 
 ## Verify the finished release
 

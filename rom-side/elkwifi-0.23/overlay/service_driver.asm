@@ -1,6 +1,6 @@
 \ ElkWiFi driver calls implemented through the Pi1MHz services mailbox.
-\ This service ROM executes in the Electron I/O processor, including when
-\ invoked by a Tube parasite, so use the AP5-forwarded FRED window directly.
+\ This service ROM executes in the host I/O processor, including when invoked
+\ by a Tube parasite, so use the 1MHz-bus FRED window directly.
 
 drv_svc_addr_lo = &A6
 drv_svc_addr_mid = &A7
@@ -549,8 +549,6 @@ drv_net_close = 53
  equs "+CWMODE:1",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
 .service_driver_ok_text
  equs "OK",&0D,&0A,0
-.service_driver_ping_text
- equs "+1",&0D,&0A,0
 
 .service_driver_join
  lda #drv_svc_join
@@ -647,7 +645,15 @@ drv_net_close = 53
  \ detected immediately by the read-back and &FF checks above.
  lda drv_svc_command_copy
  cmp #drv_svc_status
- beq service_driver_long_timeout
+ bne service_driver_timeout_not_status
+ \ Function 2 is *VERSION/GMR and must never inherit the many-minute radio
+ \ startup window required by function 24 (*WIFI ON). Both use command 80,
+ \ but save_a retains the public driver function number for this call.
+ lda save_a
+ cmp #2
+ beq service_driver_short_timeout
+ jmp service_driver_long_timeout
+.service_driver_timeout_not_status
  cmp #drv_svc_scan
  beq service_driver_long_timeout
  cmp #drv_svc_join

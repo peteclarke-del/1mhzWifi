@@ -18,6 +18,7 @@ root_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
 package_dir="$script_dir/pi1mhz-516a267"
 patch_dir="$package_dir/patches"
 overlay_dir="$package_dir/overlay"
+output_dir=${PI1MHZ_OUTPUT_DIR:-$root_dir/build}
 # shellcheck source=upstream.env
 . "$script_dir/upstream.env"
 
@@ -57,6 +58,12 @@ if [ "$preset" != apply ]; then
     arm_gcc_path=$(command -v "$arm_gcc")
     PATH=$(dirname -- "$arm_gcc_path"):$PATH
     export PATH
+    if [ ! -f "$upstream/src/usb/tinyusb/src/tusb.c" ] \
+       || [ ! -f "$upstream/src/wifi/lwip/src/core/def.c" ]; then
+        echo "Pi1MHz TinyUSB and lwIP submodules are required for a firmware build" >&2
+        echo "Run: git -C '$upstream' submodule update --init --recursive" >&2
+        exit 1
+    fi
 fi
 
 if [ ! -f "$upstream/src/net_service.c" ]; then
@@ -107,9 +114,27 @@ if ! grep -q 'BBC/Electron display' \
         < "$patch_dir/wolfssh-pi1mhz.patch"
 fi
 
-# The ROM is an input to this build. Kernel and ZIP hashes are outputs and may
-# legitimately differ until the new bundle has been completed and recorded.
-"$root_dir/build.sh" --rom-only
+# The host ROM is an input to a complete SD-card build, but not to the
+# source-only `apply` preset used to prepare an upstream review patch. A full
+# repository checkout uses build/elkwifi_pi1mhz.rom. A standalone patch kit
+# may supply ELKWIFI_ROM or place ElkWiFi.rom under pi-side/firmware.
+rom_source=${ELKWIFI_ROM:-}
+if [ -z "$rom_source" ] && [ -f "$root_dir/build/elkwifi_pi1mhz.rom" ]; then
+    rom_source="$root_dir/build/elkwifi_pi1mhz.rom"
+    if [ -x "$root_dir/build.sh" ]; then
+        "$root_dir/build.sh" --rom-only
+    fi
+elif [ -z "$rom_source" ] && [ -f "$script_dir/firmware/ElkWiFi.rom" ]; then
+    rom_source="$script_dir/firmware/ElkWiFi.rom"
+fi
+if [ "$preset" != apply ] && [ -z "$rom_source" ]; then
+    echo "a built 16 KiB host ROM is required; set ELKWIFI_ROM" >&2
+    exit 1
+fi
+if [ -n "$rom_source" ] && [ "$(wc -c < "$rom_source")" -ne 16384 ]; then
+    echo "$rom_source is not a 16 KiB ElkWiFi host ROM" >&2
+    exit 1
+fi
 
 install_if_changed() {
     source_file=$1
@@ -133,7 +158,7 @@ install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/se
 install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
 install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
 
-for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch; do
+for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -251,6 +276,11 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
             grep -q 'void sdio_runtime_scan_cancel(void);' "$upstream/src/wifi/sdio.h" &&
             patch_present=true
             ;;
+        wifi-profile-validation.patch)
+            grep -q 'bool wifi_profile_is_valid' "$upstream/src/wifi/wifi.c" &&
+            grep -q 'g_wifi_state == WIFI_STATE_DISABLED' "$upstream/src/wifi/wifi.c" &&
+            patch_present=true
+            ;;
     esac
     if "$patch_present"; then
         echo "Pi1MHz $patch_name is already applied"
@@ -270,7 +300,22 @@ done
 install_if_changed "$script_dir/firmware/brcmfmac43430-sdio.txt" \
                    "$upstream/firmware/Pi1MHz/wifi/brcmfmac43430-sdio.txt"
 
-install_if_changed "$root_dir/build/elkwifi_pi1mhz.rom" "$upstream/firmware/Pi1MHz/ElkWiFi.rom"
+# Pi1MHz 92ccf96 replaced BCM43455 firmware 7.45.241 with 7.45.265. The
+# replacement associates on the Pi 3A+ validation hardware but does not pass
+# DHCP traffic. Keep current Pi1MHz source while installing the last proven
+# BCM43455 image from the pinned upstream history.
+bcm43455_path=firmware/Pi1MHz/wifi/brcmfmac43455-sdio.bin
+bcm43455_tmp=$(mktemp)
+trap 'rm -f "$bcm43455_tmp"' EXIT
+git -C "$upstream" show \
+    "$PI1MHZ_BCM43455_FIRMWARE_COMMIT:$bcm43455_path" > "$bcm43455_tmp"
+printf '%s  %s\n' "$PI1MHZ_BCM43455_FIRMWARE_SHA256" "$bcm43455_tmp" \
+    | sha256sum --check --strict
+install_if_changed "$bcm43455_tmp" "$upstream/$bcm43455_path"
+
+if [ -n "$rom_source" ]; then
+    install_if_changed "$rom_source" "$upstream/firmware/Pi1MHz/ElkWiFi.rom"
+fi
 install_if_changed "$script_dir/firmware/EMMFS.rom" "$upstream/firmware/Pi1MHz/EMMFS.rom"
 
 # The raw socket/URL service is deliberately opt-in upstream.  This adapter
@@ -341,7 +386,7 @@ case "$preset" in
         echo "Built $upstream/firmware/kernel7.img"
         ;;
 esac
-bundle="$root_dir/build/pi1mhz-$preset"
+bundle="$output_dir/pi1mhz-$preset"
 mkdir -p "$bundle"
 cp -a "$upstream/firmware/." "$bundle/"
 
@@ -349,19 +394,26 @@ cp -a "$upstream/firmware/." "$bundle/"
 # mailbox ABI.  This is distribution material rather than Pi boot firmware,
 # but putting it in the same release tree prevents an SD-card update from
 # silently leaving an older SSH/TERM binary in use.
-make -C "$root_dir/host-tools" all
-mkdir -p "$bundle/host-tools"
-install -m 0644 "$root_dir/host-tools/build/nettools.ssd" \
-                "$bundle/host-tools/nettools.ssd"
+host_tools_ssd=${HOST_TOOLS_SSD:-}
+if [ -d "$root_dir/host-tools" ]; then
+    make -C "$root_dir/host-tools" all
+    host_tools_ssd="$root_dir/host-tools/build/nettools.ssd"
+fi
+if [ -n "$host_tools_ssd" ]; then
+    mkdir -p "$bundle/host-tools"
+    install -m 0644 "$host_tools_ssd" "$bundle/host-tools/nettools.ssd"
+else
+    echo "note: standalone Pi1MHz kit has no NetTools SSD; set HOST_TOOLS_SSD to include one" >&2
+fi
 # Preserve the actual kernel build times in a normal hardware-test bundle so
 # an SD-card operator can distinguish a newly linked image from a stale copy.
 # Reproducible release jobs may still request normalized timestamps explicitly.
 if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
     find "$bundle" -exec touch -d "@$SOURCE_DATE_EPOCH" -- {} +
 fi
-archive="$root_dir/build/pi1mhz-$preset-hardware-test.zip"
-archive_tmp_dir=$(mktemp -d "$root_dir/build/.pi1mhz-bundle.XXXXXX")
-(cd "$root_dir/build" && TZ=UTC zip -Xqr "$archive_tmp_dir/bundle.zip" "pi1mhz-$preset")
+archive="$output_dir/pi1mhz-$preset-hardware-test.zip"
+archive_tmp_dir=$(mktemp -d "$output_dir/.pi1mhz-bundle.XXXXXX")
+(cd "$output_dir" && TZ=UTC zip -Xqr "$archive_tmp_dir/bundle.zip" "pi1mhz-$preset")
 mv "$archive_tmp_dir/bundle.zip" "$archive"
 rmdir "$archive_tmp_dir"
 echo "Hardware-test SD-card bundle: $bundle"

@@ -1,124 +1,83 @@
-Pi1MHz bare-metal integration for the official master tip verified 2026-08-09:
-516a267493d9f19e6bf2f4a2ea4c3e7472b12135
+Pi1MHz bare-metal integration
+==============================
 
+Reviewed upstream
+-----------------
+
+- Branch: master
+- Commit: 516a267493d9f19e6bf2f4a2ea4c3e7472b12135
+- Verification metadata: upstream.env
+
+Installer and review tools
+--------------------------
+
+- README.md
 - install_bundle.sh
 - check_upstream.sh
-- upstream.env
 - export_upstream_patch.sh
+- upstream.env
+- upstream/1mhzwifi-pi1mhz.patch
 - pi1mhz-516a267/README.md
-- pi1mhz-516a267/patches/integration.patch
-- pi1mhz-516a267/patches/service-range-online.patch
-- pi1mhz-516a267/patches/uef-normalize.patch
-- pi1mhz-516a267/patches/services-capacity-test.patch
-- pi1mhz-516a267/patches/gitversion-untracked-content.patch
-- pi1mhz-516a267/patches/gitversion-third-party.patch
-- pi1mhz-516a267/patches/secure-service.patch
-- pi1mhz-516a267/patches/wolfssh-pi1mhz.patch
-- pi1mhz-516a267/patches/wifi-security.patch
-- pi1mhz-516a267/patches/wifi-radio.patch
-- pi1mhz-516a267/patches/wifi-mac-fallback.patch
-- pi1mhz-516a267/patches/wifi-radio-setup.patch
-- pi1mhz-516a267/patches/wifi-join-diagnostics.patch
-- pi1mhz-516a267/patches/wifi-join-reference.patch
-- pi1mhz-516a267/patches/wifi-leave.patch
-- pi1mhz-516a267/patches/wifi-network-tools.patch
-- pi1mhz-516a267/patches/http-status.patch
-- pi1mhz-516a267/patches/tcp-diagnostics.patch
-- pi1mhz-516a267/patches/http-truncated-body.patch
-- pi1mhz-516a267/patches/wifi-pi3b.patch
+- pi1mhz-516a267/TECHNICAL.md
+
+Ordered Pi1MHz patches
+----------------------
+
+- integration.patch
+- service-range-online.patch
+- uef-normalize.patch
+- services-capacity-test.patch
+- gitversion-untracked-content.patch
+- gitversion-third-party.patch
+- secure-service.patch
+- wolfssh-pi1mhz.patch
+- wifi-security.patch
+- wifi-radio.patch
+- wifi-mac-fallback.patch
+- wifi-radio-setup.patch
+- wifi-join-diagnostics.patch
+- wifi-join-reference.patch
+- wifi-leave.patch
+- wifi-network-tools.patch
+- wifi-pi3b.patch
+- http-status.patch
+- tcp-diagnostics.patch
+- http-truncated-body.patch
+- http-user-agent.patch
+- wifi-off-state.patch
+- wifi-scan-cancel.patch
+- wifi-profile-validation.patch
+
+Added source overlays
+---------------------
+
+- elkwifi_service.c and elkwifi_service.h
+- uef_normalize.c and uef_normalize.h
+- puff.c and puff.h
+- secure_service.c and secure_service.h
+- secure_service_core.c and secure_service_core.h
+- secure_service_wolfssh.c and secure_service_wolfssh.h
+- user_settings.h
+
+Firmware inputs
+---------------
+
 - firmware/brcmfmac43430-sdio.txt
 - firmware/EMMFS.rom
-- pi1mhz-516a267/patches/http-user-agent.patch
-- pi1mhz-516a267/patches/wifi-off-state.patch
-- pi1mhz-516a267/patches/wifi-scan-cancel.patch
-- pi1mhz-516a267/overlay/src/elkwifi_service.c
-- pi1mhz-516a267/overlay/src/elkwifi_service.h
-- pi1mhz-516a267/overlay/src/uef_normalize.c
-- pi1mhz-516a267/overlay/src/uef_normalize.h
-- pi1mhz-516a267/overlay/src/puff.c
-- pi1mhz-516a267/overlay/src/puff.h
-- pi1mhz-516a267/overlay/src/secure_service.c
-- pi1mhz-516a267/overlay/src/secure_service.h
-- pi1mhz-516a267/overlay/src/secure_service_core.c
-- pi1mhz-516a267/overlay/src/secure_service_core.h
-- pi1mhz-516a267/overlay/src/secure_service_wolfssh.c
-- pi1mhz-516a267/overlay/src/secure_service_wolfssh.h
-- pi1mhz-516a267/overlay/src/user_settings.h
+- BCM43455 firmware 7.45.241, retrieved and hash-checked from Pi1MHz 8468a38
+- A 16 KiB host ROM supplied by the monorepo build or ELKWIFI_ROM
+
+Tests
+-----
+
 - tests/run_secure_build.sh
 - tests/test_secure_service_core.c
-- upstream/1mhzwifi-pi1mhz.patch
+- upstream Pi1MHz services, network and parser tests
+- monorepo ROM, protocol, UEF, emulator and packaging tests
 
-Merged host and emulator components:
+Associated packages
+-------------------
 
-- ../host-tools/
-- ../emulator/pi1mhz-mailbox/
-- ../docs/nettools-merge.md
-
-Host ROM integration sources:
-
-- rom-side/build_rom.sh
-- rom-side/elkwifi-0.23/README.md
-- rom-side/elkwifi-0.23/patches/integration.patch
-- rom-side/elkwifi-0.23/patches/banner-spacing.patch
-- rom-side/elkwifi-0.23/patches/identity.patch
-- rom-side/elkwifi-0.23/patches/wicfs-jim-atomic.patch
-- rom-side/elkwifi-0.23/patches/wicfs-lifecycle.patch
-- rom-side/elkwifi-0.23/patches/wicfs-jim-state.patch
-- rom-side/elkwifi-0.23/patches/wicfs-tube-osfile.patch
-- rom-side/elkwifi-0.23/patches/command-surface.patch
-- rom-side/elkwifi-0.23/patches/online-command.patch
-- rom-side/elkwifi-0.23/overlay/online.asm
-- rom-side/elkwifi-0.23/patches/uef-command.patch
-- rom-side/elkwifi-0.23/overlay/uef.asm
-- rom-side/elkwifi-0.23/overlay/wificmd.asm
-- rom-side/elkwifi-0.23/patches/disconnect-response.patch
-- rom-side/elkwifi-0.23/overlay/menu.asm
-- rom-side/elkwifi-0.23/overlay/menusrc.asm
-- rom-side/elkwifi-0.23/overlay/net_wget.asm
-- rom-side/elkwifi-0.23/overlay/ping.asm
-- rom-side/elkwifi-0.23/overlay/service_driver.asm
-- rom-side/elkwifi-0.23/overlay/time.asm
-- rom-side/elkwifi-0.23/overlay/version.asm
-- rom-side/elkwifi-0.23/overlay/driver.asm
-- rom-side/elkwifi-0.23/overlay/serial.asm
-- rom-side/elkwifi-0.23/overlay/wget_helpers.asm
-- rom-side/elkwifi-0.23/patches/wicfs-page-shadow.patch
-- rom-side/elkwifi-0.23/patches/wicfs-osfile-metadata.patch
-- rom-side/elkwifi-0.23/patches/wicfs-host-only.patch
-- rom-side/elkwifi-0.23/patches/wicfs-vector-chain.patch
-- rom-side/elkwifi-0.23/patches/wicfs-osfile-stack.patch
-- rom-side/elkwifi-0.23/patches/wicfs-reentry-run.patch
-- rom-side/elkwifi-0.23/patches/wicfs-loader-compat.patch
-- rom-side/elkwifi-0.23/patches/wicfs-final-block.patch
-- rom-side/elkwifi-0.23/patches/wicfs-callable-init.patch
-- rom-side/elkwifi-0.23/patches/wicfs-rewind.patch
-- rom-side/elkwifi-0.23/patches/wicfs-long-branches.patch
-- rom-side/elkwifi-0.23/patches/wicfs-zero-length.patch
-- rom-side/elkwifi-0.23/patches/wicfs-cursor-zp.patch
-- rom-side/elkwifi-0.23/patches/wicfs-safe-state.patch
-- rom-side/elkwifi-0.23/patches/rom-prune.patch
-- rom-side/elkwifi-0.23/patches/routines-prune.patch
-
-Shipped host ROM:
-
-- build/elkwifi_pi1mhz.rom
-- build/pi1mhz-all/ (complete FAT boot-partition candidate, both kernels)
-- build/pi1mhz-all-hardware-test.zip
-- SHA256SUMS
-
-Repository validation:
-
-- tests/test_integration_contract.py
-- tests/test_rom_compat.py
-- tests/test_uef_normalize.py
-- TODO.md
-- README.md
-- CONTRIBUTING.md
-- SECURITY.md
-- THIRD_PARTY_NOTICES.md
-- docs/architecture.md
-- docs/building.md
-- docs/commands.md
-- docs/menu-runtime-patch.md
-- docs/hardware-validation.md
-- .github/workflows/ci.yml
+- ../rom-side: ElkWiFi host-ROM patch kit
+- ../host-tools: NetTools host programs and SSD
+- ../emulator/pi1mhz-mailbox: reusable mailbox and Elkulator patch kit

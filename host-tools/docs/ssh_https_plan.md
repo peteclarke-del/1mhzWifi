@@ -28,12 +28,9 @@ patches, while the repository-level Makefile runs their common validation.
 - `TERM`: Telnet client with a bounded 40 by 24 VT100 parser.
 - `SSH`: SSH v2 client with host-key confirmation, Pi-resident keys and hidden
   password fallback.
-- `PING`, `NSLOOK`, `FTP`, `HGET`: executable protocol placeholders.
-- `VIEWDAT`: executable Viewdata placeholder. DFS limits names to seven
-  characters.
-
-The placeholders report that their implementation is pending. This avoids
-shipping commands that appear to work but silently return incomplete results.
+- `PING`, `NSLOOK`, `FTP`, `HGET` and `VIEWDAT` are planned but are not shipped
+  until their implementations and functional tests are complete. DFS limits
+  names to seven characters, hence the planned `VIEWDAT` name.
 
 ## Responsibility split
 

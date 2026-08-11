@@ -154,14 +154,19 @@
  .b_initialise
  	JSR	cfsinit		    \initialisations
  
-@@ -544,8 +613,10 @@
+@@ -544,6 +613,7 @@
  	PHA
  	TYA
  	PHA
 +	JSR	wicfs_state_load
+ 	LDA	wicfs_magic
+ 	CMP	#&A5
+ 	BEQ	wicfs_reset_check2
+@@ -722,6 +792,7 @@
  	LDA	#0
  	STA	wicfs_magic
  	STA	wicfs_magic+1
 +	JSR	wicfs_state_save
+ 	PLP
  .wicfs_reset_done
  	PLA

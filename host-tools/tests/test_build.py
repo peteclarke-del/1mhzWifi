@@ -34,22 +34,17 @@ class BuildTests(unittest.TestCase):
         image = (BUILD / "nettools.ssd").read_bytes()
         self.assertEqual(len(image), 204800)
         entries = catalogue(image)
-        self.assertEqual(set(entries), {
-            "!BOOT", "NETMENU", "TERM", "SSH", "PING", "NSLOOK", "FTP",
-            "HGET", "VIEWDAT"
-        })
+        self.assertEqual(set(entries), {"!BOOT", "NETMENU", "TERM", "SSH"})
 
     def test_executables_are_tagged_for_io_processor(self):
         entries = catalogue((BUILD / "nettools.ssd").read_bytes())
-        for name in ("NETMENU", "TERM", "SSH", "PING", "NSLOOK", "FTP",
-                     "HGET", "VIEWDAT"):
+        for name in ("NETMENU", "TERM", "SSH"):
             load, execute, _, _ = entries[name]
             self.assertEqual(load, 0x31900, name)
             self.assertEqual(execute, 0x31900, name)
 
     def test_programs_fit_stock_electron_mode4_envelope(self):
-        for name in ("NETMENU", "TERM", "SSH", "PING", "NSLOOK", "FTP",
-                     "HGET", "VIEWDAT"):
+        for name in ("NETMENU", "TERM", "SSH"):
             size = (BUILD / name).stat().st_size
             self.assertLessEqual(size, 0x5800 - 0x1900, name)
 
@@ -66,8 +61,7 @@ class BuildTests(unittest.TestCase):
 
     def test_ssd_contains_the_assembled_programs_byte_for_byte(self):
         image = (BUILD / "nettools.ssd").read_bytes()
-        for name in ("NETMENU", "TERM", "SSH", "PING", "NSLOOK", "FTP",
-                     "HGET", "VIEWDAT"):
+        for name in ("NETMENU", "TERM", "SSH"):
             self.assertEqual(dfs_file(image, name), (BUILD / name).read_bytes())
 
 

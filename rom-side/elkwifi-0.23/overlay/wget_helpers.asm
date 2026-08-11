@@ -63,11 +63,26 @@ laddr = heap+&FE
  rts
 
 .wget_swramload
- lda #15
- sta switch
+ lda #&81
+ ldx #0
+ ldy #&FF
+ jsr osbyte
+ stx zp+5
  lda laddr
  and #&0F
- sta switch
+ pha
+ ldx zp+5
+ cpx #1
+ bne wget_swram_select_bbc
+ lda #&0C
+ sta &FE05
+ pla
+ sta &FE05
+ jmp wget_swram_selected
+.wget_swram_select_bbc
+ pla
+ sta &FE30
+.wget_swram_selected
  sei
  ldx #0
  stx pr_r
@@ -93,13 +108,27 @@ laddr = heap+&FE
  dec zp+4
  bne wget_swramload_l1
  lda shadow
- sta switch
+ ldx zp+5
+ cpx #1
+ bne wget_swram_restore_bbc
+ sta &FE05
+ jmp wget_swram_restored
+.wget_swram_restore_bbc
+ sta &FE30
+.wget_swram_restored
  cli
  rts
 
 .wget_swramload_err
  lda shadow
- sta switch
+ ldx zp+5
+ cpx #1
+ bne wget_swram_error_restore_bbc
+ sta &FE05
+ jmp wget_swram_error_restored
+.wget_swram_error_restore_bbc
+ sta &FE30
+.wget_swram_error_restored
  cli
  brk
  equb 0

@@ -30,6 +30,17 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn("#define SEC_CMD_CAPS       94u", backend)
         self.assertIn("#define SEC_CMD_RANDOM     95u", backend)
 
+    def test_secure_wrapper_does_not_replace_an_active_request(self) -> None:
+        wrapper = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service.c"
+        ).read_text()
+        command = wrapper.split("static void secure_command", 1)[1].split(
+            "static void secure_poll", 1
+        )[0]
+        self.assertIn("if (pending)", command)
+        self.assertIn("Pi1MHz_MemoryWrite(addr, SEC_BUSY)", command)
+        self.assertLess(command.index("if (pending)"), command.index("pending_cp ="))
+
     def test_merged_components_have_central_build_owners(self) -> None:
         required = [
             "host-tools/Makefile",
@@ -40,9 +51,31 @@ class MergedRepositoryTest(unittest.TestCase):
             "pi-side/tests/run_secure_build.sh",
             "pi-side/upstream/1mhzwifi-pi1mhz.patch",
             "docs/nettools-merge.md",
+            "rom-side/elkwifi-0.23/TECHNICAL.md",
+            "pi-side/pi1mhz-516a267/TECHNICAL.md",
+            "emulator/pi1mhz-mailbox/integrations/elkulator/TECHNICAL.md",
+            "scripts/package_patch_kits.sh",
         ]
         for relative in required:
             self.assertTrue((ROOT / relative).is_file(), relative)
+
+    def test_each_upstream_patch_kit_is_self_describing(self) -> None:
+        kits = (
+            ROOT / "rom-side",
+            ROOT / "pi-side",
+            ROOT / "emulator/pi1mhz-mailbox",
+        )
+        for kit in kits:
+            self.assertTrue((kit / "README.md").is_file(), kit)
+        self.assertTrue((kits[0] / "build_rom.sh").is_file())
+        self.assertTrue((kits[1] / "install_bundle.sh").is_file())
+        self.assertTrue(
+            (kits[2] / "integrations/elkulator/install.sh").is_file()
+        )
+
+        packager = (ROOT / "scripts/package_patch_kits.sh").read_text()
+        for name in ("rom-side", "pi-side", "emulator/pi1mhz-mailbox"):
+            self.assertIn(name, packager)
 
     def test_release_bundle_pairs_host_tools_with_firmware(self) -> None:
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()

@@ -1,11 +1,15 @@
 diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
 --- a/rom/ElkWifi.asm
 +++ b/rom/ElkWifi.asm
-@@ -161,5 +161,9 @@
+@@ -161,5 +161,13 @@
  .commandtable       equs "WGET"
                      equb >pi_wget_cmd, <pi_wget_cmd
 +                    equs "QUPRUN"
 +                    equb >uef_run_cmd, <uef_run_cmd
++                    equs "QR"
++                    equb >uef_run_cmd, <uef_run_cmd
++                    equs "QHOST"
++                    equb >menu_host_cmd, <menu_host_cmd
 +                    equs "UEF"
 +                    equb >uef_cmd, <uef_cmd
                      equs "MENUSRC"

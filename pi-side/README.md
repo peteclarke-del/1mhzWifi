@@ -6,6 +6,12 @@ versioned package is under `pi1mhz-516a267/`, with source changes separated into
 boot firmware loads the resulting `kernel.img` or `kernel7.img` directly. No
 Linux service is installed or required.
 
+The implementation record is
+[`pi1mhz-516a267/TECHNICAL.md`](pi1mhz-516a267/TECHNICAL.md). The complete
+`pi-side` directory is the standalone source patch kit. Its `apply` preset
+does not require a host ROM. A complete firmware build accepts `ELKWIFI_ROM`,
+`HOST_TOOLS_SSD` and `PI1MHZ_OUTPUT_DIR` when run outside this monorepo.
+
 Pi1MHz V1.30 already contains its own bare-metal CYW43/SDIO WiFi stack. The
 overlay retains and extends that stack. Its main addition is an ElkWiFi-facing
 services-mailbox adapter, plus the state, security, and networking corrections
@@ -63,6 +69,10 @@ remains available but `*WIFI ON` reports `Device not found`.
 The ARMv8 image preloads 43430, 43436, and 43455 candidates, then selects the
 original Pi 3B, Zero 2 W, or Pi 3A+/3B+ image from the detected chip and SOCRAM
 revision before firmware download.
+The BCM43455 image is pinned to firmware 7.45.241 from upstream revision
+`8468a38`. The later 7.45.265 image associates on the Pi 3A+ validation
+hardware but does not complete DHCP. Pi1MHz source remains based on the
+reviewed `516a267` revision.
 
 Set `ARM_GCC` to the compiler path when `arm-none-eabi-gcc` is not on `PATH`.
 
@@ -187,6 +197,9 @@ plaintext on the FAT partition.
 association. The host receives `WIFI CONNECTING` once the request has been
 accepted; association and DHCP continue cooperatively. `*JOIN ?` and `*IFCFG`
 report live state without holding the shared mailbox request open.
+If JOIN arrives during radio startup or an earlier association attempt, the
+runtime queues a fresh association using the newly saved credentials. The
+accepted request is not lost when the current state machine reaches DONE.
 `*ONLINE` is the short readiness check: it reports the assigned IPv4 address,
 `OFFLINE CONNECTING`, `OFFLINE WIFI OFF`, `OFFLINE ERROR`, or `OFFLINE`.
 

@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "e26c9b977421b7965c36f6ca65e58367cef04797a75628c8a6687a4525b4d896"
+ROM_SHA256 = "3057805df51a8b7c23049cc5216952fac44eec9e15934741b8f60b0d9f871c68"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -18,11 +18,13 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(len(self.rom), 16 * 1024)
         self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
-            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x18, 0x1E))
+            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x18, 0x25))
         )
+        copyright_offset = self.rom[7]
+        self.assertEqual(self.rom[copyright_offset:copyright_offset + 4], b"\0(C)")
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.30\0")
-        self.assertIn(b"1MHzWifi 0.1.30 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.37\0")
+        self.assertIn(b"1MHzWifi 0.1.37 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -53,13 +55,14 @@ class RomCompatibilityTest(unittest.TestCase):
         # No ROM switcher may be copied into &07A4. Pages 4-7 belong to the
         # Tube host code whenever a parasite is active.
         self.assertNotIn(bytes.fromhex("A5 F4 8D C2 07"), self.rom)
-        # WiCFS is an Electron-host filing system. It must not inspect, claim,
-        # write or otherwise use an optional Tube as a transfer destination.
+        # WiCFS is an Electron-host filing system. It may query Tube presence
+        # through OSBYTE &EA, but must never use Tube transfer registers or
+        # copy a launcher into Tube host workspace.
         self.assertNotIn(bytes.fromhex("8D E4 FC"), self.rom)
         self.assertNotIn(bytes.fromhex("8D E5 FC"), self.rom)
         self.assertNotIn(bytes.fromhex("AD E4 FC"), self.rom)
         self.assertNotIn(bytes.fromhex("AD E5 FC"), self.rom)
-        self.assertNotIn(bytes.fromhex("A9 EA A2 00 A0 FF 20 F4 FF"), self.rom)
+        self.assertIn(bytes.fromhex("A9 EA A2 00 A0 FF 20 F4 FF"), self.rom)
         self.assertNotIn(bytes.fromhex("20 06 04"), self.rom)
         # Every UEF byte follows the normal host indirect-store path.
         self.assertIn(bytes.fromhex("A0 00 91 B0 E6 B0"), self.rom)
@@ -120,7 +123,7 @@ class RomCompatibilityTest(unittest.TestCase):
             b"WGET", b"MENU", b"MENUSRC", b"WIFI", b"VERSION", b"LAPOPT",
             b"LAP", b"IFCFG", b"DATE", b"TIME", b"PRD", b"JOIN", b"LEAVE",
             b"PING", b"MODE", b"ONLINE", b"DISCONNECT", b"UEF", b"WICFS",
-            b"REWIND", b"QUPCFS", b"QUPRUN",
+            b"REWIND", b"QUPCFS", b"QUPRUN", b"PAGE=&E00\r*QR\r",
         ):
             self.assertIn(command, self.rom)
         for removed in (b"PRINTER", b"UPDATE", b"SETSERIAL", b"CRC error"):

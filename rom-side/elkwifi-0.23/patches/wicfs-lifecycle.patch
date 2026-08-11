@@ -100,15 +100,13 @@
  .b_initialise
  	JSR	cfsinit		    \initialisations
  
-@@ -502,6 +533,29 @@
+@@ -502,6 +533,203 @@
  	LDA	slotid
  	STA	(evptr),Y
  	RTS
 +
-+\The MOS reinitialises standard and extended vectors before issuing reset
-+\service calls. Do not restore WiCFS predecessor vectors here: doing so can
-+\overwrite a filing system which has already reclaimed its vectors in this reset
-+\pass. Only discard the persisted WiCFS ownership record.
++\Release WiCFS without disturbing a filing system which has subsequently
++\claimed any vector. The two-byte guard makes reset safe before first install.
 +.wicfs_reset
 +	PHP
 +	PHA
@@ -116,9 +114,185 @@
 +	PHA
 +	TYA
 +	PHA
++	LDA	wicfs_magic
++	CMP	#&A5
++	BEQ	wicfs_reset_check2
++	JMP	wicfs_reset_done
++.wicfs_reset_check2
++	LDA	wicfs_magic+1
++	CMP	#&5A
++	BEQ	wicfs_reset_active
++	JMP	wicfs_reset_done
++.wicfs_reset_active
++\Restore BYTEV before using OSBYTE. This keeps reset recovery independent of
++\the RAM *TAPE trap and its cassette workspace remaining intact.
++	LDA	BYTEV
++	CMP	#<notape
++	BNE	wicfs_reset_get_table
++	LDA	BYTEV+1
++	CMP	#>notape
++	BNE	wicfs_reset_get_table
++	LDA	bytev_rtn
++	STA	BYTEV
++	LDA	bytev_rtn+1
++	STA	BYTEV+1
++.wicfs_reset_get_table
++	LDA	#&A8
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	evptr
++	STY	evptr+1
++	PHP
++	SEI
++
++	LDY	#27
++	LDA	(evptr),Y
++	CMP	#<upfilev
++	BNE	wicfs_restore_bget
++	INY
++	LDA	(evptr),Y
++	CMP	#>upfilev
++	BNE	wicfs_restore_bget
++	INY
++	LDA	(evptr),Y
++	CMP	slotid
++	BNE	wicfs_restore_bget
++	LDY	#27
++	LDA	FILVRTN
++	STA	(evptr),Y
++	INY
++	LDA	FILVRTN+1
++	STA	(evptr),Y
++	INY
++	LDA	filev_prev_rom
++	STA	(evptr),Y
++	BMI	wicfs_file_direct
++	LDA	#<&FF1B
++	LDX	#>&FF1B
++	BNE	wicfs_set_filev
++.wicfs_file_direct
++	LDA	FILVRTN
++	LDX	FILVRTN+1
++.wicfs_set_filev
++	STA	OSFILEV
++	STX	OSFILEV+1
++
++.wicfs_restore_bget
++	LDY	#33
++	LDA	(evptr),Y
++	CMP	#<upbgetv
++	BNE	wicfs_restore_find
++	INY
++	LDA	(evptr),Y
++	CMP	#>upbgetv
++	BNE	wicfs_restore_find
++	INY
++	LDA	(evptr),Y
++	CMP	slotid
++	BNE	wicfs_restore_find
++	LDY	#33
++	LDA	BGETRTN
++	STA	(evptr),Y
++	INY
++	LDA	BGETRTN+1
++	STA	(evptr),Y
++	INY
++	LDA	bget_prev_rom
++	STA	(evptr),Y
++	BMI	wicfs_bget_direct
++	LDA	#<&FF21
++	LDX	#>&FF21
++	BNE	wicfs_set_bgetv
++.wicfs_bget_direct
++	LDA	BGETRTN
++	LDX	BGETRTN+1
++.wicfs_set_bgetv
++	STA	OSBGETV
++	STX	OSBGETV+1
++
++.wicfs_restore_find
++	LDY	#42
++	LDA	(evptr),Y
++	CMP	#<upfindv
++	BNE	wicfs_restore_fsc
++	INY
++	LDA	(evptr),Y
++	CMP	#>upfindv
++	BNE	wicfs_restore_fsc
++	INY
++	LDA	(evptr),Y
++	CMP	slotid
++	BNE	wicfs_restore_fsc
++	LDY	#42
++	LDA	findv_rtn
++	STA	(evptr),Y
++	INY
++	LDA	findv_rtn+1
++	STA	(evptr),Y
++	INY
++	LDA	findv_prev_rom
++	STA	(evptr),Y
++	BMI	wicfs_find_direct
++	LDA	#<&FF2A
++	LDX	#>&FF2A
++	BNE	wicfs_set_findv
++.wicfs_find_direct
++	LDA	findv_rtn
++	LDX	findv_rtn+1
++.wicfs_set_findv
++	STA	OSFINDV
++	STX	OSFINDV+1
++
++.wicfs_restore_fsc
++	LDY	#45
++	LDA	(evptr),Y
++	CMP	#<upfscv
++	BNE	wicfs_restore_byte
++	INY
++	LDA	(evptr),Y
++	CMP	#>upfscv
++	BNE	wicfs_restore_byte
++	INY
++	LDA	(evptr),Y
++	CMP	slotid
++	BNE	wicfs_restore_byte
++	LDY	#45
++	LDA	FSCVRTN
++	STA	(evptr),Y
++	INY
++	LDA	FSCVRTN+1
++	STA	(evptr),Y
++	INY
++	LDA	fscv_prev_rom
++	STA	(evptr),Y
++	BMI	wicfs_fsc_direct
++	LDA	#<&FF2D
++	LDX	#>&FF2D
++	BNE	wicfs_set_fscv
++.wicfs_fsc_direct
++	LDA	FSCVRTN
++	LDX	FSCVRTN+1
++.wicfs_set_fscv
++	STA	OSFSCV
++	STX	OSFSCV+1
++
++.wicfs_restore_byte
++	LDA	BYTEV
++	CMP	#<notape
++	BNE	wicfs_vectors_done
++	LDA	BYTEV+1
++	CMP	#>notape
++	BNE	wicfs_vectors_done
++	LDA	bytev_rtn
++	STA	BYTEV
++	LDA	bytev_rtn+1
++	STA	BYTEV+1
++.wicfs_vectors_done
 +	LDA	#0
 +	STA	wicfs_magic
 +	STA	wicfs_magic+1
++	PLP
 +.wicfs_reset_done
 +	PLA
 +	TAY

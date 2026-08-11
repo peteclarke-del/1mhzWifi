@@ -1,4 +1,4 @@
-\ Sideway ROM for Electron Wifi board
+\ ElkWiFi-compatible WiFi command parser
 \ (c) Roland Leurs, May 2020
 
 \ Pi1MHz WIFI command response handling.

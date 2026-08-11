@@ -1,4 +1,4 @@
-\ Sideway ROM for Electron Wifi board
+\ ElkWiFi-compatible driver for the Pi1MHz 1 MHz-bus service
 \ (c) Roland Leurs, May 2020
 
 \ Main service ROM

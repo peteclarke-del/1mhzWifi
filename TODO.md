@@ -26,10 +26,9 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 - [x] Reset-safe WiCFS teardown. MOS rebuilds its vectors before ROM reset
   service calls, so 1MHzWifi clears its saved ownership record without
   restoring stale cassette predecessors over ADFS, DFS or MMFS.
-- [x] Full 32-bit WiCFS catalogue addresses, caller-owned OSFILE control-block
-  preservation,
-  sequential reads, host loads and standard `&FFFFxxxx` Tube OSFILE
-  destinations. WiCFS never uses an optional Tube as its Pi or JIM transport.
+- [x] Full 32-bit WiCFS catalogue metadata, caller-owned OSFILE control-block
+  preservation, sequential reads and host-memory loads. WiCFS does not claim a
+  Tube channel or use a parasite as a Pi, JIM or title-load destination.
 - [x] Filing-system-neutral local UEF import through OSFIND/OSBGET, with JIM
   selector restoration, bounded storage, Escape handling, and a two-stage
   automatic queue for the stock WiCFS `*REWIND`, `CHAIN ""` launch sequence.
@@ -133,9 +132,9 @@ ElkWiFi 0.23 cartridge and on 1MHzWifi.
 The former 1mhzNetTools backlog is part of this repository and must not be
 tracked elsewhere.
 
-- [ ] Replace the executable `PING`, `NSLOOK`, `FTP`, `HGET` and `VIEWDAT`
-  placeholders with complete clients, or remove each command from NETMENU and
-  the released SSD until it is implemented.
+- [x] Remove the unimplemented `PING`, `NSLOOK`, `FTP`, `HGET` and `VIEWDAT`
+  placeholders from NETMENU, the source tree and the released SSD. Add them
+  only when complete clients and functional tests exist.
 - [ ] Complete VT100 insert, delete and erase character operations, line
   insert/delete, scroll margins, terminal modes, tab clearing, DA/DSR replies,
   cursor-position replies, Home/Delete/function-key mappings and reply-queue
@@ -148,6 +147,11 @@ tracked elsewhere.
   native PING/NSLOOK service calls.
 - [ ] Qualify TERM and SSH on physical BBC Micro, Master and Electron systems,
   including DFS, ADFS, MMFS and Tube coexistence where applicable.
+- [ ] Run the common ROM command and OSWORD matrix on BBC B, B+, Master,
+  Master Compact and Electron. Verify OSBYTE `&81` selects `&FE05` only on
+  Electron and `&FE30` on the BBC family. On non-Electron hosts, verify the
+  compiled default `*MENU` is rejected and a target-specific custom
+  `*MENUSRC` remains usable.
 - [ ] Repeat the physical `*SSH` test with the rebuilt SSD now shipped as
   `build/pi1mhz-all/host-tools/nettools.ssd`. The 0.1.22 client
   timed out at capability command 94 because its tight busy loop completed
@@ -163,29 +167,30 @@ tracked elsewhere.
 ## Release gate
 
 No implementation placeholder remains on the declared 1MHzWifi ROM
-station-mode, plain-HTTP command surface. The unified native-tools SSD still
-contains the placeholders listed above. ROM 0.1.30 reaches visible Zalaga,
+station-mode, plain-HTTP command surface. The native-tools SSD ships only the
+implemented TERM, SSH and NETMENU programs. ROM 0.1.30 reached visible Zalaga,
 Arcadians, Last of the Free and E-Type gameplay in the AP5-accurate live
-Elkulator profile without a Tube. Castle of Riddles reaches its interactive
-command prompt. Frak still needs a fresh 0.1.30 gameplay capture. 1MHzWifi does
-not access or disable the Tube, but this build has not passed the Tube-enabled
-emulator gate or the physical-hardware WiCFS gate.
+Elkulator profile without a Tube. Castle of Riddles reached its interactive
+command prompt. Frak still needs a fresh gameplay capture.
 
-The current Tube-enabled 0.1.30 reproduction downloads Zalaga, installs WiCFS,
-rewinds and loads `ZALAGA 05 05EE`, then returns to the parasite prompt. The
-remaining defect is command ownership: the remote menu returns before its
-`CHAIN ""` input is interpreted, so active parasite BASIC consumes it. Resolve
-that launch on the I/O processor without transferring the UEF to Tube RAM,
-issuing `TUBE OFF`, resetting the Tube, or changing the stock cassette command
-sequence. Then rerun the no-Tube game matrix before accepting the correction.
+ROM 0.1.37 retains host-only WiCFS transfer and corrects the Tube-active host
+BASIC workspace. `QHOST` now queues `PAGE=&E00` before the internal WiCFS
+second stage, so BASIC CHAIN continuation uses the same host address range
+with Tube enabled and disabled. No Tube register is accessed and no program is
+transferred to the parasite. A ten-entry live catalogue differential produced
+identical UEF hashes in all pairs: nine strict framebuffer matches and one
+animated attract-screen review item. Physical Tube-active gameplay and
+post-Break filing-system restoration remain release gates.
 The recorded 0.1.22 Electron test downloads Zalaga and loads its initial
 `ZALAGA 05 05EE` file, then returns to Tube BASIC. Review found that WiCFS
 discarded the upper half of the caller's OSFILE address and always wrote into
 host RAM. ROM 0.1.24 and 0.1.25 attempted Tube transfers and selected the wrong
-processor for host loaders. ROM 0.1.30 removes that path, preserves the stock
+processor for host loaders. ROM 0.1.37 removes that path, preserves the stock
 menu `REWIND` and `CHAIN ""` sequence, and keeps Pi and JIM transport entirely
-on the 1MHz bus. Its five-pop extended-vector unwind fixes the returning
-first-stage loader used by E-Type. Release acceptance still depends on
+on the 1MHz bus. Its five-pop successful-run unwind fixes the returning
+first-stage loader class. The catalogue-wide differential runner is the
+continuing regression gate; named titles are samples, not implementation
+branches. Release acceptance still depends on
 physical hardware and proving that
 Break restores BeebSCSI ADFS, normal ADFS, DFS, MMFS and TAPE/CFS, and
 completing the real Electron, AP5, Pi1MHz and Tube checks in
@@ -199,7 +204,8 @@ Tube. The matching Elkulator profile now mounts MMFS and runs the Desk Diary
 UEF end to end; physical execution and filing-system recovery after Break are
 still required.
 
-After the 0.1.30 Tube-active and filing-system reset corrections pass on physical hardware, the ROM
+After the 0.1.37 Tube-active, filing-system reset and WiFi association
+corrections pass on physical hardware, the ROM
 version moves to a 0.9.x release-candidate series. Version 1.0 requires the
 original-ElkWiFi OSWORD comparison and all filing-system coexistence gates.
 Unfinished NetTools clients do not block the ROM release unless they require a

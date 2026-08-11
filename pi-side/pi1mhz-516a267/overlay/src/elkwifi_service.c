@@ -44,7 +44,7 @@
  * first 64K so the host and Pi always refer to the same physical bytes. */
 #define ELKWIFI_UEF_BASE 0u
 #define ELKWIFI_VERSION_RESPONSE \
-   "Pi1MHz ElkWiFi 0.1.30, kernel " GITVERSION "\r\n\r\nOK\r\n"
+   "Pi1MHz ElkWiFi 0.1.37, kernel " GITVERSION "\r\n\r\nOK\r\n"
 
 _Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
                "ElkWiFi service range start disagrees with services.h");
@@ -614,6 +614,8 @@ static uint8_t wifi_join(uint32_t cp)
    if (!two_strings(cp + 2u, &ssid, &password) || ssid[0] == '\0')
       return ELKWIFI_ERR_PARAM;
    if (!join_password_parse(password, &password, &security))
+      return ELKWIFI_ERR_PARAM;
+   if (!wifi_profile_is_valid(ssid, password, security))
       return ELKWIFI_ERR_PARAM;
    char persisted[WIFI_SSID_MAX_LEN + WIFI_PASSWORD_MAX_LEN + 32u];
    int length = snprintf(persisted, sizeof persisted, "%s\n%s\n%s\n%s\n",

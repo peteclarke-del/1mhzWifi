@@ -402,19 +402,6 @@ class EmulatedClientTests(unittest.TestCase):
         # Execute the exact file payloads distributed on the DFS image.
         cls.term = dfs_file(image, "TERM")
         cls.ssh = dfs_file(image, "SSH")
-        cls.scaffolds = {
-            name: dfs_file(image, name)
-            for name in ("PING", "NSLOOK", "FTP", "HGET", "VIEWDAT")
-        }
-
-    def test_planned_tool_scaffolds_are_runnable_and_honest(self):
-        for name, binary in self.scaffolds.items():
-            with self.subTest(name=name):
-                machine = ClientMachine(binary, "")
-                machine.run()
-                visible = machine.screen.text()
-                self.assertIn(name, visible)
-                self.assertIn("implementationpending", "".join(visible.split()))
 
     def test_term_connects_renders_fragmented_vt100_and_sends_keys(self):
         incoming = (

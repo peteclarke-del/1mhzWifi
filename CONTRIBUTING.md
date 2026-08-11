@@ -29,10 +29,10 @@ sha256sum --check --strict SHA256SUMS
 - Keep FIQ work bounded. Network and filesystem work belongs in the cooperative poll path.
 - Bound all host-visible buffers and every missing-device poll.
 - Preserve existing `Pi1MHz.cfg` values unless the change explicitly migrates them.
-- Keep Pi1MHz mailbox, network and JIM traffic on the 1MHz bus. Tube access is
-  limited to the standard MOS OSFILE destination path: claim the filing-system
-  Tube channel, transfer a caller-requested `&FFFFxxxx` load through R3, and
-  release the claim on every exit.
+- Keep Pi1MHz mailbox, network, JIM and WiCFS title traffic on the 1 MHz bus
+  and I/O processor. 1MHzWifi must not claim a Tube channel, access Tube
+  registers, disable a fitted Tube or transfer a title to the parasite. A game
+  may use an available Tube after 1MHzWifi has launched it.
 - Add a regression test for each corrected failure mode.
 - Record hardware model, hashes, and exact command output for hardware-only failures.
 
