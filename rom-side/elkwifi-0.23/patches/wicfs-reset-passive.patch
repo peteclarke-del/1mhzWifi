@@ -1,0 +1,22 @@
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -126,10 +126,16 @@
+                     pha                         \ the exit value of A depends on the command.
+                     txa
+                     pha
+-                    jsr wicfs_reset              \ release virtual cassette vectors on every reset
++                    \ MOS has already rebuilt standard and extended vectors
++                    \ before service reason 1. Never read persisted WiCFS
++                    \ state or alter those new vectors during the ROM scan.
++                    nop:nop:nop
+                     lda #&D7                    \ Turn off default banner
+                     ldx #0
+-                    stx pagereg                 \ reset page register to 0
++                    \ Do not touch the AP5 JIM selector during ROM scan.
++                    \ Every command selects its own initial page.
++                    nop:nop:nop
+                     stx mux_status              \ disable multiplexing
+-                    stx uptype                  \ printer driver not activated
++                    \ Printer support is not emitted; leave shared workspace alone.
++                    nop:nop:nop
+                     ldy #&7F

@@ -12,12 +12,12 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       516a267493d9f19e6bf2f4a2ea4c3e7472b12135
-1MHzWifi ROM fd13d70d358c7116b402356bfd97e19da194c97e3efb189339bab58a0eb60bda
-kernel.img   d921309bfd7021b0e5f541c603057f0b6a3bd8ac86c741e08e68169f4b27ab2e
-kernel7.img  263ecfe88f7d21419abcca6ff51889d35e2fb8a6b5374e4954b0941ec4d0227d
+1MHzWifi ROM c60362a92ab600ec76d4f26765111ce1de5d6e48a8fe456353d0dbb5ac8e6ba4
+kernel.img   dc179779734b3c039e9a5fc49b9aabde3f03f866a897b3eaad6b556844ea4e64
+kernel7.img  de6e787f045c5feb2a3dd7a92b615946ffdc7b1c14bfe6fcfd4f6dde1e5a3090
 EMMFS.rom    b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955
 nettools.ssd 9c9e91eaba2ecee46f0a69031551743f70d0f685f1a06bfa1e511a3384447668
-bundle ZIP   0beacf49880b1ee054dc6f3cd939dc750513e8307479f483d2c0c0b3909079e0
+bundle ZIP   d5b6383f44e15b80d4219a7375a8679223f9845201712f6f1f83b901288aabb2
 ```
 
 The Pi1MHz commit was the official `master` tip verified on 11 August 2026. Run
@@ -49,6 +49,9 @@ CYW43455 firmware at runtime.
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
+- [x] Cold-boot ROM 0.1.41 with the photographed ROM order and reach the
+  BASIC prompt with the AP5 Tube disabled and enabled. Service reason 1 no
+  longer reads persisted WiCFS state or alters MOS vectors during ROM scan.
 - [x] Boot ROM 0.1.22 with Electron OS, BASIC and ADFS in Elkulator.
   Confirm both ROM banners and a BASIC prompt.
 - [x] Run `*MENU` with ROM 0.1.30 and the photographed ROM order without a
@@ -61,16 +64,16 @@ CYW43455 firmware at runtime.
   screen and enter gameplay. The final captures are
   `tests/elkulator/screenshots/uef-thrust-gameplay-0.1.40-final-no-tube.png`
   and `tests/elkulator/screenshots/uef-thrust-gameplay-0.1.40-final-tube.png`.
-- [ ] Repeat the complete MENU title matrix with ROM 0.1.40. The exact final
-  ROM passes Zalaga with Tube disabled and enabled, but the full catalogue
-  remains a physical and batch-emulator gate. The earlier Tube-active return
-  to the parasite prompt remains a regression fixture.
+- [ ] Repeat the complete MENU title matrix with ROM 0.1.41. The 0.1.40
+  gameplay evidence is retained, but 0.1.41 requires its own complete run.
+  The full catalogue remains a physical and batch-emulator gate. The earlier
+  Tube-active return to the parasite prompt remains a regression fixture.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [ ] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
   return. Elkulator's expansion ROM becomes unavailable after `*TAPE`, so this
   transition must be proved on AP5 hardware.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.40` before recording any further hardware test result.
+  `1MHzWifi 0.1.41` before recording any further hardware test result.
 - [x] Boot the photographed non-Tube ROM layout in Elkulator: RH Plus 1 1.33
   in C, BASIC in B, writable sideways RAM in 7 and 6, AFM 1.09 in 5,
   1MHzWifi 0.1.28 in 3, and Acorn ADFS 1.00 in 1. Run the live `*MENU`, select
@@ -247,7 +250,7 @@ substitute is not acceptance evidence for this AP5 configuration.
 
 Earlier releases corrected the AP5 selector and WiCFS state corruption.
 Versions 0.1.24 and 0.1.25 attempted Tube transfers, which was the wrong
-architecture. Version 0.1.40 contains no Tube transfer path and preserves the
+architecture. Version 0.1.41 contains no Tube transfer path and preserves the
 stock cassette sequence. The private host launch enters Electron BASIC and
 queues `PAGE=&E00` before WiCFS so a Tube-active cold BASIC does not retain its
 `&23xx` program workspace. Physical Tube-enabled gameplay remains the
@@ -264,9 +267,10 @@ fixture. The current batch runner applies the same menu selection and WiCFS
 path to arbitrary sorted catalogue ranges. Its first ten-entry 0.1.37 run
 produced identical UEF hashes in every Tube-on/off pair. The experimental
 0.1.38 MOS-managed handoff returned to the prompt and was rejected. ROM 0.1.40
-restores the proven launch path and reaches Frak, Zalaga and Arcadians gameplay
-Tube off and Tube on. Last of the Free remains a `Bad program` failure in both
-modes. It does not copy a UEF
+restored the proven launch path and reached Frak, Zalaga and Arcadians gameplay
+Tube off and Tube on. Last of the Free remained a `Bad program` failure in both
+modes. ROM 0.1.41 retains that code but still needs its own gameplay run. It
+does not copy a UEF
 or game into parasite memory, issue `TUBE OFF`, reset the fitted Tube, or access
 a Tube register.
 
@@ -278,7 +282,7 @@ a Tube register.
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
 - [ ] Retest Zalaga, Arcadians, Last of the Free, E-Type, Frak, Chuckie Egg
-  and DeskDiary with ROM 0.1.40 on
+  and DeskDiary with ROM 0.1.41 on
   the physical Electron and AP5. Earlier physical builds failed on Zalaga and
   DeskDiary. Zalaga and Arcadians reach gameplay through the live Elkulator
   bridge without a Tube.
@@ -286,7 +290,7 @@ a Tube register.
   Earlier ROMs called the loader compatibility helper before branching on
   that block's last-block bit. The helper changed the processor flags, so an
   OSFILE load could consume later files and finally report `End of UEF` or an
-  invalid chunk type. Version 0.1.40 branches on the bit first, preserves the
+  invalid chunk type. Version 0.1.41 branches on the bit first, preserves the
   OSFILE control-block pointer on the active 6502 stack, returns catalogue
   metadata through that block, and does not touch the `&03E0-&03FF` keyboard
   command queue.
@@ -386,7 +390,7 @@ a Tube register.
 - [ ] Run ElkChat's `ELKNET` diagnostic with `*RUN ELKNET` against the original
   ElkWiFi 0.23 ROM. Record function 18 IFCFG, function 4 JOIN query and
   function 8 TCP-open responses.
-- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with 1MHzWifi 0.1.40
+- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with 1MHzWifi 0.1.41
   and the kernel revision reported by the bundled `*VERSION`. None of the
   calls may block or
   raise `Not implemented`.

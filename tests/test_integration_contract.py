@@ -248,7 +248,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_ERR_NO_WIFI", service)
         self.assertIn("wifi_get_state() == WIFI_STATE_ERROR", service)
         self.assertIn("Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS", service)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.40, kernel " GITVERSION', service)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.41, kernel " GITVERSION', service)
         self.assertIn("cmp #2", service_driver)
         self.assertIn("beq service_driver_short_timeout", service_driver)
         self.assertIn("Function 2 is *VERSION/GMR", service_driver)
@@ -447,6 +447,23 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("+wicfs_magic    = &03F4", lifecycle_patch)
         self.assertIn("outside Tube and ADFS workspace", lifecycle_patch)
         self.assertNotRegex(lifecycle_patch, r"&D[0-9A-Fa-f]{2}")
+
+        # Reset service handling must be passive. MOS has already rebuilt its
+        # vectors when service reason 1 is offered, and accessing the Pi/JIM
+        # persistence port here can stall a real AP5 system before BASIC.
+        reset_passive_patch = (
+            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-reset-passive.patch"
+        ).read_text()
+        self.assertIn("-                    jsr wicfs_reset", reset_passive_patch)
+        self.assertIn("Never read persisted WiCFS", reset_passive_patch)
+        self.assertIn("+                    nop:nop:nop", reset_passive_patch)
+        self.assertIn("-                    stx pagereg", reset_passive_patch)
+        self.assertIn("Do not touch the AP5 JIM selector", reset_passive_patch)
+        self.assertIn("-                    stx uptype", reset_passive_patch)
+        self.assertIn(
+            "wicfs-reset-passive.patch",
+            (ROOT / "rom-side/build_rom.sh").read_text(),
+        )
 
         osfile_metadata_patch = (
             ROOT / "rom-side/elkwifi-0.23/patches/wicfs-osfile-metadata.patch"
@@ -659,9 +676,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/patches/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.40"', identity)
+        self.assertIn('romversion         equs "0.1.41"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/overlay/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.40 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.41 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)

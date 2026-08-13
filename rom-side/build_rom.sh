@@ -31,7 +31,7 @@ install -m 0644 "$overlay_dir/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$overlay_dir/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$overlay_dir/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$overlay_dir/uef.asm" "$upstream/rom/uef.asm"
-for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-loader-compat.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-loader-compat.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-reset-passive.patch rom-prune.patch routines-prune.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -42,7 +42,7 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.40"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.41"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)
@@ -153,7 +153,6 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
         wicfs-lifecycle.patch)
             grep -q '^\.wicfs_reset' "$upstream/rom/wicfs.asm" &&
             grep -Eq '^bget_prev_rom.*(&03ED|wicfs_state_ram\+8)' "$upstream/rom/wicfs.asm" &&
-            grep -q 'jsr wicfs_reset' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         wicfs-jim-state.patch)
@@ -189,6 +188,12 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             grep -q '^chain_machine  *= &C3' "$upstream/rom/wicfs.asm" &&
             grep -q '^\.chain_preselect' "$upstream/rom/wicfs.asm" &&
             grep -q '^\.run_preselect' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-reset-passive.patch)
+            grep -q 'Never read persisted WiCFS' "$upstream/rom/ElkWifi.asm" &&
+            grep -q 'Do not touch the AP5 JIM selector' "$upstream/rom/ElkWifi.asm" &&
+            ! grep -q 'jsr wicfs_reset' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         wicfs-jim-atomic.patch)
@@ -241,6 +246,15 @@ install -m 0644 "$overlay_dir/wget_helpers.asm" "$upstream/rom/wget.asm"
 # a mutation of the MOS keyboard input buffer used by MENU and UEF command
 # queues.
 python3 "$script_dir/check_wicfs_keyboard_buffer.py" "$upstream/rom/wicfs.asm"
+if grep -q 'jsr wicfs_reset' "$upstream/rom/ElkWifi.asm"; then
+    echo "reset service still calls wicfs_reset" >&2
+    exit 1
+fi
+autorun_source=$(sed -n '/^\.autorun/,/^\.autorun_l1/p' "$upstream/rom/ElkWifi.asm")
+if grep -Eq '\b(pagereg|uptype)\b' <<<"$autorun_source"; then
+    echo "reset service still touches AP5 JIM or obsolete printer workspace" >&2
+    exit 1
+fi
 
 beebasm_command=$(command -v beebasm)
 if [[ "$beebasm_command" = /snap/bin/beebasm && -x /snap/beebasm/current/usr/bin/beebasm ]]; then
