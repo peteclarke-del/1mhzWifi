@@ -118,12 +118,11 @@ The path uses no private code in `&0400-&07FF` and does not access a Tube.
 WiCFS claims `*REWIND` directly when it is the active filing system. It leaves
 `*TAPE` functional, allowing every `*MENU` invocation to return to cassette
 state before reusing filing workspace. The successful `CHAIN` execution path
-copies its final ROMSEL switch and jump to filing-system RAM. No instruction
-following a ROMSEL write is fetched from an unrelated sideways ROM. The
-trampoline removes the complete five-byte extended-vector dispatch frame before
-jumping through `&03C2`. Retaining only three pops caused returning first-stage
-programs such as E-Type to execute a stack address and fall into a BRK instead
-of reaching their entry point.
+copies its final ROM selection and execution jump to filing-system RAM. The
+trampoline removes the five dispatcher bytes installed above the real caller
+return address by the Electron MOS extended-vector path: the cleanup address,
+saved ROM and dispatcher JSR return. It then jumps through the cassette
+execution address at `&03C2`, leaving the loaded stage's caller return intact.
 
 The stock menu installs key 0 as `*REWIND|MCHAIN ""|M` and later inserts that
 key into the keyboard buffer after a selected UEF has downloaded. The ROM does
@@ -135,10 +134,11 @@ can overwrite the old `&09DA/&09DB` save area while loading. Forwarded FILEV
 calls retain their separate vector-chain state. OSBGET similarly preserves X
 and Y while returning the byte in A.
 
-WiCFS leaves the caller's 18-byte OSFILE control block unchanged, matching the
-original implementation. In particular, BASIC's explicit PAGE destination is
-not replaced with the cassette header's nominal load address after the file has
-loaded. The found result in A and the caller's X/Y pointer are preserved.
+WiCFS returns the cassette catalogue metadata through the caller's 18-byte
+OSFILE block, including portable host load and execution addresses and the
+file length. This matches MOS OSFILE action `&FF` and gives BASIC CHAIN the
+execution metadata it requires. The found result in A and the caller's X/Y
+pointer are preserved.
 
 WiCFS receives every UEF byte from Pi1MHz through the 1MHz bus and JIM and
 writes it to Electron I/O-processor memory. The launcher queries Tube presence
@@ -147,12 +147,23 @@ does not access Tube registers, transfer data to the Tube, or disable it. A
 fitted Tube remains active for software which deliberately uses it.
 
 Multi-stage loaders can later issue `BASIC` themselves. MOS normally relocates
-that language to an active parasite before the service-ROM command pass. While
-WiCFS is installed, its FSCV reason-8 handler recognises only the complete
-`BASIC` command. If OSBYTE `&EA` reports a Tube, it enters the installed BASIC
-ROM directly on the Electron. If no Tube is present, or the command differs,
-the original MOS path is left unchanged. This is the boundary which allows
-Thrust to pass its `THRUST1` stage without using the Tube as a destination.
+that language to an active parasite before the service-ROM command pass. A
+successful WiCFS `*RUN` arms a one-shot host continuation. While that token is
+armed, the FSCV reason-8 handler recognises only the complete `BASIC` command.
+If OSBYTE `&EA` reports a Tube, it consumes the token and enters the installed
+BASIC ROM directly on the Electron. Installation, rewind and a consumed
+handoff clear the token. Any manual or unrelated `BASIC` command follows the
+normal MOS path. This boundary allows Thrust to pass its `THRUST1` stage
+without using the Tube as a destination.
+
+The extended-vector and successful-run ROM switches use 26-byte and 25-byte
+RAM trampolines at `&03A0-&03B9` and `&03A0-&03B8`. Assembly-time bounds
+prevent either trampoline from reaching private state at `&03BD`. Their
+parameters are held in cassette zero page and
+the one-shot continuation byte is at `&03BD`; the OSFILE metadata block begins
+at `&03BE`. The regions do not overlap. The trampoline preserves interrupt
+state, writes both the MOS ROM shadow and the machine-specific ROMSEL register,
+and preselects AP5 slot 12 before an Electron low-slot selection.
 
 The downloaded image is in I/O processor memory. Queuing BASIC `CALL &E00`
 would execute parasite memory when a Tube processor is active, so it is not a

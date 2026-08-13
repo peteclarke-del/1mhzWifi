@@ -1,0 +1,38 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -63,6 +63,6 @@
+ chain_y        = heap+&E4
+ chain_target   = heap+&E5 \two-byte indirect target
+-chain_exec     = heap+&B0
++chain_exec     = &03A0    \transient WiCFS-owned cassette workspace
+ currom	=	&CF		\previous ROM slot saved by extended FSCV
+ tmpidx	=	&C1		\temporary store for index pointers
+ fnlen	=	&C2		\length of current CFS block filename
+@@ -475,10 +475,12 @@
+ .upfilev
++	JSR	wicfs_state_load	\restore state which applications may overwrite
+ 	PHA
+ 	LDA	#0
+ 	STA	filev_source
+ 	PLA
+ 	JMP	filev_entry
+ .upfindv
++	JSR	wicfs_state_load	\restore state before any vector forwarding
+ 	PHA
+ 	LDA	#&FF
+ 	STA	filev_source
+@@ -882,6 +884,7 @@
+ 	STA	fscv_reason
+ 	STX	fscv_x
+ 	STY	fscv_y
++	JSR	wicfs_state_load	\restore predecessor FSCV after saving arguments
+ 	TSX				\previous ROM is byte three in the MOS vector frame
+ 	LDA	&0103,X
+ 	STA	currom
+@@ -1029,4 +1032,5 @@
+ .upbgetv
++    JSR wicfs_state_load       \restore lifecycle state on every external entry
+     STY bget_y
+     if __debug = 1
+     php:jsr debug

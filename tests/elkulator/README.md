@@ -2,7 +2,7 @@
 
 `run_catalogue_differential.py` runs the same published UEF with the AP5 Tube
 disabled and enabled. It uses the photographed Electron ROM order, including
-the +2 sideways RAM banks, RH Plus, AP5 support ROM and ADFS. The 1MHzWifi ROM
+the +2 sideways RAM banks, RH Plus, AP5 support ROM, DFS and ADFS. The 1MHzWifi ROM
 and Pi mailbox remain on the host in both runs.
 
 The runner selects catalogue entries by their sorted index, as the published
@@ -23,7 +23,18 @@ remaining pair reached the same animated Starcade attract screen in both runs,
 but at different animation positions, so it remains a visual review result
 rather than a byte-image pass. The earlier E-Type Tube stall is included in
 this slice and now produces an exact screen match. No title name or title
-address appears in the ROM fix or runner.
+address appears in the ROM fix or runner. The experimental 0.1.38
+caller-return handoff was rejected after the emulator reproduced a return to
+BASIC. ROM 0.1.40 restores the proven 0.1.37 launch path. Frak and Zalaga reach
+gameplay in Tube-off and Tube-on runs. Arcadians also reaches gameplay in both
+modes, although its animated screens do not satisfy a single-frame similarity
+threshold. Last of the Free still reports `Bad program` in both modes.
+
+`run_uef_gameplay.py` mounts the local Thrust DFS fixture, types `*DISC` and
+`*UEF LOAD THRUST`, then presses Space after the multi-stage loader completes.
+The exact final 0.1.40 ROM reaches gameplay with the Tube disabled and enabled.
+The retained captures are `uef-thrust-gameplay-0.1.40-final-no-tube.png` and
+`uef-thrust-gameplay-0.1.40-final-tube.png` in the screenshots directory.
 
 Example using the maintained disposable Elkulator build:
 

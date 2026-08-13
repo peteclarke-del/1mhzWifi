@@ -93,6 +93,9 @@ class Pi1MHzMemory:
         self.expected_password = expected_password
         self.password_supplied = None
         self.password_jim_wiped = False
+        self.raw_opened = False
+        self.dns_polls = 0
+        self.ping_count = 0
 
     def __len__(self):
         return 65536
@@ -167,6 +170,27 @@ class Pi1MHzMemory:
     def _dispatch(self):
         block = 0xFFF000
         command = self.jim[block]
+        if command == 45:  # raw socket OPEN
+            self.raw_opened = True
+            return NET_OK
+        if command == 46:  # DNS
+            if not self.raw_opened:
+                return NET_ERR_NOTOPEN
+            self.dns_polls += 1
+            if self.dns_polls == 1:
+                return NET_PENDING
+            self.jim[block + 4:block + 8] = bytes((192, 0, 2, 42))
+            return NET_OK
+        if command == 53:  # raw socket CLOSE
+            self.raw_opened = False
+            return NET_OK
+        if command == 88:  # ICMP ping compatibility service
+            self.ping_count += 1
+            response = f"+{10 + self.ping_count}\r\n\0".encode("ascii")
+            self.jim[block + 1:block + 1 + len(response)] = response
+            return NET_OK
+        if command == 90:  # cancel asynchronous ElkWiFi operation
+            return NET_OK
         if command == 60:  # URL_OPEN
             end = self.jim.index(0, block + 2, block + 224)
             self.opened_url = bytes(self.jim[block + 2:end]).decode("ascii")
@@ -376,6 +400,9 @@ class ClientMachine:
             elif reason == 0x86:
                 self.mpu.x = self.screen.x
                 self.mpu.y = self.screen.y
+            elif reason == 0x87:
+                self.mpu.x = ord(self.screen.cells[self.screen.y][self.screen.x])
+                self.mpu.y = 0
             # Other calls configure keyboard state or wait for VSync. Their
             # old-value result is zero in this deterministic MOS fixture.
             else:
@@ -402,6 +429,22 @@ class EmulatedClientTests(unittest.TestCase):
         # Execute the exact file payloads distributed on the DFS image.
         cls.term = dfs_file(image, "TERM")
         cls.ssh = dfs_file(image, "SSH")
+        cls.ping = dfs_file(image, "PING")
+        cls.nslook = dfs_file(image, "NSLOOK")
+
+    def test_ping_uses_icmp_service_four_times(self):
+        machine = ClientMachine(self.ping, "example.test")
+        machine.run()
+        self.assertEqual(machine.memory.ping_count, 4)
+        visible = machine.screen.text()
+        self.assertIn("Reply from 11 ms", visible)
+        self.assertIn("Reply from 14 ms", visible)
+
+    def test_nslook_resolves_and_prints_ipv4(self):
+        machine = ClientMachine(self.nslook, "example.test")
+        machine.run()
+        self.assertFalse(machine.memory.raw_opened)
+        self.assertIn("Address: 192.0.2.42", machine.screen.text())
 
     def test_term_connects_renders_fragmented_vt100_and_sends_keys(self):
         incoming = (
@@ -480,18 +523,22 @@ class EmulatedClientTests(unittest.TestCase):
         self.assertEqual(machine.screen.cells[0][9], "C")
         self.assertNotIn("ignored DCS", machine.screen.text())
 
-    def test_term_remaining_vt100_scaffolds_consume_complete_sequences(self):
+    def test_term_vt100_editing_operations_modify_the_screen(self):
         incoming = (
-            b"\x1b[2J\x1b[HA"
-            b"\x1b[2@\x1b[2L\x1b[2M\x1b[2P\x1b[2X"
-            b"\x1b[2S\x1b[2T\x1b[?25h\x1b[?25l\x1b[1;24r"
-            b"\x1b[6n\x1b[c\x1b[3g\x1b[1 qB"
+            b"\x1b[2J\x1b[HABCDE"
+            b"\x1b[1;2H\x1b[2@XY"  # AXYBCDE
+            b"\x1b[1;4H\x1b[2P"    # AXYDE
+            b"\x1b[1;2H\x1b[2X"    # A  DE
+            b"\x1b[10;1Hsecond"
+            b"\x1b[10;1H\x1b[2L"   # insert two blank lines before second
         )
         machine = ClientMachine(
             self.term, "bbs.example", incoming=incoming, eof_after_data=True
         )
         machine.run()
-        self.assertEqual(machine.screen.cells[0][0:2], ["A", "B"])
+        self.assertEqual("".join(machine.screen.cells[0][:5]), "A  DE")
+        self.assertEqual("".join(machine.screen.cells[9][:6]), "      ")
+        self.assertEqual("".join(machine.screen.cells[11][:6]), "second")
 
     def test_ssh_managed_session_renders_vt100_and_sends_keys(self):
         incoming = (b"discarded\x1b[2J\x1b[2;3HSSH OK\r\n" +

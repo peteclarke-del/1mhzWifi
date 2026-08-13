@@ -1,0 +1,23 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -581,2 +581,17 @@
+ 	BNE	filev_info_addresses
+ 
++\WiCFS always loads into the host processor. Mark both returned addresses as
++\host addresses in the MOS 32-bit address format. With a Tube active, zero in
++\the upper word denotes parasite memory and makes CHAIN wait for a transfer
++\which WiCFS deliberately never performs. MOS implementations without a Tube
++\ignore the upper word, so &FFFF is the portable host-memory representation.
++	LDA	#&FF
++	LDY	#4
++	STA	(pbl),Y
++	INY
++	STA	(pbl),Y
++	LDY	#8
++	STA	(pbl),Y
++	INY
++	STA	(pbl),Y
++	INY			\position Y at the returned length field
++
+	LDA	blklen			\total length = block number:final block length

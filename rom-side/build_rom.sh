@@ -31,7 +31,7 @@ install -m 0644 "$overlay_dir/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$overlay_dir/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$overlay_dir/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$overlay_dir/uef.asm" "$upstream/rom/uef.asm"
-for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-loader-compat.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-run-unwind.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-loader-compat.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch rom-prune.patch routines-prune.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -42,7 +42,7 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.37"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.40"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)
@@ -99,6 +99,10 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
               grep -q "leave the caller's OSFILE block unchanged" "$upstream/rom/wicfs.asm"; } &&
             patch_present=true
             ;;
+        wicfs-host-addresses.patch)
+            grep -q 'portable host-memory representation' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
         wicfs-reentry-run.patch)
             grep -q '^\.upv_rewind_space' "$upstream/rom/wicfs.asm" &&
             grep -q '^\.run_code' "$upstream/rom/wicfs.asm" &&
@@ -143,7 +147,7 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         wicfs-safe-state.patch)
             { grep -q '^pr_y    =   &03E0' "$upstream/rom/wicfs.asm" ||
-              grep -q '^wicfs_state_ram = heap+&E8' "$upstream/rom/wicfs.asm"; } &&
+              grep -Eq '^wicfs_state_ram = (heap\+&E8|&0380)' "$upstream/rom/wicfs.asm"; } &&
             patch_present=true
             ;;
         wicfs-lifecycle.patch)
@@ -153,9 +157,38 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             patch_present=true
             ;;
         wicfs-jim-state.patch)
-            grep -q '^wicfs_state_ram = heap+&E8' "$upstream/rom/wicfs.asm" &&
+            grep -Eq '^wicfs_state_ram = (heap\+&E8|&0380)' "$upstream/rom/wicfs.asm" &&
             grep -q '^\.wicfs_state_load' "$upstream/rom/wicfs.asm" &&
-            ! grep -Eq '^([^\\]|.*=).*&03E[0-9A-Fa-f]' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-vector-entry-state.patch)
+            grep -q '^chain_exec     = &03A0' "$upstream/rom/wicfs.asm" &&
+            grep -q 'restore state which applications may overwrite' "$upstream/rom/wicfs.asm" &&
+            grep -q 'restore state before any vector forwarding' "$upstream/rom/wicfs.asm" &&
+            grep -q 'restore predecessor FSCV after saving arguments' "$upstream/rom/wicfs.asm" &&
+            grep -q 'restore lifecycle state on every external entry' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-opt.patch)
+            grep -q '^\.upv_opt_default' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.upv_opt_retry_values' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-private-workspace.patch)
+            grep -q '^wicfs_state_ram = &0380' "$upstream/rom/wicfs.asm" &&
+            grep -q '^wicfs_state_size = 22' "$upstream/rom/wicfs.asm" &&
+            grep -q 'persist cursor and lifecycle changes' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-basic-host.patch)
+            grep -q '^\.upv_basic_match' "$upstream/rom/wicfs.asm" &&
+            grep -q 'JMP.*menu_enter_host_basic' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-rom-switch.patch)
+            grep -q '^chain_machine  *= &C3' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.chain_preselect' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.run_preselect' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         wicfs-jim-atomic.patch)
@@ -203,7 +236,19 @@ install -m 0644 "$overlay_dir/driver.asm" "$upstream/rom/driver.asm"
 install -m 0644 "$overlay_dir/serial.asm" "$upstream/rom/serial.asm"
 install -m 0644 "$overlay_dir/wget_helpers.asm" "$upstream/rom/wget.asm"
 
-(cd "$upstream/rom" && beebasm -i ElkWifi.asm)
+# Audit the fully patched source, after every patch and overlay has landed.
+# The checker resolves source equates, so aliases into &03E0-&03FF cannot hide
+# a mutation of the MOS keyboard input buffer used by MENU and UEF command
+# queues.
+python3 "$script_dir/check_wicfs_keyboard_buffer.py" "$upstream/rom/wicfs.asm"
+
+beebasm_command=$(command -v beebasm)
+if [[ "$beebasm_command" = /snap/bin/beebasm && -x /snap/beebasm/current/usr/bin/beebasm ]]; then
+    # Calling the packaged executable directly avoids snap-confine failures in
+    # restricted builders while using the identical assembler payload.
+    beebasm_command=/snap/beebasm/current/usr/bin/beebasm
+fi
+(cd "$upstream/rom" && "$beebasm_command" -i ElkWifi.asm)
 mkdir -p "$root_dir/build"
 install -m 0644 "$upstream/rom/bbcwifi.rom" "$root_dir/build/elkwifi_pi1mhz.rom"
 sha256sum "$root_dir/build/elkwifi_pi1mhz.rom"

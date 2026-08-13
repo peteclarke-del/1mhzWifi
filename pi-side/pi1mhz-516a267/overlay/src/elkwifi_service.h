@@ -5,6 +5,8 @@
 
 /* ElkWiFi-compatible operations on the Pi1MHz &FCA6 services mailbox. */
 void elkwifi_service_init(uint8_t instance, uint8_t address);
+void elkwifi_service_command(uint32_t command_pointer, uint32_t address,
+                             uint8_t data);
 
 #define ELKWIFI_CMD_FIRST        80u
 #define ELKWIFI_CMD_STATUS       ELKWIFI_CMD_FIRST

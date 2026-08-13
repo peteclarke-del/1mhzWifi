@@ -1,0 +1,67 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -900,2 +900,4 @@
+ 	CMP	#8
+-	BEQ	upv_about_to_process
++	BNE	upv_not_about_to_process
++	JMP	upv_about_to_process	\long branch: local *OPT support follows
++.upv_not_about_to_process
+@@ -961,2 +963,56 @@
++\FSCV reason 0 is *OPT. WiCFS is the active cassette filing system and must
++\own the cassette option groups itself. Forwarding these calls to the displaced
++\filing system is unsafe after a loader has used cassette workspace and also
++\leaves WiCFS using option state which the displaced handler did not set.
++\The values and masks match the Electron MOS cassette option byte at &E3.
++\Option group 3 controls the physical tape inter-block gap; accept it as a
++\bounded no-op because a UEF stream already defines its own timing.
++	CMP	#0
++	BNE	upv_not_opt
++	CPX	#0
++	BEQ	upv_opt_default
++	CPX	#3
++	BEQ	upv_opt_claim
++	CPY	#3
++	BCC	upv_opt_value_valid
++	JMP	upv_a2
++.upv_opt_value_valid
++	CPX	#1
++	BEQ	upv_opt_messages
++	CPX	#2
++	BEQ	upv_opt_retry
++	JMP	upv_a2
++.upv_opt_retry
++	LDA	&E3
++	AND	#&CC
++	ORA	upv_opt_retry_values,Y
++	STA	&E3
++	JMP	upv_opt_claim
++
++.upv_opt_messages
++	LDA	&E3
++	AND	#&33
++	ORA	upv_opt_message_values,Y
++	STA	&E3
++	JMP	upv_opt_claim
++
++.upv_opt_default
++	LDA	#&A1
++	STA	&E3
++
++.upv_opt_claim
++	LDA	loadrun
++	AND	#&7F		\an option change can never complete a pending *RUN
++	STA	loadrun
++	JMP	clfscv
++
++.upv_opt_message_values
++	equb	&00,&88,&CC	\normal, short and long messages
++.upv_opt_retry_values
++	equb	&00,&22,&11	\ignore, retry and abort errors
++
++.upv_not_opt
+ 	CMP	#3		\unrecognised OSCLI command?
+-	BNE	upv_cat
++	BEQ	upv_oscli_unknown
++	JMP	upv_cat		\long branch: local *OPT support increased this path
++.upv_oscli_unknown

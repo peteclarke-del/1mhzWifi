@@ -26,8 +26,8 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 - [x] Reset-safe WiCFS teardown. MOS rebuilds its vectors before ROM reset
   service calls, so 1MHzWifi clears its saved ownership record without
   restoring stale cassette predecessors over ADFS, DFS or MMFS.
-- [x] Full 32-bit WiCFS catalogue metadata, caller-owned OSFILE control-block
-  preservation, sequential reads and host-memory loads. WiCFS does not claim a
+- [x] Full 32-bit WiCFS catalogue metadata returned through the caller-owned
+  OSFILE control block, sequential reads and host-memory loads. WiCFS does not claim a
   Tube channel or use a parasite as a Pi, JIM or title-load destination.
 - [x] Filing-system-neutral local UEF import through OSFIND/OSBGET, with JIM
   selector restoration, bounded storage, Escape handling, and a two-stage
@@ -142,9 +142,10 @@ tracked elsewhere.
 - [ ] Add long-running shell, editor and `top` fixtures for TERM and SSH.
 - [ ] Implement the Viewdata/Prestel parser, MODE 7 renderer, input mapping and
   fragmented-page fixtures.
+- [x] Implement native PING and NSLOOK clients and service calls, with build
+  and emulated-mailbox coverage.
 - [ ] Implement HGET HTTPS with certificate and hostname validation plus
-  power-failure-safe output replacement. Implement FTP passive transfers and
-  native PING/NSLOOK service calls.
+  power-failure-safe output replacement. Implement FTP passive transfers.
 - [ ] Qualify TERM and SSH on physical BBC Micro, Master and Electron systems,
   including DFS, ADFS, MMFS and Tube coexistence where applicable.
 - [ ] Run the common ROM command and OSWORD matrix on BBC B, B+, Master,
@@ -154,9 +155,11 @@ tracked elsewhere.
   `*MENUSRC` remains usable.
 - [ ] Repeat the physical `*SSH` test with the rebuilt SSD now shipped as
   `build/pi1mhz-all/host-tools/nettools.ssd`. The 0.1.22 client
-  timed out at capability command 94 because its tight busy loop completed
-  before the ordinary Pi firmware poll. The new bounded 300-frame dispatch
-  wait passes a delayed-poll 6502 emulator fixture. The assembled SSD also
+  timed out at capability command 94 before authentication. ROM 0.1.40 makes
+  fixed capability discovery complete synchronously in the Pi services
+  callback, so it cannot wait behind RNG or wolfSSH reset work. The bounded
+  300-frame client wait remains in place for ordinary asynchronous commands.
+  The assembled SSD also
   completes a real public-key-authenticated SSH shell under Elkulator without
   `&2D`; physical hardware remains the open gate.
 - [ ] Run the complete secure-service test matrix on both shipped Pi kernel
@@ -171,24 +174,28 @@ station-mode, plain-HTTP command surface. The native-tools SSD ships only the
 implemented TERM, SSH and NETMENU programs. ROM 0.1.30 reached visible Zalaga,
 Arcadians, Last of the Free and E-Type gameplay in the AP5-accurate live
 Elkulator profile without a Tube. Castle of Riddles reached its interactive
-command prompt. Frak still needs a fresh gameplay capture.
+command prompt. The exact 0.1.40 ROM now passes a fresh Zalaga MENU run and
+local Thrust gameplay with Tube disabled and enabled.
 
-ROM 0.1.37 retains host-only WiCFS transfer and corrects the Tube-active host
+ROM 0.1.40 retains host-only WiCFS transfer and the Tube-active host
 BASIC workspace. `QHOST` now queues `PAGE=&E00` before the internal WiCFS
 second stage, so BASIC CHAIN continuation uses the same host address range
 with Tube enabled and disabled. No Tube register is accessed and no program is
-transferred to the parasite. A ten-entry live catalogue differential produced
-identical UEF hashes in all pairs: nine strict framebuffer matches and one
-animated attract-screen review item. Physical Tube-active gameplay and
+transferred to the parasite. The experimental 0.1.38 MOS-managed return was
+rejected after reproducing its return-to-prompt failure in Elkulator. Version
+0.1.40 includes corrected host address metadata, private filing workspace,
+persistent stream cursor, the five-byte Electron MOS vector unwind, and the
+generic host-BASIC handoff used by multi-stage loaders with a Tube active.
+Physical gameplay across the wider catalogue and
 post-Break filing-system restoration remain release gates.
 The recorded 0.1.22 Electron test downloads Zalaga and loads its initial
 `ZALAGA 05 05EE` file, then returns to Tube BASIC. Review found that WiCFS
 discarded the upper half of the caller's OSFILE address and always wrote into
 host RAM. ROM 0.1.24 and 0.1.25 attempted Tube transfers and selected the wrong
-processor for host loaders. ROM 0.1.37 removes that path, preserves the stock
+processor for host loaders. ROM 0.1.40 removes that path, preserves the stock
 menu `REWIND` and `CHAIN ""` sequence, and keeps Pi and JIM transport entirely
-on the 1MHz bus. Its five-pop successful-run unwind fixes the returning
-first-stage loader class. The catalogue-wide differential runner is the
+on the 1MHz bus. Its successful-run trampoline discards the five MOS dispatcher
+bytes while retaining the real caller return. The catalogue-wide differential runner is the
 continuing regression gate; named titles are samples, not implementation
 branches. Release acceptance still depends on
 physical hardware and proving that
@@ -204,7 +211,7 @@ Tube. The matching Elkulator profile now mounts MMFS and runs the Desk Diary
 UEF end to end; physical execution and filing-system recovery after Break are
 still required.
 
-After the 0.1.37 Tube-active, filing-system reset and WiFi association
+After the 0.1.40 Tube-active, filing-system reset and WiFi association
 corrections pass on physical hardware, the ROM
 version moves to a 0.9.x release-candidate series. Version 1.0 requires the
 original-ElkWiFi OSWORD comparison and all filing-system coexistence gates.

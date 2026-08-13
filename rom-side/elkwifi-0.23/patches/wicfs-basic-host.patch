@@ -1,0 +1,119 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -1021,38 +1021,40 @@
+ 	LDA	(fscv_x),Y
+ 	AND	#&DF
+ 	CMP	#'R'
+-	BNE	upv_a2
++	BNE	upv_rewind_unclaimed
+ 	INY
+ 	LDA	(fscv_x),Y
+ 	AND	#&DF
+ 	CMP	#'E'
+-	BNE	upv_a2
++	BNE	upv_rewind_unclaimed
+ 	INY
+ 	LDA	(fscv_x),Y
+ 	AND	#&DF
+ 	CMP	#'W'
+-	BNE	upv_a2
++	BNE	upv_rewind_unclaimed
+ 	INY
+ 	LDA	(fscv_x),Y
+ 	AND	#&DF
+ 	CMP	#'I'
+-	BNE	upv_a2
++	BNE	upv_rewind_unclaimed
+ 	INY
+ 	LDA	(fscv_x),Y
+ 	AND	#&DF
+ 	CMP	#'N'
+-	BNE	upv_a2
++	BNE	upv_rewind_unclaimed
+ 	INY
+ 	LDA	(fscv_x),Y
+ 	AND	#&DF
+ 	CMP	#'D'
+-	BNE	upv_a2
++	BNE	upv_rewind_unclaimed
+ 	INY
+ 	LDA	(fscv_x),Y
+ 	CMP	#cr
+ 	BEQ	upv_rewind
+ 	CMP	#sp
+-	BNE	upv_a2
++	BEQ	upv_rewind
++.upv_rewind_unclaimed
++	JMP	upv_a2
+ .upv_rewind
+ 	JSR	cfsinit
+ 	LDA	#0		\REWIND is not a pending *RUN
+@@ -1060,6 +1062,62 @@
+ 	JMP	clfscv
+ 
+ .upv_about_to_process
++\ Only a successfully executed cassette program may request this continuation.
++\ Installation, rewind or a consumed BASIC handoff clears the ownership flag.
++	LDA	host_basic_pending
++	BEQ	upv_about_normal
++\ A Tube-aware MOS can relocate a BASIC command before the later
++\ unrecognised-command FSCV call. Match only a complete BASIC command while
++\ WiCFS owns the host stream, then enter the installed BASIC ROM on the host.
++\ This does not read, reset, disable or transfer through Tube hardware.
++	LDA	#&EA
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	CPX	#&FF
++	BNE	upv_about_normal
++	LDY	#0
++.upv_basic_space
++	LDA	(fscv_x),Y
++	CMP	#sp
++	BNE	upv_basic_star
++	INY
++	BNE	upv_basic_space
++.upv_basic_star
++	CMP	#'*'
++	BNE	upv_basic_start
++	INY
++.upv_basic_start
++	LDX	#0
++.upv_basic_match
++	LDA	(fscv_x),Y
++	AND	#&DF
++	CMP	menu_basic_name,X
++	BNE	upv_about_normal
++	INY
++	INX
++	CPX	#5
++	BNE	upv_basic_match
++.upv_basic_tail
++	LDA	(fscv_x),Y
++	CMP	#sp
++	BNE	upv_basic_end
++	INY
++	BNE	upv_basic_tail
++.upv_basic_end
++	CMP	#cr
++	BNE	upv_about_normal
++	JSR	menu_find_basic
++	BCS	upv_about_normal
++	LDA	#0
++	STA	host_basic_pending
++	JMP	menu_enter_host_basic
++
++.upv_about_normal
++	LDA	#0
++	STA	host_basic_pending	\one-shot token: any other continuation disarms it
++	LDX	fscv_x
++	LDY	fscv_y
+ 	LDA	loadrun
+ 	AND	#&7F		\reason 8 is never a pending *RUN completion
+ 	STA	loadrun
+@@ -2396,4 +2453,5 @@
+ 	LDA	#0
++	STA	host_basic_pending	\clear any stale host continuation request
+     STA pr_y        \reset pointer to paged ram
+     sta pr_r
+ 	STA	sfopen		\reset sequential file control bytes

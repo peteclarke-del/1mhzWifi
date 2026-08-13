@@ -119,8 +119,9 @@ be overwritten by the menu or BASIC before a title is selected.
 
 The MOS keyboard input buffer occupies `&03E0-&03FF`; WiCFS never writes it.
 The active stream cursor and counters use the original WiCFS cassette zero-page
-ABI. Vector ownership and predecessor addresses are copied through
-`&FCA6-&FCA9` to `&FFEF00-&FFEF10` in the Pi1MHz services buffer. This range
+ABI while parsing and are round-tripped with vector ownership on every claimed
+vector operation. The state is copied through `&FCA6-&FCA9` to
+`&FFEF00-&FFEF15` in the Pi1MHz services buffer. This range
 sits directly below the command pages at `&FFF000` and outside the AP5-visible
 UEF window. State is reloaded for installation and invalidated during reset.
 The public ElkWiFi driver page shadow is transient at `heap+&D8`. No persistent

@@ -1,0 +1,219 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -30,11 +30,12 @@
+ 
+ \The MOS keyboard input buffer occupies &03E0-&03FF. Never place WiCFS state
+ \there: MENU and *UEF depend on the queued *REWIND and CHAIN commands remaining
+-\intact. Lifecycle state is mirrored transiently in ROM heap and persisted
++\intact. Lifecycle state is mirrored in the active cassette filing-system
++\workspace and persisted
+ \through the AP5-forwarded Pi1MHz byte port at reserved services-buffer address
+ \&FFEF00. The AP5 does not forward &FCFD/&FCFE, so a page-mode state bank would
+ \alias and corrupt the UEF in the standard 64K JIM window.
+-wicfs_state_ram = heap+&E8
++wicfs_state_ram = &0380
+ slotid          = wicfs_state_ram+0
+ findv_rtn       = wicfs_state_ram+1
+ FILVRTN         = wicfs_state_ram+3
+@@ -46,7 +47,12 @@
+ fscv_prev_rom   = wicfs_state_ram+12
+ bytev_rtn       = wicfs_state_ram+13
+ wicfs_magic     = wicfs_state_ram+15
+-wicfs_state_size = 17
++wicfs_cursor_y   = wicfs_state_ram+17
++wicfs_cursor_page = wicfs_state_ram+18
++wicfs_stream_start = wicfs_state_ram+19
++wicfs_bytes_lo   = wicfs_state_ram+20
++wicfs_bytes_hi   = wicfs_state_ram+21
++wicfs_state_size = 22
+ 
+ serbuf	=	&06E0		\serial input buffer
+ notape	=	&0398		\location of external *TAPE trap
+@@ -59,11 +65,11 @@
+ temp	=	&C4		\zp temporary
+ fscv_x         = &C9    \must be zero page for (fscv_x),Y
+ fscv_y         = &CA
+-chain_rom      = heap+&E1 \transient state for the RAM ROM-switch trampoline
+-chain_a        = heap+&E2
+-chain_x        = heap+&E3
+-chain_y        = heap+&E4
+-chain_target   = heap+&E5 \two-byte indirect target
++chain_rom      = &03B4 \transient state for the RAM ROM-switch trampoline
++chain_a        = &03B5
++chain_x        = &03B6
++chain_y        = &03B7
++chain_target   = &03B8 \two-byte indirect target
+ chain_exec     = &03A0    \transient WiCFS-owned cassette workspace
+ currom	=	&CF		\previous ROM slot saved by extended FSCV
+ tmpidx	=	&C1		\temporary store for index pointers
+@@ -84,12 +90,12 @@
+ \Retain the original WiCFS cassette-workspace ABI for the active stream.
+ pr_y    =   &C7     \persistent UEF offset
+ pr_r    =   &C8     \persistent UEF page-register shadow
+-filev_x =   heap+&DA \OSFILE/OSFIND require X and Y to be preserved
+-filev_y =   heap+&DB
+-bget_y  =   heap+&DC \OSBGET returns data in A and preserves X and Y
++filev_x =   &0396 \OSFILE/OSFIND require X and Y to be preserved
++filev_y =   &0397
++bget_y  =   &03B1 \OSBGET returns data in A and preserves X and Y
+ evptr     = pbl      \temporary zero-page extended-vector table pointer
+-filev_source = heap+&DF \zero for FILEV, negative for FINDV
+-fscv_reason = heap+&E0 \FSCV A while reading the extended-vector stack frame
++filev_source = &03B2 \zero for FILEV, negative for FINDV
++fscv_reason = &03B3 \FSCV A while reading the extended-vector stack frame
+ 
+ 				    \the following locations are re-entrant
+ 				    \and must only be initialised on *UPCFS
+@@ -204,6 +210,16 @@
+ 	INX
+ 	CPX	#wicfs_state_size
+ 	BNE	wicfs_state_load_loop
++	LDA	wicfs_cursor_y
++	STA	pr_y
++	LDA	wicfs_cursor_page
++	STA	pr_r
++	LDA	wicfs_stream_start
++	STA	sbuft
++	LDA	wicfs_bytes_lo
++	STA	sbufl
++	LDA	wicfs_bytes_hi
++	STA	sbufh
+ 	PLA
+ 	TAY
+ 	PLA
+@@ -220,6 +236,16 @@
+ 	PHA
+ 	TYA
+ 	PHA
++	LDA	pr_y
++	STA	wicfs_cursor_y
++	LDA	pr_r
++	STA	wicfs_cursor_page
++	LDA	sbuft
++	STA	wicfs_stream_start
++	LDA	sbufl
++	STA	wicfs_bytes_lo
++	LDA	sbufh
++	STA	wicfs_bytes_hi
+ 	LDA	#0
+ 	STA	&FCA6
+ 	LDA	#&EF
+@@ -447,9 +473,9 @@
+ 	STA	wicfs_magic
+ 	LDA	#&5A
+ 	STA	wicfs_magic+1
+-	JSR	wicfs_state_save
+ .b_initialise
+ 	JSR	cfsinit		    \initialisations
++	JSR	wicfs_state_save	\persist authoritative initial cursor and length
+ 
+ .brom	
+     LDA	#vdu_on		    \restore screen output
+@@ -531,6 +557,7 @@
+ 	LDA	&0101,X
+ 	STA	pbh
+ 	JSR	filev_load_info		\return catalogue data required by CHAIN
++	JSR	wicfs_state_save	\persist cursor consumed by this OSFILE load
+ 	PLA
+ 	TAY
+ 	PLA
+@@ -538,6 +565,7 @@
+ 	LDA	#1			\file found
+ 	RTS
+ .upf_a1_not_found
++	JSR	wicfs_state_save	\persist the completed unsuccessful search
+ 	PLA
+ 	TAY
+ 	PLA
+@@ -592,12 +620,16 @@
+ 	LDA	blklen			\total length = block number:final block length
+ 	STA	(pbl),Y
+ 	INY
+-	LDA	&03C6
++	LDA	&03C9			\final block may contain 256 bytes
++	CLC
++	ADC	&03C6			\add low byte of final block number
+ 	STA	(pbl),Y
+ 	INY
+ 	LDA	#0
++	ADC	&03C7			\propagate block-number and length carry
+ 	STA	(pbl),Y
+ 	INY
++	LDA	#0
+ 	STA	(pbl),Y
+ 
+ \Cassette files have no catalogue attributes. Clear the four returned bytes
+@@ -883,6 +915,7 @@
+ .chain_code_end
+ 
+ .filev_actioned
++	JSR	wicfs_state_save
+ 	LDX	filev_x
+ 	LDY	filev_y
+ 	RTS
+@@ -1068,7 +1101,8 @@
+ 	AND	#&7F
+ 	STA	loadrun
+ 
+-.clfscv	JMP	actioned		\return command claimed
++.clfscv	JSR	wicfs_state_save	\persist cursor and lifecycle changes
++	JMP	actioned		\return command claimed
+ 
+ .xfscv
+ 	LDA	fscv_prev_rom
+@@ -1120,11 +1154,11 @@
+ 	STA	loadrun
+ 	JSR	upget		\get a byte
+ 	
+-.xbgetv	STA	temp		\recover X, preserving A
+-	PLA
+-	TAX
+-	LDA	temp
+-
++.xbgetv	STA	temp		\recover X, preserving A
++	PLA
++	TAX
++	LDA	temp
++	JSR	wicfs_state_save
+ 	LDY	bget_y
+ 	RTS				\claim while preserving OSBGET X/Y and carry
+ 
+@@ -1150,6 +1184,8 @@
+ 	PLA
+ 	PLA
+ 	PLA
++	PLA
++	PLA
+ 	JMP	(&03C2)
+ .run_code_end
+ .ret_fscv
+@@ -1405,9 +1441,11 @@
+ 	CMP	#&22		\..or <">
+ 	BEQ	fl_a4
+ 	CMP	#&7C		\..or <||>
+-	BEQ	fl_a4
+-	JSR	upper		\else rationalise case
+-	STA	&03D2,X
++	BEQ	fl_a4
++	JSR	upper		\else rationalise case
++	CPX	#10		\CFS filenames are at most ten characters
++	BCS	fl_a4		\terminate before the keyboard buffer at &03E0
++	STA	&03D2,X
+ 	INX			\save chr in CFS workspace
+ .fl_a3	INY
+ 	BNE	fl_a6		\and loop for next chr
+@@ -1981,9 +2019,11 @@
+ 	LDA	temp		\else convert to upper case
+ 	JSR	upper
+ 	STA	temp
+-.hd_a3	LDA	temp		\recover filename character
+-	LDX	tmpidx		\restore index
+-	STA	&3B2,X		\stash it
++.hd_a3	LDA	temp		\recover filename character
++	LDX	tmpidx		\restore index
++	CPX	#11		\ten characters plus the terminating zero
++	BCS	hd_err		\reject a malformed name before &03E0
++	STA	&3B2,X		\stash it
+ 	CMP	#0		\end of filename null?
+ 	BNE	hd_a1		\no, loop for next chr
+ 	INX			\adjust X to length of filename inc. 00

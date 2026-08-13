@@ -19,20 +19,46 @@ static volatile uint32_t pending_cp;
 static volatile uint32_t pending_addr;
 static bool reset_pending;
 static nts_secure_service service;
+/* This bundle is built with the managed wolfSSH provider. Advertise the
+   compiled ABI immediately; secure_poll replaces this snapshot with actual
+   provider readiness after each reset. */
+static volatile uint8_t capability_features = 7u;
+static volatile uint8_t capability_managed_ssh = 1u;
 
 _Static_assert(NTS_SEC_CAPS == SERVICE_CMD_SECURE_FIRST,
                "secure service first command mismatch");
 _Static_assert(NTS_SEC_SSH_PASSWORD <= SERVICE_CMD_SECURE_LAST,
                "secure service command exceeds reserved range");
 
-static void secure_command(uint32_t command_pointer, uint32_t addr,
-                           uint8_t data)
+void secure_service_command(uint32_t command_pointer, uint32_t addr,
+                            uint8_t data)
 {
     (void)data;
-    if (pending) {
-        Pi1MHz_MemoryWrite(addr, SEC_BUSY);
+    /* Capability discovery is a pure, fixed-size mailbox operation. Complete
+       it in the services callback so a host can identify this ABI even while
+       the ordinary poll is finishing RNG/wolfSSH reset work. This mirrors the
+       synchronous ElkWiFi STATUS probe and does not call FatFs, lwIP or crypto
+       from FIQ context. */
+    if (Pi1MHz->JIM_ram[command_pointer] == NTS_SEC_CAPS) {
+        uint8_t *command = &Pi1MHz->JIM_ram[command_pointer];
+        command[1] = 1u;
+        command[2] = 1u;
+        command[3] = capability_features;
+        command[4] = 0xB8u;
+        command[5] = 0x88u;
+        command[6] = capability_managed_ssh;
+        command[7] = 1u; /* wolfSSH/wolfCrypt provider */
+        command[8] = (uint8_t)'N';
+        command[9] = (uint8_t)'T';
+        command[10] = (uint8_t)'S';
+        Pi1MHz_MemoryWrite(addr, NTS_OK);
         return;
     }
+    /* The 8-bit host issues mailbox operations synchronously, so there is at
+       most one live caller. Always latch the newest command, like the native
+       net service does. In particular this prevents a command arriving
+       around host-reset reinitialisation from being left behind with a BUSY
+       result after an older pending request is retired. */
     pending_cp = command_pointer;
     pending_addr = addr;
     pending = true;
@@ -46,6 +72,11 @@ static void secure_poll(void)
         service.port = nts_pi_wolfssh_port();
         service.opaque = nts_pi_wolfssh_context();
         service.managed_ssh = nts_pi_wolfssh_ready();
+        capability_managed_ssh = service.managed_ssh ? 1u : 0u;
+        capability_features = (uint8_t)(1u |
+            (service.managed_ssh ? 2u : 0u) |
+            (service.managed_ssh && service.port != NULL &&
+             service.port->ssh_password != NULL ? 4u : 0u));
         reset_pending = false;
     }
 
@@ -70,8 +101,16 @@ void secure_service_init(uint8_t instance, uint8_t address)
 {
     (void)instance;
     (void)address;
+    /* Defer provider reset to the ordinary poll context. Do not clear a
+       pending command here: the services callback is already live and could
+       have published BUSY immediately before or during this initializer.
+       Dropping that command would strand the host forever. */
     reset_pending = true;
+    /* The services port routes this fixed ABI range directly. Keep the
+       registry claim for compatibility and diagnostics, but never suppress
+       the poller if reset-time registry state rejects a renewal. */
     (void)services_register(SERVICE_CMD_SECURE_FIRST,
-                            SERVICE_CMD_SECURE_LAST, secure_command);
+                            SERVICE_CMD_SECURE_LAST,
+                            secure_service_command);
     Pi1MHz_Register_Poll(secure_poll);
 }

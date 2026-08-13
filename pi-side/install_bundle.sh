@@ -158,7 +158,7 @@ install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/se
 install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
 install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
 
-for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch; do
+for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -181,6 +181,22 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
         services-capacity-test.patch)
             grep -q 'eighth range registers' "$upstream/src/tests/services/test_services.c" &&
             grep -q 'identical reset-time claim renews' "$upstream/src/tests/services/test_services.c" &&
+            patch_present=true
+            ;;
+        deterministic-service-dispatch.patch)
+            grep -q 'Built-in service ranges have fixed ABI allocations' \
+                "$upstream/src/services_emulator.c" &&
+            grep -q 'Private service headers are deliberately not' "$upstream/src/services_emulator.c" &&
+            grep -q 'net_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
+            grep -q 'elkwifi_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
+            grep -q 'secure_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
+            grep -q 'void net_service_command' "$upstream/src/net_service.c" &&
+            grep -q 'void elkwifi_service_command' "$upstream/src/elkwifi_service.c" &&
+            grep -q 'void secure_service_command' "$upstream/src/secure_service.c" &&
+            grep -q 'command 94 routed directly to secure service' \
+                "$upstream/src/tests/services/test_services.c" &&
+            grep -q 'fixed_services_child' "$upstream/src/Pi1MHz.c" &&
+            grep -q 'fixed Services command range' "$upstream/src/Pi1MHz.c" &&
             patch_present=true
             ;;
         gitversion-untracked-content.patch)

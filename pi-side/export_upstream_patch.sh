@@ -35,11 +35,11 @@ WOLFSSH_SOURCE=${WOLFSSH_SOURCE:-} \
 
 # Dependency commits are recorded separately and are not vendored into the
 # maintainer patch. The generated diff contains all first-party Pi1MHz source,
-# configuration, firmware-calibration changes, and the BCM43455 compatibility
-# firmware pin.
+# configuration, firmware-calibration changes, the matched host ROM, and the
+# BCM43455 compatibility firmware pin.
 rm -rf -- "$checkout/src/third_party"
-rm -f -- "$checkout/firmware/Pi1MHz/ElkWiFi.rom"
 git -C "$checkout" add -A src firmware/Pi1MHz/Pi1MHz.cfg \
+    firmware/Pi1MHz/ElkWiFi.rom firmware/Pi1MHz/EMMFS.rom \
     firmware/Pi1MHz/wifi/brcmfmac43430-sdio.txt \
     firmware/Pi1MHz/wifi/brcmfmac43455-sdio.bin
 git -C "$checkout" diff --cached --binary HEAD > "$output"

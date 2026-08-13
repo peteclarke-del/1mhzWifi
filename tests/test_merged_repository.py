@@ -1,5 +1,6 @@
 import pathlib
 import unittest
+import zipfile
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -30,16 +31,42 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn("#define SEC_CMD_CAPS       94u", backend)
         self.assertIn("#define SEC_CMD_RANDOM     95u", backend)
 
-    def test_secure_wrapper_does_not_replace_an_active_request(self) -> None:
+    def test_secure_wrapper_cannot_strand_a_request_across_reset(self) -> None:
         wrapper = (
             ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service.c"
         ).read_text()
-        command = wrapper.split("static void secure_command", 1)[1].split(
+        command = wrapper.split("void secure_service_command", 1)[1].split(
             "static void secure_poll", 1
         )[0]
-        self.assertIn("if (pending)", command)
+        self.assertNotIn("if (pending)", command)
+        self.assertIn("Always latch the newest command", command)
+        self.assertIn("pending_cp = command_pointer", command)
         self.assertIn("Pi1MHz_MemoryWrite(addr, SEC_BUSY)", command)
-        self.assertLess(command.index("if (pending)"), command.index("pending_cp ="))
+
+    def test_secure_capabilities_complete_without_polling(self) -> None:
+        wrapper = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service.c"
+        ).read_text()
+        command = wrapper.split("void secure_service_command", 1)[1].split(
+            "static void secure_poll", 1
+        )[0]
+        caps = command.split("if (Pi1MHz->JIM_ram[command_pointer] == NTS_SEC_CAPS)", 1)[1]
+        caps = caps.split("pending_cp = command_pointer", 1)[0]
+        self.assertIn("command[1] = 1u", caps)
+        self.assertIn("command[2] = 1u", caps)
+        self.assertIn("command[3] = capability_features", caps)
+        self.assertIn("command[6] = capability_managed_ssh", caps)
+        self.assertIn("Pi1MHz_MemoryWrite(addr, NTS_OK)", caps)
+        self.assertIn("return", caps)
+
+        init = wrapper.split("void secure_service_init", 1)[1]
+        self.assertNotIn("pending = false", init)
+        self.assertNotIn("pending_cp = 0u", init)
+        self.assertNotIn("pending_addr = 0u", init)
+        self.assertIn("Do not clear a", init)
+        self.assertIn("reset_pending = true", init)
+        self.assertIn("capability_features = 7u", wrapper)
+        self.assertIn("capability_managed_ssh = 1u", wrapper)
 
     def test_merged_components_have_central_build_owners(self) -> None:
         required = [
@@ -86,6 +113,33 @@ class MergedRepositoryTest(unittest.TestCase):
         built = ROOT / "host-tools/build/nettools.ssd"
         self.assertTrue(bundled.is_file())
         self.assertEqual(bundled.read_bytes(), built.read_bytes())
+
+    def test_release_archive_has_one_installable_top_level(self) -> None:
+        archive = ROOT / "build/pi1mhz-all-hardware-test.zip"
+        with zipfile.ZipFile(archive) as bundle:
+            names = bundle.namelist()
+        self.assertTrue(names)
+        self.assertTrue(all(name.startswith("pi1mhz-all/") for name in names))
+        self.assertFalse(any(name.startswith("build/") for name in names))
+
+    def test_maintainer_patch_embeds_the_matched_host_rom(self) -> None:
+        patch = (ROOT / "pi-side/upstream/1mhzwifi-pi1mhz.patch").read_text(
+            errors="replace"
+        )
+        self.assertIn("firmware/Pi1MHz/ElkWiFi.rom", patch)
+        self.assertIn("GIT binary patch", patch)
+
+    def test_fixed_service_children_cannot_consume_dynamic_slots(self) -> None:
+        dispatch = (
+            ROOT
+            / "pi-side/pi1mhz-516a267/patches/deterministic-service-dispatch.patch"
+        ).read_text()
+        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        for symbol in ("net_service_init", "elkwifi_service_init", "secure_service_init"):
+            self.assertIn(symbol, dispatch)
+        self.assertIn("fixed_services_child", dispatch)
+        self.assertIn("if (fixed_services_child)", dispatch)
+        self.assertIn("grep -q 'fixed_services_child'", installer)
 
     def test_retired_layout_is_not_referenced(self) -> None:
         retired = (

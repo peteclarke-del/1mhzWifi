@@ -1,0 +1,129 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -65,12 +65,14 @@
+ temp	=	&C4		\zp temporary
+ fscv_x         = &C9    \must be zero page for (fscv_x),Y
+ fscv_y         = &CA
+-chain_rom      = &03B4 \transient state for the RAM ROM-switch trampoline
+-chain_a        = &03B5
+-chain_x        = &03B6
+-chain_y        = &03B7
+-chain_target   = &03B8 \two-byte indirect target
+-chain_exec     = &03A0    \transient WiCFS-owned cassette workspace
++chain_rom      = &C0 \transient zero-page state for the RAM ROM-switch trampoline
++chain_a        = &C5
++chain_x        = &C6
++chain_y        = &CD
++chain_target   = &CB \two-byte zero-page indirect target
++chain_machine  = &C3 \OSBYTE &81 result while constructing the RAM switcher
++host_basic_pending = &03BD \ROM-private MENU/UEF host continuation flag
++chain_exec     = &03A0    \up to 29 bytes, ending before private state at &03BD
+ currom	=	&CF		\previous ROM slot saved by extended FSCV
+ tmpidx	=	&C1		\temporary store for index pointers
+ fnlen	=	&C2		\length of current CFS block filename
+@@ -896,21 +898,51 @@
+ \previous extended-vector owner. Its RTS returns through the existing MOS
+ \extended-vector frame, so MOS restores the caller's original ROM normally.
+ .chain_previous_rom
++	LDA	#&81
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	chain_machine
+ 	LDX	#chain_code_end-chain_code-1
+ .chain_copy
+ 	LDA	chain_code,X
+ 	STA	chain_exec,X
+ 	DEX
+ 	BPL	chain_copy
++	LDY	#<&FE30
++	LDX	chain_machine
++	CPX	#1
++	BNE	chain_patch_selector
++	LDY	#<&FE05
++.chain_patch_selector
++	STY	chain_exec+(chain_preselect-chain_code)+1
++	STY	chain_exec+(chain_selector-chain_code)+1
+ 	LDA	chain_rom
+-	STA	&F4
++	CPX	#1
++	BNE	chain_preselect_ready
++	CMP	#8
++	BCS	chain_preselect_ready
++	LDA	#12
++.chain_preselect_ready
++	STA	chain_exec+(chain_preselect_value-chain_code)+1
++ASSERT chain_exec+(chain_code_end-chain_code) <= host_basic_pending
+ 	JMP	chain_exec
+ .chain_code
++	PHP
++	SEI
+ 	LDA	chain_rom
+-	STA	&FE05
++	STA	&F4
++.chain_preselect_value
++	LDX	#12
++.chain_preselect
++	STX	&FE30
++	LDA	chain_rom
++.chain_selector
++	STA	&FE30
+ 	LDA	chain_a
+ 	LDX	chain_x
+ 	LDY	chain_y
++	PLP
+ 	JMP	(chain_target)
+ .chain_code_end
+ 
+@@ -1226,17 +1257,50 @@
+ .actioned
+ 	LDY	loadrun
+ 	BPL	ret_fscv
++	LDA	#1
++	STA	host_basic_pending	\arm host BASIC handoff only after a successful *RUN
++	LDA	#&81
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	chain_machine
+ 	LDX	#run_code_end-run_code-1
+ .run_copy
+ 	LDA	run_code,X
+ 	STA	chain_exec,X
+ 	DEX
+ 	BPL	run_copy
++	LDY	#<&FE30
++	LDX	chain_machine
++	CPX	#1
++	BNE	run_patch_selector
++	LDY	#<&FE05
++.run_patch_selector
++	STY	chain_exec+(run_preselect-run_code)+1
++	STY	chain_exec+(run_selector-run_code)+1
++	LDA	currom
++	CPX	#1
++	BNE	run_preselect_ready
++	CMP	#8
++	BCS	run_preselect_ready
++	LDA	#12
++.run_preselect_ready
++	STA	chain_exec+(run_preselect_value-run_code)+1
++ASSERT chain_exec+(run_code_end-run_code) <= host_basic_pending
+ 	JMP	chain_exec
+ .run_code
++	PHP
++	SEI
+ 	LDA	currom
+ 	STA	&F4
+-	STA	&FE05
++.run_preselect_value
++	LDX	#12
++.run_preselect
++	STX	&FE30
++	LDA	currom
++.run_selector
++	STA	&FE30
++	PLP
+ 	PLA
+ 	PLA
+ 	PLA

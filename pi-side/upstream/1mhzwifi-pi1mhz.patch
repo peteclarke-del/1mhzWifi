@@ -1,3 +1,384 @@
+diff --git a/firmware/Pi1MHz/EMMFS.rom b/firmware/Pi1MHz/EMMFS.rom
+new file mode 100644
+index 0000000000000000000000000000000000000000..1fd3e3364fa49788d481b80c0657bec629bd0d23
+GIT binary patch
+literal 16384
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/firmware/Pi1MHz/ElkWiFi.rom b/firmware/Pi1MHz/ElkWiFi.rom
+new file mode 100644
+index 0000000000000000000000000000000000000000..25779bc2935de72dd25f726ca80661cd007a28e6
+GIT binary patch
+literal 16384
+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
+
+literal 0
+HcmV?d00001
+
 diff --git a/firmware/Pi1MHz/Pi1MHz.cfg b/firmware/Pi1MHz/Pi1MHz.cfg
 index 49f2689..91bdd72 100644
 --- a/firmware/Pi1MHz/Pi1MHz.cfg
@@ -7410,7 +7791,7 @@ index 9fd8185..a87e6d9 100644
  # Kernel images always go to the top-level firmware/ directory, regardless of
  # where the build directory is (so out-of-source build/<config> dirs work).
 diff --git a/src/Pi1MHz.c b/src/Pi1MHz.c
-index 8a7a155..c1b8d63 100644
+index 8a7a155..0badf14 100644
 --- a/src/Pi1MHz.c
 +++ b/src/Pi1MHz.c
 @@ -124,6 +124,8 @@ See mdfs.net/Docs/Comp/BBC/Hardware/JIMAddrs for full details
@@ -7431,9 +7812,34 @@ index 8a7a155..c1b8d63 100644
     {"Teletext",teletext_emulator_init, 0x10, 1 },  // Acorn Teletext Adapter at &FC10
     /* Last, so its poll callback re-arms the watchdog only after every other
        emulator has had its turn - a poll that stops responding still trips it. */
+@@ -425,11 +429,24 @@ static void init_emulator(void) {
+ 
+    for( uint8_t i=0; i <NUM_EMULATORS; i++)
+       {
++         /* These fixed command ranges are dispatched by Services itself.
++            Disabling only their poller would leave requests permanently BUSY,
++            so configuration must disable the Services port as a whole. */
++         bool fixed_services_child = emulator[i].init == net_service_init ||
++            emulator[i].init == elkwifi_service_init ||
++            emulator[i].init == secure_service_init;
+          // "<name>_addr=0xNN" overrides the FRED base address; a negative
+          // value (e.g. "<name>_addr=-1") disables the emulator.
+          int ov = config_emulator_override(emulator[i].name, &emulator[i].address);
+          if (ov < 0)
+             {
++               if (fixed_services_child)
++                  {
++                     LOG_WARN("Ignoring %s_addr=-1: fixed Services command range\r\n",
++                              emulator[i].name);
++                     emulator[i].enable = 1;
++                     continue;
++                  }
+                LOG_DEBUG("Disabling %s\r\n", emulator[i].name);
+                emulator[i].enable = 0;
+             }
 diff --git a/src/elkwifi_service.c b/src/elkwifi_service.c
 new file mode 100644
-index 0000000..7b3a7a5
+index 0000000..e7abcbe
 --- /dev/null
 +++ b/src/elkwifi_service.c
 @@ -0,0 +1,1005 @@
@@ -7483,7 +7889,7 @@ index 0000000..7b3a7a5
 + * first 64K so the host and Pi always refer to the same physical bytes. */
 +#define ELKWIFI_UEF_BASE 0u
 +#define ELKWIFI_VERSION_RESPONSE \
-+   "Pi1MHz ElkWiFi 0.1.37, kernel " GITVERSION "\r\n\r\nOK\r\n"
++   "Pi1MHz ElkWiFi 0.1.40, kernel " GITVERSION "\r\n\r\nOK\r\n"
 +
 +_Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
 +               "ElkWiFi service range start disagrees with services.h");
@@ -8356,7 +8762,7 @@ index 0000000..7b3a7a5
 +   }
 +}
 +
-+static void elkwifi_command(uint32_t cp, uint32_t addr, uint8_t data)
++void elkwifi_service_command(uint32_t cp, uint32_t addr, uint8_t data)
 +{
 +   (void)data;
 +   if (Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_CANCEL) {
@@ -8435,7 +8841,7 @@ index 0000000..7b3a7a5
 +    * preserves an already-running association when the profile is unchanged. */
 +   wifi_credentials_load();
 +   (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_UEF_NORMALIZE,
-+                           elkwifi_command);
++                           elkwifi_service_command);
 +   asynchronous_close();
 +   request_pending = false;
 +   request_cancel = false;
@@ -8444,10 +8850,10 @@ index 0000000..7b3a7a5
 +}
 diff --git a/src/elkwifi_service.h b/src/elkwifi_service.h
 new file mode 100644
-index 0000000..285b6dd
+index 0000000..adc7151
 --- /dev/null
 +++ b/src/elkwifi_service.h
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,40 @@
 +#ifndef ELKWIFI_SERVICE_H
 +#define ELKWIFI_SERVICE_H
 +
@@ -8455,6 +8861,8 @@ index 0000000..285b6dd
 +
 +/* ElkWiFi-compatible operations on the Pi1MHz &FCA6 services mailbox. */
 +void elkwifi_service_init(uint8_t instance, uint8_t address);
++void elkwifi_service_command(uint32_t command_pointer, uint32_t address,
++                             uint8_t data);
 +
 +#define ELKWIFI_CMD_FIRST        80u
 +#define ELKWIFI_CMD_STATUS       ELKWIFI_CMD_FIRST
@@ -8487,7 +8895,7 @@ index 0000000..285b6dd
 +
 +#endif
 diff --git a/src/net_service.c b/src/net_service.c
-index 92fac86..f4d6698 100644
+index 92fac86..b145b20 100644
 --- a/src/net_service.c
 +++ b/src/net_service.c
 @@ -59,6 +59,9 @@ typedef struct {
@@ -8735,11 +9143,31 @@ index 92fac86..f4d6698 100644
        if (h->state == NET_ST_ERROR)  return h->last_err ? h->last_err : NET_ERR_CONN;
     }
     return NET_OK;
+@@ -1546,8 +1658,8 @@ static void net_update_irq(void)
+ 
+ /* ---- FIQ latch + main-loop poll ----------------------------------------- */
+ 
+-static void net_service_command(uint32_t command_pointer, uint32_t addr,
+-                                uint8_t data)
++void net_service_command(uint32_t command_pointer, uint32_t addr,
++                         uint8_t data)
+ {
+    /* FIQ context: latch only.  Publish NET_BUSY (bit 7) so a Beeb that reads
+       the result register before the poll runs spins rather than seeing a
 diff --git a/src/net_service.h b/src/net_service.h
-index 7cfd975..b765201 100644
+index 7cfd975..8ad002f 100644
 --- a/src/net_service.h
 +++ b/src/net_service.h
-@@ -119,6 +119,13 @@ void net_service_init(uint8_t instance, uint8_t address);
+@@ -66,6 +66,8 @@
+ 
+ /* Emulator-table init: instance = nIRQ source id, address = services base. */
+ void net_service_init(uint8_t instance, uint8_t address);
++void net_service_command(uint32_t command_pointer, uint32_t address,
++                         uint8_t data);
+ 
+ /* ---- ABI constants (shared with the Beeb-side client and the tests) ----- */
+ 
+@@ -119,6 +121,13 @@ void net_service_init(uint8_t instance, uint8_t address);
  #define NET_ERR_NOMEM        0x26u /* out of pcbs / heap                     */
  #define NET_ERR_UNSUPPORTED  0x27u /* command not implemented (yet)          */
  #define NET_ERR_DISABLED     0x28u /* net_enable=0 in Pi1MHz.cfg             */
@@ -9691,10 +10119,10 @@ index d0b2ea8..450b204 100644
     endif()
 diff --git a/src/secure_service.c b/src/secure_service.c
 new file mode 100644
-index 0000000..1b3fecf
+index 0000000..2439195
 --- /dev/null
 +++ b/src/secure_service.c
-@@ -0,0 +1,77 @@
+@@ -0,0 +1,116 @@
 +/* Pi1MHz services-port wrapper for the NetTools secure ABI.
 + *
 + * FIQ only latches a command and publishes BUSY. All RNG, FatFs, lwIP and
@@ -9716,20 +10144,46 @@ index 0000000..1b3fecf
 +static volatile uint32_t pending_addr;
 +static bool reset_pending;
 +static nts_secure_service service;
++/* This bundle is built with the managed wolfSSH provider. Advertise the
++   compiled ABI immediately; secure_poll replaces this snapshot with actual
++   provider readiness after each reset. */
++static volatile uint8_t capability_features = 7u;
++static volatile uint8_t capability_managed_ssh = 1u;
 +
 +_Static_assert(NTS_SEC_CAPS == SERVICE_CMD_SECURE_FIRST,
 +               "secure service first command mismatch");
 +_Static_assert(NTS_SEC_SSH_PASSWORD <= SERVICE_CMD_SECURE_LAST,
 +               "secure service command exceeds reserved range");
 +
-+static void secure_command(uint32_t command_pointer, uint32_t addr,
-+                           uint8_t data)
++void secure_service_command(uint32_t command_pointer, uint32_t addr,
++                            uint8_t data)
 +{
 +    (void)data;
-+    if (pending) {
-+        Pi1MHz_MemoryWrite(addr, SEC_BUSY);
++    /* Capability discovery is a pure, fixed-size mailbox operation. Complete
++       it in the services callback so a host can identify this ABI even while
++       the ordinary poll is finishing RNG/wolfSSH reset work. This mirrors the
++       synchronous ElkWiFi STATUS probe and does not call FatFs, lwIP or crypto
++       from FIQ context. */
++    if (Pi1MHz->JIM_ram[command_pointer] == NTS_SEC_CAPS) {
++        uint8_t *command = &Pi1MHz->JIM_ram[command_pointer];
++        command[1] = 1u;
++        command[2] = 1u;
++        command[3] = capability_features;
++        command[4] = 0xB8u;
++        command[5] = 0x88u;
++        command[6] = capability_managed_ssh;
++        command[7] = 1u; /* wolfSSH/wolfCrypt provider */
++        command[8] = (uint8_t)'N';
++        command[9] = (uint8_t)'T';
++        command[10] = (uint8_t)'S';
++        Pi1MHz_MemoryWrite(addr, NTS_OK);
 +        return;
 +    }
++    /* The 8-bit host issues mailbox operations synchronously, so there is at
++       most one live caller. Always latch the newest command, like the native
++       net service does. In particular this prevents a command arriving
++       around host-reset reinitialisation from being left behind with a BUSY
++       result after an older pending request is retired. */
 +    pending_cp = command_pointer;
 +    pending_addr = addr;
 +    pending = true;
@@ -9743,6 +10197,11 @@ index 0000000..1b3fecf
 +        service.port = nts_pi_wolfssh_port();
 +        service.opaque = nts_pi_wolfssh_context();
 +        service.managed_ssh = nts_pi_wolfssh_ready();
++        capability_managed_ssh = service.managed_ssh ? 1u : 0u;
++        capability_features = (uint8_t)(1u |
++            (service.managed_ssh ? 2u : 0u) |
++            (service.managed_ssh && service.port != NULL &&
++             service.port->ssh_password != NULL ? 4u : 0u));
 +        reset_pending = false;
 +    }
 +
@@ -9767,23 +10226,33 @@ index 0000000..1b3fecf
 +{
 +    (void)instance;
 +    (void)address;
++    /* Defer provider reset to the ordinary poll context. Do not clear a
++       pending command here: the services callback is already live and could
++       have published BUSY immediately before or during this initializer.
++       Dropping that command would strand the host forever. */
 +    reset_pending = true;
++    /* The services port routes this fixed ABI range directly. Keep the
++       registry claim for compatibility and diagnostics, but never suppress
++       the poller if reset-time registry state rejects a renewal. */
 +    (void)services_register(SERVICE_CMD_SECURE_FIRST,
-+                            SERVICE_CMD_SECURE_LAST, secure_command);
++                            SERVICE_CMD_SECURE_LAST,
++                            secure_service_command);
 +    Pi1MHz_Register_Poll(secure_poll);
 +}
 diff --git a/src/secure_service.h b/src/secure_service.h
 new file mode 100644
-index 0000000..b49f067
+index 0000000..87b0ea5
 --- /dev/null
 +++ b/src/secure_service.h
-@@ -0,0 +1,8 @@
+@@ -0,0 +1,10 @@
 +#ifndef PI1MHZ_SECURE_SERVICE_H
 +#define PI1MHZ_SECURE_SERVICE_H
 +
 +#include <stdint.h>
 +
 +void secure_service_init(uint8_t instance, uint8_t address);
++void secure_service_command(uint32_t command_pointer, uint32_t address,
++                            uint8_t data);
 +
 +#endif
 diff --git a/src/secure_service_core.c b/src/secure_service_core.c
@@ -10715,10 +11184,23 @@ index 7544807..2b9a28a 100644
  /* Handler for one service's command range.  FIQ context: called from the
     FRED write callback, so anything slow must be queued for the main loop
 diff --git a/src/services_emulator.c b/src/services_emulator.c
-index 7656f41..d1bca7f 100644
+index 7656f41..fc183db 100644
 --- a/src/services_emulator.c
 +++ b/src/services_emulator.c
-@@ -31,18 +31,25 @@ typedef struct {
+@@ -17,6 +17,12 @@
+ #include "ram_emulator.h"
+ #include "services.h"
+ 
++/* Fixed built-in ABI handlers. Private service headers are deliberately not
++   required by the small services-port host test harness. */
++void net_service_command(uint32_t, uint32_t, uint8_t);
++void elkwifi_service_command(uint32_t, uint32_t, uint8_t);
++void secure_service_command(uint32_t, uint32_t, uint8_t);
++
+ static size_t disc_ram_addr;
+ static size_t disc_ram_max;
+ // High byte (bits 16-23) of the address last written to the +2 read-back
+@@ -31,18 +37,25 @@ typedef struct {
     service_command_fn handler;
  } service_range_t;
  
@@ -10747,6 +11229,32 @@ index 7656f41..d1bca7f 100644
  
     s_services[s_service_count].first = first;
     s_services[s_service_count].last = last;
+@@ -139,6 +152,25 @@ static void services_emulator_command(unsigned int gpio)
+    uint32_t command_pointer = (uint32_t) (DISC_RAM_BASE | 0xFF0000U | (uint32_t) (data<<8));
+    uint8_t command = Pi1MHz->JIM_ram[command_pointer];
+ 
++   /* Built-in service ranges have fixed ABI allocations. Route them
++      directly so reset-time registry state cannot make a compiled service
++      disappear. The initialisers still register their poll callbacks and
++      may also renew these claims for registry-level tests. */
++   if (command >= SERVICE_CMD_NET_FIRST && command <= SERVICE_CMD_NET_LAST) {
++      net_service_command(command_pointer, addr, data);
++      return;
++   }
++   if (command >= SERVICE_CMD_ELKWIFI_FIRST &&
++       command <= SERVICE_CMD_ELKWIFI_LAST) {
++      elkwifi_service_command(command_pointer, addr, data);
++      return;
++   }
++   if (command >= SERVICE_CMD_SECURE_FIRST &&
++       command <= SERVICE_CMD_SECURE_LAST) {
++      secure_service_command(command_pointer, addr, data);
++      return;
++   }
++
+    for (unsigned int i = 0; i < s_service_count; i++) {
+       if (command >= s_services[i].first && command <= s_services[i].last) {
+          s_services[i].handler(command_pointer, addr, data);
 diff --git a/src/tests/net/stubs/lwip/err.h b/src/tests/net/stubs/lwip/err.h
 index 89d2481..429c6b8 100644
 --- a/src/tests/net/stubs/lwip/err.h
@@ -10825,11 +11333,51 @@ index cdcac69..fac2474 100644
     printf("== N: device - malformed URL ==\n");
     world_reset();
     strcpy((char *)&Pi1MHz->JIM_ram[CP(0) + 2u], "notaurl");
+diff --git a/src/tests/services/fuzz_fat.c b/src/tests/services/fuzz_fat.c
+index 53a165d..6410550 100644
+--- a/src/tests/services/fuzz_fat.c
++++ b/src/tests/services/fuzz_fat.c
+@@ -64,6 +64,13 @@ unsigned char disk_type(void) { return 1; }
+ bool filesystemMount(void) { return true; }
+ bool filesystemDismount(void) { return true; }
+ 
++void net_service_command(uint32_t cp, uint32_t addr, uint8_t data)
++{ (void)cp; (void)addr; (void)data; }
++void elkwifi_service_command(uint32_t cp, uint32_t addr, uint8_t data)
++{ (void)cp; (void)addr; (void)data; }
++void secure_service_command(uint32_t cp, uint32_t addr, uint8_t data)
++{ (void)cp; (void)addr; (void)data; }
++
+ /* config.c (linked for config_beeb_write_protected) references this. */
+ uint32_t filesystemReadFile(const char *f, uint8_t **a, unsigned int m)
+ { (void)f; (void)a; (void)m; return 0; }
 diff --git a/src/tests/services/test_services.c b/src/tests/services/test_services.c
-index 8d58e8b..7da5112 100644
+index 8d58e8b..c6f0046 100644
 --- a/src/tests/services/test_services.c
 +++ b/src/tests/services/test_services.c
-@@ -136,11 +136,17 @@ int main(void)
+@@ -81,6 +81,21 @@ static uint8_t  aun_last_cmd;
+ static void test_aun_handler(uint32_t cp, uint32_t addr, uint8_t data)
+ { (void)addr; (void)data; aun_calls++; aun_last_cmd = Pi1MHz->JIM_ram[cp]; }
+ 
++static uint32_t fixed_calls[3];
++static uint8_t fixed_last_cmd[3];
++static void fixed_handler(unsigned int index, uint32_t cp, uint32_t addr)
++{
++   fixed_calls[index]++;
++   fixed_last_cmd[index] = Pi1MHz->JIM_ram[cp];
++   Pi1MHz_MemoryWrite(addr, (uint8_t)(0x40u + index));
++}
++void net_service_command(uint32_t cp, uint32_t addr, uint8_t data)
++{ (void)data; fixed_handler(0u, cp, addr); }
++void elkwifi_service_command(uint32_t cp, uint32_t addr, uint8_t data)
++{ (void)data; fixed_handler(1u, cp, addr); }
++void secure_service_command(uint32_t cp, uint32_t addr, uint8_t data)
++{ (void)data; fixed_handler(2u, cp, addr); }
++
+ /* ---- helpers driving the real dispatch ---- */
+ #define CMD_PAGE 0xF3u
+ static uint32_t cp_of(uint8_t page) { return DISC_RAM_BASE | 0xFF0000u | ((uint32_t)page << 8); }
+@@ -136,11 +151,17 @@ int main(void)
     puts("== registration ==");
     ok(services_register(SERVICE_CMD_AUN_FIRST, SERVICE_CMD_AUN_LAST, test_aun_handler),
        "AUN range registers");
@@ -10848,6 +11396,25 @@ index 8d58e8b..7da5112 100644
  
     puts("== dispatch ==");
     ok(do_simple(0, 20) == 42, "FAT command 20 reaches disk_type");
+@@ -150,8 +171,17 @@ int main(void)
+       (void)dispatch(CMD_PAGE);
+       ok(aun_calls == 1 && aun_last_cmd == 31, "command 31 routed to the AUN handler");
+       Pi1MHz->JIM_ram[cp] = 45;
++      ok(dispatch(CMD_PAGE) == 0x40u && fixed_calls[0] == 1u &&
++         fixed_last_cmd[0] == 45u, "command 45 routed directly to net service");
++      Pi1MHz->JIM_ram[cp] = 80;
++      ok(dispatch(CMD_PAGE) == 0x41u && fixed_calls[1] == 1u &&
++         fixed_last_cmd[1] == 80u, "command 80 routed directly to ElkWiFi service");
++      Pi1MHz->JIM_ram[cp] = 94;
++      ok(dispatch(CMD_PAGE) == 0x42u && fixed_calls[2] == 1u &&
++         fixed_last_cmd[2] == 94u, "command 94 routed directly to secure service");
++      Pi1MHz->JIM_ram[cp] = 200;
+       uint8_t echo = dispatch(CMD_PAGE);
+-      ok(echo == CMD_PAGE, "unclaimed command 45 ignored (echo only)");
++      ok(echo == CMD_PAGE, "unclaimed command 200 ignored (echo only)");
+    }
+ 
+    puts("== open-file interlock ==");
 diff --git a/src/uef_normalize.c b/src/uef_normalize.c
 new file mode 100644
 index 0000000..22268b4

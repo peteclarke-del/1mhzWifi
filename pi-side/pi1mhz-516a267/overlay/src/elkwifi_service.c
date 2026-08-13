@@ -44,7 +44,7 @@
  * first 64K so the host and Pi always refer to the same physical bytes. */
 #define ELKWIFI_UEF_BASE 0u
 #define ELKWIFI_VERSION_RESPONSE \
-   "Pi1MHz ElkWiFi 0.1.37, kernel " GITVERSION "\r\n\r\nOK\r\n"
+   "Pi1MHz ElkWiFi 0.1.40, kernel " GITVERSION "\r\n\r\nOK\r\n"
 
 _Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
                "ElkWiFi service range start disagrees with services.h");
@@ -917,7 +917,7 @@ static uint8_t process_request(uint32_t cp)
    }
 }
 
-static void elkwifi_command(uint32_t cp, uint32_t addr, uint8_t data)
+void elkwifi_service_command(uint32_t cp, uint32_t addr, uint8_t data)
 {
    (void)data;
    if (Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_CANCEL) {
@@ -996,7 +996,7 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
     * preserves an already-running association when the profile is unchanged. */
    wifi_credentials_load();
    (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_UEF_NORMALIZE,
-                           elkwifi_command);
+                           elkwifi_service_command);
    asynchronous_close();
    request_pending = false;
    request_cancel = false;

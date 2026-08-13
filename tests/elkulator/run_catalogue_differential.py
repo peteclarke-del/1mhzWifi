@@ -194,6 +194,13 @@ def similarity(left: Path, right: Path) -> float:
     return float(value)
 
 
+def has_frame_change(paths: list[str]) -> bool:
+    return any(
+        similarity(Path(left), Path(right)) < 0.99999
+        for left, right in zip(paths, paths[1:])
+    )
+
+
 def emulator_command(args: argparse.Namespace, entry: dict[str, object],
                      tube: bool) -> list[str]:
     roms = args.runtime_dir / "roms"
@@ -204,6 +211,7 @@ def emulator_command(args: argparse.Namespace, entry: dict[str, object],
         "-ram", "7", "-ram", "6",
         "-rom", "5", str(roms / "AFM1V09.rom"),
         "-rom", "3", str(args.wifi_rom),
+        "-rom", "2", str(roms / "dfs.rom"),
         "-rom", "1", str(roms / "acorn-adfs.rom"),
         "-autokeys", key_script(int(entry["index"])),
     ]
@@ -301,7 +309,11 @@ def main() -> int:
         stdout=xvfb_log, stderr=subprocess.STDOUT, start_new_session=True,
     )
     time.sleep(1)
-    report = {"catalogue_size": len(catalogue), "results": []}
+    report = {
+        "catalogue_size": len(catalogue),
+        "rom_sha256": hashlib.sha256(args.wifi_rom.read_bytes()).hexdigest(),
+        "results": [],
+    }
     failures = 0
     try:
         for entry in selected:
@@ -315,8 +327,10 @@ def main() -> int:
                     scores.append(similarity(Path(left), Path(right)))
             best = max(scores, default=0.0)
             payload_equal = bool(off["payload"] and off["payload"] == on["payload"])
+            off_changed = has_frame_change(off["screenshots"])
+            on_changed = has_frame_change(on["screenshots"])
             passed = bool(off["closed"] and on["closed"] and payload_equal and
-                          best >= args.similarity)
+                          off_changed and on_changed and best >= args.similarity)
             comparison = args.output / f"{int(entry['index']):04d}-{entry['name']}" / "comparison.png"
             if off["screenshots"] and on["screenshots"]:
                 subprocess.run([
@@ -328,6 +342,8 @@ def main() -> int:
             result = {
                 **entry, "tube_off": off, "tube_on": on,
                 "payload_equal": payload_equal,
+                "tube_off_frame_change": off_changed,
+                "tube_on_frame_change": on_changed,
                 "best_screen_ncc": best, "comparison": str(comparison),
                 "passed": passed,
             }

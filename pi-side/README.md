@@ -169,6 +169,14 @@ It does not merge a previously deployed SD card back into a newly generated
 bundle. Preserve deployed configuration separately before replacing an SD-card
 tree.
 
+The services dispatcher owns the individual ElkWiFi, raw network and secure
+command ranges once `Services_addr` is enabled. Legacy values such as
+`ElkWiFi_addr=-1`, `net_addr=-1`, or `secure_addr=-1` do not disable those
+subservices. Set `Services_addr=-1` only when the entire shared services
+mailbox is intentionally removed from the host address map. The child poll
+callbacks can remain registered, but without a parent mailbox command they are
+dormant background work rather than host-visible services.
+
 The generated bundle includes `ADFS.rom` and `defscsi.cfg`, but it deliberately
 does not include BeebSCSI LUN data. Preserve `/BeebSCSI0` and any other
 `/BeebSCSI*` directories when updating a card. A clean card needs a
@@ -230,6 +238,13 @@ existing access points. WPA3 is not exposed. The bundled kernels link the
 managed wolfSSH service used by the separate NetTools `SSH` client. The
 ElkWiFi-compatible ROM does not expose SSH, TLS or HTTPS. HTTPS remains
 unimplemented and requests for it fail closed.
+
+Secure-service capability command 94 is a fixed mailbox response and completes
+in the services callback. It does not wait for the main-loop wolfSSH reset or
+RNG initialisation. Before the first poll it reports the capabilities compiled
+into the kernel; the poll loop then replaces that startup snapshot with actual
+provider readiness. SSH open, authentication and session traffic remain
+asynchronous and bounded through the normal Pi1MHz poll path.
 
 Credentials are not protected at rest. Do not use a production WiFi password
 in public test artifacts.

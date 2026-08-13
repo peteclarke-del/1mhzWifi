@@ -19,10 +19,16 @@ build/TERM: src/term.asm src/vt100.asm $(COMMON_SOURCES) | build
 build/SSH: src/ssh.asm src/vt100.asm src/common/pi1mhz_secure.asm $(COMMON_SOURCES) | build
 	$(BEEBASM) -i src/ssh.asm -o $@
 
+build/PING: src/ping.asm src/common/tool_common.asm $(COMMON_SOURCES) | build
+	$(BEEBASM) -i src/ping.asm -o $@
+
+build/NSLOOK: src/nslook.asm src/common/tool_common.asm $(COMMON_SOURCES) | build
+	$(BEEBASM) -i src/nslook.asm -o $@
+
 build/NETMENU: src/netmenu.asm src/common/mos.inc | build
 	$(BEEBASM) -i src/netmenu.asm -o $@
 
-build/nettools.ssd: src/disc.asm build/NETMENU build/TERM build/SSH | build
+build/nettools.ssd: src/disc.asm build/NETMENU build/TERM build/SSH build/PING build/NSLOOK | build
 	rm -f $@
 	$(BEEBASM) -i src/disc.asm -do $@ -boot NETMENU -title NETTOOLS
 	truncate -s 204800 $@

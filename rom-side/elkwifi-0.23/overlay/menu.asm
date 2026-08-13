@@ -13,6 +13,18 @@ menu_basic_slot = heap+&E6
     bcc menu_platform_ok
     jmp menu_quit
 .menu_platform_ok
+    \ OSBYTE &EA returns X=&FF when a Tube language is active. Warn only;
+    \ 1MHzWifi never disables, resets or transfers a title through the Tube.
+    lda #&EA
+    ldx #0
+    ldy #&FF
+    jsr osbyte
+    cpx #&FF
+    bne menu_tube_warning_done
+    jsr printtext
+    equs "Some titles may require the Tube to be disabled",&0D
+    equs "before attempting to load.",&0D,&EA
+.menu_tube_warning_done
     \ The stock ElkWiFi MENU is a cassette filing-system program, and heap at
     \ &0900 overlaps Electron ADFS workspace. Select cassette filing before
     \ constructing the WGET command or touching heap. This matches the proven
@@ -142,6 +154,7 @@ menu_basic_slot = heap+&E6
     inx
     bne menu_host_queue
 .menu_host_queued
+.menu_enter_host_basic
     ldx #(menu_host_enter_end-menu_host_enter)-1
 .menu_host_copy
     lda menu_host_enter,x
@@ -159,6 +172,7 @@ menu_basic_slot = heap+&E6
     jsr osbyte
     stx menu_return_addr+(menu_host_machine_immediate-menu_host_enter)+1
     jmp menu_return_addr
+
 
 \ Find the highest-priority language ROM whose title begins with BASIC.
 \ OSRDRM reads it without changing the currently selected 1MHzWifi ROM.
@@ -218,6 +232,9 @@ menu_basic_slot = heap+&E6
 \ be fetched from 1MHzWifi. Electron ROMSEL is &FE05; BBC B, B+, Master and
 \ Compact use &FE30. A=1 is the normal cold language-entry reason.
 .menu_host_enter
+.menu_host_irq
+    php
+    sei
 .menu_host_slot_immediate
     lda #0
     sta &F4
@@ -227,16 +244,21 @@ menu_basic_slot = heap+&E6
     cpx #1
     beq menu_host_select_electron
     sta &FE30
-    bne menu_host_selected
+    jmp menu_host_selected
 .menu_host_select_electron
+    cmp #8
+    bcs menu_host_select_electron_slot
     pha
     lda #&0C
     sta &FE05
     pla
+.menu_host_select_electron_slot
     sta &FE05
 .menu_host_selected
+    tax
     lda #0
     sta &025D
     lda #1
+    plp
     jmp &8000
 .menu_host_enter_end

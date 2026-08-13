@@ -18,6 +18,7 @@ rm -rf -- "$checkout/src/build"
 ARM_GCC=${ARM_GCC:-arm-none-eabi-gcc} \
 WOLFSSL_SOURCE=${WOLFSSL_SOURCE:-} \
 WOLFSSH_SOURCE=${WOLFSSH_SOURCE:-} \
+PI1MHZ_OUTPUT_DIR="$test_root/output" \
     "$root_dir/pi-side/install_bundle.sh" "$checkout" all
 
 test -s "$checkout/firmware/kernel.img"

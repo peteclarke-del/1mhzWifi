@@ -14,8 +14,8 @@ canonical inputs rather than edited directly.
 
 ## ElkWiFi service adapter
 
-The adapter owns service commands 80 through 93, excluding the secure-service
-reservation at 91. The FIQ handler only captures the command pointer, publishes
+The adapter owns service commands 80 through 93. Command 91 remains reserved
+inside that range and returns unsupported. The FIQ handler captures the command pointer, publishes
 busy and handles the fixed status response when firmware is already ready.
 Filesystem, SDIO, scan, DNS, ICMP, NTP and UEF work runs from the cooperative
 poll loop.
@@ -69,9 +69,11 @@ The existing Pi1MHz raw network service is corrected for HTTP status,
 Content-Length truncation, diagnostic errors and an ElkWiFi-compatible user
 agent. The ElkWiFi ROM uses it for WGET and OSWORD TCP operations.
 
-Commands 94 through 100 implement the managed NetTools secure ABI. The wrapper
-rejects an overlapping FIQ command as busy instead of replacing the active
-pointer. wolfSSH owns private keys, session keys, host-key verification and
+Commands 94 through 100 implement the managed NetTools secure ABI. Host calls
+are synchronous, and the FIQ wrapper always latches the newest command so a
+request arriving around reset cannot be stranded behind a stale BUSY result.
+The poller preserves a latched request across provider reset. wolfSSH owns
+private keys, session keys, host-key verification and
 known-host persistence on the Pi. Password bytes are wiped after handoff.
 Known-host updates use a synchronized temporary file, backup rename and
 rollback.
@@ -88,6 +90,12 @@ Saved WiFi and menu values take precedence over initial `Pi1MHz.cfg` values.
 The installer preserves active configuration entries, requires
 `Rampage_addr=0xFD`, enables the services and raw network ranges, and activates
 the three BeebSCSI settings only when they are absent.
+
+The shared services dispatcher owns its ElkWiFi, raw network and secure
+command ranges whenever `Services_addr` is enabled. Per-range legacy settings
+such as `ElkWiFi_addr=-1`, `net_addr=-1`, and `secure_addr=-1` are ignored.
+Only `Services_addr=-1` removes the complete mailbox callbacks. Child pollers
+can remain registered but are not host-visible without the parent mailbox.
 
 Profile, menu and LAPOPT replacement is not power-failure atomic. This remains
 recorded product work. Passwords are plaintext on the FAT partition.

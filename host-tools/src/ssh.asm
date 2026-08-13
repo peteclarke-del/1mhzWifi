@@ -24,7 +24,16 @@ GUARD APP_LIMIT
     JSR secure_probe
     CMP #NET_OK
     BEQ ssh_probe_secure_ok
+    CMP #NET_LOCAL_TIMEOUT
+    BEQ ssh_secure_timeout
     JMP ssh_secure_error
+.ssh_secure_timeout
+    LDX #LO(secure_timeout_text)
+    LDY #HI(secure_timeout_text)
+    JSR print_string
+    LDA #NET_LOCAL_TIMEOUT
+    JSR show_error
+    RTS
 .ssh_probe_secure_ok
     LDA secure_features
     AND #2
@@ -546,6 +555,8 @@ GUARD APP_LIMIT
     EQUS "Pi1MHz services mailbox not found.", 13, 0
 .secure_required_text
     EQUS "Pi1MHz managed SSH service ABI 1 required.", 13, 0
+.secure_timeout_text
+    EQUS "Pi1MHz secure service did not answer.", 13, 0
 .connecting_text
     EQUS "SSH: connecting and verifying host...", 13, 0
 .connected_text

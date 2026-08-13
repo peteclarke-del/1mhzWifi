@@ -28,6 +28,10 @@ GUARD APP_LIMIT
     EQUS "  Telnet with VT100 display", 13, 13
     EQUS "*SSH user@host [port]", 13
     EQUS "  SSH-2 VT100 client", 13, 13
+    EQUS "*PING host", 13
+    EQUS "  Four ICMP echo requests", 13, 13
+    EQUS "*NSLOOK host", 13
+    EQUS "  Resolve an IPv4 address", 13, 13
     EQUS "Requires net_enable=1 in Pi1MHz.cfg", 13
     EQUS "Programs execute on the I/O processor.", 13, 0
 

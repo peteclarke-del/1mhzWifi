@@ -248,7 +248,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_ERR_NO_WIFI", service)
         self.assertIn("wifi_get_state() == WIFI_STATE_ERROR", service)
         self.assertIn("Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS", service)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.37, kernel " GITVERSION', service)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.40, kernel " GITVERSION', service)
         self.assertIn("cmp #2", service_driver)
         self.assertIn("beq service_driver_short_timeout", service_driver)
         self.assertIn("Function 2 is *VERSION/GMR", service_driver)
@@ -378,8 +378,38 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("+\tSTA\t&FCA9", jim_state_patch)
         self.assertNotIn("+\tSTA\t&FCFD", jim_state_patch)
         self.assertNotIn("+\tSTA\t&FCFE", jim_state_patch)
-        self.assertIn("wicfs_state_ram = heap+&E8", jim_state_patch)
+        private_workspace = (
+            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-private-workspace.patch"
+        ).read_text()
+        self.assertIn("+wicfs_state_ram = &0380", private_workspace)
         self.assertIn(".wicfs_state_load", jim_state_patch)
+        build_script = (ROOT / "rom-side/build_rom.sh").read_text()
+        self.assertIn("check_wicfs_keyboard_buffer.py", build_script)
+        self.assertIn('"$upstream/rom/wicfs.asm"', build_script)
+        checker = (ROOT / "rom-side/check_wicfs_keyboard_buffer.py").read_text()
+        self.assertIn("0x03E0 <= address <= 0x03FF", checker)
+        self.assertIn("symbols", checker)
+        vector_entry_patch = (
+            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-vector-entry-state.patch"
+        ).read_text()
+        self.assertEqual(vector_entry_patch.count("JSR\twicfs_state_load"), 3)
+        self.assertIn("JSR wicfs_state_load", vector_entry_patch)
+        self.assertIn(".upfilev", vector_entry_patch)
+        self.assertIn(".upfindv", vector_entry_patch)
+        self.assertIn("STA\tfscv_reason", vector_entry_patch)
+
+        patch_dir = ROOT / "rom-side/elkwifi-0.23/patches"
+        opt_patch = (patch_dir / "wicfs-opt.patch").read_text()
+        self.assertIn("FSCV reason 0 is *OPT", opt_patch)
+        self.assertIn(".upv_opt_default", opt_patch)
+        self.assertIn("equb\t&00,&22,&11", opt_patch)
+
+        host_addresses = (patch_dir / "wicfs-host-addresses.patch").read_text()
+        self.assertIn("portable host-memory representation", host_addresses)
+        self.assertIn("\tLDY\t#8", host_addresses)
+        self.assertIn(".upbgetv", vector_entry_patch)
+        self.assertIn("chain_exec     = &03A0", vector_entry_patch)
+        self.assertNotIn("+chain_exec     = heap+&B0", vector_entry_patch)
         self.assertIn(".wicfs_state_save", jim_state_patch)
         self.assertIn("pr_y    =   &C7", jim_state_patch)
         self.assertIn("pr_r    =   &C8", jim_state_patch)
@@ -458,8 +488,6 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("INC\tCFSload+3", host_patch)
         self.assertIn("findv_rtn", host_patch)
         self.assertIn("fscv_reason", host_patch)
-        run_unwind = host_patch.split("+.actioned", 1)[1].split("+.ret_fscv", 1)[0]
-        self.assertEqual(run_unwind.count("+\tPLA"), 5)
         self.assertNotIn("+romsel\t=\t&07A4", host_patch)
         for forbidden in ("&027A", "&0406", "&FCE4", "&FCE5", "&FEE4", "&FEE5", "tube_target"):
             self.assertNotIn(forbidden, host_patch)
@@ -526,12 +554,12 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("LDA\t#0\t\t\\REWIND is not a pending *RUN", reentry_patch)
         self.assertIn("STA\tloadrun\t\t\\do not enter actioned's stale execution path", reentry_patch)
         self.assertIn("STA\tchain_exec,X", reentry_patch)
+        self.assertNotIn("run_return_lo", reentry_patch)
+        self.assertNotIn("run_return_hi", reentry_patch)
         self.assertIn("JMP\tchain_exec", reentry_patch)
-        self.assertIn("-\tPLA\n-\tPLA", reentry_patch)
-        run_unwind_patch = (
-            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-run-unwind.patch"
-        ).read_text()
-        self.assertEqual(run_unwind_patch.count("+\tPLA"), 2)
+        self.assertEqual(reentry_patch.count("\tPLA"), 2)
+        tail_unwind = private_workspace.split("@@ -1150", 1)[1]
+        self.assertEqual(tail_unwind.count("+\tPLA"), 2)
         self.assertNotIn("-BYTEV\t=", reentry_patch)
         self.assertNotIn("-.osb_s", reentry_patch)
 
@@ -631,9 +659,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/patches/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.37"', identity)
+        self.assertIn('romversion         equs "0.1.40"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/overlay/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.37 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.40 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
@@ -690,6 +718,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("lda &0E00", menu)
         self.assertIn("jsr menusrc_patch_menu", menu)
         self.assertIn("jsr menusrc_check_menu_platform", menu)
+        self.assertIn("Some titles may require the Tube to be disabled", menu)
+        self.assertIn("before attempting to load.", menu)
+        self.assertIn("lda #&EA\n    ldx #0\n    ldy #&FF", menu)
         self.assertLess(menu.index("jsr menusrc_check_menu_platform"),
                         menu.index("jsr oscli"))
         self.assertIn(".menusrc_check_menu_platform", menusrc)
@@ -820,6 +851,10 @@ class IntegrationContractTest(unittest.TestCase):
             rom_installer.index("wicfs-callable-init.patch"),
             rom_installer.index("wicfs-rewind.patch"),
         )
+        self.assertLess(
+            rom_installer.index("wicfs-private-workspace.patch"),
+            rom_installer.index("wicfs-basic-host.patch"),
+        )
 
     def test_local_uef_import_uses_current_filing_system_and_wicfs(self) -> None:
         source = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
@@ -866,6 +901,11 @@ class IntegrationContractTest(unittest.TestCase):
         # host-side and must never touch the Tube data-transfer registers.
         self.assertIn("lda #&EA", source)
         self.assertIn("jmp menu_host_cmd", source)
+        basic_host = (
+            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-basic-host.patch"
+        ).read_text()
+        self.assertIn(".upv_basic_match", basic_host)
+        self.assertIn("JMP\tmenu_enter_host_basic", basic_host)
         self.assertNotIn('equs "TUBE OFF"', source)
         for register in range(0xFEE0, 0xFEE8):
             self.assertNotIn(f"&{register:04X}", source.upper())

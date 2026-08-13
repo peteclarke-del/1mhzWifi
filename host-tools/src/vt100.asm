@@ -369,24 +369,295 @@ VT_STRING_ESCAPE = 7
 .vt_csi_unknown
     RTS
 
-\ Scaffolding for the remaining screen-editing commands. These entry points
-\ have no rendering effect yet; keeping them distinct makes the
-\ later screen-memory renderer and its tests incremental rather than another
-\ parser rewrite.
 .vt_insert_characters             \ CSI Ps @ (ICH)
-    JMP vt_editing_not_implemented
+    JSR vt_prepare_edit_count
+    LDA #39
+    STA vt_edit_col
+.vt_ich_shift
+    LDA vt_edit_col
+    SEC
+    SBC vt_edit_count
+    CMP vt_cursor_col
+    BCC vt_ich_blank
+    STA vt_copy_col
+    LDX vt_copy_col
+    LDY vt_cursor_row
+    JSR vt_read_cell
+    LDX vt_edit_col
+    LDY vt_cursor_row
+    JSR vt_write_cell
+    DEC vt_edit_col
+    JMP vt_ich_shift
+.vt_ich_blank
+    LDA vt_cursor_col
+    STA vt_edit_col
+    JMP vt_blank_edit_count
 .vt_insert_lines                  \ CSI Ps L (IL)
-    JMP vt_editing_not_implemented
+    JSR vt_prepare_line_count
+    BCS vt_il_start
+    JMP vt_edit_done
+.vt_il_start
+    LDA vt_margin_bottom
+    STA vt_dest_row
+.vt_il_shift
+    LDA vt_dest_row
+    SEC
+    SBC vt_edit_count
+    CMP vt_cursor_row
+    BCC vt_il_blank
+    STA vt_source_row
+    JSR vt_copy_row
+    DEC vt_dest_row
+    JMP vt_il_shift
+.vt_il_blank
+    LDA vt_cursor_row
+    STA vt_dest_row
+    LDA vt_edit_count
+    STA vt_line_remaining
+    JMP vt_blank_rows
 .vt_delete_lines                  \ CSI Ps M (DL)
-    JMP vt_editing_not_implemented
+    JSR vt_prepare_line_count
+    BCS vt_dl_start
+    JMP vt_edit_done
+.vt_dl_start
+    LDA vt_cursor_row
+    STA vt_dest_row
+.vt_dl_shift
+    LDA vt_dest_row
+    CLC
+    ADC vt_edit_count
+    CMP vt_margin_bottom
+    BCC vt_dl_copy
+    BEQ vt_dl_copy
+    LDA vt_margin_bottom
+    SEC
+    SBC vt_edit_count
+    CLC
+    ADC #1
+    STA vt_dest_row
+    LDA vt_edit_count
+    STA vt_line_remaining
+    JMP vt_blank_rows
+.vt_dl_copy
+    STA vt_source_row
+    JSR vt_copy_row
+    INC vt_dest_row
+    JMP vt_dl_shift
 .vt_delete_characters             \ CSI Ps P (DCH)
-    JMP vt_editing_not_implemented
+    JSR vt_prepare_edit_count
+    LDA vt_cursor_col
+    STA vt_edit_col
+.vt_dch_shift
+    LDA vt_edit_col
+    CLC
+    ADC vt_edit_count
+    CMP #40
+    BCS vt_dch_blank
+    STA vt_copy_col
+    LDX vt_copy_col
+    LDY vt_cursor_row
+    JSR vt_read_cell
+    LDX vt_edit_col
+    LDY vt_cursor_row
+    JSR vt_write_cell
+    INC vt_edit_col
+    JMP vt_dch_shift
+.vt_dch_blank
+    LDA #40
+    SEC
+    SBC vt_edit_count
+    STA vt_edit_col
+    JMP vt_blank_edit_count
 .vt_erase_characters              \ CSI Ps X (ECH)
-    JMP vt_editing_not_implemented
+    JSR vt_prepare_edit_count
+    LDA vt_cursor_col
+    STA vt_edit_col
+    JMP vt_blank_edit_count
 .vt_scroll_up                     \ CSI Ps S (SU)
-    JMP vt_editing_not_implemented
+    JSR vt_prepare_scroll_count
+    LDA vt_margin_top
+    STA vt_dest_row
+.vt_su_shift
+    LDA vt_dest_row
+    CLC
+    ADC vt_edit_count
+    CMP vt_margin_bottom
+    BCC vt_su_copy
+    BEQ vt_su_copy
+    LDA vt_margin_bottom
+    SEC
+    SBC vt_edit_count
+    CLC
+    ADC #1
+    STA vt_dest_row
+    LDA vt_edit_count
+    STA vt_line_remaining
+    JMP vt_blank_rows
+.vt_su_copy
+    STA vt_source_row
+    JSR vt_copy_row
+    INC vt_dest_row
+    JMP vt_su_shift
 .vt_scroll_down                   \ CSI Ps T (SD)
-.vt_editing_not_implemented
+.vt_sd_start
+    JSR vt_prepare_scroll_count
+    LDA vt_margin_bottom
+    STA vt_dest_row
+.vt_sd_shift
+    LDA vt_dest_row
+    SEC
+    SBC vt_edit_count
+    CMP vt_margin_top
+    BCC vt_sd_blank
+    STA vt_source_row
+    JSR vt_copy_row
+    DEC vt_dest_row
+    JMP vt_sd_shift
+.vt_sd_blank
+    LDA vt_margin_top
+    STA vt_dest_row
+    LDA vt_edit_count
+    STA vt_line_remaining
+    JMP vt_blank_rows
+.vt_edit_done
+    RTS
+
+.vt_prepare_edit_count
+    JSR vt_default_one
+    STX vt_edit_count
+    JSR vt_get_cursor
+    LDA #40
+    SEC
+    SBC vt_cursor_col
+    CMP vt_edit_count
+    BCS vt_edit_count_ok
+    STA vt_edit_count
+.vt_edit_count_ok
+    RTS
+
+.vt_prepare_line_count
+    JSR vt_default_one
+    STX vt_edit_count
+    JSR vt_get_cursor
+    LDA vt_cursor_row
+    CMP vt_margin_top
+    BCC vt_line_not_in_region
+    CMP vt_margin_bottom
+    BCC vt_line_in_region
+    BEQ vt_line_in_region
+.vt_line_not_in_region
+    CLC
+    RTS
+.vt_line_in_region
+    LDA vt_margin_bottom
+    SEC
+    SBC vt_cursor_row
+    CLC
+    ADC #1
+    CMP vt_edit_count
+    BCS vt_line_count_ok
+    STA vt_edit_count
+.vt_line_count_ok
+    SEC
+    RTS
+
+.vt_prepare_scroll_count
+    JSR vt_default_one
+    STX vt_edit_count
+    JSR vt_get_cursor
+    LDA vt_margin_bottom
+    SEC
+    SBC vt_margin_top
+    CLC
+    ADC #1
+    CMP vt_edit_count
+    BCS vt_scroll_count_ok
+    STA vt_edit_count
+.vt_scroll_count_ok
+    RTS
+
+.vt_blank_edit_count
+    LDA vt_edit_count
+    STA vt_char_remaining
+.vt_blank_edit_loop
+    LDA vt_edit_col
+    CMP #40
+    BCS vt_restore_edit_cursor
+    LDA #' '
+    LDX vt_edit_col
+    LDY vt_cursor_row
+    JSR vt_write_cell
+    INC vt_edit_col
+    DEC vt_char_remaining
+    BNE vt_blank_edit_loop
+    JMP vt_restore_edit_cursor
+
+.vt_copy_row
+    LDA #0
+    STA vt_copy_col
+.vt_copy_row_loop
+    LDX vt_copy_col
+    LDY vt_source_row
+    JSR vt_read_cell
+    LDX vt_copy_col
+    LDY vt_dest_row
+    JSR vt_write_cell
+    INC vt_copy_col
+    LDA vt_copy_col
+    CMP #40
+    BCC vt_copy_row_loop
+    RTS
+
+.vt_blank_rows
+    JSR vt_clear_row_variable
+    INC vt_dest_row
+    DEC vt_line_remaining
+    BNE vt_blank_rows
+.vt_restore_edit_cursor
+    JMP vt_position_saved_cursor
+
+.vt_clear_row_variable
+    LDA #0
+    STA vt_copy_col
+.vt_clear_row_loop
+    LDA #' '
+    LDX vt_copy_col
+    LDY vt_dest_row
+    JSR vt_write_cell
+    INC vt_copy_col
+    LDA vt_copy_col
+    CMP #40
+    BCC vt_clear_row_loop
+    RTS
+
+\ Read and write cells through documented MOS VDU calls. This avoids relying
+\ on a machine-specific screen-memory layout and works on Electron and BBC
+\ display hardware alike.
+.vt_read_cell
+    STX vt_cell_col
+    STY vt_cell_row
+    LDA #31
+    JSR OSWRCH
+    LDA vt_cell_col
+    JSR OSWRCH
+    LDA vt_cell_row
+    JSR OSWRCH
+    LDA #&87
+    JSR OSBYTE
+    TXA
+    RTS
+.vt_write_cell
+    STA vt_cell_value
+    STX vt_cell_col
+    STY vt_cell_row
+    LDA #31
+    JSR OSWRCH
+    LDA vt_cell_col
+    JSR OSWRCH
+    LDA vt_cell_row
+    JSR OSWRCH
+    LDA vt_cell_value
+    JMP OSWRCH
     RTS
 
 \ Mode/report scaffolding. Replies need a small renderer-to-transport queue;
@@ -924,4 +1195,24 @@ VT_STRING_ESCAPE = 7
 .vt_mode_value
     EQUB 0
 .vt_reply_pending
+    EQUB 0
+.vt_edit_count
+    EQUB 0
+.vt_edit_col
+    EQUB 0
+.vt_copy_col
+    EQUB 0
+.vt_char_remaining
+    EQUB 0
+.vt_line_remaining
+    EQUB 0
+.vt_source_row
+    EQUB 0
+.vt_dest_row
+    EQUB 0
+.vt_cell_col
+    EQUB 0
+.vt_cell_row
+    EQUB 0
+.vt_cell_value
     EQUB 0
