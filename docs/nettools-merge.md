@@ -33,13 +33,14 @@ and commands 101-113 are reserved for that service.
 
 ## Validation completed before sibling removal
 
-- Root ROM, integration and UEF test suite: 34 tests.
-- Host-tool assembled DFS image and py65 suite: 17 tests.
+- Root ROM, integration, OSWORD and UEF test suite: 65 tests.
+- Host-tool assembled DFS image and py65 suite: 27 tests.
 - Mailbox/JIM unit and live loopback tests.
 - Secure-service ABI core test.
 - Real wolfSSH public-key, password, changed-host and failed-authentication
   tests.
-- Elkulator TERM and SSH fixture tests using the assembled DFS images.
+- Elkulator TELNET and SSH fixture tests using the assembled DFS images and the
+  physical FIQ publication-delay model.
 - Assembled SSH client through Elkulator to the real wolfSSH test server.
 - Clean Pi 1/Zero `kernel.img` build.
 - Clean Pi 2/3 `kernel7.img` build.

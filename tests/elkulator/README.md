@@ -2,39 +2,46 @@
 
 `run_catalogue_differential.py` runs the same published UEF with the AP5 Tube
 disabled and enabled. It uses the photographed Electron ROM order, including
-the +2 sideways RAM banks, RH Plus, AP5 support ROM, DFS and ADFS. The 1MHzWifi ROM
-and Pi mailbox remain on the host in both runs.
+the +2 sideways RAM banks, RH Plus, AP5 support ROM, DFS and ADFS. The
+1MHzWifi ROM and Pi mailbox remain on the host in both runs.
+
+The runners use the integration's conservative timing fault injection by
+default. This is not a calibrated physical timing claim. `--fiq-delay`
+overrides the capture delay only. `--fiq-delay 0` is permitted only for an
+explicitly identified synchronous fixture comparison. It is not release or
+physical-hardware evidence.
 
 The runner selects catalogue entries by their sorted index, as the published
 menu builder does. It sends `*MENU` using Elkulator's Shift+quote mapping for
 `*`, advances through the catalogue with Down and selects the corresponding
 letter. There are no per-title loader paths or expected addresses.
 
-Each pair must download an identical UEF payload, close the game stream and
-produce a sufficiently similar post-launch display. The no-Tube run is the
-behavioural reference because the published catalogue is already known to run
-on a non-Tube Electron. Three screen samples reduce false failures from simple
-animation phase differences. Every image, trace and emulator log is retained
-for inspection.
+Each pair must download an identical UEF payload and close the game stream.
+Generic frame motion or Tube-on/off similarity is not proof of gameplay. A
+release gate must also match a reviewed, title-specific gameplay reference and
+reject known prompt and MOS-error screens. Every image, trace and emulator log
+is retained for inspection.
 
-The first ten-entry differential slice for ROM 0.1.37 produced identical UEF
-hashes in every pair. Nine pairs met the strict framebuffer threshold. The
-remaining pair reached the same animated Starcade attract screen in both runs,
-but at different animation positions, so it remains a visual review result
-rather than a byte-image pass. The earlier E-Type Tube stall is included in
-this slice and now produces an exact screen match. No title name or title
-address appears in the ROM fix or runner. The experimental 0.1.38
-caller-return handoff was rejected after the emulator reproduced a return to
-BASIC. ROM 0.1.40 restores the proven 0.1.37 launch path. Frak and Zalaga reach
-gameplay in Tube-off and Tube-on runs. Arcadians also reaches gameplay in both
-modes, although its animated screens do not satisfy a single-frame similarity
-threshold. Last of the Free still reports `Bad program` in both modes.
+Earlier differential captures remain diagnostic history. They do not satisfy
+the strengthened acceptance contract by themselves because matching animated
+frames can also describe the same loader or error state.
 
-`run_uef_gameplay.py` mounts the local Thrust DFS fixture, types `*DISC` and
-`*UEF LOAD THRUST`, then presses Space after the multi-stage loader completes.
-The exact final 0.1.40 ROM reaches gameplay with the Tube disabled and enabled.
-The retained captures are `uef-thrust-gameplay-0.1.40-final-no-tube.png` and
-`uef-thrust-gameplay-0.1.40-final-tube.png` in the screenshots directory.
+`run_uef_gameplay.py` can mount the photographed BeebSCSI LUN read-only, type
+`*ADFS`, `*DIR UEF`, and `*UEF LOAD THRUST`, then wait for the reviewed title
+frame. It injects Space only after that frame is visible and the Elkulator
+window has explicit X11 focus. A pass requires reviewed title and gameplay
+references, a substantial input-correlated change, continued gameplay motion,
+no known prompt or MOS-error screen, an alive emulator at the deadline, and
+identical pre/post media and configuration hashes. The report also hashes the
+runner, provenance module, emulator, ROMs, media, and visual references.
+When Tube mode is requested, a pass also requires Elkulator's explicit AP5
+Tube startup marker. Supplying `-tube6502` without starting the parasite can no
+longer produce a Tube-on pass.
+Historical screenshots are not automatically a pass for the current binary.
+The default deadline is 150 seconds because the conservative delayed-bus
+profile can spend more than a minute walking a large ADFS directory before
+the local UEF stream starts. The deadline remains bounded and reaching it is
+still a failure unless reviewed gameplay has been observed.
 
 Example using the maintained disposable Elkulator build:
 
@@ -57,3 +64,78 @@ limitation is stated deliberately: an emulator cannot infer that every
 arbitrary title has reached interactive gameplay from one framebuffer alone.
 Animated screens can also be valid while failing a strict pixel comparison.
 Treat such results as review items, not automatic product failures or passes.
+The runner types only `*MENU` during boot. It waits for the traced TITLES close
+event, focuses Elkulator, and then selects the requested catalogue letter.
+This avoids guessing how long ADFS and the live title-data transfer will take.
+
+## NetTools hardware-profile diagnostic
+
+`run_nettools_hardware.py` records SHA-256 provenance for Elkulator, every ROM,
+the 1MHzWifi image, mounted media, the Tube ROM and configuration files. Mutable
+media and configuration hashes are recorded separately before and after the
+run. The report also records the runtime source revision when it is a Git
+checkout and the exact filing-system setup commands.
+
+The photographed MMFS/ADFS machine reports OSHWM `&0800` and HIMEM `&1D00`
+before a tool changes mode. The earlier direct-DFS runner reported OSHWM
+`&1F00`; that is a different memory envelope and is not evidence for the
+physical failure. Use `--sd-image`, replace the appropriate ROM slot with
+`--extra-rom SLOT=/path/to/EMMFS.rom`, and provide the actual MMFS selection
+with one or more `--setup-command` options. `--disc` remains available for a
+separate DFS profile.
+
+The public NetTools files are host bootstraps at `&2000`. They move the screen
+to MODE 4 and run internal host images at `&2200`. Both stages carry `FFFF`
+host addresses, so enabling a Tube must not redirect them to the parasite.
+The runner requires Elkulator to remain alive through the observation period
+and command-specific final evidence. HWDTEST requires a reviewed final screen
+containing `HWDTEST RESULT PASS`. SSH requires ordered `SSH_OPEN`, `SSH_USER`
+and `CLOSE` records. TELNET requires ordered `OPEN` and `CLOSE` records.
+NSLOOK requires both a DNS record and a reviewed final address screen. A lone
+trace event cannot pass a command. HWDTEST specifically requires
+`--hwd-pass-screen`; an unrelated `--require-screen` cannot satisfy that gate.
+`--reject-header-screen` and `--reject-memory-screen` accept captured known
+failure frames and return a nonzero status when a generated frame reaches the
+configured NCC similarity. `--require-trace-event` requires named mailbox
+events for commands which produce them. Frame references must be captures from
+the same emulator window geometry. Camera photographs are evidence for manual
+comparison, not valid pixel-level NCC references.
+
+Example MMFS invocation, using the ROM slot and image number from the SD build
+under test:
+
+```sh
+python3 tests/elkulator/run_nettools_hardware.py \
+  --elkulator /path/to/patched/elkulator \
+  --runtime-dir /path/to/runtime \
+  --wifi-rom build/elkwifi_pi1mhz.rom \
+  --sd-image /path/to/pi1mhz-sd.img \
+  --extra-rom 2=/path/to/EMMFS.rom \
+  --setup-command "din 0" \
+  --command hwdtest \
+  --hwd-pass-screen /path/to/known-good-hwd-d2-pass.png \
+  --reject-header-screen /path/to/header-only.png \
+  --reject-memory-screen /path/to/emulator-memory-failure.png \
+  --output /tmp/1mhzwifi-mmfs-hwd
+```
+
+The D2 HWDTEST screen must show `Entry/opcode`, both before/after markers for
+OSBYTE `&82` and `&81`, the requested and read-back FCA6-FCA9 selector bytes,
+and all ten secure capability bytes. `Loader OSHWM=&0800 HIMEM=&1D00` proves
+the pre-MODE envelope from the exact public loader path. A last line of
+`Before OSBYTE &81`
+identifies a MOS/Tube call boundary. A CAPS result of zero with incorrect raw
+bytes identifies stale or partly published JIM data.
+
+The DFS and MMFS profiles are approximations. They do not emulate the
+photographed BeebSCSI LUN. Pass `--beebscsi-lun /path/to/scsi0.dat` with
+`--profile adfs-beebscsi`. The runner mounts that image as LUN 0 at `&FC40`,
+selects the full-FRED AP5 profile and records the image before and after the
+run. Acceptance runners mount the LUN read-only so an emulator defect cannot
+change the hardware image. They refuse the adfs-beebscsi profile when the LUN
+is absent and only mark BeebSCSI available when Elkulator confirms the mount
+in its log. Do not
+label a DFS or MMFS report as ADFS BeebSCSI. `--beebscsi-dsc` supplies the
+22-to-33-byte geometry sidecar; a sibling file is selected automatically when it
+exists. NetTools uses the live backend in this profile, so SSH and DNS cannot
+pass against deterministic fixture responses.

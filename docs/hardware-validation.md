@@ -11,22 +11,22 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-Pi1MHz       516a267493d9f19e6bf2f4a2ea4c3e7472b12135
-1MHzWifi ROM c60362a92ab600ec76d4f26765111ce1de5d6e48a8fe456353d0dbb5ac8e6ba4
-kernel.img   dc179779734b3c039e9a5fc49b9aabde3f03f866a897b3eaad6b556844ea4e64
-kernel7.img  de6e787f045c5feb2a3dd7a92b615946ffdc7b1c14bfe6fcfd4f6dde1e5a3090
+Pi1MHz       d08242ee1b35cf1285b72c9ec1869e98081a8c3e
+1MHzWifi ROM bfaf33235ac4b3d96bae3c47a38080d5fd01795094bd52af5d42933bbfaf8f04
+kernel.img   991edb294ccdc9c7e7e3406676c3cf6df8a7a4d44a16af529a9315c95f539906
+kernel7.img  4f241520a41615e29a5500d2f62e751c0cb8ae28d5e51d1a55e8e76c4e4c305c
 EMMFS.rom    b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955
-nettools.ssd 9c9e91eaba2ecee46f0a69031551743f70d0f685f1a06bfa1e511a3384447668
-bundle ZIP   d5b6383f44e15b80d4219a7375a8679223f9845201712f6f1f83b901288aabb2
+nettools.ssd ce526c0023ad073ecdfe02bc804ea86b6162b405ffdd5d8c26dbc93df3c2ba8f
+bundle ZIP   a9def4ca2a415d429292d2678761923e2bba4c06da63842316c0852243c00eaa
 ```
 
-The Pi1MHz commit was the official `master` tip verified on 11 August 2026. Run
+The Pi1MHz commit was the official `master` tip verified on 15 August 2026. Run
 `./pi-side/check_upstream.sh` before producing another hardware-test bundle.
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
-files. Replace only `kernel.img` or `kernel7.img` for the fitted Pi, plus the
-host `ElkWiFi.rom`. The universal ZIP is for a clean card and may contain a
-fresh configuration template.
+files. Replace `kernel.img` or `kernel7.img` for the fitted Pi, the host
+`ElkWiFi.rom`, and the separately mounted `nettools.ssd`. The universal ZIP is
+for a clean card and may contain a fresh configuration template.
 
 Also preserve `/BeebSCSI0` and its `scsi*.dat` images. The bundle supplies the
 ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
@@ -49,23 +49,25 @@ CYW43455 firmware at runtime.
 - [x] Verify the ROM is exactly 16 KiB and matches the recorded SHA-256.
 - [x] Run all Python contract tests.
 - [x] Verify the universal ZIP and the ROM embedded within it.
-- [x] Cold-boot ROM 0.1.41 with the photographed ROM order and reach the
-  BASIC prompt with the AP5 Tube disabled and enabled. Service reason 1 no
-  longer reads persisted WiCFS state or alters MOS vectors during ROM scan.
-- [x] Boot ROM 0.1.22 with Electron OS, BASIC and ADFS in Elkulator.
-  Confirm both ROM banners and a BASIC prompt.
-- [x] Run `*MENU` with ROM 0.1.30 and the photographed ROM order without a
-  Tube. The maintained AP5 model reaches visible gameplay for Zalaga,
-  Arcadians, Last of the Free and E-Type. Castle of Riddles reaches its
-  interactive command prompt.
-- [x] Run exact `*UEF LOAD THRUST` acceptance tests with ROM 0.1.40 under the
-  photographed ROM order, first without a Tube and then with the AP5 Tube and
-  Acorn 1.20 parasite enabled. Both runs pass `THRUST1`, reach the controls
-  screen and enter gameplay. The final captures are
-  `tests/elkulator/screenshots/uef-thrust-gameplay-0.1.40-final-no-tube.png`
-  and `tests/elkulator/screenshots/uef-thrust-gameplay-0.1.40-final-tube.png`.
-- [ ] Repeat the complete MENU title matrix with ROM 0.1.41. The 0.1.40
-  gameplay evidence is retained, but 0.1.41 requires its own complete run.
+- [x] Cold-boot the current ROM with the photographed ROM order and reach the
+  BASIC prompt with the AP5 Tube disabled and enabled. The Tube-on run must
+  contain the exact `AP5 Tube: external 3MHz 65C02 enabled` startup marker.
+- [x] Boot ROM 0.1.52 with Electron OS, BASIC and ADFS in Elkulator. Confirm
+  both ROM banners and a BASIC prompt.
+- [x] Run current-ROM MENU acceptance with reviewed, title-specific gameplay
+  references, input-correlated state changes, complete stream hashes and close
+  events. Fresh Tube-off and Tube-on FrakV2 runs meet every gate and use the
+  same 30,070-byte payload with SHA-256
+  `d1062885c830fad654a1c22075b2024d1973364134f8f4d23b4c38677ea2c3bf`.
+- [x] Repeat `*UEF LOAD THRUST` with the strengthened runner, Tube disabled and
+  enabled. Require reviewed title and gameplay references around the scripted
+  Space input, reject known prompt/MOS-error screens, and retain pre/post media
+  hashes. The 0.1.52 candidate reaches moving gameplay in both Tube states
+  through the real read-only BeebSCSI LUN. Earlier 0.1.40 screenshots are
+  references only.
+- [ ] Repeat the complete MENU title matrix with the 0.1.52 hardware-test ROM. The
+  THRUST and live FrakV2 gameplay evidence is retained, but the complete
+  catalogue requires its own run.
   The full catalogue remains a physical and batch-emulator gate. The earlier
   Tube-active return to the parasite prompt remains a regression fixture.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
@@ -73,30 +75,30 @@ CYW43455 firmware at runtime.
   return. Elkulator's expansion ROM becomes unavailable after `*TAPE`, so this
   transition must be proved on AP5 hardware.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.41` before recording any further hardware test result.
-- [x] Boot the photographed non-Tube ROM layout in Elkulator: RH Plus 1 1.33
+  `1MHzWifi 0.1.52` before recording any further hardware test result.
+- [x] Boot the photographed ROM layout in Elkulator: RH Plus 1 1.33
   in C, BASIC in B, writable sideways RAM in 7 and 6, AFM 1.09 in 5,
-  1MHzWifi 0.1.28 in 3, and Acorn ADFS 1.00 in 1. Run the live `*MENU`, select
-  Zalaga with `L`, and confirm the unmodified loader reaches visible gameplay.
-- [x] Boot the minimum supported layout in Elkulator: 32K Electron, Plus 1,
-  AP5-constrained Pi1MHz mailbox, 1MHzWifi 0.1.22 and the Electron normal-ROM
+  1MHzWifi 0.1.52 in 3, and Acorn ADFS 1.00 in 1. Run the live `*MENU` and
+  satisfy the strengthened FrakV2 gameplay gate with the AP5 Tube disabled and
+  enabled. The complete catalogue remains a separate unchecked gate.
+- [ ] Boot the minimum supported layout in Elkulator: 32K Electron, Plus 1,
+  AP5-constrained Pi1MHz mailbox, 1MHzWifi 0.1.52 and the Electron normal-ROM
   Pi1MHz build of MMFS 1.60. No Plus 2, sideways RAM, ADFS or Tube is present.
   Mount a FAT32 Pi SD-card image containing `BEEB.MMB`, select fixture disc
-  507, catalogue `DESK`, run `*UEF LOAD DESK`, and reach the running Desk
-  Diary program menu.
+  507, catalogue `DESK`, run `*UEF LOAD DESK`, and satisfy an application-state
+  reference rather than generic screen motion.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
 - [x] Run `*MENUSRC` with no services-mailbox device. Confirm a bounded error and return to BASIC.
 - [x] Add a Pi1MHz services-mailbox and JIM bridge to Elkulator and run live
   Internet command tests.
 
-Existing captures are stored under `tests/elkulator/screenshots/`. The
+Existing captures are stored under `tests/elkulator/screenshots/`. They are
+reference material, not proof for a later binary. The
 maintained adapter models the Pi1MHz mailbox, JIM, AP5 address decoder, Tube
 ULA and an external 3 MHz 65C02. A configured Tube starts during cold boot,
-matching PiTubeDirect. ROM 0.1.37 passed a live ten-entry Tube-on/off
-catalogue differential. Every pair received identical UEF bytes. Nine pairs
-met the strict framebuffer threshold; the remaining pair showed the same
-animated Starcade attract screen at different positions. Physical hardware
-remains the final acceptance gate.
+matching PiTubeDirect. Earlier catalogue runs established identical UEF bytes
+between Tube states, but their generic framebuffer comparisons do not meet the
+current gameplay acceptance rule. Physical hardware remains the final gate.
 
 ## Filing-system matrix
 
@@ -250,27 +252,27 @@ substitute is not acceptance evidence for this AP5 configuration.
 
 Earlier releases corrected the AP5 selector and WiCFS state corruption.
 Versions 0.1.24 and 0.1.25 attempted Tube transfers, which was the wrong
-architecture. Version 0.1.41 contains no Tube transfer path and preserves the
+architecture. Version 0.1.52 contains no Tube transfer path and preserves the
 stock cassette sequence. The private host launch enters Electron BASIC and
 queues `PAGE=&E00` before WiCFS so a Tube-active cold BASIC does not retain its
 `&23xx` program workspace. Physical Tube-enabled gameplay remains the
 acceptance gate.
 
 The maintained Elkulator Tube model now provides a repeatable diagnostic gate.
-With the photographed ROM order, live Pi1MHz Internet backend, ROM 0.1.25 and
+With the photographed ROM order, live Pi1MHz Internet backend, ROM 0.1.52 and
 the Acorn 1.20 Tube boot ROM, cold boot starts `Acorn TUBE 6502 64K`
 automatically. `*MENU`, entered using `@` for the emulator's `*` key mapping,
-downloads the `&7462`-byte Zalaga UEF and executes the stock `*TAPE`, `*WICFS`,
-`*REWIND`, `CHAIN ""` sequence. It then loads `ZALAGA 05 05EE` and returns to
-the prompt. This matches the physical failure boundary and remains a regression
-fixture. The current batch runner applies the same menu selection and WiCFS
-path to arbitrary sorted catalogue ranges. Its first ten-entry 0.1.37 run
+waits for the traced `TITLES` close before selecting a title. Fresh FrakV2
+runs complete the stock `*TAPE`, `*WICFS`, `*REWIND`, `CHAIN ""` sequence and
+reach moving gameplay in both Tube states. The current batch runner applies
+the same menu selection and WiCFS path to arbitrary sorted catalogue ranges.
+An earlier first ten-entry 0.1.37 run
 produced identical UEF hashes in every Tube-on/off pair. The experimental
 0.1.38 MOS-managed handoff returned to the prompt and was rejected. ROM 0.1.40
 restored the proven launch path and reached Frak, Zalaga and Arcadians gameplay
 Tube off and Tube on. Last of the Free remained a `Bad program` failure in both
-modes. ROM 0.1.41 retains that code but still needs its own gameplay run. It
-does not copy a UEF
+modes. ROM 0.1.52 retains the host-only architecture and current FrakV2
+evidence. It does not copy a UEF
 or game into parasite memory, issue `TUBE OFF`, reset the fitted Tube, or access
 a Tube register.
 
@@ -282,7 +284,7 @@ a Tube register.
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
 - [ ] Retest Zalaga, Arcadians, Last of the Free, E-Type, Frak, Chuckie Egg
-  and DeskDiary with ROM 0.1.41 on
+  and DeskDiary with ROM 0.1.52 on
   the physical Electron and AP5. Earlier physical builds failed on Zalaga and
   DeskDiary. Zalaga and Arcadians reach gameplay through the live Elkulator
   bridge without a Tube.
@@ -290,7 +292,7 @@ a Tube register.
   Earlier ROMs called the loader compatibility helper before branching on
   that block's last-block bit. The helper changed the processor flags, so an
   OSFILE load could consume later files and finally report `End of UEF` or an
-  invalid chunk type. Version 0.1.41 branches on the bit first, preserves the
+  invalid chunk type. Version 0.1.46 branches on the bit first, preserves the
   OSFILE control-block pointer on the active 6502 stack, returns catalogue
   metadata through that block, and does not touch the `&03E0-&03FF` keyboard
   command queue.
@@ -313,6 +315,12 @@ a Tube register.
   reason-8 notification is handled locally.
 - [x] Select Arcadians as menu entry `O`; confirm the live 24,946-byte
   `Acornsoft/Arcadians_E.uef` download reaches its runnable game screen.
+- [ ] Record Arcadians as a physical Tube-on exception unless the recovery
+  retest changes the result. The current physical run completes with the Tube
+  disabled but fails at the end of its final cassette file with the Tube
+  enabled, while most tested titles run in both configurations. Do not add a
+  title-specific loader path. Escalate this only if it also fails Tube-off or
+  the same final-file failure appears across otherwise working titles.
 - [x] Put the gzip DeskDiary sample on an emulated DFS disc as `DESK`, run
   `*UEF LOAD DESK`, confirm normalization from 10,631 to 20,580 bytes, and
   reach the application's `ADDRESS`/`PLANNER` menu without another command.
@@ -387,10 +395,17 @@ a Tube register.
   deterministic bridge fixture tests. This checks the client and reference
   protocol fixtures, but does not replace entry through the Pi ROM's OSWORD
   service handler.
+- [x] Enter 1MHzWifi through MOS service reason 8 and execute ElkChat-shaped
+  OSWORD `&65` calls for functions 9, 18, 4, 8, 13 and 14. The executable
+  test forces zero and partial TCP sends, waits through empty receive gaps and
+  receives a response spanning several public JIM pages. It also checks
+  bounded functions 0, 3, 5 and 24. This test uses
+  ElkChat's original ABI and does not call private ROM labels.
 - [ ] Run ElkChat's `ELKNET` diagnostic with `*RUN ELKNET` against the original
   ElkWiFi 0.23 ROM. Record function 18 IFCFG, function 4 JOIN query and
   function 8 TCP-open responses.
-- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with 1MHzWifi 0.1.41
+- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with the 1MHzWifi
+  0.1.52 hardware-test ROM
   and the kernel revision reported by the bundled `*VERSION`. None of the
   calls may block or
   raise `Not implemented`.
@@ -417,6 +432,111 @@ a Tube register.
 Managed SSH is implemented in the Pi firmware and native `SSH` host tool.
 HTTPS and TLS are not implemented.
 
+The 0.1.44 physical diagnostic trace failed before useful Pi progress was
+visible: NSLOOK printed `>2D S00 <2A`, and SSH printed `>5E S5E <2A`. Pi 3A+
+and Zero 2 W tests failed consistently, while a second Zero 2 W produced
+intermittent NSLOOK success. This was not a board-specific protocol difference.
+The diagnostic printed through MOS after selecting the global FCA6-FCA9 cursor,
+so another active ROM could redirect the pending write. In 0.1.46 the trace is
+emitted before selection, cursor ownership is interrupt-safe and the emulator
+fixture redirects the cursor on every MOS output call to enforce the rule.
+
+The subsequent 0.1.45 hardware run produced the same trace, corrupted
+`*VERSION` immediately after the two ROM-local lines and blocked ElkChat's
+public OSWORD calls. The shared failure identified the Pi bus publication path.
+The pinned upstream tree contained a shadow-based optimisation for
+`Pi1MHz_MemoryWrite` whose own change record said it had not been exercised
+against a live Beeb read. Host/VPU writes are not guaranteed to update the ARM
+shadow first, so publishing one byte could restore a stale value into the
+adjacent FRED register in the same VPU word. In the Services pair this is
+`&FCA8/&FCA9`, directly explaining a response byte being observed as the cursor
+diagnostic. Version 0.1.46 restores the authoritative VPU-window
+read/modify/write. The automated model starts with a deliberately stale ARM
+shadow and verifies that the live adjacent selector survives publication.
+
+The 14 August physical `*HWDTEST` capture then measured a separate emulator
+discrepancy. The Electron reported `00 F0 FF 5E`, the sixteen-byte sequential
+JIM test failed, and secure capability discovery timed out with `&2A`. The
+emulator had completed every FCA9 auto-increment synchronously and therefore
+reported `01 F0 FF 5E`. Pi1MHz performs that update from an asynchronous FIQ
+callback, so a following host access cannot assume that the read-back cursor
+has advanced. Version 0.1.49 makes every ROM and NetTools byte transfer
+explicitly select its complete software-shadowed 24-bit address and then waits
+for the bounded FCA9 callback acknowledgement before selecting the following address.
+The executable tests run NSLOOK and a complete managed SSH session with
+hardware auto-increment disabled, ensuring that the emulator no longer
+conceals this dependency.
+
+The Tube-off hardware capture also reported OSHWM `&1D00` while the 0.1.47
+NetTools image was loaded at `&1900`. Its later text corruption is therefore
+explained by filing-system workspace overlap, independently of the mailbox
+failure. Version 0.1.49 loads at `&1D00` and every application checks both
+OSHWM and HIMEM before continuing. This protects the measured configuration;
+a future two-stage relocatable loader remains required for arbitrary workspace
+layouts because a program cannot query MOS until after its initial load.
+
+The first 0.1.48 hardware run refused HWDTEST with the generic memory-envelope
+message and then produced only `r` for the Pi line of `*VERSION`. The latter is
+ROM code and cannot be caused by the NetTools load address. Inspection found
+that 0.1.48 acknowledged asynchronous FCA9 cursor updates in NetTools only,
+while the ROM's ElkWiFi response copier still consumed consecutive FCA9 bytes
+without waiting. Version 0.1.49 applies the same bounded acknowledgement to
+the ROM command, OSWORD, WGET and response-copy paths. The HWDTEST refusal now
+prints the actual OSHWM, HIMEM and executable range.
+
+The matched 0.1.49 physical run then provided the missing distinction. With
+the Tube disabled, HWDTEST passed, TELNET worked and NSLOOK resolved correctly,
+but SSH reported `&27`, `*VERSION` still printed only `r` for its Pi line and
+ElkChat blocked in User List and chat operations. The ROM had waited for the
+FCA9 auto-increment callback after each data access, but it consumed FCA9
+immediately after writing FCA6-FCA8. Pi1MHz publishes the newly selected data
+byte from that selector callback too. A fast ROM or assembled NetTools client
+could therefore consume stale FCA9 data before the selector callback ran.
+The rejected 0.1.51 candidate added a bounded settling interval to every ROM
+selector and data transaction. Although it passed the delayed-selector model,
+it regressed MENU and local UEF loading on physical hardware. The recovery ROM
+therefore keeps the proven 0.1.49 WGET and WiCFS paths unchanged and applies
+settling only to ordinary service-response copies, including `*VERSION`.
+NetTools retains a CPU-local bounded delay in its own mailbox transport. It
+must not read FRED or JIM while waiting because another bus transaction can
+replace the pending one-slot FIQ event. Automated tests
+complete IFCFG, delayed `*VERSION`, SSH capability discovery, NSLOOK and a
+managed SSH session, but the response timing changes still require hardware
+validation.
+
+Before repeating application tests, run the same released diagnostic binary in
+Elkulator and on the physical machine:
+
+```text
+*HWDTEST
+```
+
+Capture each of the three screens through the final `*VERSION` output. The raw
+auto-increment line is diagnostic rather than a pass gate: the current hardware
+observation is `00 F0 FF 5E FAIL`, while the synchronous emulator reports
+`01 F0 FF 5E PASS`. The release gate is `FCA9 callback ACK: PASS`,
+`Addressed JIM block: PASS` and `Secure CAPS result=&00`. Compare the machine
+byte, Tube byte, OSHWM, MEMTOP,
+FILEV, FSCV, WORDV and complete ROM order between both runs. This separates a
+MOS or ROM-layout mismatch from an `&FCA6-&FCAA` bus publication failure without
+modifying ADFS, MMFS or DFS data and without touching Tube state.
+
+- [ ] With the packaged 0.1.52 kernel and matching SSD, run `*NSLOOK example.com` with
+  Tube disabled and enabled. It must print an IPv4 address, return normally,
+  and never report `&2A` or `Bad program`.
+- [ ] Run `*SSH user@host` with Tube disabled and enabled. Capability command
+  94 must return immediately, then the managed wolfSSH session must reach host
+  key verification or authentication without `&2A`.
+- [ ] If the debug SSD is used, confirm NSLOOK starts `>2D <00` and SSH starts
+  `>5E <00`. `S00` or `S5E` followed by `<2A` is still a failed dispatch, not
+  an acceptable retry.
+- [ ] Run ElkChat Network Status immediately after cold boot and after BREAK.
+  OSWORD function 18 must return STAIP and STAMAC without blocking. Repeat with
+  MMFS and ADFS active to exercise interrupt-side JIM cursor contention.
+- [ ] Exercise ElkChat User List, Private Chat and Public Chat from the same
+  SWRAM build. Verify each public response remains intact while MMFS or ADFS
+  also uses JIM. Version 0.1.46 reselects the AP5 page for every response byte
+  with interrupts masked and does not cache machine type in volatile heap.
 - [ ] Qualify SSH host keys, public-key and password authentication,
   known-host persistence, cancellation and long sessions on physical hardware.
 - [ ] Implement HTTPS before testing certificate chains, hostnames, clock

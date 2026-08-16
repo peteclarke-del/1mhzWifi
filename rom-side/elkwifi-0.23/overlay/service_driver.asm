@@ -16,8 +16,15 @@ drv_svc_lapopt = 87
 drv_svc_ping = 88
 drv_svc_datetime = 89
 drv_svc_cancel = 90
+drv_svc_radio = 91
 drv_svc_online = 92
 drv_svc_uef_normalize = 93
+
+\ Sixteen DEX/BNE iterations take 79 processor cycles. Even at the host's
+\ maximum 2 MHz rate this is at least 39.5 us, comfortably beyond the
+\ measured 6.8 us Pi Zero page-publication worst case. No FRED/JIM access is
+\ permitted in this delay because every such access posts a newer FIQ event.
+drv_svc_settle_iterations = 16
 
 drv_svc_timeout_lo = errorspace+3
 drv_svc_timeout_hi = errorspace+4
@@ -27,13 +34,13 @@ drv_net_index = errorspace+7
 drv_net_port_lo = errorspace+8
 drv_net_port_hi = errorspace+9
 drv_net_chunk = errorspace+10
-drv_net_seen = errorspace+11
 drv_net_copy_count = errorspace+12
 drv_net_buf_x = errorspace+13
 drv_svc_response_count = errorspace+14
 drv_svc_timeout_outer = errorspace+15
 drv_svc_command_copy = errorspace+16
 drv_svc_cancelled = errorspace+17
+drv_svc_cursor = errorspace+11
 
 drv_net_open = 45
 drv_net_dns = 46
@@ -148,10 +155,11 @@ drv_net_close = 53
 
 .service_driver_wifi_control
  ldx save_x
- \ `*WIFI ON` is the quickest positive Pi-link diagnostic.  Do not return a
- \ ROM-local OK: require command 80 to make a complete FCA6/FCA9 round trip.
+ \ `*WIFI ON` is the quickest positive Pi-link diagnostic. Do not return a
+ \ ROM-local OK: require command 91 to make a complete FCA6/FCA9 round trip.
  beq service_driver_wifi_off
- jmp service_driver_version
+ lda #drv_svc_radio
+ jmp service_driver_begin
 .service_driver_wifi_off
  lda #drv_svc_join
  jsr service_driver_write_command
@@ -237,6 +245,9 @@ drv_net_close = 53
 .service_driver_skip_protocol
  lda (paramblok),y
  iny
+ bne service_driver_protocol_index_ok
+ jmp service_driver_error_parameter
+.service_driver_protocol_index_ok
  cmp #&0D
  bne service_driver_skip_protocol
  sty drv_net_index
@@ -247,6 +258,9 @@ drv_net_close = 53
  ldy drv_net_index
  lda (paramblok),y
  iny
+ bne service_driver_host_index_ok
+ jmp service_driver_error_parameter
+.service_driver_host_index_ok
  sty drv_net_index
  cmp #&0D
  bne service_driver_host_char
@@ -318,6 +332,7 @@ drv_net_close = 53
 .service_driver_port_next
  inc drv_net_index
  bne service_driver_port_digit
+ jmp service_driver_error_parameter
 
 .service_driver_connect
  jsr net_command_address
@@ -358,11 +373,15 @@ drv_net_close = 53
  sta data_counter+1
  lda &0004,x
  sta data_counter+2
+ lda #&FF
+ sta drv_svc_timeout_hi
 .service_driver_send_more
  lda data_counter
  ora data_counter+1
  ora data_counter+2
- beq service_driver_receive
+ bne service_driver_send_pending
+ jmp service_driver_receive
+.service_driver_send_pending
  lda #240
  sta drv_net_chunk
  lda data_counter+1
@@ -373,6 +392,19 @@ drv_net_close = 53
  bcs service_driver_copy_send
  sta drv_net_chunk
 .service_driver_copy_send
+ \ Build the scratch block without consuming the caller's source.  SEND may
+ \ accept only a prefix, so the authoritative pointer and count advance only
+ \ after Pi1MHz reports the exact number queued in command bytes 1..3.
+ lda data_pointer
+ pha
+ lda data_pointer+1
+ pha
+ lda data_counter
+ pha
+ lda data_counter+1
+ pha
+ lda data_counter+2
+ pha
  jsr net_scratch_address
  lda drv_net_chunk
  sta drv_net_copy_count
@@ -387,6 +419,17 @@ drv_net_close = 53
  jsr dec_data_counter
  dec drv_net_copy_count
  bne service_driver_copy_send_byte
+
+ pla
+ sta data_counter+2
+ pla
+ sta data_counter+1
+ pla
+ sta data_counter
+ pla
+ sta data_pointer+1
+ pla
+ sta data_pointer
 
  jsr net_command_address
  lda #drv_net_send
@@ -409,14 +452,47 @@ drv_net_close = 53
  beq service_driver_send_ok
  jmp service_driver_net_error
 .service_driver_send_ok
+ jsr net_command_address
+ lda #1
+ jsr net_address_low
+ jsr net_read_a
+ sta drv_net_copy_count
+ jsr net_read_a
+ bne service_driver_send_count_bad
+ jsr net_read_a
+ bne service_driver_send_count_bad
+ lda drv_net_copy_count
+ beq service_driver_send_backpressure
+ cmp drv_net_chunk
+ beq service_driver_send_count_valid
+ bcc service_driver_send_count_valid
+.service_driver_send_count_bad
+ jmp service_driver_net_error
+.service_driver_send_count_valid
+ lda #&FF
+ sta drv_svc_timeout_hi
+.service_driver_advance_send
+ inc data_pointer
+ bne service_driver_advance_send_pointer_ok
+ inc data_pointer+1
+.service_driver_advance_send_pointer_ok
+ jsr dec_data_counter
+ dec drv_net_copy_count
+ bne service_driver_advance_send
  jmp service_driver_send_more
+.service_driver_send_backpressure
+ lda #19
+ jsr osbyte
+ dec drv_svc_timeout_hi
+ beq service_driver_send_backpressure_timeout
+ jmp service_driver_send_more
+.service_driver_send_backpressure_timeout
+ jmp service_driver_no_response
 
 .service_driver_ipd
 .service_driver_receive
  ldx #0
  stx driver_page_shadow
- stx pagereg
- stx drv_net_seen
  stx drv_net_buf_x
  stx net_empty_lo
  lda #10
@@ -451,19 +527,19 @@ drv_net_close = 53
  jsr net_read_a
  sta drv_net_chunk
  beq service_driver_receive_empty
- lda #1
- sta drv_net_seen
+ ldx #0
+ stx net_empty_lo
+ lda #10
+ sta net_empty_hi
  jsr net_scratch_address
 .service_driver_receive_copy
  jsr net_read_a
  ldx drv_net_buf_x
- sta pageram,x
+ jsr service_driver_write_paged
  inx
  stx drv_net_buf_x
  bne service_driver_receive_copy_next
  inc driver_page_shadow
- lda driver_page_shadow
- sta pagereg
  bne service_driver_receive_copy_next
  jmp service_driver_net_error
 .service_driver_receive_copy_next
@@ -471,8 +547,6 @@ drv_net_close = 53
  bne service_driver_receive_copy
  jmp service_driver_receive_more
 .service_driver_receive_empty
- lda drv_net_seen
- bne service_driver_receive_done
  lda #19
  jsr osbyte
  dec net_empty_lo
@@ -485,7 +559,7 @@ drv_net_close = 53
 .service_driver_receive_done
  ldx drv_net_buf_x
  lda #0
- sta pageram,x
+ jsr service_driver_write_paged
  jmp restore_env
 
 .service_driver_cipclose
@@ -507,20 +581,19 @@ drv_net_close = 53
  pla
  ldx #0
  stx driver_page_shadow
- stx pagereg
  lda #'E'
- sta pageram,x
+ jsr service_driver_write_paged
  inx
  lda #'R'
- sta pageram,x
+ jsr service_driver_write_paged
  inx
- sta pageram,x
+ jsr service_driver_write_paged
  inx
  lda #&0D
- sta pageram,x
+ jsr service_driver_write_paged
  inx
  lda #0
- sta pageram,x
+ jsr service_driver_write_paged
  jmp restore_env
 
 \ X/Y point at a NUL-terminated ROM string.
@@ -529,11 +602,10 @@ drv_net_close = 53
  sty zp+1
  ldx #0
  stx driver_page_shadow
- stx pagereg
  ldy #0
 .service_driver_rom_response_copy
  lda (zp),y
- sta pageram,x
+ jsr service_driver_write_paged
  inx
  iny
  cmp #0
@@ -575,7 +647,9 @@ drv_net_close = 53
  jsr service_driver_write_y
  ldx drv_svc_saved_x
  lda drv_svc_strings
- beq service_driver_dispatch
+ bne service_driver_join_more
+ jmp service_driver_dispatch
+.service_driver_join_more
  inx
  bne service_driver_join_copy
  jmp service_driver_error
@@ -597,12 +671,17 @@ drv_net_close = 53
 
 \ A contains the service command. Set command-page address and write byte 0.
 .service_driver_write_command
+ php
+ sei
  pha
  lda #0
  sta &FC00+drv_svc_addr_lo
+ jsr service_driver_bus_settle
  lda #&FF
  sta &FC00+drv_svc_addr_mid
+ jsr service_driver_bus_settle
  sta &FC00+drv_svc_addr_hi
+ jsr service_driver_bus_settle
  \ The services emulator makes all three address bytes readable.  Check them
  \ before touching the command block so an absent/unforwarded FCA6-FCA9 port
  \ is reported as a missing device, rather than timing out ambiguously.
@@ -617,43 +696,141 @@ drv_net_close = 53
  pla
  sta drv_svc_command_copy
  sta &FC00+drv_svc_data
+ lda #1
+ sta drv_svc_cursor
+ jsr service_driver_wait_cursor
  \ Rewind byte zero and read it back.  The read auto-increments to byte one,
  \ which is exactly where callers expect to append their request arguments.
- pha
  lda #0
  sta &FC00+drv_svc_addr_lo
- pla
- cmp &FC00+drv_svc_data
- bne service_driver_port_missing_near
+ jsr service_driver_bus_settle
+ lda &FC00+drv_svc_data
+ cmp drv_svc_command_copy
+ bne service_driver_port_missing_after_command
+ lda #1
+ sta drv_svc_cursor
+ jsr service_driver_wait_cursor
+ plp
  rts
 .service_driver_port_missing_near
+ pla
+ plp
+ jmp service_driver_port_missing
+.service_driver_port_missing_after_command
+ plp
  jmp service_driver_port_missing
 .service_driver_write_y
+ php
+ sei
+ lda drv_svc_cursor
+ sta &FC00+drv_svc_addr_lo
+ jsr service_driver_bus_settle
+ lda #&FF
+ sta &FC00+drv_svc_addr_mid
+ jsr service_driver_bus_settle
+ sta &FC00+drv_svc_addr_hi
+ jsr service_driver_bus_settle
  tya
  sta &FC00+drv_svc_data
+ inc drv_svc_cursor
+ jsr service_driver_wait_cursor
+ plp
+ rts
+
+\ Read one response byte through an explicitly selected cursor. The value is
+\ preserved while the asynchronous FCA9 increment is acknowledged.
+.service_driver_read_a
+ lda drv_svc_cursor
+ sta &FC00+drv_svc_addr_lo
+ jsr service_driver_bus_settle
+ lda #&FF
+ sta &FC00+drv_svc_addr_mid
+ jsr service_driver_bus_settle
+ sta &FC00+drv_svc_addr_hi
+ jsr service_driver_bus_settle
+ jsr service_driver_data_settle
+ lda &FC00+drv_svc_data
+ pha
+ inc drv_svc_cursor
+ jsr service_driver_wait_cursor
+ pla
+ rts
+
+\ Selector read-back can precede publication of its FCA9 data byte. Wait using
+\ processor-local instructions only. Reading a FRED register here would post
+\ a newer Pi FIQ event and could destroy the pending selector write.
+.service_driver_data_settle
+ pha
+ txa
+ pha
+ ldx #drv_svc_settle_iterations
+.service_driver_data_settle_loop
+ dex
+ bne service_driver_data_settle_loop
+ pla
+ tax
+ pla
+ rts
+
+\ Do not allow a late FCA9 callback to overwrite the selector for the next
+\ byte. This is bounded so an absent or partially forwarded port still returns.
+.service_driver_wait_cursor
+ jsr service_driver_bus_settle
+ pha
+ txa
+ pha
+ ldx #0
+.service_driver_wait_cursor_loop
+ lda &FC00+drv_svc_addr_lo
+ cmp drv_svc_cursor
+ bne service_driver_wait_cursor_again
+ lda &FC00+drv_svc_addr_mid
+ cmp #&FF
+ bne service_driver_wait_cursor_again
+ lda &FC00+drv_svc_addr_hi
+ cmp #&FF
+ beq service_driver_wait_cursor_done
+.service_driver_wait_cursor_again
+ dex
+ bne service_driver_wait_cursor_loop
+.service_driver_wait_cursor_done
+ pla
+ tax
+ pla
+ rts
+
+\ Allow the FIQ callback to publish selector writes and FCA9 increments.
+\ FRED/JIM reads are not harmless delays: each one posts another bus event.
+\ This helper is private to driver responses; it does not alter WiCFS or WGET.
+.service_driver_bus_settle
+ pha
+ txa
+ pha
+ ldx #drv_svc_settle_iterations
+.service_driver_bus_settle_loop
+ dex
+ bne service_driver_bus_settle_loop
+ pla
+ tax
+ pla
  rts
 
 .service_driver_dispatch
+ php
+ sei
  lda #&FF
  sta &FC00+drv_svc_command
+ jsr service_driver_bus_settle
+ plp
  lda #0
  sta drv_svc_timeout_lo
  lda #1
  sta drv_svc_timeout_outer
- \ Initial radio/firmware bring-up and a real `*LAP` scan are asynchronous.
- \ Give commands 80/81 a long window; an absent or unclaimed service is still
- \ detected immediately by the read-back and &FF checks above.
+ \ Association and a real `*LAP` scan are asynchronous. Give those operations
+ \ a long window. Fixed service handlers replace the
+ \ request selector with their own BUSY or final status; an unchanged &FF is
+ \ therefore diagnosed only when the bounded timeout expires.
  lda drv_svc_command_copy
- cmp #drv_svc_status
- bne service_driver_timeout_not_status
- \ Function 2 is *VERSION/GMR and must never inherit the many-minute radio
- \ startup window required by function 24 (*WIFI ON). Both use command 80,
- \ but save_a retains the public driver function number for this call.
- lda save_a
- cmp #2
- beq service_driver_short_timeout
- jmp service_driver_long_timeout
-.service_driver_timeout_not_status
  cmp #drv_svc_scan
  beq service_driver_long_timeout
  cmp #drv_svc_join
@@ -675,10 +852,6 @@ drv_net_close = 53
  sta drv_svc_timeout_hi
 .service_driver_wait
  lda &FC00+drv_svc_command
- cmp #&FF
- bne service_driver_wait_claimed
- jmp service_driver_service_unclaimed
-.service_driver_wait_claimed
  bpl service_driver_result
  dec drv_svc_timeout_lo
  bne service_driver_wait
@@ -702,26 +875,43 @@ drv_net_close = 53
  sta drv_svc_timeout_hi
  jmp service_driver_wait
 .service_driver_timeout
+ \ An unchanged request selector means no fixed service handler claimed this
+ \ command. Any other negative value is a claimed operation which did not
+ \ complete within its deadline.
+ lda &FC00+drv_svc_command
+ cmp #&FF
+ bne service_driver_timeout_claimed
+ jmp service_driver_service_unclaimed
+.service_driver_timeout_claimed
  jmp service_driver_no_response
 
 .service_driver_result
  cmp #0
- bne service_driver_error
+ beq service_driver_result_ok
+ jmp service_driver_error
+.service_driver_result_ok
  lda drv_svc_command_copy
  cmp #drv_svc_uef_normalize
  beq service_driver_result_no_copy
+ php
+ sei
+ lda #&FF
+ sta &FC00+drv_svc_addr_hi
+ sta &FC00+drv_svc_addr_mid
  lda #1
- sta &FC00+drv_svc_addr_lo
+ sta drv_svc_cursor
  \ Every implemented service response starts with visible non-space ASCII.
  \ Reject a floating/unimplemented FCA9 port before relying on JIM paged RAM;
  \ AP5 open-bus values are commonly &20, &FF or &00.
- lda &FC00+drv_svc_data
+ jsr service_driver_read_a
  cmp #&21
  bcs service_driver_response_visible
+ plp
  jmp service_driver_no_response
 .service_driver_response_visible
  cmp #&7F
  bcc service_driver_response_ascii
+ plp
  jmp service_driver_no_response
 .service_driver_response_ascii
  pha
@@ -731,17 +921,16 @@ drv_net_close = 53
  sta drv_svc_response_count
  ldx #0
  stx driver_page_shadow
- stx pagereg
  pla
- sta pageram,x
+ jsr service_driver_write_paged
  inx
  stx data_pointer
  dec drv_svc_response_count
 .service_driver_copy_response
- lda &FC00+drv_svc_data
+ jsr service_driver_read_a
  beq service_driver_response_done
  ldx data_pointer
- sta pageram,x
+ jsr service_driver_write_paged
  inx
  stx data_pointer
  dec drv_svc_response_count
@@ -749,16 +938,38 @@ drv_net_close = 53
  \ A Pi1MHz reply is limited to 239 bytes plus its terminator.  A missing
  \ terminator usually means an absent service/floating 1MHz bus; never walk
  \ through 64K of host memory or raise ElkWiFi's misleading Buffer full error.
+ plp
  jmp service_driver_no_response
 .service_driver_response_done
  ldx data_pointer
  lda #0
- sta pageram,x
+ jsr service_driver_write_paged
+ plp
  jmp restore_env
+
+\ FCFF is shared, write-only AP5 state. Reselect it with interrupts masked for
+\ every response byte so an IRQ-side MMFS/ADFS user cannot redirect the write.
+.service_driver_write_paged
+ php
+ sei
+ pha
+ lda driver_page_shadow
+ jsr select_public_page_a
+ pla
+ sta pageram,x
+ jsr service_driver_bus_settle
+ plp
+ rts
 .service_driver_result_no_copy
+ php
+ sei
+ lda #&FF
+ sta &FC00+drv_svc_addr_hi
+ sta &FC00+drv_svc_addr_mid
  lda #1
- sta &FC00+drv_svc_addr_lo
- lda &FC00+drv_svc_data
+ sta drv_svc_cursor
+ jsr service_driver_read_a
+ plp
  rts
 
 .service_driver_error

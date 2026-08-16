@@ -22,23 +22,15 @@ menu_basic_slot = heap+&E6
     cpx #&FF
     bne menu_tube_warning_done
     jsr printtext
-    equs "Some titles may require the Tube to be disabled",&0D
-    equs "before attempting to load.",&0D,&EA
+    equs "Some titles may require the Tube to be",&0D
+    equs "disabled before attempting to load.",&0D,&EA
 .menu_tube_warning_done
     \ The stock ElkWiFi MENU is a cassette filing-system program, and heap at
     \ &0900 overlaps Electron ADFS workspace. Select cassette filing before
     \ constructing the WGET command or touching heap. This matches the proven
     \ interactive sequence: *TAPE followed by *MENU.
-    jsr wicfs_release_tape_trap
-    ldx #(menu_tape_command_end-menu_tape_command)-1
-.menu_copy_tape_command
-    lda menu_tape_command,x
-    sta menu_tape_addr,x
-    dex
-    bpl menu_copy_tape_command
-    ldx #<menu_tape_addr
-    ldy #>menu_tape_addr
-    jsr oscli
+    jsr menu_select_tape
+    bcs menu_quit
 
     jsr printtext
     equs "Downloading menu",&0D,&EA
@@ -51,12 +43,15 @@ menu_basic_slot = heap+&E6
     ldy #>heap
     jsr oscli
     lda net_transfer_ok
-    beq menu_download_invalid
+    bne menu_download_present
+    jmp menu_download_invalid
+.menu_download_present
     lda net_bytes_hi
     bne menu_download_size_ok
     lda net_bytes_lo
     cmp #16
-    bcc menu_download_invalid
+    bcs menu_download_size_ok
+    jmp menu_download_invalid
 .menu_download_size_ok
     \ A directly executable menu starts with a subroutine call or jump. This
     \ catches HTTP error text and incomplete transfers before executing them.
@@ -64,7 +59,8 @@ menu_basic_slot = heap+&E6
     cmp #&20
     beq menu_download_entry_ok
     cmp #&4C
-    bne menu_download_invalid
+    beq menu_download_entry_ok
+    jmp menu_download_invalid
 .menu_download_entry_ok
     jsr menusrc_patch_menu
 
@@ -89,6 +85,26 @@ menu_basic_slot = heap+&E6
 .menu_quit
     jmp call_claimed
 
+.menu_select_tape
+    jsr wicfs_release_tape_trap
+    bcc menu_tape_released
+    jsr printtext
+    equs "WiCFS state invalid; power cycle",&0D,&EA
+    sec
+    rts
+.menu_tape_released
+    ldx #(menu_tape_command_end-menu_tape_command)-1
+.menu_copy_tape_command
+    lda menu_tape_command,x
+    sta menu_tape_addr,x
+    dex
+    bpl menu_copy_tape_command
+    ldx #<menu_tape_addr
+    ldy #>menu_tape_addr
+    jsr oscli
+    clc
+    rts
+
 .menu_tape_command
     equs "TAPE",&0D
 .menu_tape_command_end
@@ -105,14 +121,20 @@ menu_basic_slot = heap+&E6
     lda BYTEV+1
     cmp #>notape
     bne wicfs_release_tape_done
+    jsr wicfs_state_load
+    bcs wicfs_release_tape_invalid
     php
     sei
-    lda notape+(osb_j-osb_s)+1
+    lda bytev_rtn
     sta BYTEV
-    lda notape+(osb_j-osb_s)+2
+    lda bytev_rtn+1
     sta BYTEV+1
     plp
 .wicfs_release_tape_done
+    clc
+    rts
+.wicfs_release_tape_invalid
+    sec
     rts
 
 .menu_download_invalid

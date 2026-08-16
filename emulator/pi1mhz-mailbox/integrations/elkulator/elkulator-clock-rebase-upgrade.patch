@@ -1,0 +1,11 @@
+--- a/src/6502.c
++++ b/src/6502.c
+@@ -23,6 +23,8 @@ void reset6502()
+         p.c=p.z=p.d=p.v=p.n=0;
+         p.i=1;
+         cycles=0;
++        ap5_tube_rebase_host_clock(cycles);
++        pi1mhz_elkulator_rebase_host_clock(cycles);
+         mrbmapped=0;
+         resetmem();
+ }

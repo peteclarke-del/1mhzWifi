@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.41` host ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.52` hardware-test ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -20,19 +20,29 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-Version 0.1.41 is the current corrective hardware-test build. Independent
-review identified application-memory corruption, incomplete UEF cursor
-persistence and incorrect 256-byte final-block metadata in the earlier image.
-The current binary contains those corrections and the five-byte Electron MOS
-extended-vector unwind. A fresh exact-profile Elkulator run reached Zalaga's
-running title sequence through `*MENU` with Tube disabled and enabled. A local
-`*UEF LOAD THRUST` run reached gameplay in both configurations. Physical
-hardware remains a release gate. Version 0.1.41 retains the
-BCM43455 7.45.241 firmware
-used before the Pi 3A+ DHCP regression. If these paths pass on physical
-hardware, the next ROM series will be 0.9.x release candidates. Version 1.0 requires the public ElkWiFi
-OSWORD comparison and the ADFS, DFS, MMFS and TAPE coexistence gates. NetTools
-can continue to evolve on the Pi side without changing the ROM ABI.
+Version 0.1.52 is the current hardware-test build. Earlier 0.1.50 and
+0.1.51 timing and WiCFS cursor changes caused physical MENU and local UEF
+regressions, so they are not release baselines. The recovered ROM keeps the
+0.1.49 WGET and WiCFS transfer paths byte-for-byte, adds the verified local
+OSFIND/OSBGET handle repair, then applies a narrowly
+scoped settling delay only while the ROM copies ordinary Pi service responses.
+That change targets the corrupt `*VERSION` output without changing tape data.
+NetTools uses the same bounded settling interval for its own mailbox transfers.
+
+The current ROM has reached animated THRUST gameplay through `*UEF LOAD` with
+the Tube disabled and enabled in the maintained Elkulator hardware model. The
+live published `*MENU` path has also downloaded and run FrakV2 in both Tube
+states. These emulator results protect the recovered game-loading baseline.
+Physical validation of `*VERSION`, SSH, MENU, local UEF loading and both Tube
+states remains mandatory before this build can be called fixed.
+
+The NetTools applications load at `&1D00` and validate OSHWM and HIMEM at every
+entry. If the active screen mode leaves too little application memory, they
+select portable MODE 4 and check again. Machine detection is refreshed at
+driver entry because the ROM heap is volatile application workspace and cannot
+hold a reset-time cache. The bundle retains the BCM43455 7.45.241 firmware used
+before the Pi 3A+ DHCP regression. Version 1.0 still requires the public
+ElkWiFi OSWORD comparison and the ADFS, DFS, MMFS and TAPE coexistence gates.
 
 The following command paths are implemented. Pi and JIM traffic stays on the
 1MHz bus. WiCFS loads into Electron host memory. The launcher uses MOS OSBYTE
@@ -52,8 +62,9 @@ Tube itself:
 The compiled `*MENU` source is Electron-only. On BBC B, B+, Master and
 Compact, `*MENU` explains this and asks for a machine-appropriate `*MENUSRC`.
 This restriction applies to the default payload, not to WiFi, OSWORD, WGET,
-custom menus or NetTools. Platform-sensitive ROM paging is selected at runtime
-with OSBYTE `&81`; common network and 1MHz-bus paths do not depend on it.
+custom menus or NetTools. Platform-sensitive ROM paging uses the documented
+OSBYTE `&81` machine query before the driver touches the high JIM selectors.
+The result is transient and is not assumed to survive application execution.
 
 `*PRINTER`, `*UPDATE`, update `*CRC`, and `*SETSERIAL` are not present. They
 depend on cartridge hardware that Pi1MHz does not expose. Unknown OSWORD
@@ -94,19 +105,19 @@ archive is [build/pi1mhz-all-hardware-test.zip](build/pi1mhz-all-hardware-test.z
 Copy the contents of `pi1mhz-all/` to a FAT-formatted Pi boot partition, then
 fit or load `Pi1MHz/ElkWiFi.rom` as an Acorn sideways ROM.
 The same tree includes `host-tools/nettools.ssd`. Install or select that SSD
-through DFS/MMFS when testing `*SSH` or `*TERM`; replacing the Pi files alone
+through DFS/MMFS when testing `*SSH` or `*TELNET`; replacing the Pi files alone
 does not replace host programs already held on another disc image.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.41 retains the WiCFS changes and compressed-UEF Pi
+host ROM. Release 0.1.52 retains the WiCFS changes and compressed-UEF Pi
 service introduced in 0.1.8, supports zero-byte CFS marker files, preserves a
 live WiFi association across host resets, and restores the `WGET -U` contract for
 raw paged-RAM data such as the published menu TITLES catalogue. The matched
 kernel still provides service command 93 for ZIP and gzip UEF normalization,
 so replace both the ROM and the kernel from the same bundle.
 
-Release 0.1.41 includes the public application ABI repairs. OSWORD `&65`
+Release 0.1.52 includes the public application ABI repairs. OSWORD `&65`
 functions 0 and 1 reset volatile TCP state without dropping the saved
 association, function 4 reads the caller's JOIN block, function 8 preserves
 the port field across
@@ -114,7 +125,7 @@ DNS resolution, and function 9 accepts the original single-connection setup
 as a successful no-op. These paths are used by ElkChat and other applications
 which call the driver directly rather than issuing star commands.
 
-Release 0.1.41 keeps all WiCFS state out of `&03E0-&03FF`, the MOS keyboard
+Release 0.1.52 keeps all WiCFS state out of `&03E0-&03FF`, the MOS keyboard
 input buffer which holds the queued `*REWIND` and `CHAIN ""` launch. Stream
 state again uses the original WiCFS cassette-workspace zero-page locations.
 Vector ownership and predecessor state is persisted through the AP5-forwarded
@@ -129,19 +140,19 @@ service calls. The ROM therefore discards its saved WiCFS ownership record and
 does not restore stale predecessor vectors over ADFS, DFS, MMFS or another ROM
 which has already reclaimed them during the same reset pass.
 
-Release 0.1.41 also retains the common WiCFS completion-path correction used by `*MENU`
+Release 0.1.52 also retains the common WiCFS completion-path correction used by `*MENU`
 and `*UEF LOAD`. The cassette last-block bit is now tested before the legacy
 loader compatibility helper can change the processor flags. A completed file
 therefore returns to MOS at its own final block instead of consuming later
 files and eventually reporting `End of UEF` or an invalid chunk type.
 
-Release 0.1.41 uses the single standard 64K JIM window which the AP5 actually
+Release 0.1.52 uses the single standard 64K JIM window which the AP5 actually
 exposes through `&FCFF` and `&FD00-&FDFF`. Each WiCFS read is an interrupt-safe
 page-select and data transaction. The data byte is recovered before
 the saved processor flags because both values occupy the 6502 hardware stack
 during the transaction.
 
-Release 0.1.41 retains the removal of the incorrect Tube-transfer path exposed
+Release 0.1.52 retains the removal of the incorrect Tube-transfer path exposed
 by physical testing. 1MHzWifi is an Electron 1MHz-bus filing system and always
 places UEF data in host memory. The patched menu uses OSBYTE `&EA` only to
 detect an active Tube. It then enters the installed BASIC ROM directly on the
@@ -149,7 +160,7 @@ Electron and queues `PAGE=&E00` before the internal WiCFS launch command. It
 does not access Tube registers, claim a channel, disable the Tube, or transfer
 code through it. The stock menu launch remains `REWIND`, then `CHAIN ""`.
 
-Release 0.1.41 also retains the original Zalaga loader's cassette `/` handoff fix.
+Release 0.1.52 also retains the original Zalaga loader's cassette `/` handoff fix.
 WiCFS now handles FSCV reason 8 locally while it is the active filing system.
 Earlier builds forwarded that notification through the displaced cassette
 handler's extended-vector frame, so the following FSCV reason 2 never reached
@@ -186,12 +197,12 @@ retaining the current Pi1MHz source revision.
 Release hashes:
 
 ```text
-1MHzWifi ROM c60362a92ab600ec76d4f26765111ce1de5d6e48a8fe456353d0dbb5ac8e6ba4
-kernel.img   dc179779734b3c039e9a5fc49b9aabde3f03f866a897b3eaad6b556844ea4e64
-kernel7.img  de6e787f045c5feb2a3dd7a92b615946ffdc7b1c14bfe6fcfd4f6dde1e5a3090
+1MHzWifi ROM bfaf33235ac4b3d96bae3c47a38080d5fd01795094bd52af5d42933bbfaf8f04
+kernel.img   991edb294ccdc9c7e7e3406676c3cf6df8a7a4d44a16af529a9315c95f539906
+kernel7.img  4f241520a41615e29a5500d2f62e751c0cb8ae28d5e51d1a55e8e76c4e4c305c
 EMMFS.rom    b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955
-nettools.ssd 9c9e91eaba2ecee46f0a69031551743f70d0f685f1a06bfa1e511a3384447668
-bundle ZIP   d5b6383f44e15b80d4219a7375a8679223f9845201712f6f1f83b901288aabb2
+nettools.ssd ce526c0023ad073ecdfe02bc804ea86b6162b405ffdd5d8c26dbc93df3c2ba8f
+bundle ZIP   a9def4ca2a415d429292d2678761923e2bba4c06da63842316c0852243c00eaa
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -240,8 +251,8 @@ The complete, reproducible procedure is in
 upstream source trees are required:
 
 - ElkWiFi commit `7bf366c97bec18bd238963c95e6f2aa6893cdb3a`
-- Pi1MHz commit `516a267493d9f19e6bf2f4a2ea4c3e7472b12135`, the official
-  `master` tip verified on 11 August 2026
+- Pi1MHz commit `d08242ee1b35cf1285b72c9ec1869e98081a8c3e`, the official
+  `master` tip verified on 15 August 2026
 
 Pi1MHz has no `main` branch. Run `./pi-side/check_upstream.sh` before a release;
 it fails if the official default branch or its tip has changed.
@@ -259,7 +270,7 @@ Build both Pi kernel families with Arm GCC 13 or later:
 ```sh
 git clone --recursive https://github.com/dp111/Pi1MHz.git
 git -C Pi1MHz submodule update --init --recursive
-git -C Pi1MHz checkout 516a267493d9f19e6bf2f4a2ea4c3e7472b12135
+git -C Pi1MHz checkout d08242ee1b35cf1285b72c9ec1869e98081a8c3e
 ./pi-side/install_bundle.sh /path/to/Pi1MHz all
 ```
 
@@ -281,7 +292,8 @@ make test
 The unified test target builds the NetTools DFS image, runs its executable
 py65 tests, runs the mailbox/JIM and secure-service core tests, checks the
 hardware bundle, and runs the ROM integration suite. The latter checks ROM
-identity, command presence, mailbox addressing,
+identity, command presence, mailbox addressing, ElkChat-shaped calls through
+the public MOS service-reason-8 and OSWORD `&65` entry,
 safe rejection of unsupported functions, WGET, host-only WiCFS loading,
 cancellation, configuration integration, and the absence of retired
 UART/flash and Linux bridge code. The Pi1MHz services, net and web parser
@@ -309,7 +321,7 @@ the `&7462`-byte Zalaga UEF loaded `ZALAGA 05 05EE` and returned to Tube BASIC.
 The SD-card ZIP proves that the tested ROM and kernels matched the published
 0.1.22 artifacts. Physical 0.1.24 testing then isolated its reversed Tube
 transfer command: the same ROM order works after a Tube-off reboot and fails
-when BASIC is running on the parasite. Version 0.1.41 contains no Tube transfer
+when BASIC is running on the parasite. Version 0.1.46 contains no Tube transfer
 path and retains the FSCV reason-8 correction. A symbol-guided trace found that
 a cold host BASIC selected while the Tube is active chooses PAGE in `&23xx`;
 the loaded Electron program remains at `&0Exx`, so a returning CHAIN stage
@@ -324,10 +336,10 @@ The maintained Elkulator adapter now includes an AP5 Tube ULA and external
 cold boot without manual intervention. A clean live run with the photographed
 ROM order first reproduced the hardware boundary exactly with 0.1.25: Zalaga
 downloaded, the initial `ZALAGA 05 05EE` file loaded, and execution returned to
-the Tube BASIC prompt. The current 0.1.41 differential exercises catalogue
+the Tube BASIC prompt. The current 0.1.52 differential exercises catalogue
 entries by sorted index, not by title-specific ROM behavior. The exact final
-ROM reaches Zalaga's running title sequence through MENU and enters Thrust
-gameplay through local UEF import with Tube disabled and enabled. Physical-hardware
+ROM reaches FrakV2 gameplay through MENU and enters Thrust gameplay through
+local UEF import with Tube disabled and enabled. Physical-hardware
 gameplay remains an open release gate and must not be inferred from the
 emulator result.
 

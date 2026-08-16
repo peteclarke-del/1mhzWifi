@@ -1,10 +1,14 @@
 # Pi1MHz bare-metal integration
 
 This directory contains the Pi1MHz integration package and installer. The
-versioned package is under `pi1mhz-516a267/`, with source changes separated into
+package is under `pi1mhz-516a267/`, with source changes separated into
 `patches/` and complete replacement files under `overlay/`. Raspberry Pi
 boot firmware loads the resulting `kernel.img` or `kernel7.img` directly. No
 Linux service is installed or required.
+
+The directory name records the original package baseline and is retained to
+avoid churn in downstream patch scripts. `upstream.env`, the installer and the
+package README are authoritative; they currently require commit `d08242e`.
 
 The implementation record is
 [`pi1mhz-516a267/TECHNICAL.md`](pi1mhz-516a267/TECHNICAL.md). The complete
@@ -19,9 +23,9 @@ needed by the retained ElkWiFi commands.
 
 ## Upstream requirements
 
-Use Pi1MHz commit `516a267493d9f19e6bf2f4a2ea4c3e7472b12135`.
-This was the tip of the official `master` branch when checked on 9 August
-2026. Pi1MHz does not have a `main` branch. The commit is 83 commits after the
+Use Pi1MHz commit `d08242ee1b35cf1285b72c9ec1869e98081a8c3e`.
+This was the tip of the official `master` branch when checked on 13 August
+2026. Pi1MHz does not have a `main` branch. The commit is 84 commits after the
 V1.30 tag and includes the later net service required by WGET and OSWORD TCP.
 The installer rejects any other revision and performs a live upstream check by
 default, so a new upstream commit stops the release build pending review.
@@ -72,7 +76,7 @@ revision before firmware download.
 The BCM43455 image is pinned to firmware 7.45.241 from upstream revision
 `8468a38`. The later 7.45.265 image associates on the Pi 3A+ validation
 hardware but does not complete DHCP. Pi1MHz source remains based on the
-reviewed `516a267` revision.
+reviewed `d08242e` revision.
 
 Set `ARM_GCC` to the compiler path when `arm-none-eabi-gcc` is not on `PATH`.
 

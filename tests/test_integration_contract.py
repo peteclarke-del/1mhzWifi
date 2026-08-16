@@ -248,10 +248,15 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_ERR_NO_WIFI", service)
         self.assertIn("wifi_get_state() == WIFI_STATE_ERROR", service)
         self.assertIn("Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS", service)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.41, kernel " GITVERSION', service)
-        self.assertIn("cmp #2", service_driver)
-        self.assertIn("beq service_driver_short_timeout", service_driver)
-        self.assertIn("Function 2 is *VERSION/GMR", service_driver)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.52, kernel " GITVERSION', service)
+        self.assertIn("drv_svc_radio = 91", service_driver)
+        wifi_control = service_driver.split(".service_driver_wifi_control", 1)[1].split(
+            ".service_driver_ping", 1
+        )[0]
+        self.assertIn("lda #drv_svc_radio\n jmp service_driver_begin", wifi_control)
+        self.assertNotIn("jmp service_driver_version", wifi_control)
+        self.assertIn("case ELKWIFI_CMD_RADIO:", service)
+        self.assertIn("do not make the caller wait for firmware or association", service)
         self.assertEqual(service.count("response_string(cp, ELKWIFI_VERSION_RESPONSE)"), 2)
         self.assertIn("#define ELKWIFI_UEF_BASE 0u", service)
         self.assertIn("const uint32_t base = ELKWIFI_UEF_BASE", service)
@@ -371,9 +376,14 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("MOS keyboard input buffer occupies &03E0-&03FF", jim_state_patch)
         self.assertIn("&FFEF00", jim_state_patch)
         self.assertIn("AP5 does not forward &FCFD/&FCFE", jim_state_patch)
-        self.assertEqual(jim_state_patch.count("+\tSTA\t&FCA6"), 2)
-        self.assertEqual(jim_state_patch.count("+\tSTA\t&FCA7"), 2)
-        self.assertEqual(jim_state_patch.count("+\tSTA\t&FCA8"), 2)
+        # The physical recovery baseline deliberately keeps WiCFS on its
+        # original private FCA6-FCA9 cursor. Sharing net_cursor_* with WGET
+        # was a 0.1.51 experiment which regressed MENU and local UEF loading.
+        self.assertNotIn("net_cursor_lo", jim_state_patch)
+        self.assertNotIn("net_cursor_mid", jim_state_patch)
+        self.assertNotIn("net_cursor_hi", jim_state_patch)
+        self.assertNotIn("net_read_a", jim_state_patch)
+        self.assertNotIn("net_write_a", jim_state_patch)
         self.assertIn("+\tLDA\t&FCA9", jim_state_patch)
         self.assertIn("+\tSTA\t&FCA9", jim_state_patch)
         self.assertNotIn("+\tSTA\t&FCFD", jim_state_patch)
@@ -388,6 +398,10 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn('"$upstream/rom/wicfs.asm"', build_script)
         checker = (ROOT / "rom-side/check_wicfs_keyboard_buffer.py").read_text()
         self.assertIn("0x03E0 <= address <= 0x03FF", checker)
+        self.assertIn("FILENAME_WRITE", checker)
+        self.assertIn("FILENAME_LIMIT", checker)
+        self.assertIn("-dd -labels", build_script)
+        self.assertIn("check_combined_ram_layout.py", build_script)
         self.assertIn("symbols", checker)
         vector_entry_patch = (
             ROOT / "rom-side/elkwifi-0.23/patches/wicfs-vector-entry-state.patch"
@@ -448,15 +462,18 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("outside Tube and ADFS workspace", lifecycle_patch)
         self.assertNotRegex(lifecycle_patch, r"&D[0-9A-Fa-f]{2}")
 
-        # Reset service handling must be passive. MOS has already rebuilt its
-        # vectors when service reason 1 is offered, and accessing the Pi/JIM
-        # persistence port here can stall a real AP5 system before BASIC.
+        # Reset remains passive unless the live BYTEV still points at WiCFS's
+        # RAM trap. Only that ownership proof permits reading persisted state
+        # and restoring vector entries which WiCFS still owns.
         reset_passive_patch = (
             ROOT / "rom-side/elkwifi-0.23/patches/wicfs-reset-passive.patch"
         ).read_text()
         self.assertIn("-                    jsr wicfs_reset", reset_passive_patch)
         self.assertIn("Never read persisted WiCFS", reset_passive_patch)
-        self.assertIn("+                    nop:nop:nop", reset_passive_patch)
+        self.assertIn("+                    lda BYTEV", reset_passive_patch)
+        self.assertIn("+                    cmp #<notape", reset_passive_patch)
+        self.assertIn("+                    cmp #>notape", reset_passive_patch)
+        self.assertIn("+                    jsr release_owned_wicfs", reset_passive_patch)
         self.assertIn("-                    stx pagereg", reset_passive_patch)
         self.assertIn("Do not touch the AP5 JIM selector", reset_passive_patch)
         self.assertIn("-                    stx uptype", reset_passive_patch)
@@ -655,8 +672,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("&FCFD", menusrc)
         self.assertNotIn("&FCFE", menusrc)
         serial = (ROOT / "rom-side/elkwifi-0.23/overlay/serial.asm").read_text()
-        self.assertNotIn("sta &FCFD", serial)
-        self.assertNotIn("sta &FCFE", serial)
+        self.assertIn("cpx #1\n beq set_bank_0_page", serial)
+        self.assertIn("sta &FCFD\n jsr wicfs_bus_delay\n sta &FCFE", serial)
+        self.assertIn(".detect_jim_machine", serial)
         self.assertNotIn("lda &FCFF", serial)
         self.assertIn("jsr set_bank_0             \\ ElkWiFi buffers are in JIM address 00:00:page", (ROOT / "rom-side/elkwifi-0.23/overlay/driver.asm").read_text())
 
@@ -665,6 +683,7 @@ class IntegrationContractTest(unittest.TestCase):
         menusrc = (ROOT / "rom-side/elkwifi-0.23/overlay/menusrc.asm").read_text()
         serial = (ROOT / "rom-side/elkwifi-0.23/overlay/serial.asm").read_text()
         wifi = (ROOT / "rom-side/elkwifi-0.23/overlay/wificmd.asm").read_text()
+        public_driver = (ROOT / "rom-side/elkwifi-0.23/overlay/driver.asm").read_text()
         rom_patch = (ROOT / "rom-side/elkwifi-0.23/patches/integration.patch").read_text()
         banner_patch = (ROOT / "rom-side/elkwifi-0.23/patches/banner-spacing.patch").read_text()
         self.assertIn("drv_svc_response_count = errorspace+14", driver)
@@ -673,21 +692,43 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("lda #19", driver)
         self.assertIn("cmp #&21\n bcs service_driver_response_visible", driver)
         self.assertIn("cmp #&7F\n bcc service_driver_response_ascii", driver)
-        self.assertIn("jmp service_driver_version", driver)
+        self.assertIn("jmp service_driver_version", public_driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/patches/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.41"', identity)
+        self.assertIn('romversion         equs "0.1.52"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/overlay/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.41 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.52 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
         self.assertIn("cmp #&44\n beq service_driver_error_no_wifi", driver)
-        self.assertIn("cmp &FC00+drv_svc_data\n bne service_driver_port_missing_near", driver)
-        self.assertIn("cmp #&FF\n bne service_driver_wait_claimed\n jmp service_driver_service_unclaimed", driver)
+        self.assertIn(
+            "lda &FC00+drv_svc_data\n cmp drv_svc_command_copy\n"
+            " bne service_driver_port_missing_after_command",
+            driver,
+        )
+        self.assertIn("jsr service_driver_wait_cursor", driver)
+        wait = driver.split("\n.service_driver_wait\n", 1)[1].split(
+            "\n.service_driver_timeout\n", 1
+        )[0]
+        self.assertNotIn("cmp #&FF", wait)
+        timeout = driver.split("\n.service_driver_timeout\n", 1)[1].split(
+            ".service_driver_result", 1
+        )[0]
+        self.assertIn(
+            "cmp #&FF\n bne service_driver_timeout_claimed\n"
+            " jmp service_driver_service_unclaimed",
+            timeout,
+        )
         self.assertIn("drv_svc_command_copy = errorspace+16", driver)
-        self.assertIn("cmp #drv_svc_status", driver)
+        self.assertNotIn("cmp #drv_svc_status", driver.split(".service_driver_dispatch", 1)[1])
         self.assertIn("lda #8\n sta drv_svc_timeout_outer", driver)
+        result = driver.split("\n.service_driver_result\n", 1)[1].split(
+            "\n.service_driver_error\n", 1
+        )[0]
+        self.assertIn("php\n sei\n lda #&FF", result)
+        self.assertIn("sta &FC00+drv_svc_addr_hi\n sta &FC00+drv_svc_addr_mid", result)
+        self.assertIn(".service_driver_result_no_copy\n php\n sei", result)
         no_response = driver.split(".service_driver_no_response", 1)[1]
         self.assertIn("ldx #(error_no_response-error_table)\n jmp error", no_response)
         self.assertNotIn("stx pageram", no_response)
@@ -735,8 +776,12 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("lda &0E00", menu)
         self.assertIn("jsr menusrc_patch_menu", menu)
         self.assertIn("jsr menusrc_check_menu_platform", menu)
-        self.assertIn("Some titles may require the Tube to be disabled", menu)
-        self.assertIn("before attempting to load.", menu)
+        self.assertIn(
+            'equs "Some titles may require the Tube to be",&0D', menu
+        )
+        self.assertIn(
+            'equs "disabled before attempting to load.",&0D', menu
+        )
         self.assertIn("lda #&EA\n    ldx #0\n    ldy #&FF", menu)
         self.assertLess(menu.index("jsr menusrc_check_menu_platform"),
                         menu.index("jsr oscli"))
@@ -764,10 +809,16 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("menu_tape_addr = &1FC0", menu)
         self.assertIn("sta menu_tape_addr,x", menu)
         self.assertIn("jsr wicfs_release_tape_trap", menu)
-        self.assertIn("lda notape+(osb_j-osb_s)+1", menu)
+        self.assertIn("jsr wicfs_state_load", menu)
+        self.assertIn("lda bytev_rtn", menu)
+        self.assertIn("lda bytev_rtn+1", menu)
+        self.assertNotIn("lda notape+(osb_j-osb_s)+1", menu)
         self.assertIn("sta BYTEV", menu)
-        self.assertLess(menu.index("jsr oscli"), menu.index("jsr menusrc_make_wget"))
-        self.assertLess(menu.index("jsr oscli"), menu.index("ldx #<heap"))
+        self.assertLess(menu.index("jsr menu_select_tape"), menu.index("jsr menusrc_make_wget"))
+        tape_helper = menu.split(".menu_select_tape", 1)[1].split(
+            ".menu_tape_command", 1
+        )[0]
+        self.assertIn("jsr oscli", tape_helper)
         self.assertIn("jsr menusrc_patch_catalogue", menusrc)
         self.assertIn("equw &1059,&1079,&10AB", menusrc)
         self.assertIn("sta &1FF0,x", menusrc)
@@ -831,11 +882,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("expected_upstream=$PI1MHZ_UPSTREAM_COMMIT", installer)
         self.assertIn("PI1MHZ_VERIFY_REMOTE:-1", installer)
         self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=516a267493d9f19e6bf2f4a2ea4c3e7472b12135",
+            "PI1MHZ_UPSTREAM_COMMIT=d08242ee1b35cf1285b72c9ec1869e98081a8c3e",
             upstream,
         )
         self.assertIn("PI1MHZ_UPSTREAM_BRANCH=master", upstream)
-        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-11", upstream)
+        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-15", upstream)
         self.assertIn("git ls-remote --symref", verifier)
 
         rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()

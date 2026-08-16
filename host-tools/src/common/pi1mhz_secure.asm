@@ -27,32 +27,36 @@ SEC_PASSWORD_JIM_HI = &02
     JSR net_dispatch
     CMP #NET_OK
     BNE secure_probe_done
+    PHP
+    SEI
     JSR net_select_command
     LDA #1
-    STA SERVICE_ADDR_LO
-    LDA SERVICE_DATA
+    JSR net_set_cursor_low
+    JSR net_data_read
     CMP #SEC_ABI_MAJOR
     BNE secure_probe_bad
-    LDA SERVICE_DATA       \ minor
-    LDA SERVICE_DATA       \ features
+    JSR net_data_read       \ minor
+    JSR net_data_read       \ features
     STA secure_features
     AND #1
     BEQ secure_probe_bad
     LDA #8
-    STA SERVICE_ADDR_LO
-    LDA SERVICE_DATA
+    JSR net_set_cursor_low
+    JSR net_data_read
     CMP #'N'
     BNE secure_probe_bad
-    LDA SERVICE_DATA
+    JSR net_data_read
     CMP #'T'
     BNE secure_probe_bad
-    LDA SERVICE_DATA
+    JSR net_data_read
     CMP #'S'
     BNE secure_probe_bad
+    PLP
     LDA #NET_OK
 .secure_probe_done
     RTS
 .secure_probe_bad
+    PLP
     LDA #NET_ERR_UNSUPPORTED
     RTS
 
@@ -61,66 +65,65 @@ SEC_PASSWORD_JIM_HI = &02
     LDA #SEC_CMD_RANDOM
     JSR net_begin
     LDA #16
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #0
-    STA SERVICE_DATA
-    STA SERVICE_DATA
+    JSR net_data_write
+    JSR net_data_write
     LDA #SEC_RANDOM_JIM_LO
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #SEC_RANDOM_JIM_MI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #SEC_RANDOM_JIM_HI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #0
-    STA SERVICE_DATA
+    JSR net_data_write
     JMP net_dispatch
 
 .secure_select_random
     LDA #SEC_RANDOM_JIM_LO
-    STA SERVICE_ADDR_LO
-    LDA #SEC_RANDOM_JIM_MI
-    STA SERVICE_ADDR_MI
-    LDA #SEC_RANDOM_JIM_HI
-    STA SERVICE_ADDR_HI
-    RTS
+    LDX #SEC_RANDOM_JIM_MI
+    LDY #SEC_RANDOM_JIM_HI
+    JMP net_select_address
 
 \ Copy the NUL-terminated string at X/Y to JIM address A/&03/&02.
 \ The caller supplies the low address in A (URL=&00, user=&00 with MI=&04),
 \ so the two public wrappers below keep the command ABI explicit.
 .secure_copy_url
+    PHP
+    SEI
     STX net_ptr
     STY net_ptr + 1
     LDA #SEC_URL_JIM_LO
-    STA SERVICE_ADDR_LO
-    LDA #SEC_URL_JIM_MI
-    STA SERVICE_ADDR_MI
-    LDA #SEC_URL_JIM_HI
-    STA SERVICE_ADDR_HI
+    LDX #SEC_URL_JIM_MI
+    LDY #SEC_URL_JIM_HI
+    JSR net_select_address
     JMP secure_copy_string
 .secure_copy_user
+    PHP
+    SEI
     STX net_ptr
     STY net_ptr + 1
     LDA #SEC_USER_JIM_LO
-    STA SERVICE_ADDR_LO
-    LDA #SEC_USER_JIM_MI
-    STA SERVICE_ADDR_MI
-    LDA #SEC_USER_JIM_HI
-    STA SERVICE_ADDR_HI
+    LDX #SEC_USER_JIM_MI
+    LDY #SEC_USER_JIM_HI
+    JSR net_select_address
 .secure_copy_string
     LDY #0
 .secure_copy_string_loop
     LDA (net_ptr),Y
-    STA SERVICE_DATA
+    JSR net_data_write
     BEQ secure_copy_string_ok
     INY
     CPY #192
     BCC secure_copy_string_loop
     LDA #NET_LOCAL_PROTOCOL
+    PLP
     RTS
 .secure_copy_string_ok
     TYA
     CLC
     ADC #1
+    PLP
     RTS
 
 \ Start/poll a managed SSH connection. A contains flags; bit 0 accepts and
@@ -131,41 +134,41 @@ SEC_PASSWORD_JIM_HI = &02
     LDA #SEC_CMD_SSH_OPEN
     JSR net_begin
     LDA secure_open_flags
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #SEC_URL_JIM_LO
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #SEC_URL_JIM_MI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #SEC_URL_JIM_HI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #0
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #SEC_USER_JIM_LO
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #SEC_USER_JIM_MI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #SEC_USER_JIM_HI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #0
-    STA SERVICE_DATA
+    JSR net_data_write
     JMP net_dispatch_wait
 
 .secure_ssh_read
     LDA #SEC_CMD_SSH_READ
     JSR net_begin
     LDA #NET_IO_MAX
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #0
-    STA SERVICE_DATA
-    STA SERVICE_DATA
+    JSR net_data_write
+    JSR net_data_write
     LDA #NET_RX_LO
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #NET_RX_MI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #NET_RX_HI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #0
-    STA SERVICE_DATA
+    JSR net_data_write
     JSR net_dispatch
     JMP secure_ssh_result_length
 
@@ -173,42 +176,48 @@ SEC_PASSWORD_JIM_HI = &02
     STA net_write_length
     STX net_ptr
     STY net_ptr + 1
+    PHP
+    SEI
     JSR net_select_tx
     LDY #0
 .secure_ssh_write_copy
     CPY net_write_length
     BEQ secure_ssh_write_command
     LDA (net_ptr),Y
-    STA SERVICE_DATA
+    JSR net_data_write
     INY
     BNE secure_ssh_write_copy
 .secure_ssh_write_command
+    PLP
     LDA #SEC_CMD_SSH_WRITE
     JSR net_begin
     LDA net_write_length
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #0
-    STA SERVICE_DATA
-    STA SERVICE_DATA
+    JSR net_data_write
+    JSR net_data_write
     LDA #NET_TX_LO
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #NET_TX_MI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #NET_TX_HI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #0
-    STA SERVICE_DATA
+    JSR net_data_write
     JSR net_dispatch
 .secure_ssh_result_length
     STA net_result
+    PHP
+    SEI
     JSR net_select_command
     LDA #1
-    STA SERVICE_ADDR_LO
-    LDA SERVICE_DATA
+    JSR net_set_cursor_low
+    JSR net_data_read
     STA net_length
-    LDA SERVICE_DATA
+    JSR net_data_read
     STA net_length + 1
-    LDA SERVICE_DATA
+    JSR net_data_read
+    PLP
     LDA net_result
     RTS
 
@@ -224,53 +233,55 @@ SEC_PASSWORD_JIM_HI = &02
     STA secure_password_length
     STX net_ptr
     STY net_ptr + 1
+    PHP
+    SEI
     LDA #SEC_PASSWORD_JIM_LO
-    STA SERVICE_ADDR_LO
-    LDA #SEC_PASSWORD_JIM_MI
-    STA SERVICE_ADDR_MI
-    LDA #SEC_PASSWORD_JIM_HI
-    STA SERVICE_ADDR_HI
+    LDX #SEC_PASSWORD_JIM_MI
+    LDY #SEC_PASSWORD_JIM_HI
+    JSR net_select_address
     LDY #0
 .secure_password_copy
     CPY secure_password_length
     BEQ secure_password_command
     LDA (net_ptr),Y
-    STA SERVICE_DATA
+    JSR net_data_write
     INY
     BNE secure_password_copy
 .secure_password_command
+    PLP
     LDA #SEC_CMD_SSH_PASSWORD
     JSR net_begin
     LDA secure_password_length
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #0
-    STA SERVICE_DATA
-    STA SERVICE_DATA
+    JSR net_data_write
+    JSR net_data_write
     LDA #SEC_PASSWORD_JIM_LO
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #SEC_PASSWORD_JIM_MI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #SEC_PASSWORD_JIM_HI
-    STA SERVICE_DATA
+    JSR net_data_write
     LDA #0
-    STA SERVICE_DATA
+    JSR net_data_write
     JSR net_dispatch_wait
     STA secure_password_result
+    PHP
+    SEI
     LDA #SEC_PASSWORD_JIM_LO
-    STA SERVICE_ADDR_LO
-    LDA #SEC_PASSWORD_JIM_MI
-    STA SERVICE_ADDR_MI
-    LDA #SEC_PASSWORD_JIM_HI
-    STA SERVICE_ADDR_HI
+    LDX #SEC_PASSWORD_JIM_MI
+    LDY #SEC_PASSWORD_JIM_HI
+    JSR net_select_address
     LDY #0
     LDA #0
 .secure_password_wipe
     CPY secure_password_length
     BEQ secure_password_done
-    STA SERVICE_DATA
+    JSR net_data_write
     INY
     BNE secure_password_wipe
 .secure_password_done
+    PLP
     LDA secure_password_result
     RTS
 

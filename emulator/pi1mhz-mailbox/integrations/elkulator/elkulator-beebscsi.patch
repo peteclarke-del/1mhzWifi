@@ -1,0 +1,60 @@
+--- a/src/mem.c
++++ b/src/mem.c
+@@ -5,6 +5,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include "elk.h"
++#include "beebscsi_elkulator.h"
+ #include "pi1mhz_elkulator.h"
+ 
+ static const char * roms = "roms";   // Name of directory containing rom files
+@@ -159,6 +160,8 @@ void resetmem()
+ 
+         /* Initialise the current RAM bank paged into page FD (JIM). */
+         jim_page = 0;
++        beebscsi_elkulator_set_irq_callback(updateulaints);
++        beebscsi_elkulator_reset();
+ }
+ 
+ uint8_t readmem(uint16_t addr)
+@@ -179,6 +182,8 @@ uint8_t readmem(uint16_t addr)
+         if (pi1mhz_elkulator_handles_read(addr))
+                 return pi1mhz_elkulator_read(addr);
+         pi1mhz_elkulator_snoop_read(addr);
++        if (beebscsi_elkulator_handles(addr))
++                return beebscsi_elkulator_read(addr);
+         if (ap5_tube_handles(addr))
+                 return ap5_tube_host_read(addr);
+         if (addr<0x2000)
+@@ -256,6 +261,11 @@ void writemem(uint16_t addr, uint8_t val)
+         pi1mhz_elkulator_sync_host_clock(cycles);
+         ap5_tube_sync_host_clock(cycles);
+         pi1mhz_elkulator_snoop_write(addr, val);
++        if (beebscsi_elkulator_handles(addr))
++        {
++                beebscsi_elkulator_write(addr, val);
++                return;
++        }
+         if (ap5_tube_handles(addr))
+         {
+                 ap5_tube_host_write(addr, val);
+--- a/src/ula.c
++++ b/src/ula.c
+@@ -5,6 +5,7 @@
+ #include <zlib.h>
+ #include "elk.h"
+ #include "2xsai.h"
++#include "beebscsi_elkulator.h"
+ #include "ap5_tube.h"
+ 
+ void dosavescrshot();
+@@ -182,7 +183,8 @@ void updateulaints()
+                 irq=1;
+ //                printf("Interrupt %02X %02X\n",ula.isr,ula.ier);
+         }
+-        else if ((plus1 && serial_irq) || ap5_tube_host_irq())
++        else if ((plus1 && serial_irq) || ap5_tube_host_irq() ||
++                 beebscsi_elkulator_host_irq())
+                 irq = 1;
+         else
+         {

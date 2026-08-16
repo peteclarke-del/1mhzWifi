@@ -126,7 +126,7 @@
     JMP OSWRCH
 
 .tool_error_text
-    EQUS "Network error &", 0
+    EQUS "NetTools 0.1.52 network error &", 0
 .tool_u8_had_hundreds
     EQUB 0
 .tool_argument

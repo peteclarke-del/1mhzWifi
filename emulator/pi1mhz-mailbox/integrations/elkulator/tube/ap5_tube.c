@@ -1,4 +1,5 @@
 #include "ap5_tube.h"
+#include "pi1mhz_mailbox.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -53,6 +54,7 @@ static int enabled;
 static int selected;
 static int nmi_asserted;
 static int half_cycle;
+static pi1mhz_host_clock host_clock;
 
 static void update_signals(void)
 {
@@ -240,6 +242,7 @@ void ap5_tube_reset(void)
     reset_ula_channels();
     parasite_rom_mapped = 1;
     half_cycle = 0;
+    host_clock.valid = 0;
     vrEmu6502Reset(parasite);
     update_signals();
 }
@@ -268,6 +271,19 @@ void ap5_tube_run_host_cycles(int host_cycles)
         update_signals();
         vrEmu6502Tick(parasite);
     }
+}
+
+void ap5_tube_sync_host_clock(int host_cycle_counter)
+{
+    unsigned elapsed;
+    if (!enabled) return;
+    elapsed = pi1mhz_host_clock_sync(&host_clock, host_cycle_counter);
+    if (elapsed > 0) ap5_tube_run_host_cycles(elapsed);
+}
+
+void ap5_tube_rebase_host_clock(int host_cycle_counter)
+{
+    pi1mhz_host_clock_rebase(&host_clock, host_cycle_counter);
 }
 
 int ap5_tube_enabled(void)

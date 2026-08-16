@@ -9,7 +9,8 @@ test: test-rom test-emulator test-host test-package
 
 test-rom: test-host
 	./build.sh
-	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+	PYTHONPATH=host-tools/.test-deps PYTHONDONTWRITEBYTECODE=1 \
+		python3 -m unittest discover -s tests -v
 
 test-emulator:
 	$(MAKE) -C emulator/pi1mhz-mailbox test

@@ -3,7 +3,7 @@
 ## Scope and base
 
 This package targets Pi1MHz commit
-`516a267493d9f19e6bf2f4a2ea4c3e7472b12135`, the reviewed official `master`
+`d08242ee1b35cf1285b72c9ec1869e98081a8c3e`, the reviewed official `master`
 revision recorded in `../upstream.env`. It extends Pi1MHz's existing bare-metal
 CYW43, lwIP, services and network code. It does not install a Linux daemon.
 
@@ -14,9 +14,11 @@ canonical inputs rather than edited directly.
 
 ## ElkWiFi service adapter
 
-The adapter owns service commands 80 through 93. Command 91 remains reserved
-inside that range and returns unsupported. The FIQ handler captures the command pointer, publishes
-busy and handles the fixed status response when firmware is already ready.
+The adapter owns service commands 80 through 93. Command 91 starts radio setup
+for public driver function 24 and acknowledges the accepted request without
+waiting for firmware startup or association. The FIQ handler captures the
+command pointer, publishes busy and handles the fixed status response when
+firmware is already ready.
 Filesystem, SDIO, scan, DNS, ICMP, NTP and UEF work runs from the cooperative
 poll loop.
 
@@ -77,6 +79,20 @@ private keys, session keys, host-key verification and
 known-host persistence on the Pi. Password bytes are wiped after handoff.
 Known-host updates use a synchronized temporary file, backup rename and
 rollback.
+
+The Services dispatcher first publishes the standard selector echo, completing
+the physical host write transaction, then routes the fixed raw-network,
+ElkWiFi and secure command ranges directly. Each fixed handler replaces that
+echo with `BUSY` or its final result. Dynamic and unknown commands retain the
+upstream selector-echo behaviour. Host clients treat every bit-7-set value as
+busy until their bounded deadline.
+Secure capability discovery is a fixed synchronous reply and does not depend
+on the poll table or wolfSSH provider readiness. Host NetTools mask IRQ while
+selecting and using the shared FCA6-FCA9 JIM cursor, preventing MMFS, ADFS or
+another interrupt-side JIM client from redirecting a request mid-block.
+ElkWiFi reset cleanup masks Pi IRQ and FIQ while it publishes a terminal result
+and clears the request latch, so a new FIQ request cannot be discarded with
+`FCAA` left at `BUSY`.
 
 ## Persistence and configuration
 

@@ -140,10 +140,10 @@ int main(void)
     assert(backend);
     assert(!pi1mhz_mailbox_init(
         &mailbox, pi1mhz_net_backend_dispatch, backend));
-    command = mailbox.jim + COMMAND;
+    command = mailbox.jim + mailbox.services_base + COMMAND;
 
     /* Upstream MMFS uses commands 0/1 on this same services mailbox. */
-    memset(mailbox.jim + 0x030000u, 0, 512u);
+    memset(mailbox.jim + mailbox.services_base + 0x030000u, 0, 512u);
     memset(command, 0, 16u);
     command[0] = 0;
     wr32(command + 4, 0x030000u);
@@ -151,9 +151,9 @@ int main(void)
     wr32(command + 12, 1u);
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
     for (unsigned i = 0; i < 512u; i++)
-        assert(mailbox.jim[0x030000u + i] == 0xA5u);
+        assert(mailbox.jim[mailbox.services_base + 0x030000u + i] == 0xA5u);
 
-    memset(mailbox.jim + 0x030000u, 0x3C, 512u);
+    memset(mailbox.jim + mailbox.services_base + 0x030000u, 0x3C, 512u);
     command[0] = 1;
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
 
@@ -180,7 +180,7 @@ int main(void)
         short_wait();
     }
     assert(result == PI1MHZ_NET_OK);
-    memcpy(mailbox.jim + 0x020100u, "hello", 5);
+    memcpy(mailbox.jim + mailbox.services_base + 0x020100u, "hello", 5);
     command[0] = 50;
     wr24(command + 1, 5);
     wr32(command + 4, 0x020100u);
@@ -196,13 +196,13 @@ int main(void)
         short_wait();
     }
     assert(attempts < 1000);
-    assert(!memcmp(mailbox.jim + 0x020000u, "world", 5));
+    assert(!memcmp(mailbox.jim + mailbox.services_base + 0x020000u, "world", 5));
     command[0] = 53;
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
 
     /* Pi control services use selector &FF and page &FFFF00, not a socket
        handle. This is the path used by 1MHzWifi *MENU/MENUSRC. */
-    command = mailbox.jim + 0xFFFF00u;
+    command = mailbox.jim + mailbox.services_base + 0xFFFF00u;
     command[0] = 83;
     assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
     assert(strstr((const char *)command + 1, "+CIFSR:STAIP,\"192.168.0.2\""));
@@ -232,7 +232,7 @@ int main(void)
     assert(!strcmp((const char *)command + 1, "ZIP\r\n"));
     assert(!memcmp(mailbox.jim, raw_uef,
                    sizeof(raw_uef) - 1u));
-    command = mailbox.jim + COMMAND;
+    command = mailbox.jim + mailbox.services_base + COMMAND;
 
     snprintf(url, sizeof(url), "TCP://127.0.0.1:%u/",
              (unsigned)ntohs(address.sin_port));
@@ -247,7 +247,7 @@ int main(void)
     }
     assert(result == PI1MHZ_NET_OK);
 
-    memcpy(mailbox.jim + 0x020100u, "hello", 5);
+    memcpy(mailbox.jim + mailbox.services_base + 0x020100u, "hello", 5);
     command[0] = 62;
     wr24(command + 1, 5);
     wr32(command + 4, 0x020100u);
@@ -265,7 +265,7 @@ int main(void)
         short_wait();
     }
     assert(attempts < 1000);
-    assert(!memcmp(mailbox.jim + 0x020000u, "world", 5));
+    assert(!memcmp(mailbox.jim + mailbox.services_base + 0x020000u, "world", 5));
 
     command[0] = 63;
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
@@ -275,14 +275,14 @@ int main(void)
     assert(command[1] == 1 && command[3] & 1);
     assert(!memcmp(command + 8, "NTS", 3));
 
-    memset(mailbox.jim + 0x020200u, 0, 16);
+    memset(mailbox.jim + mailbox.services_base + 0x020200u, 0, 16);
     command[0] = 95;
     command[1] = 16;
     command[2] = 0;
     command[3] = 0;
     wr32(command + 4, 0x020200u);
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
-    assert(memcmp(mailbox.jim + 0x020200u,
+    assert(memcmp(mailbox.jim + mailbox.services_base + 0x020200u,
                   "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16));
     pi1mhz_mailbox_destroy(&mailbox);
     pi1mhz_net_backend_destroy(backend);

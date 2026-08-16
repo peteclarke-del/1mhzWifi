@@ -24,23 +24,24 @@ ping_wait_count = errorspace+18
  lda drv_svc_cancelled
  bne ping_cancelled
 
- lda pageram
+ jsr reset_buffer
+ jsr read_buffer
  cmp #'+'
  bne ping_error
- lda pageram+1
+ jsr read_buffer
  cmp #'t'
  beq ping_time_out
  jsr printtext
  equs "Received response in ",&EA
- ldy #1
+ jsr reset_buffer
+ jsr read_buffer              \ skip the leading '+'
 .ping_print_ms
- lda pageram,y
+ jsr read_buffer              \ reselect FCFF after every MOS call
  cmp #&0D
  beq ping_ms
  sta save_y
  jsr oswrch
  lda save_y
- iny
  bpl ping_print_ms
 .ping_ms
  jsr printtext

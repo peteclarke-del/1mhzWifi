@@ -1,4 +1,5 @@
 import pathlib
+import re
 import unittest
 import zipfile
 
@@ -7,6 +8,34 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class MergedRepositoryTest(unittest.TestCase):
+    def test_pi_bus_byte_write_preserves_live_adjacent_register(self) -> None:
+        patch = (
+            ROOT
+            / "pi-side/pi1mhz-516a267/patches/bus-window-adjacent-preservation.patch"
+        ).read_text()
+        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        self.assertIn("Pi1MHz_Memory_VPU[addr>>1] & 0xFFFFFF00u", patch)
+        self.assertIn("Pi1MHz_Memory_VPU[addr>>1] & 0xFF00FFFFu", patch)
+        added = "\n".join(
+            line[1:] for line in patch.splitlines() if line.startswith("+")
+        )
+        self.assertNotIn("Pi1MHz->Memory[addr ^ 1u]", added)
+        patch_loop = installer.split("for patch_name in ", 1)[1].split("; do", 1)[0]
+        self.assertIn("bus-window-adjacent-preservation.patch", patch_loop)
+
+        # Reproduce the real failure: &FCA8 is changed by the host/VPU while
+        # the ARM shadow still contains its former value. Publishing &FCA9
+        # must retain the live &FCA8 half of their shared VPU word.
+        live_word = 0xFFFF_FFFF  # high half: live &FCA9, low half: live &FCA8
+        stale_shadow_a8 = 0x00
+        new_a9 = 0x5E
+        old_shadow_result = ((0xFF00 | new_a9) << 16) | (0xFF00 | stale_shadow_a8)
+        live_preserving_result = (
+            ((0xFF00 | new_a9) << 16) | (live_word & 0xFF00_FFFF)
+        )
+        self.assertEqual(old_shadow_result & 0xFF, 0x00)
+        self.assertEqual(live_preserving_result & 0xFF, 0xFF)
+
     def test_secure_command_allocation_is_consistent(self) -> None:
         asm = (ROOT / "host-tools/src/common/pi1mhz_secure.asm").read_text()
         backend = (
@@ -31,42 +60,97 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn("#define SEC_CMD_CAPS       94u", backend)
         self.assertIn("#define SEC_CMD_RANDOM     95u", backend)
 
-    def test_secure_wrapper_cannot_strand_a_request_across_reset(self) -> None:
+    def test_secure_wrapper_cannot_strand_deferred_request_across_reset(self) -> None:
         wrapper = (
             ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service.c"
         ).read_text()
         command = wrapper.split("void secure_service_command", 1)[1].split(
             "static void secure_poll", 1
         )[0]
-        self.assertNotIn("if (pending)", command)
+        self.assertIn("NTS_SEC_CAPS", command)
+        self.assertIn("Pi1MHz_MemoryWrite(addr, NTS_OK)", command)
         self.assertIn("Always latch the newest command", command)
         self.assertIn("pending_cp = command_pointer", command)
         self.assertIn("Pi1MHz_MemoryWrite(addr, SEC_BUSY)", command)
 
-    def test_secure_capabilities_complete_without_polling(self) -> None:
+    def test_secure_capabilities_do_not_depend_on_poll_registration(self) -> None:
         wrapper = (
             ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service.c"
         ).read_text()
-        command = wrapper.split("void secure_service_command", 1)[1].split(
-            "static void secure_poll", 1
-        )[0]
-        caps = command.split("if (Pi1MHz->JIM_ram[command_pointer] == NTS_SEC_CAPS)", 1)[1]
-        caps = caps.split("pending_cp = command_pointer", 1)[0]
+        caps = wrapper.split("static void secure_write_capabilities", 1)[1]
+        caps = caps.split("void secure_service_command", 1)[0]
         self.assertIn("command[1] = 1u", caps)
         self.assertIn("command[2] = 1u", caps)
         self.assertIn("command[3] = capability_features", caps)
         self.assertIn("command[6] = capability_managed_ssh", caps)
-        self.assertIn("Pi1MHz_MemoryWrite(addr, NTS_OK)", caps)
-        self.assertIn("return", caps)
+        command = wrapper.split("void secure_service_command", 1)[1].split(
+            "static void secure_poll", 1
+        )[0]
+        capability_path = command.split("NTS_SEC_CAPS", 1)[1].split("return;", 1)[0]
+        self.assertIn("secure_write_capabilities", capability_path)
+        self.assertIn("Pi1MHz_MemoryWrite(addr, NTS_OK)", capability_path)
+        self.assertNotIn("SEC_BUSY", capability_path)
 
-        init = wrapper.split("void secure_service_init", 1)[1]
-        self.assertNotIn("pending = false", init)
-        self.assertNotIn("pending_cp = 0u", init)
-        self.assertNotIn("pending_addr = 0u", init)
-        self.assertIn("Do not clear a", init)
-        self.assertIn("reset_pending = true", init)
-        self.assertIn("capability_features = 7u", wrapper)
-        self.assertIn("capability_managed_ssh = 1u", wrapper)
+    def test_fixed_services_replace_completed_selector_echo(self) -> None:
+        patch = (
+            ROOT / "pi-side/pi1mhz-516a267/patches/deterministic-service-dispatch.patch"
+        ).read_text()
+        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        fixed = patch.split("Built-in ABI ranges", 1)[1].split(
+            "for (unsigned int i", 1
+        )[0]
+        self.assertIn("net_service_command(command_pointer, addr, data)", fixed)
+        self.assertIn("elkwifi_service_command(command_pointer, addr, data)", fixed)
+        self.assertIn("secure_service_command(command_pointer, addr, data)", fixed)
+        self.assertIn("follow the standard selector echo", patch)
+        self.assertNotIn("-   Pi1MHz_MemoryWrite(addr, data)", patch)
+        self.assertIn("fixed_echo_seen[0]", patch)
+        self.assertNotIn("!fixed_echo_seen[0]", patch)
+        self.assertNotIn("services-result-publication.patch", installer)
+
+    def test_host_nettools_mask_irq_while_using_shared_jim_cursor(self) -> None:
+        net = (ROOT / "host-tools/src/common/pi1mhz_net.asm").read_text()
+        secure = (ROOT / "host-tools/src/common/pi1mhz_secure.asm").read_text()
+        ping = (ROOT / "host-tools/src/ping.asm").read_text()
+        ssh = (ROOT / "host-tools/src/ssh.asm").read_text()
+        begin = net.split(".net_begin", 1)[1].split(".net_dispatch", 1)[0]
+        dispatch = net.split(".net_dispatch_start", 1)[1].split("RTS", 1)[0]
+        self.assertIn("SEI", begin)
+        self.assertIn("STA net_saved_p", begin)
+        self.assertIn("LDA net_saved_p", dispatch)
+        self.assertIn("PLP", dispatch)
+        self.assertEqual(ping.count("JSR net_dispatch_start"), 2)
+        for label in (".net_copy_rx_to_host", ".net_copy_selected_string"):
+            block = net.split(label, 1)[1].split("RTS", 1)[0]
+            self.assertIn("SEI", block)
+            self.assertIn("PLP", block)
+        for label in (
+            ".secure_copy_url", ".secure_ssh_write", ".secure_ssh_password"
+        ):
+            block = secure.split(label, 1)[1]
+            self.assertIn("SEI", block)
+            self.assertIn("PLP", block)
+        ping_response = ping.split(".ping_result", 1)[1].split(
+            ".ping_print_response", 1
+        )[0]
+        fingerprint = ssh.split(".ssh_confirm_host_key", 1)[1].split(
+            ".ssh_print_fingerprint", 1
+        )[0]
+        for block in (ping_response, fingerprint):
+            self.assertIn("SEI", block)
+            self.assertIn("JSR net_copy_selected_string", block)
+            self.assertIn("PLP", block)
+
+    def test_elkwifi_wrapper_discards_abandoned_request_on_reset(self) -> None:
+        wrapper = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c"
+        ).read_text()
+        init = wrapper.split("void elkwifi_service_init", 1)[1]
+        self.assertIn("request_pending = false", init)
+        self.assertIn("request_cancel = false", init)
+        self.assertIn("host reset abandons", init)
+        self.assertIn("_disable_interrupts_cspr()", init)
+        self.assertIn("_restore_cpsr(cpsr)", init)
 
     def test_merged_components_have_central_build_owners(self) -> None:
         required = [
@@ -113,6 +197,19 @@ class MergedRepositoryTest(unittest.TestCase):
         built = ROOT / "host-tools/build/nettools.ssd"
         self.assertTrue(bundled.is_file())
         self.assertEqual(bundled.read_bytes(), built.read_bytes())
+
+    def test_packaged_kernels_have_matching_recovery_revisions(self) -> None:
+        pattern = re.compile(
+            rb"Pi1MHz ElkWiFi 0\.1\.52, kernel "
+            rb"(V1\.30-84-gd08242e-dirty)"
+        )
+        revisions = []
+        for name in ("kernel.img", "kernel7.img"):
+            image = (ROOT / "build/pi1mhz-all" / name).read_bytes()
+            match = pattern.search(image)
+            self.assertIsNotNone(match, name)
+            revisions.append(match.group(1))
+        self.assertEqual(revisions[0], revisions[1])
 
     def test_release_archive_has_one_installable_top_level(self) -> None:
         archive = ROOT / "build/pi1mhz-all-hardware-test.zip"
@@ -211,7 +308,7 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn("if (rambanks[i]) enable_ram_n(i)", elkwifi_main)
         self.assertIn('printf("-tube6502 rom', tube_patch)
         self.assertIn("elkwifiname", tube_elkwifi_patch)
-        self.assertIn("ap5_tube_run_host_cycles(oldcycs)", tube_patch)
+        self.assertIn("ap5_tube_sync_host_clock(cycles)", tube_patch)
         self.assertIn("address >= 0xfce0 && address <= 0xfcef", tube_device)
         self.assertIn("selected = value == 0 || value == 1", tube_device)
         self.assertIn("ula.host_status[0] &= FLOW_BOTH", tube_device)

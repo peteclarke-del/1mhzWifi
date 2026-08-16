@@ -4,7 +4,7 @@
 
 .version_cmd
   jsr printtext
- equs "1MHzWifi 0.1.41 (C) 2026 Peter Clarke",&0D
+ equs "1MHzWifi 0.1.52 (C) 2026 Peter Clarke",&0D
   equs "Original elkWifi (C) 2020 Roland Leurs",&0D,&EA
 
   \ Print the Pi1MHz service version after the two ROM attribution lines.
@@ -13,13 +13,14 @@
 .generic_cmd
   jsr wifidriver
   jsr reset_buffer
-  lda pageram
+  jsr read_buffer
   beq no_device
+  dex
 .version_l2
   jsr read_buffer
   jsr oswrch
   lda datalen+1
-  cmp pagereg
+  cmp driver_page_shadow
   bne version_l2
   cpx datalen
   bne version_l2

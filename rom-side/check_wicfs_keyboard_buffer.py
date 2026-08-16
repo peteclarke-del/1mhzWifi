@@ -17,6 +17,9 @@ INSTRUCTION = re.compile(
 )
 NAME = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
 HEX = re.compile(r"&([0-9A-Fa-f]+)")
+FILENAME_WRITE = re.compile(r"^\s*STA\s+&0?3D2\s*,\s*X\s*$", re.I)
+FILENAME_LIMIT = re.compile(r"^\s*CPX\s+#(?:&0*A|10)\s*$", re.I)
+BOUNDS_BRANCH = re.compile(r"^\s*BCS\s+[A-Za-z_.][A-Za-z0-9_.]*\s*$", re.I)
 
 
 def evaluate(expression: str, symbols: dict[str, int]) -> int | None:
@@ -70,6 +73,15 @@ def main() -> int:
 
     failures: list[str] = []
     for number, line in enumerate(lines, 1):
+        if FILENAME_WRITE.match(line.split("\\", 1)[0]):
+            window = [candidate.split("\\", 1)[0].strip()
+                      for candidate in lines[max(0, number - 14):number - 1]]
+            if not any(FILENAME_LIMIT.match(candidate) for candidate in window) or not any(
+                BOUNDS_BRANCH.match(candidate) for candidate in window
+            ):
+                failures.append(
+                    f"{source}:{number}: {line.strip()} has no local ten-byte bound"
+                )
         match = INSTRUCTION.match(line)
         if not match or match.group(1).upper() not in WRITE_OPS:
             continue

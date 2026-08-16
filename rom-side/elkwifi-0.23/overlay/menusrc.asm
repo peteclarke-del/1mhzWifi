@@ -460,12 +460,13 @@ menusrc_timeout_hi = errorspace+2
  rts
 .menusrc_jim_bank_select_end
 
-\ Copied to &1FE0. Preserve A and select the standard AP5 JIM page.
+\ Copied to &1FE0. Preserve A, select the standard AP5 JIM page, then
+\ allow the Pi callback to publish it before the first indirect read.
 .menusrc_catalogue_select
  pha
- nop:nop:nop:nop:nop:nop:nop:nop:nop:nop
  pla
  sta &FCFF
+ nop:nop:nop:nop:nop:nop:nop:nop:nop:nop
  rts
 .menusrc_catalogue_select_end
 

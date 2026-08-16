@@ -47,10 +47,10 @@ index 7656f41..c642127 100644
     uint32_t command_pointer = (uint32_t) (DISC_RAM_BASE | 0xFF0000U | (uint32_t) (data<<8));
     uint8_t command = Pi1MHz->JIM_ram[command_pointer];
  
-+   /* Built-in service ranges have fixed ABI allocations. Route them
-+      directly so reset-time registry state cannot make a compiled service
-+      disappear. The initialisers still register their poll callbacks and
-+      may also renew these claims for registry-level tests. */
++   /* Built-in ABI ranges follow the standard selector echo, which completes
++      the host write transaction. Each handler then replaces the echo with
++      BUSY or its final result. Direct routing also prevents reset-time
++      registry state from making a compiled service disappear. */
 +   if (command >= SERVICE_CMD_NET_FIRST && command <= SERVICE_CMD_NET_LAST) {
 +      net_service_command(command_pointer, addr, data);
 +      return;
@@ -91,16 +91,18 @@ diff --git a/src/tests/services/test_services.c b/src/tests/services/test_servic
 index 8d58e8b..ce339b7 100644
 --- a/src/tests/services/test_services.c
 +++ b/src/tests/services/test_services.c
-@@ -81,6 +81,21 @@ static uint8_t  aun_last_cmd;
+@@ -81,6 +81,23 @@ static uint8_t  aun_last_cmd;
  static void test_aun_handler(uint32_t cp, uint32_t addr, uint8_t data)
  { (void)addr; (void)data; aun_calls++; aun_last_cmd = Pi1MHz->JIM_ram[cp]; }
  
 +static uint32_t fixed_calls[3];
 +static uint8_t fixed_last_cmd[3];
++static bool fixed_echo_seen[3];
 +static void fixed_handler(unsigned int index, uint32_t cp, uint32_t addr)
 +{
 +   fixed_calls[index]++;
 +   fixed_last_cmd[index] = Pi1MHz->JIM_ram[cp];
++   fixed_echo_seen[index] = Pi1MHz->Memory[addr] == 0xF3u;
 +   Pi1MHz_MemoryWrite(addr, (uint8_t)(0x40u + index));
 +}
 +void net_service_command(uint32_t cp, uint32_t addr, uint8_t data)
@@ -113,17 +115,20 @@ index 8d58e8b..ce339b7 100644
  /* ---- helpers driving the real dispatch ---- */
  #define CMD_PAGE 0xF3u
  static uint32_t cp_of(uint8_t page) { return DISC_RAM_BASE | 0xFF0000u | ((uint32_t)page << 8); }
-@@ -150,8 +165,17 @@ int main(void)
+@@ -150,8 +167,20 @@ int main(void)
        (void)dispatch(CMD_PAGE);
        ok(aun_calls == 1 && aun_last_cmd == 31, "command 31 routed to the AUN handler");
        Pi1MHz->JIM_ram[cp] = 45;
 +      ok(dispatch(CMD_PAGE) == 0x40u && fixed_calls[0] == 1u &&
++         fixed_echo_seen[0] &&
 +         fixed_last_cmd[0] == 45u, "command 45 routed directly to net service");
 +      Pi1MHz->JIM_ram[cp] = 80;
 +      ok(dispatch(CMD_PAGE) == 0x41u && fixed_calls[1] == 1u &&
++         fixed_echo_seen[1] &&
 +         fixed_last_cmd[1] == 80u, "command 80 routed directly to ElkWiFi service");
 +      Pi1MHz->JIM_ram[cp] = 94;
 +      ok(dispatch(CMD_PAGE) == 0x42u && fixed_calls[2] == 1u &&
++         fixed_echo_seen[2] &&
 +         fixed_last_cmd[2] == 94u, "command 94 routed directly to secure service");
 +      Pi1MHz->JIM_ram[cp] = 200;
        uint8_t echo = dispatch(CMD_PAGE);

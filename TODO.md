@@ -7,7 +7,7 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 ## Complete in this build
 
 - [x] Bare-metal Pi1MHz service integration on reviewed upstream commit
-  `516a267493d9f19e6bf2f4a2ea4c3e7472b12135`.
+  `d08242ee1b35cf1285b72c9ec1869e98081a8c3e`.
 - [x] Both Raspberry Pi kernel families and the complete SD-card bundle.
 - [x] AP5-safe FRED/JIM transport with no dependency on cartridge `&FC30` UART
   registers.
@@ -41,6 +41,12 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 - [x] Write-only `&FCFF` handling across the public OSWORD driver. Function 9
   returns a local four-byte `OK` response, and function 13 advances multi-page
   receive data through a RAM page shadow rather than hardware readback.
+- [x] Atomic shared-JIM access for generic command output, PING, local UEF
+  import and WGET finalisation. Electron/AP5 leaves `&FCFD/&FCFE` untouched;
+  BBC-family hosts explicitly select upper bank `00:00`.
+- [x] Pi1MHz FCAA selector-echo handling and partial TCP-send retry in the
+  public OSWORD function 13 path, including zero-byte backpressure and
+  fragmented receive tests.
 - [x] Original-compatible OSWORD function 18 response limited to station IP,
   real station MAC, and `OK`; Pi-only status fields moved to `*ONLINE`.
 - [x] Removal of emitted UART, AT-command, flash updater, printer, baud-rate,
@@ -108,10 +114,15 @@ ElkWiFi 0.23 cartridge and on 1MHzWifi.
 - [x] Start every public response at JIM `00:00:00`, maintain a RAM shadow for
   write-only `&FCFF`, terminate text where space permits, and maintain the
   two-byte response length used by original callers.
-- [ ] Add an automated 6502 harness which enters through MOS service reason 8
-  and OSWORD `&65`. It must execute functions 0, 3, 4 query, 5, 8, 9, 13, 14,
-  18, 20, 23 and 24 against the assembled ROM rather than calling private ROM
-  labels or the Pi service directly.
+- [x] Add an automated 6502 harness which enters through MOS service reason 8
+  and OSWORD `&65`. It executes functions 0, 3, 4 query, 5, 8, 9, 13, 14, 18
+  and 24 against the assembled ROM rather than calling private ROM labels or
+  the Pi service directly. Function 13 crosses several JIM pages.
+- [x] Extend the executable harness to cover functions 20 and 23 independently.
+  Confirmed the original `call_claimed` epilogue (unchanged from upstream
+  routines.asm) always restores the caller's own X/Y and reports only claim
+  status through A=0, so function 23's internal `Y=&FF` write is never
+  observable to any caller on either the original cartridge or 1MHzWifi.
 - [ ] Run that harness against both the unmodified ElkWiFi 0.23 ROM and the
   current 1MHzWifi ROM. Record byte-level response differences and either
   remove them or document why an exact match is impossible on Pi1MHz.
@@ -132,36 +143,88 @@ ElkWiFi 0.23 cartridge and on 1MHzWifi.
 The former 1mhzNetTools backlog is part of this repository and must not be
 tracked elsewhere.
 
-- [x] Remove the unimplemented `PING`, `NSLOOK`, `FTP`, `HGET` and `VIEWDAT`
-  placeholders from NETMENU, the source tree and the released SSD. Add them
-  only when complete clients and functional tests exist.
+- [x] Ship completed PING and NSLOOK clients with functional tests. Keep FTP,
+  HGET and Viewdata out of NETMENU and the released SSD until implemented.
 - [ ] Complete VT100 insert, delete and erase character operations, line
   insert/delete, scroll margins, terminal modes, tab clearing, DA/DSR replies,
   cursor-position replies, Home/Delete/function-key mappings and reply-queue
   backpressure.
-- [ ] Add long-running shell, editor and `top` fixtures for TERM and SSH.
+- [ ] Add long-running shell, editor and `top` fixtures for TELNET and SSH.
+- [ ] Add an optional 80-column TELNET/SSH display mode. Detect and claim a
+  suitable host-side expansion or shadow-RAM provider at runtime, use it for
+  screen backing and scrollback, and release it cleanly. Retain the current
+  40-column ordinary-RAM path as the minimum 32K Electron fallback. A fitted
+  Tube must remain available to applications and must never be used by the
+  standard host build.
+- [ ] Add an explicit 6502 Tube build of TELNET and SSH after the host build is
+  qualified. Keep all Pi1MHz register, JIM and OSWORD access in a bounded
+  host-resident gateway; use parasite RAM only for the application, display
+  model, scrollback and protocol buffers. Do not auto-select this build merely
+  because a Tube is present. Retain separate host binaries, and treat other
+  parasite CPUs as separate ports rather than assuming 6502 compatibility.
+- [ ] Apply the same optional host-gateway/parasite split to ElkChat without
+  changing its public ElkWiFi OSWORD ABI. The normal ElkChat build must still
+  run on a 32K host and against both the original cartridge and 1MHzWifi.
 - [ ] Implement the Viewdata/Prestel parser, MODE 7 renderer, input mapping and
   fragmented-page fixtures.
 - [x] Implement native PING and NSLOOK clients and service calls, with build
   and emulated-mailbox coverage.
 - [ ] Implement HGET HTTPS with certificate and hostname validation plus
   power-failure-safe output replacement. Implement FTP passive transfers.
-- [ ] Qualify TERM and SSH on physical BBC Micro, Master and Electron systems,
+- [ ] Qualify TELNET and SSH on physical BBC Micro, Master and Electron systems,
   including DFS, ADFS, MMFS and Tube coexistence where applicable.
 - [ ] Run the common ROM command and OSWORD matrix on BBC B, B+, Master,
   Master Compact and Electron. Verify OSBYTE `&81` selects `&FE05` only on
   Electron and `&FE30` on the BBC family. On non-Electron hosts, verify the
   compiled default `*MENU` is rejected and a target-specific custom
   `*MENUSRC` remains usable.
-- [ ] Repeat the physical `*SSH` test with the rebuilt SSD now shipped as
-  `build/pi1mhz-all/host-tools/nettools.ssd`. The 0.1.22 client
-  timed out at capability command 94 before authentication. ROM 0.1.40 makes
-  fixed capability discovery complete synchronously in the Pi services
-  callback, so it cannot wait behind RNG or wolfSSH reset work. The bounded
-  300-frame client wait remains in place for ordinary asynchronous commands.
-  The assembled SSD also
-  completes a real public-key-authenticated SSH shell under Elkulator without
-  `&2D`; physical hardware remains the open gate.
+- [ ] Repeat physical `*HWDTEST`, `*NSLOOK` and `*SSH` with the 0.1.52 SSD and
+  matching kernel. The 0.1.46 hardware diagnostic established that immediate
+  FCA9 auto-increment read-back differs from the synchronous emulator model.
+  Version 0.1.52 explicitly addresses every ROM and NetTools transfer byte,
+  waits for selector publication and the bounded FCA9 callback acknowledgement,
+  validates OSHWM/HIMEM and tests NSLOOK and managed SSH with both asynchronous
+  stages delayed. The 0.1.44 diagnostic
+  SSD reported `>2D S00 <2A` for
+  NSLOOK and `>5E S5E <2A` for SSH on a Pi 3A+ and Zero 2 W, with intermittent
+  NSLOOK success on another Zero 2 W. Its trace called MOS after selecting the
+  shared FCA6-FCA9 cursor, allowing another ROM to redirect the command write.
+  The 0.1.45 retest still produced `>2D S00 <2A`, `>5E S5E <2A`, corrupted
+  `*VERSION` after its second line and blocking ElkChat calls. `S5E` is the SSH
+  command byte, not a valid Pi stage marker. This demonstrates corruption of
+  the common Services cursor/data pair rather than independent DNS, SSH and
+  ElkChat defects. Version 0.1.46 restores the authoritative VPU-window
+  read/modify/write when publishing a single bus byte, so an `&FCA9` update
+  cannot restore a stale ARM-shadow value into adjacent `&FCA8`. It also prints
+  diagnostics first, masks IRQ while each request owns the
+  cursor and tests the same interference in the executable host fixture. It
+  also restores the upstream selector echo before fixed-command dispatch,
+  keeps capability discovery independent of the poll table and makes Pi reset
+  cleanup atomic against the FIQ request latch. The bounded 300-frame client
+  wait remains in place. The assembled SSD completes a real
+  public-key-authenticated SSH shell under Elkulator; physical hardware remains
+  the open gate.
+- [ ] Repeat `*MENU` and `*UEF LOAD` on physical hardware with ROM 0.1.52 after
+  the WiCFS lifecycle state path was moved onto the acknowledged FCA6-FCA9
+  cursor routines. The delayed-FIQ Elkulator gate reaches animated Thrust
+  gameplay with the AP5 Tube disabled and enabled. Arcadians remains a known
+  physical Tube-enabled exception at the end of its final cassette file; keep
+  the documented Tube-off workaround unless a generic fix is demonstrated.
+- [ ] Replace the fixed DFS application envelope with a reviewed two-stage,
+  page-relocatable loader. The current applications cannot select their own
+  load address because MOS must load their first instruction before OSBYTE
+  `&83` can be called. Keep the `&1D00` runtime guard until the relocatable
+  format and overlap-safe copy path have executable tests.
+- [ ] Add optional scrollback allocation for TELNET and SSH through an identified
+  JIM or sideways-RAM provider. Never assume a bank is spare, and retain the
+  current no-scrollback behavior when no allocator is available. ElkChat must
+  use the same optional capability without depending on it.
+- [ ] Repeat ElkChat Network Status, User List, Private Chat and Public Chat on
+  physical hardware. The 0.1.44 image hung in Network Status, returned `Unknown
+  option` from User List and corrupted the chat/menu display. Version 0.1.46
+  reselects the AP5's write-only JIM page with interrupts masked for every
+  public response byte. Machine detection remains a documented OSBYTE `&81`
+  query at driver entry; its result is not cached in volatile `&0900` heap.
 - [ ] Run the complete secure-service test matrix on both shipped Pi kernel
   families and all supported WiFi boards. Include changed-host rejection,
   password failure, Escape cancellation, reconnect, long sessions and power
@@ -171,13 +234,13 @@ tracked elsewhere.
 
 No implementation placeholder remains on the declared 1MHzWifi ROM
 station-mode, plain-HTTP command surface. The native-tools SSD ships only the
-implemented TERM, SSH and NETMENU programs. ROM 0.1.30 reached visible Zalaga,
+implemented TELNET, SSH and NETMENU programs. ROM 0.1.30 reached visible Zalaga,
 Arcadians, Last of the Free and E-Type gameplay in the AP5-accurate live
 Elkulator profile without a Tube. Castle of Riddles reached its interactive
-command prompt. The exact 0.1.40 ROM now passes a fresh Zalaga MENU run and
-local Thrust gameplay with Tube disabled and enabled.
+command prompt. The current 0.1.52 ROM passes fresh, current-hash FrakV2 MENU
+runs and local Thrust gameplay with Tube disabled and enabled.
 
-ROM 0.1.40 retains host-only WiCFS transfer and the Tube-active host
+ROM 0.1.52 retains host-only WiCFS transfer and the Tube-active host
 BASIC workspace. `QHOST` now queues `PAGE=&E00` before the internal WiCFS
 second stage, so BASIC CHAIN continuation uses the same host address range
 with Tube enabled and disabled. No Tube register is accessed and no program is
@@ -211,7 +274,7 @@ Tube. The matching Elkulator profile now mounts MMFS and runs the Desk Diary
 UEF end to end; physical execution and filing-system recovery after Break are
 still required.
 
-After the 0.1.40 Tube-active, filing-system reset and WiFi association
+After the 0.1.52 Tube-active, filing-system reset and WiFi association
 corrections pass on physical hardware, the ROM
 version moves to a 0.9.x release-candidate series. Version 1.0 requires the
 original-ElkWiFi OSWORD comparison and all filing-system coexistence gates.

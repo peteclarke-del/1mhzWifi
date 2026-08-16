@@ -1157,13 +1157,22 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     pi1mhz_net_backend *backend = (pi1mhz_net_backend *)opaque;
     unsigned index = selector & 0x0Fu;
     uint8_t *command;
+    uint8_t *service_jim;
+    size_t service_base;
+    size_t service_size;
     net_handle *handle;
-    if (!backend || command_pointer + 224 > jim_size)
+    if (!backend || jim_size < PI1MHZ_SERVICE_SIZE)
         return NET_ERR_PARAM;
-    command = jim + command_pointer;
+    service_base = jim_size - PI1MHZ_SERVICE_SIZE;
+    service_size = jim_size - service_base;
+    if (command_pointer < service_base ||
+        command_pointer - service_base + 224u > service_size)
+        return NET_ERR_PARAM;
+    service_jim = jim + service_base;
+    command = service_jim + (command_pointer - service_base);
     if (command[0] == FAT_CMD_READ_SECTORS ||
         command[0] == FAT_CMD_WRITE_SECTORS)
-        return do_fat_sectors(backend, command, jim, jim_size);
+        return do_fat_sectors(backend, command, service_jim, service_size);
     if (selector == 0xFFu && command[0] == ELKWIFI_CMD_UEF_NORMALIZE)
         return normalize_uef_control(command, jim, jim_size);
     switch (command[0]) {
@@ -1211,17 +1220,17 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     case NET_CMD_CONNECT:
         return do_raw_connect(backend, handle, index, command);
     case NET_CMD_SEND:
-        return do_write(backend, handle, index, command, jim, jim_size);
+        return do_write(backend, handle, index, command, service_jim, service_size);
     case NET_CMD_RECV:
-        return do_read(backend, handle, index, command, jim, jim_size);
+        return do_read(backend, handle, index, command, service_jim, service_size);
     case NET_CMD_CLOSE:
         return do_close(backend, handle, index);
     case NET_CMD_URL_OPEN:
         return do_open(backend, handle, index, command);
     case NET_CMD_URL_READ:
-        return do_read(backend, handle, index, command, jim, jim_size);
+        return do_read(backend, handle, index, command, service_jim, service_size);
     case NET_CMD_URL_WRITE:
-        return do_write(backend, handle, index, command, jim, jim_size);
+        return do_write(backend, handle, index, command, service_jim, service_size);
     case NET_CMD_URL_CLOSE:
         return do_close(backend, handle, index);
     case SEC_CMD_CAPS:
@@ -1230,9 +1239,9 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     case SEC_CMD_SSH_WRITE:
     case SEC_CMD_SSH_CLOSE:
     case SEC_CMD_SSH_PASSWORD:
-        return do_secure(backend, handle, index, command, jim, jim_size);
+        return do_secure(backend, handle, index, command, service_jim, service_size);
     case SEC_CMD_RANDOM:
-        return do_secure(backend, handle, index, command, jim, jim_size);
+        return do_secure(backend, handle, index, command, service_jim, service_size);
     default:
         return PI1MHZ_NET_UNSUPPORTED;
     }

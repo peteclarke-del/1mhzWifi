@@ -4,36 +4,84 @@ REPO_ROOT := ..
 MAILBOX := $(REPO_ROOT)/emulator/pi1mhz-mailbox
 PI_OVERLAY := $(REPO_ROOT)/pi-side/pi1mhz-516a267/overlay/src
 
-.PHONY: all test test-elkulator test-elkulator-ssh-real test-ssh-real test-pi-firmware emulator-deps emulator-smoke-images clean distclean
+# NET_DEBUG=1 traces the shared FCA6-FCA9 command/result sequence on screen
+# for real-hardware debugging. `make debug` always builds a NET_DEBUG=1 disc
+# (build/nettools-debug.ssd) alongside the normal build; this variable exists
+# only if you want the default `all`/`test` targets built with tracing too.
+NET_DEBUG ?= 0
+
+.PHONY: all debug test test-elkulator test-elkulator-ssh-real test-ssh-real test-pi-firmware emulator-deps emulator-smoke-images clean distclean
 
 all: build/nettools.ssd
+
+debug: build/nettools-debug.ssd
 
 build:
 	mkdir -p build
 
-COMMON_SOURCES := src/common/mos.inc src/common/pi1mhz_net.asm
+COMMON_SOURCES := src/common/mos.inc src/common/pi1mhz_net.asm src/common/application.asm
 
-build/TERM: src/term.asm src/vt100.asm $(COMMON_SOURCES) | build
-	$(BEEBASM) -i src/term.asm -o $@
+build/TELNET: src/telnet.asm src/vt100.asm $(COMMON_SOURCES) | build
+	$(BEEBASM) -i src/telnet.asm -o $@ -D NET_DEBUG=$(NET_DEBUG)
 
 build/SSH: src/ssh.asm src/vt100.asm src/common/pi1mhz_secure.asm $(COMMON_SOURCES) | build
-	$(BEEBASM) -i src/ssh.asm -o $@
+	$(BEEBASM) -i src/ssh.asm -o $@ -D NET_DEBUG=$(NET_DEBUG)
 
 build/PING: src/ping.asm src/common/tool_common.asm $(COMMON_SOURCES) | build
-	$(BEEBASM) -i src/ping.asm -o $@
+	$(BEEBASM) -i src/ping.asm -o $@ -D NET_DEBUG=$(NET_DEBUG)
 
 build/NSLOOK: src/nslook.asm src/common/tool_common.asm $(COMMON_SOURCES) | build
-	$(BEEBASM) -i src/nslook.asm -o $@
+	$(BEEBASM) -i src/nslook.asm -o $@ -D NET_DEBUG=$(NET_DEBUG)
 
-build/NETMENU: src/netmenu.asm src/common/mos.inc | build
+build/NETMENU: src/netmenu.asm src/common/mos.inc src/common/application.asm | build
 	$(BEEBASM) -i src/netmenu.asm -o $@
 
-build/nettools.ssd: src/disc.asm build/NETMENU build/TERM build/SSH build/PING build/NSLOOK | build
+build/HWDTEST: src/hwdtest.asm src/common/pi1mhz_net.asm src/common/tool_common.asm src/common/mos.inc src/common/application.asm | build
+	$(BEEBASM) -i src/hwdtest.asm -o $@ -D NET_DEBUG=0
+
+build/NETMENUL: src/tool_loader.asm src/common/mos.inc | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=1
+
+build/TELNETL: src/tool_loader.asm src/common/mos.inc | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=2
+
+build/SSHL: src/tool_loader.asm src/common/mos.inc | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=3
+
+build/PINGL: src/tool_loader.asm src/common/mos.inc | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=4
+
+build/NSLOOKL: src/tool_loader.asm src/common/mos.inc | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=5
+
+build/HWDTESTL: src/tool_loader.asm src/common/mos.inc | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=6
+
+LOADERS := build/NETMENUL build/TELNETL build/SSHL build/PINGL build/NSLOOKL build/HWDTESTL
+
+build/nettools.ssd: src/disc.asm build/NETMENU build/TELNET build/SSH build/PING build/NSLOOK build/HWDTEST $(LOADERS) | build
 	rm -f $@
 	$(BEEBASM) -i src/disc.asm -do $@ -boot NETMENU -title NETTOOLS
 	truncate -s 204800 $@
 
-build/TERMBOOT: src/term_smoke_boot.asm | build
+build/TELNET-debug: src/telnet.asm src/vt100.asm $(COMMON_SOURCES) | build
+	$(BEEBASM) -i src/telnet.asm -o $@ -D NET_DEBUG=1
+
+build/SSH-debug: src/ssh.asm src/vt100.asm src/common/pi1mhz_secure.asm $(COMMON_SOURCES) | build
+	$(BEEBASM) -i src/ssh.asm -o $@ -D NET_DEBUG=1
+
+build/PING-debug: src/ping.asm src/common/tool_common.asm $(COMMON_SOURCES) | build
+	$(BEEBASM) -i src/ping.asm -o $@ -D NET_DEBUG=1
+
+build/NSLOOK-debug: src/nslook.asm src/common/tool_common.asm $(COMMON_SOURCES) | build
+	$(BEEBASM) -i src/nslook.asm -o $@ -D NET_DEBUG=1
+
+build/nettools-debug.ssd: src/disc-debug.asm build/NETMENU build/TELNET-debug build/SSH-debug build/PING-debug build/NSLOOK-debug build/HWDTEST $(LOADERS) | build
+	rm -f $@
+	$(BEEBASM) -i src/disc-debug.asm -do $@ -boot NETMENU -title NETTOOLS
+	truncate -s 204800 $@
+
+build/TELNETBOOT: src/telnet_smoke_boot.asm | build
 	$(BEEBASM) -i $<
 
 build/SSHBOOT: src/ssh_smoke_boot.asm | build
@@ -42,25 +90,25 @@ build/SSHBOOT: src/ssh_smoke_boot.asm | build
 build/SSHREALBOOT: src/ssh_real_smoke_boot.asm | build
 	$(BEEBASM) -i $<
 
-build/term-smoke.ssd: src/smoke_disc.asm build/TERMBOOT build/NETMENU build/TERM build/SSH | build
+build/telnet-smoke.ssd: src/smoke_disc.asm build/TELNETBOOT build/NETMENU build/TELNET build/SSH $(LOADERS) | build
 	rm -f $@
-	$(BEEBASM) -i src/smoke_disc.asm -do $@ -opt 3 -title TERMTEST \
+	$(BEEBASM) -i src/smoke_disc.asm -do $@ -opt 3 -title TELNET \
 		-D SSH_SMOKE=0 -D SSH_REAL_SMOKE=0
 	truncate -s 204800 $@
 
-build/ssh-smoke.ssd: src/smoke_disc.asm build/SSHBOOT build/NETMENU build/TERM build/SSH | build
+build/ssh-smoke.ssd: src/smoke_disc.asm build/SSHBOOT build/NETMENU build/TELNET build/SSH $(LOADERS) | build
 	rm -f $@
 	$(BEEBASM) -i src/smoke_disc.asm -do $@ -opt 3 -title SSH_TEST \
 		-D SSH_SMOKE=1 -D SSH_REAL_SMOKE=0
 	truncate -s 204800 $@
 
-build/ssh-real-smoke.ssd: src/smoke_disc.asm build/SSHREALBOOT build/NETMENU build/TERM build/SSH | build
+build/ssh-real-smoke.ssd: src/smoke_disc.asm build/SSHREALBOOT build/NETMENU build/TELNET build/SSH $(LOADERS) | build
 	rm -f $@
 	$(BEEBASM) -i src/smoke_disc.asm -do $@ -opt 3 -title SSH_REAL \
 		-D SSH_SMOKE=0 -D SSH_REAL_SMOKE=1
 	truncate -s 204800 $@
 
-emulator-smoke-images: build/term-smoke.ssd build/ssh-smoke.ssd
+emulator-smoke-images: build/telnet-smoke.ssd build/ssh-smoke.ssd
 
 test-elkulator: emulator-smoke-images
 	./tests/run_elkulator_smoke.sh
@@ -97,7 +145,7 @@ build/test-secure-service-core: \
 		-I $(PI_OVERLAY) $(REPO_ROOT)/pi-side/tests/test_secure_service_core.c \
 		$(PI_OVERLAY)/secure_service_core.c -o $@
 
-test: build/nettools.ssd build/test-pi1mhz-mailbox build/test-pi1mhz-live \
+test: build/nettools.ssd build/nettools-debug.ssd build/test-pi1mhz-mailbox build/test-pi1mhz-live \
 		build/test-secure-service-core
 	./build/test-pi1mhz-mailbox
 	./build/test-pi1mhz-live

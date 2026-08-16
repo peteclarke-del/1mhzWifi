@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "c60362a92ab600ec76d4f26765111ce1de5d6e48a8fe456353d0dbb5ac8e6ba4"
+ROM_SHA256 = "bfaf33235ac4b3d96bae3c47a38080d5fd01795094bd52af5d42933bbfaf8f04"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -18,22 +18,38 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(len(self.rom), 16 * 1024)
         self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
-            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x18, 0x29))
+            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x18, 0x30))
         )
         copyright_offset = self.rom[7]
         self.assertEqual(self.rom[copyright_offset:copyright_offset + 4], b"\0(C)")
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.41\0")
-        self.assertIn(b"1MHzWifi 0.1.41 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.52\0")
+        self.assertIn(b"1MHzWifi 0.1.52 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
         helper = bytes.fromhex("EA EA EA EA EA EA EA EA EA B9 00 FD 60")
         self.assertEqual(self.rom.count(helper), 1)
         self.assertIn(bytes.fromhex("20 C5 1F EA EA EA EA EA"), self.rom)
-        self.assertNotIn(bytes.fromhex("8D FD FC"), self.rom)
-        self.assertNotIn(bytes.fromhex("8D FE FC"), self.rom)
+        self.assertRegex(
+            self.rom,
+            re.compile(bytes.fromhex("E0 01 F0") + b"."
+                       + bytes.fromhex("8D FD FC 20") + b".."
+                       + bytes.fromhex("8D FE FC 20"), re.S),
+        )
         self.assertIn(b"TAPE\r", self.rom)
+
+    def test_uef_file_handle_is_recovered_from_each_stack_context(self) -> None:
+        # Inline read: TSX; LDY &0103,X; JSR OSBGET.
+        self.assertEqual(
+            self.rom.count(bytes.fromhex("BA BC 03 01 20 D7 FF")), 1
+        )
+        # Close helper: JSR has added its return address, so the saved OSFIND
+        # handle is two bytes farther away: TSX; LDY &0105,X; LDA #0;
+        # JSR OSFIND; RTS.
+        self.assertEqual(
+            self.rom.count(bytes.fromhex("BA BC 05 01 A9 00 20 CE FF 60")), 1
+        )
         # WiCFS retains its original OSBYTE &8C trap so a protected loader's
         # internal *TAPE cannot disconnect a multi-stage virtual tape.
         self.assertIn(bytes.fromhex("C9 8C D0 01 60 4C 00 00 EA"), self.rom)
@@ -69,20 +85,10 @@ class RomCompatibilityTest(unittest.TestCase):
         # Extended vector entry points for FILEV/BGETV/FINDV/FSCV.
         for entry in (0x1B, 0x21, 0x2A, 0x2D):
             self.assertIn(bytes((0xA9, entry, 0x8D)), self.rom)
-        # The helper call address moves as dead legacy routines are removed.
-        # Match the surrounding JIM length transaction, not a linker address.
-        length_read = re.compile(
-            bytes.fromhex("20")
-            + b".."
-            + bytes.fromhex("A9 FF 8D FF FC AD FE FD 85 F8")
-            + b".{0,12}"
-            + bytes.fromhex("AD FF FD 85 F9"),
-            re.DOTALL,
-        )
-        self.assertEqual(len(length_read.findall(self.rom)), 1)
-        # The local UEF importer also reads and increments this trailer. The
-        # complete WiCFS rewind transaction above must remain unique, while
-        # individual trailer reads are expected in both implementations.
+        # WiCFS reads the authoritative length trailer at rewind. The local
+        # importer checkpoints a CPU-side count and reads the trailer only at
+        # operation boundaries, so the retired per-byte byte pattern is not a
+        # compatibility requirement.
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FE FD")), 1)
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FF FD")), 1)
         # &03E0-&03FF is the MOS keyboard input buffer containing MENU/UEF's
@@ -164,12 +170,23 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn("driver_page_shadow = heap+&D8", driver)
         common_entry = driver.split("jsr set_bank_0", 1)[1].split("lda save_a", 1)[0]
         self.assertIn("sta driver_page_shadow", common_entry)
-        self.assertIn("sta pagereg", common_entry)
+        self.assertIn(".select_public_page_a", serial)
+        self.assertIn("sta &FCFD\n jsr wicfs_bus_delay\n sta &FCFE", serial)
+        self.assertIn("sta pagereg\n jsr wicfs_bus_delay", serial)
+        self.assertGreaterEqual(driver.count("jsr select_public_page_a"), 5)
         self.assertIn("ldx driver_page_shadow", driver)
         self.assertNotIn("ldx pagereg", driver)
         self.assertNotIn("inc pagereg", service)
         self.assertGreaterEqual(service.count("stx driver_page_shadow"), 4)
         self.assertIn("inc driver_page_shadow", service)
+        self.assertIn(".service_driver_wait_cursor", service)
+        self.assertIn(".service_driver_read_a", service)
+        self.assertGreaterEqual(service.count("jsr service_driver_read_a"), 3)
+        self.assertGreaterEqual(service.count("jsr service_driver_wait_cursor"), 3)
+
+        transport = (ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm").read_text()
+        self.assertIn(".net_wait_cursor", transport)
+        self.assertGreaterEqual(transport.count("jsr net_wait_cursor"), 2)
 
         join = service.split(".service_driver_join", 1)[1].split(
             ".service_driver_leave", 1
@@ -184,10 +201,11 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn("ldy drv_net_index", open_tcp)
         self.assertNotIn("sta drv_net_index\n.service_driver_copy_ip", open_tcp)
 
-        for selector in (".set_bank_0", ".set_bank_1", ".set_bank_a"):
-            routine = serial.split(selector, 1)[1].split("\n\n", 1)[0]
-            self.assertNotIn("sta &FCFD", routine)
-            self.assertNotIn("sta &FCFE", routine)
+        selector = serial.split(".select_public_page_a", 1)[1].split(
+            ".set_bank_1", 1
+        )[0]
+        self.assertIn("cpx #1\n beq set_bank_0_page", selector)
+        self.assertIn("sta &FCFD\n jsr wicfs_bus_delay\n sta &FCFE", selector)
 
     def test_retired_cartridge_code_is_not_emitted(self) -> None:
         for legacy in (

@@ -6,25 +6,29 @@ ORG APP_START
 GUARD APP_LIMIT
 
 .start
+    JSR application_check_workspace
+    BCS nslook_memory_safe
+    JMP application_exit
+.nslook_memory_safe
     JSR mos_get_command_tail
     JSR tool_read_argument
     BCS nslook_have_host
     LDX #LO(nslook_usage)
     LDY #HI(nslook_usage)
     JSR tool_print_string
-    RTS
+    JMP application_exit
 .nslook_have_host
     JSR net_probe
     BCS nslook_service_present
     LDX #LO(nslook_no_service)
     LDY #HI(nslook_no_service)
     JSR tool_print_string
-    RTS
+    JMP application_exit
 .nslook_service_present
     LDA #NET_CMD_OPEN
     JSR net_begin
     LDA #NET_TYPE_TCP
-    STA SERVICE_DATA
+    JSR net_data_write
     JSR net_dispatch
     CMP #NET_OK
     BNE nslook_error
@@ -33,7 +37,7 @@ GUARD APP_LIMIT
     LDX #0
 .nslook_copy_host
     LDA tool_argument,X
-    STA SERVICE_DATA
+    JSR net_data_write
     BEQ nslook_resolve
     INX
     BNE nslook_copy_host
@@ -41,18 +45,26 @@ GUARD APP_LIMIT
     JSR net_dispatch_wait
     CMP #NET_OK
     BNE nslook_error_close
+    PHP
+    SEI
     JSR net_select_command
     LDA #4
-    STA SERVICE_ADDR_LO
+    JSR net_set_cursor_low
+    LDX #0
+.nslook_copy_ip
+    JSR net_data_read
+    STA nslook_address,X
+    INX
+    CPX #4
+    BNE nslook_copy_ip
+    PLP
     LDX #LO(nslook_prefix)
     LDY #HI(nslook_prefix)
     JSR tool_print_string
     LDX #0
 .nslook_print_ip
     STX nslook_octet
-    LDA SERVICE_DATA
-    PHA
-    PLA
+    LDA nslook_address,X
     JSR tool_print_u8
     LDX nslook_octet
     INX
@@ -66,7 +78,7 @@ GUARD APP_LIMIT
     LDA #NET_CMD_CLOSE
     JSR net_begin
     JSR net_dispatch_wait
-    RTS
+    JMP application_exit
 .nslook_error_close
     PHA
     LDA #NET_CMD_CLOSE
@@ -75,7 +87,7 @@ GUARD APP_LIMIT
     PLA
 .nslook_error
     JSR tool_show_error
-    RTS
+    JMP application_exit
 
 .nslook_usage
     EQUS "Usage: *NSLOOK host", 13, 0
@@ -85,9 +97,12 @@ GUARD APP_LIMIT
     EQUS "Address: ", 0
 .nslook_octet
     EQUB 0
+.nslook_address
+    SKIP 4
 
 INCLUDE "src/common/pi1mhz_net.asm"
 INCLUDE "src/common/tool_common.asm"
+INCLUDE "src/common/application.asm"
 
 .end
 SAVE start, end, start

@@ -15,13 +15,22 @@ The generated image is exactly 16 KiB.
 
 The ROM uses `&FCA6-&FCAA` for Pi1MHz service requests, `&FCFF` for the
 AP5-visible JIM page selector and `&FD00-&FDFF` for page data. It never falls
-through to the original `&FC30` cartridge UART. AP5 does not forward `&FCFD`
-or `&FCFE`, so public buffers and UEF data stay in the low 64 KiB JIM window.
+through to the original `&FC30` cartridge UART. On Electron, AP5 does not
+forward `&FCFD` or `&FCFE`, so public buffers and UEF data stay in the low
+64 KiB JIM window without touching those registers. On BBC-family machines,
+the ROM detects the platform through OSBYTE `&81` and explicitly selects upper
+JIM bank `00:00` before exposing the same public buffer.
 
 Slow work is not performed by the ROM. The ROM writes a bounded command block,
-dispatches it, yields with OSBYTE `&13` while the Pi reports busy, checks Escape
-and applies a finite timeout. Escape sends command 90 so the Pi can invalidate
+dispatches it, treats every bit-7-set status including the physical selector
+echo as busy, yields with OSBYTE `&13`, checks Escape and applies a finite
+timeout. Escape sends command 90 so the Pi can invalidate
 late DNS, ICMP, NTP and scan callbacks.
+
+After a service completes, the ROM masks interrupts, reselects the complete
+`01:FF:FF` service-response cursor and copies the bounded reply before restoring
+the previous interrupt state. This prevents IRQ-side MMFS or ADFS activity
+from redirecting FCA9 between the completion poll and the response copy.
 
 ## Public compatibility surface
 
@@ -31,7 +40,14 @@ receive, channel query and WiFi control. Function 9 validates `0`, CR and
 returns an original-style `OK` locally because Pi1MHz exposes one TCP
 connection. Function 13 reads the original five-byte zero-page control block,
 sends the complete source buffer and gathers the response into sequential JIM
-pages.
+pages. Pi1MHz may accept only part of a TCP write. The ROM advances the caller's
+pointer only by the returned queued-byte count and retries zero or partial
+writes. Receive polling continues across empty inter-packet gaps until EOF or
+the bounded idle deadline.
+
+Function 24 uses a separate internal Pi command from version and status. An
+enable request starts radio setup and returns promptly, matching the original
+driver contract; later function 18 calls report whether addressing is ready.
 
 Unsupported cartridge-only functions return a MOS `Not implemented` error.
 They do not call removed UART, flash, printer or baud-rate code.
@@ -68,7 +84,9 @@ The OSFILE control-block pointer and X/Y are preserved across a load. Returned
 catalogue metadata is taken from the UEF header after the payload has been
 placed at the destination selected by the filing-system operation. Zero-length
 blocks, final-block lengths, multi-file streams and write-only `&FCFF` are
-handled explicitly.
+handled explicitly. Generic responses, local UEF import and WGET finalisation
+reselect the page and access JIM with interrupts masked, while MOS filing calls
+remain outside those short critical sections.
 
 With an active Tube, the downloaded Electron menu and its cassette loaders
 must still run on the I/O processor. The verified menu launch enters the

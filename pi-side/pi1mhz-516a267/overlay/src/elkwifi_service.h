@@ -20,6 +20,7 @@ void elkwifi_service_command(uint32_t command_pointer, uint32_t address,
 #define ELKWIFI_CMD_PING         88u
 #define ELKWIFI_CMD_DATETIME     89u
 #define ELKWIFI_CMD_CANCEL       90u
+#define ELKWIFI_CMD_RADIO        91u
 #define ELKWIFI_CMD_ONLINE       92u
 #define ELKWIFI_CMD_UEF_NORMALIZE 93u
 #define ELKWIFI_CMD_LAST         ELKWIFI_CMD_UEF_NORMALIZE

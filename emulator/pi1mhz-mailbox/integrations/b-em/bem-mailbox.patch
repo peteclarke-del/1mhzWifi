@@ -1,0 +1,41 @@
+--- a/src/6502.c
++++ b/src/6502.c
+@@ -29,6 +29,7 @@
+ #include "vdfs.h"
+ #include "video.h"
+ #include "wd1770.h"
++#include "pi1mhz_bem.h"
+ 
+ static int dbg_core6502 = 0;
+ 
+@@ -233,5 +234,6 @@ static void polltime(int c)
+ {
+     cycles -= c;
++    pi1mhz_bem_run_host_cycles(c);
+     via_poll(&sysvia, c);
+     via_poll(&uservia, c);
+     video_poll(c, 1);
+@@ -393,6 +395,10 @@
+                 }
+         }
+ 
++        if (pi1mhz_bem_handles_read((uint16_t)addr))
++                return pi1mhz_bem_read((uint16_t)addr);
++        pi1mhz_bem_snoop_read((uint16_t)addr);
++
+         if (addr >= 0xFCFD && addr <= 0xFDFF) {
+             // JIM, including paging registers in FRED.
+             if (sound_paula) {
+@@ -822,6 +828,12 @@
+                 }
+         }
+ 
++        if (pi1mhz_bem_handles_write((uint16_t)addr)) {
++                pi1mhz_bem_write((uint16_t)addr, (uint8_t)val);
++                return;
++        }
++        pi1mhz_bem_snoop_write((uint16_t)addr, (uint8_t)val);
++
+         if (addr >= 0xFCFD && addr <= 0xFDFF) {
+             // JIM, including paging registers in FRED.
+             if (addr >= 0xFCFF && sound_music5000)

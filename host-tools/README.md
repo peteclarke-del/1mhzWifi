@@ -7,7 +7,7 @@ directly. They do not require the 1MHzWifi/ElkWiFi service ROM.
 
 ## Current programs
 
-- `TERM host [port]`: interactive Telnet client using Pi1MHz's `TELNET:`
+- `TELNET host [port]`: interactive Telnet client using Pi1MHz's `TELNET:`
   adapter and a native VT100 parser. Port 23 is the default. Press
   `Ctrl-]` to disconnect.
 - `SSH user@host [port]`: interactive SSH-2 VT100 client over the versioned
@@ -18,14 +18,61 @@ directly. They do not require the 1MHzWifi/ElkWiFi service ROM.
   without exposing private keys or session keys to the 6502.
 - `NETMENU`: concise on-disc launcher/help screen.
 
-Unimplemented commands are not placed on the released SSD. Planned `PING`,
-`NSLOOK`, `FTP`, `HGET` and Viewdata clients remain in the engineering roadmap
-until they have complete implementations and functional tests.
+- `PING host`: four ICMP echo requests using Pi1MHz's `*PING`-compatible
+  ElkWiFi command surface.
+- `NSLOOK host`: resolves and prints an IPv4 address using the raw TCP/DNS
+  command surface.
+- `HWDTEST`: hardware/emulator alignment diagnostic. It reports the MOS
+  machine and Tube state, memory limits and key vectors, then checks the
+  `&FCA6-&FCA9` cursor/data pair, a Services JIM block and secure capability
+  command 94. It finally invokes `*ROMS` and `*VERSION` for a complete profile.
+  It does not access the Tube or write to a filing-system volume.
 
-The executables have DFS load and execution addresses encoded as `&FFFF1900`.
-This makes Tube-aware filing systems load and execute them on the I/O
-processor. The applications neither claim nor use a Tube parasite. Without a
-Tube, they execute normally at `&1900`.
+The D2 hardware diagnostic brackets OSBYTE calls and prints the raw capability
+bytes. The reference mailbox emulator produces these diagnostic lines:
+
+```text
+Loader OSHWM=&0800 HIMEM=&1D00
+FCA9 req 00 F0 FF <= 5E
+FCA6-9 after: 01 F0 FF 5E PASS
+Addressed JIM block: PASS
+FCA9 callback ACK: PASS
+Secure CAPS result=&00
+CAPS 1-5: 01 01 07 B8 88
+CAPS 6-10: 01 01 4E 54 53
+```
+
+Run `*HWDTEST` unchanged in Elkulator and on physical hardware. It pauses so
+the diagnostic values, ROM list and version response can be captured as three
+screens. Any differing register byte or `FAIL` identifies the first
+boundary where the emulator and live bus disagree. Machine, memory, vector and
+ROM-list values vary with the host configuration and must be compared as a
+complete profile.
+
+Unimplemented commands are not placed on the released SSD. Planned `FTP`,
+`HGET` and Viewdata clients remain in the engineering roadmap until they have
+complete implementations and functional tests.
+
+Each public command is a small bootstrap at `&FFFF2000`. This is above the
+measured DFS OSHWM of `&1F00`. On the photographed MMFS/ADFS profile, where
+HIMEM is `&1D00`, it initially occupies writable display RAM. The bootstrap
+preserves the command tail, selects MODE 4 and verifies HIMEM `&5800` before
+running the non-overlapping main image at `&FFFF2200`. MODE 4 screen memory
+starts at `&5800`, so clearing the new screen does not erase either stage.
+
+The `&FFFF` address prefix keeps both stages on the I/O processor when a Tube
+is active. Neither stage claims nor uses the parasite. Every main entry point
+repeats the OSHWM and HIMEM checks before using the mailbox. An OSHWM above
+`&2000` is rejected as an unmeasured profile. This bound is explicit because a
+program cannot discover a conflicting OSHWM until MOS has already loaded it.
+
+The address choice is based on Acorn's memory model, not an emulator-specific
+exception. The Electron documentation gives MODE 4 screen memory as
+`&5800-&7FFF`, and Acorn's Master Tube documentation reserves `&FFFF0000` to
+`&FFFFFFFF` for host addresses. See the
+[Electron screen-memory table](https://www.acornelectron.co.uk/eug/38/a-pro3.html)
+and the
+[Advanced Master Reference Manual](https://www.bbproj.org/files/computer/machine-bbc-micro/manuals/advanced-master-reference-manual.pdf).
 
 ## Requirements
 
@@ -33,8 +80,8 @@ Tube, they execute normally at `&1900`.
   and managed secure service commands 94-100.
 - `net_enable=1` in `Pi1MHz.cfg`.
 - Configured, associated WiFi.
-- MODE 4 and memory available from `&1900` to below `&5800`; this is compatible
-  with a stock 32 KiB Electron baseline.
+- Host OSHWM no higher than `&2000`. The bootstrap establishes MODE 4 memory
+  for the main image from `&2200` to `&5800`.
 
 ## Repository layout
 
@@ -62,12 +109,45 @@ Output: `build/nettools.ssd`.
 Use `make clean` to remove build outputs. Use `make distclean` to also remove
 the local py65 installation and Python bytecode caches.
 
-`make test` extracts `TERM` and `SSH` from the finished DFS image and executes
+`make test` extracts `TELNET` and `SSH` from the finished DFS image and executes
 those exact payloads on py65 with emulated MOS entry points and a byte-accurate
 Pi1MHz services mailbox/JIM fixture. It tests fragmented network input, forced
 partial writes, keyboard sequences, VT100 rendering, managed SSH shell I/O,
 unknown-host acceptance, clean close and missing-service failure.
 Assembly/catalogue-only checks are not considered a functional test.
+
+### Real-hardware debug tracing
+
+`TELNET`, `SSH`, `PING` and `NSLOOK` share the `pi1mhz_net.asm` command/result
+dispatch loop over the `&FCA6`-`&FCAA` mailbox registers. `make debug` builds
+a second disc image, `build/nettools-debug.ssd`, from `NET_DEBUG=1` object
+files (`build/TELNET-debug`, `build/SSH-debug`, `build/PING-debug`,
+`build/NSLOOK-debug`) alongside the normal `build/nettools.ssd`, without
+rebuilding or overwriting it. Booting the debug disc prints the mailbox
+command/result sequence on screen: `>` followed by two hex digits before the
+shared cursor is selected and the command is written to `SERVICE_DATA`, and
+`<` followed by two hex digits after
+each poll of `SERVICE_COMMAND` returns a non-busy result (including every
+intermediate `&01`/pending poll during a bounded `net_dispatch_wait` retry
+loop). Command and result byte values match `docs/secure_service_abi.md` and
+the `NET_CMD_*`/`SEC_CMD_*` constants in `src/common/mos.inc` and
+`src/common/pi1mhz_secure.asm`.
+
+```sh
+make debug
+```
+
+Printing before cursor selection is required. MOS output may enter another ROM
+which also uses FCA6-FCA9. The executable debug regression deliberately
+redirects the cursor on every MOS output call and verifies that NSLOOK still
+dispatches and returns an address.
+
+This is a physical-hardware diagnostic only; `build/nettools.ssd` (built by
+plain `make`/`make test`) is never affected by it and stays the release
+configuration. The debug disc's extra trace output is written directly to the
+current screen mode, so it interleaves with VT100 rendering and will not
+match the golden-screen assertions in `tests/test_emulated_clients.py`. That
+suite is only expected to pass against the default build.
 
 The reusable Elkulator integration under
 `../emulator/pi1mhz-mailbox/integrations/elkulator` adds the Pi1MHz services
@@ -76,6 +156,20 @@ Its control selector implements 1MHzWifi menu settings and UEF command 93.
 The UEF path recognizes raw, gzip and single-entry ZIP inputs, validates the
 container and CRC, updates the JIM length trailer and keeps command 93 distinct
 from secure random on socket selectors.
+
+The executables are host-resident transients. With or without a Tube they use
+the standard host-utility convention and return through the active OSCLI call
+with `RTS`. They neither re-enter the current language nor modify BASIC's
+program area while returning.
+
+The released binaries deliberately target the 32K host baseline. A future
+optional display mode may use runtime-detected host shadow or writable
+sideways RAM for an 80-column screen and scrollback, while retaining the
+current 40-column path when no safe provider exists. A separate 6502 Tube
+edition may use parasite RAM, but only behind a small host-resident gateway:
+the gateway remains solely responsible for OSWORD, JIM and Pi1MHz bus access.
+The standard binaries will never claim a fitted Tube, and non-6502 parasites
+require distinct ports.
 Install it into a clean Elkulator source tree with:
 
 ```sh
@@ -89,11 +183,16 @@ binary image and optionally set `PI1MHZ_JIM_IMAGE_ADDRESS` to its base address
 which do not fit in the emulated 16 MiB JIM RAM.
 
 The full Electron/DFS gate builds a disposable patched Elkulator tree and boots
-dedicated TERM and SSH images:
+dedicated TELNET and SSH images:
 
 ```sh
 make test-elkulator
 ```
+
+The gate runs both clients with the AP5 Tube disabled and enabled and uses the
+calibrated physical FIQ scheduler profile. Set `ELK_ROMS_DIR` to the directory containing
+`electron_tube.zip` when that archive is not in the sibling `elk_roms`
+directory. The archive must contain `6502tube_120.rom`.
 
 It verifies URL/SSH opens, fragmented incoming data through JIM, forced
 partial writes, the interactive SSH shell path and clean closure. A release
@@ -146,8 +245,8 @@ the BCM hardware RNG and FatFs; Pi 1/Zero `kernel.img` and Pi 2/3
 next gate after the emulator tests, so retain the original firmware image for
 rollback during first-device testing.
 
-Planned later SSD tools include `PING`, `NSLOOK`, `FTP`, `HGET` HTTP/HTTPS and
-`VIEWDAT`. Viewdata
+`PING` and `NSLOOK` are implemented and shipped on `nettools.ssd`. Planned
+later SSD tools include `FTP`, `HGET` HTTP/HTTPS and `VIEWDAT`. Viewdata
 will reuse the stream transport but has its own MODE 7/Prestel renderer and
 key mapping rather than passing its data through the VT100 renderer.
 

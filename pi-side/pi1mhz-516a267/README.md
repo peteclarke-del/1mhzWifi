@@ -1,8 +1,8 @@
-# Pi1MHz 516a267 patch package
+# Pi1MHz patch package
 
 This directory contains the changes applied to Pi1MHz commit
-`516a267493d9f19e6bf2f4a2ea4c3e7472b12135`. This was the tip of the official
-`master` branch when verified on 11 August 2026. It is 83 commits after the
+`d08242ee1b35cf1285b72c9ec1869e98081a8c3e`. This was the tip of the official
+`master` branch when verified on 15 August 2026. It is 84 commits after the
 V1.30 tag and includes the later network-service foundation, H.264 decoder
 work and updated CYW43455 firmware.
 

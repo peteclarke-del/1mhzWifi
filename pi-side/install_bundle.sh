@@ -158,7 +158,7 @@ install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/se
 install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
 install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
 
-for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch; do
+for patch_name in bus-window-adjacent-preservation.patch integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch net-debug-stage.patch secure-debug-stage.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -184,7 +184,7 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
             patch_present=true
             ;;
         deterministic-service-dispatch.patch)
-            grep -q 'Built-in service ranges have fixed ABI allocations' \
+            grep -q 'Built-in ABI ranges follow the standard selector echo' \
                 "$upstream/src/services_emulator.c" &&
             grep -q 'Private service headers are deliberately not' "$upstream/src/services_emulator.c" &&
             grep -q 'net_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
@@ -295,6 +295,19 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
         wifi-profile-validation.patch)
             grep -q 'bool wifi_profile_is_valid' "$upstream/src/wifi/wifi.c" &&
             grep -q 'g_wifi_state == WIFI_STATE_DISABLED' "$upstream/src/wifi/wifi.c" &&
+            patch_present=true
+            ;;
+        net-debug-stage.patch)
+            grep -q 'net_debug_mark' "$upstream/src/net_service.c" &&
+            patch_present=true
+            ;;
+        secure-debug-stage.patch)
+            grep -q 'secure_debug_mark' "$upstream/src/secure_service.c" &&
+            patch_present=true
+            ;;
+        bus-window-adjacent-preservation.patch)
+            grep -q 'Preserve the adjacent byte from the authoritative VPU bus window' \
+                "$upstream/src/Pi1MHz.c" &&
             patch_present=true
             ;;
     esac
@@ -409,7 +422,7 @@ cp -a "$upstream/firmware/." "$bundle/"
 # Keep the host programs paired with the firmware which implements their
 # mailbox ABI.  This is distribution material rather than Pi boot firmware,
 # but putting it in the same release tree prevents an SD-card update from
-# silently leaving an older SSH/TERM binary in use.
+# silently leaving an older SSH/TELNET binary in use.
 host_tools_ssd=${HOST_TOOLS_SSD:-}
 if [ -d "$root_dir/host-tools" ]; then
     make -C "$root_dir/host-tools" all

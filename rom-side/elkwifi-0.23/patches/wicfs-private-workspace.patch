@@ -81,7 +81,7 @@
  	PLA
  	TAY
  	PLA
-@@ -220,6 +236,16 @@
+@@ -252,6 +268,16 @@
  	PHA
  	TYA
  	PHA
@@ -95,9 +95,9 @@
 +	STA	wicfs_bytes_lo
 +	LDA	sbufh
 +	STA	wicfs_bytes_hi
- 	LDA	#0
- 	STA	&FCA6
- 	LDA	#&EF
+ 	LDX	#0
+ .wicfs_state_save_loop
+ 	JSR	wicfs_state_address_x
 @@ -447,9 +473,9 @@
  	STA	wicfs_magic
  	LDA	#&5A

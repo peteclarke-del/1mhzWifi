@@ -29,12 +29,13 @@ class CatalogueDifferentialTests(unittest.TestCase):
             [(0, "First"), (1, "Second")],
         )
 
-    def test_key_script_uses_elkulator_star_and_page_down(self):
+    def test_key_script_uses_elkulator_star_and_selection_waits_for_titles(self):
         first_page = MODULE.key_script(5).split(",")
-        third_page = MODULE.key_script(44).split(",")
         self.assertEqual(first_page[:3], ["100:2000", "1:69", "1:2001"])
-        self.assertEqual(first_page[-1], "1000:6")
-        self.assertEqual(third_page[-3:], ["1000:85", "12:85", "50:3"])
+        self.assertEqual(first_page[-1], "1:67")
+        self.assertEqual(MODULE.catalogue_selection_keys(5), ["f"])
+        self.assertEqual(MODULE.catalogue_selection_keys(44),
+                         ["Down", "Down", "c"])
 
     def test_exact_title_wins_over_substring_matches(self):
         catalogue = [
@@ -62,6 +63,30 @@ class CatalogueDifferentialTests(unittest.TestCase):
         self.assertEqual(
             payload[1], "sha256=" + hashlib.sha256(b"\x01\x02\x03").hexdigest()
         )
+
+    def test_trace_payload_is_bounded_to_matching_handle_and_close(self):
+        with tempfile.TemporaryDirectory() as directory:
+            trace = Path(directory) / "trace"
+            trace.write_text(
+                "OPEN\t3\thttp://example.invalid/Publisher/Game_E.uef\n"
+                "READ\t4\tdeadbeef\n"
+                "READ\t3\t0102\n"
+                "CLOSE\t3\thttp://example.invalid/Publisher/Game_E.uef\n"
+                "READ\t3\tffff\n"
+            )
+            _, payload = MODULE.trace_payload(trace, "Publisher/Game_E.uef")
+        self.assertEqual(payload[0], "bytes=2")
+        self.assertEqual(
+            payload[1], "sha256=" + hashlib.sha256(b"\x01\x02").hexdigest()
+        )
+
+    def test_animated_control_cannot_count_as_input_transition(self):
+        self.assertFalse(MODULE.transitioned_to_gameplay(
+            [0.82, 0.91, 0.86], [0.84, 0.92, 0.88], 0.80, 0.10
+        ))
+        self.assertTrue(MODULE.transitioned_to_gameplay(
+            [0.20, 0.24, 0.22], [0.81, 0.91, 0.86], 0.80, 0.10
+        ))
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@
 #include "wifi/wifi.h"
 #include "wifi/wifi_lwip.h"
 #include "rpi/systimer.h"
+#include "rpi/asm-helpers.h"
 #include "lwip/def.h"
 #include "lwip/dns.h"
 #include "lwip/inet_chksum.h"
@@ -44,7 +45,7 @@
  * first 64K so the host and Pi always refer to the same physical bytes. */
 #define ELKWIFI_UEF_BASE 0u
 #define ELKWIFI_VERSION_RESPONSE \
-   "Pi1MHz ElkWiFi 0.1.41, kernel " GITVERSION "\r\n\r\nOK\r\n"
+   "Pi1MHz ElkWiFi 0.1.52, kernel " GITVERSION "\r\n\r\nOK\r\n"
 
 _Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
                "ElkWiFi service range start disagrees with services.h");
@@ -828,6 +829,16 @@ static uint8_t process_request(uint32_t cp)
          response_string(cp, ELKWIFI_VERSION_RESPONSE);
          return ELKWIFI_OK;
 
+      case ELKWIFI_CMD_RADIO:
+         /* Public function 24 must return promptly. Start radio setup here,
+          * but do not make the caller wait for firmware or association. */
+         if (wifi_get_state() == WIFI_STATE_DISABLED && !wifi_enable_radio())
+            return ELKWIFI_ERR_NO_WIFI;
+         if (wifi_get_state() == WIFI_STATE_ERROR)
+            return ELKWIFI_ERR_NO_WIFI;
+         response_string(cp, "OK\r\n");
+         return ELKWIFI_OK;
+
       case ELKWIFI_CMD_SCAN:
          return wifi_scan(cp);
 
@@ -997,9 +1008,16 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
    wifi_credentials_load();
    (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_UEF_NORMALIZE,
                            elkwifi_service_command);
+   /* A host reset abandons the old OSWORD/star-command caller. Complete any
+      request latched during reset reinitialisation with a bounded error before
+      clearing it, so FCAA can never be left at BUSY. */
    asynchronous_close();
+   unsigned int cpsr = _disable_interrupts_cspr();
+   if (request_pending || request_cancel)
+      Pi1MHz_MemoryWrite(request_status_address, ELKWIFI_ERR_NETWORK);
    request_pending = false;
    request_cancel = false;
    scan_waiting = false;
+   _restore_cpsr(cpsr);
    Pi1MHz_Register_Poll(elkwifi_poll);
 }

@@ -100,13 +100,15 @@
  .b_initialise
  	JSR	cfsinit		    \initialisations
  
-@@ -502,6 +533,203 @@
+@@ -502,6 +533,205 @@
  	LDA	slotid
  	STA	(evptr),Y
  	RTS
 +
 +\Release WiCFS without disturbing a filing system which has subsequently
 +\claimed any vector. The two-byte guard makes reset safe before first install.
++.release_owned_wicfs
++	JMP	wicfs_reset
 +.wicfs_reset
 +	PHP
 +	PHA

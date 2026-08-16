@@ -1,14 +1,22 @@
 --- a/rom/ElkWifi.asm
 +++ b/rom/ElkWifi.asm
-@@ -126,10 +126,16 @@
+@@ -126,10 +126,24 @@
                      pha                         \ the exit value of A depends on the command.
                      txa
                      pha
 -                    jsr wicfs_reset              \ release virtual cassette vectors on every reset
-+                    \ MOS has already rebuilt standard and extended vectors
++                    \ MOS normally rebuilds standard and extended vectors
 +                    \ before service reason 1. Never read persisted WiCFS
-+                    \ state or alter those new vectors during the ROM scan.
-+                    nop:nop:nop
++                    \ state unless BYTEV proves that the RAM cassette trap is
++                    \ still live. In that case release only entries WiCFS owns.
++                    lda BYTEV
++                    cmp #<notape
++                    bne autorun_wicfs_released
++                    lda BYTEV+1
++                    cmp #>notape
++                    bne autorun_wicfs_released
++                    jsr release_owned_wicfs
++.autorun_wicfs_released
                      lda #&D7                    \ Turn off default banner
                      ldx #0
 -                    stx pagereg                 \ reset page register to 0

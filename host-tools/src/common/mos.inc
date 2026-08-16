@@ -53,5 +53,11 @@ NET_LOCAL_PROTOCOL   = &2B
 NET_HOSTKEY_UNKNOWN  = &2C
 NET_AUTH_FAILED      = &2D
 
-APP_START = &1900
+\ The public loader occupies &2000-&21FF, so main images start beyond it. The
+\ loader selects MODE 4 before MOS reads these images from the filing system.
+APP_START = &2200
 APP_LIMIT = &5800
+
+\ Diagnostic handoff below the main image. The public loader writes the
+\ pre-MODE memory envelope and commits the two-byte signature last.
+LOADER_COOKIE = &21F0

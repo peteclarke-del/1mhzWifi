@@ -16,8 +16,11 @@ not include emulator CPU or display code.
 - `&FCAA`: services command/result register
 - `&FCFD-&FCFF`: the Pi1MHz core's Rampage page selector, high/mid/low
 - `&FD00-&FDFF`: selected 256-byte Rampage page
-- One shared, zero-filled 16 MiB JIM allocation behind both apertures
+- A 48 MiB JIM allocation with public Rampage in set zero and the Services
+  24-bit byte aperture relative to the final 32 MiB `DISC_RAM` workspace
 - Deferred command dispatch with an observable `NET_BUSY` result
+- Optional delayed FIQ publication for selector-to-data routing and FCA9
+  auto-increment acknowledgement
 - Pi1MHz FAT raw-sector commands 0 and 1 for MMFS and MMFS2
 
 The page selector is 24 bits like the hardware. This initial allocation covers
@@ -72,17 +75,29 @@ PI1MHZ_MAILBOX=live ./elkulator
 Optional variables:
 
 - `PI1MHZ_TRACE=/path/trace.tsv`: record open/read/write/close traffic.
+- `PI1MHZ_FIQ_DELAY_ACCESSES=0`: select the explicit zero-time fixture model.
+  Omit the variable for the conservative FIQ scheduler used by release
+  tests. A zero-time run is useful for isolation only and is not release or
+  hardware-equivalence evidence.
 - `PI1MHZ_EXIT_ON_CLOSE=1`: exit after the client closes, useful for CI.
 - `PI1MHZ_SD_IMAGE=/path/card.img`: expose a raw FAT SD-card image through
   Pi1MHz FAT commands 0 and 1. This is the path used by the official
   Pi1MHz-specific MMFS ROMs. The image is writable when host permissions
   allow it and otherwise reports the Pi1MHz write-protect result.
 
-The adapter gives the Pi1MHz device priority over Elkulator's legacy JIM and
-ElkWiFi handlers only while `PI1MHZ_MAILBOX` is enabled.
-It deliberately does not forward `&FCFD` or `&FCFE` to the mailbox. An
-unmodified AP5 forwards only `&FCFF` from that selector group, so Elkulator's
-Pi1MHz integration exposes the same 64K JIM window as the real Electron setup.
+The default original-AP5 profile does not forward `&FCFD` or `&FCFE`; it
+forwards only `&FCFF` from that selector group. The NPFC-direct `full` profile
+forwards all FC addresses, so Pi1MHz accepts all three selector writes. With
+the default external nOE path it drives only MemoryWrite-enabled locations;
+`PI1MHZ_NOE=0` selects the unconditional read-drive path. The separate
+`expanded-snoop` profile observes the wider range without changing original
+AP5 ownership.
+
+The emulator tracks those output enables per bus byte. The initial Rampage
+page and Services command/IRQ registers are readable immediately. Selector and
+Services cursor readback is not owned until the modeled callback publishes it.
+Elkulator also rebases both device clocks when `reset6502()` clears its bounded
+cycle counter, avoiding reset-time phantom cycles.
 
 The integration also makes command-line ROM selection deterministic before
 the MOS service-ROM scan. Explicit ROMs in banks 0 and 1 take precedence over

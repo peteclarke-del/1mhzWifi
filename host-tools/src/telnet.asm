@@ -6,21 +6,25 @@ ORG APP_START
 GUARD APP_LIMIT
 
 .start
+    JSR application_check_workspace
+    BCS telnet_memory_safe
+    JMP application_exit
+.telnet_memory_safe
     JSR mos_get_command_tail
     JSR build_telnet_url
-    BCS term_have_url
-    LDX #LO(term_usage)
-    LDY #HI(term_usage)
+    BCS telnet_have_url
+    LDX #LO(telnet_usage)
+    LDY #HI(telnet_usage)
     JSR print_string
-    RTS
-.term_have_url
+    JMP application_exit
+.telnet_have_url
     JSR net_probe
-    BCS term_service_present
+    BCS telnet_service_present
     LDX #LO(no_service_text)
     LDY #HI(no_service_text)
     JSR print_string
-    RTS
-.term_service_present
+    JMP application_exit
+.telnet_service_present
     JSR setup_keyboard
     LDA #4
     JSR OSWRCH
@@ -32,112 +36,116 @@ GUARD APP_LIMIT
     LDY #HI(url_buffer)
     JSR net_url_open
     CMP #NET_OK
-    BEQ term_connected
+    BEQ telnet_connected
     JSR show_net_error
-    JMP term_exit
-.term_connected
+    JMP telnet_exit
+.telnet_connected
     LDX #LO(connected_text)
     LDY #HI(connected_text)
     JSR print_string
 
-.term_loop
+.telnet_loop
     JSR net_url_read
     CMP #NET_EOF
-    BNE term_check_read_ok
-    JMP term_remote_closed
-.term_check_read_ok
+    BNE telnet_check_read_ok
+    JMP telnet_remote_closed
+.telnet_check_read_ok
     CMP #NET_OK
-    BEQ term_read_ok
-    JMP term_network_error
-.term_read_ok
+    BEQ telnet_read_ok
+    JMP telnet_network_error
+.telnet_read_ok
     LDA net_length
     ORA net_length + 1
-    BEQ term_poll_keyboard
-    JSR net_select_rx
+    BEQ telnet_poll_keyboard
+    JSR net_copy_rx_to_host
+    LDA #0
+    STA telnet_rx_index
     LDA net_length
-    STA term_rx_remaining
-.term_render_rx
-    LDA SERVICE_DATA
+    STA telnet_rx_remaining
+.telnet_render_rx
+    LDX telnet_rx_index
+    LDA net_rx_host,X
+    INC telnet_rx_index
     JSR vt_process
-    DEC term_rx_remaining
-    BNE term_render_rx
+    DEC telnet_rx_remaining
+    BNE telnet_render_rx
 
-.term_poll_keyboard
+.telnet_poll_keyboard
     LDA #&81
     LDX #0
     LDY #0
     JSR OSBYTE
     CPY #0
-    BNE term_idle
+    BNE telnet_idle
     TXA
     CMP #29                  \ Ctrl-] is the local command prefix
-    BEQ term_local_close
+    BEQ telnet_local_close
     CMP #&8B
-    BEQ term_key_up
+    BEQ telnet_key_up
     CMP #&8A
-    BEQ term_key_down
+    BEQ telnet_key_down
     CMP #&89
-    BEQ term_key_right
+    BEQ telnet_key_right
     CMP #&88
-    BEQ term_key_left
+    BEQ telnet_key_left
     CMP #13
-    BEQ term_key_return
+    BEQ telnet_key_return
     STA key_buffer
     LDA #1
-    BNE term_send_key
-.term_key_up
+    BNE telnet_send_key
+.telnet_key_up
     LDA #'A'
-    BNE term_key_cursor
-.term_key_down
+    BNE telnet_key_cursor
+.telnet_key_down
     LDA #'B'
-    BNE term_key_cursor
-.term_key_right
+    BNE telnet_key_cursor
+.telnet_key_right
     LDA #'C'
-    BNE term_key_cursor
-.term_key_left
+    BNE telnet_key_cursor
+.telnet_key_left
     LDA #'D'
-.term_key_cursor
+.telnet_key_cursor
     STA key_buffer + 2
     LDA #27
     STA key_buffer
     LDA #'['
     STA key_buffer + 1
     LDA #3
-    BNE term_send_key
-.term_key_return
+    BNE telnet_send_key
+.telnet_key_return
     LDA #13
     STA key_buffer
     LDA #10
     STA key_buffer + 1
     LDA #2
-.term_send_key
+.telnet_send_key
     LDX #LO(key_buffer)
     LDY #HI(key_buffer)
     JSR send_all
     CMP #NET_OK
-    BNE term_network_error
-    JMP term_loop
-.term_idle
+    BNE telnet_network_error
+    JMP telnet_loop
+.telnet_idle
     LDA #19
     JSR OSBYTE
-    JMP term_loop
+    JMP telnet_loop
 
-.term_remote_closed
+.telnet_remote_closed
     LDX #LO(remote_closed_text)
     LDY #HI(remote_closed_text)
     JSR print_string
-    JMP term_exit
-.term_local_close
+    JMP telnet_exit
+.telnet_local_close
     LDX #LO(local_closed_text)
     LDY #HI(local_closed_text)
     JSR print_string
-    JMP term_exit
-.term_network_error
+    JMP telnet_exit
+.telnet_network_error
     JSR show_net_error
-.term_exit
+.telnet_exit
     JSR net_url_close
     JSR restore_keyboard
-    RTS
+    JMP application_exit
 
 \ Send A bytes from X/Y, retrying bounded zero/partial sends.
 .send_all
@@ -335,8 +343,8 @@ GUARD APP_LIMIT
 .print_string_done
     RTS
 
-.term_usage
-    EQUS "Usage: *TERM host [port]", 13, 0
+.telnet_usage
+    EQUS "Usage: *TELNET host [port]", 13, 0
 .no_service_text
     EQUS "Pi1MHz net service not found.", 13
     EQUS "Set net_enable=1 in Pi1MHz.cfg.", 13, 0
@@ -370,11 +378,14 @@ GUARD APP_LIMIT
     EQUB 0
 .saved_keyboard_status
     EQUB 0
-.term_rx_remaining
+.telnet_rx_remaining
+    EQUB 0
+.telnet_rx_index
     EQUB 0
 
 INCLUDE "src/common/pi1mhz_net.asm"
 INCLUDE "src/vt100.asm"
+INCLUDE "src/common/application.asm"
 
 .end
 SAVE start, end, start

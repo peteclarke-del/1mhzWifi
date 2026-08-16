@@ -69,7 +69,7 @@
  evptr     = pbl      \temporary zero-page extended-vector table pointer
  filev_source = heap+&DF \zero for FILEV, negative for FINDV
  fscv_reason = heap+&E0 \FSCV A while reading the extended-vector stack frame
-@@ -169,12 +173,76 @@
+@@ -169,12 +173,95 @@
  \vectors. No code is placed in &0400-&07FF because that is Tube host workspace.
  
  \external *UPCFS interface code
@@ -80,8 +80,35 @@
  	JMP	call_claimed
 +
 +\Persist only vector ownership and predecessor addresses outside host RAM.
-+\&FFEF00-&FFEF10 is immediately below the services command pages at &FFF000.
-+\Both helpers preserve flags and A/X/Y. FCA9 auto-increments the byte pointer.
++\&FFEF00-&FFEF15 is immediately below the services command pages at &FFF000.
++\Both helpers preserve A/X/Y; transactional load reports validity in carry.
++\Each byte is addressed explicitly:
++\Pi1MHz publishes FCA6-FCA9 changes from FIQ context, so relying on FCA9's
++\asynchronous auto-increment can duplicate, omit or reorder persisted bytes.
++\The private CPU delay contains no FRED reads and therefore cannot itself
++\change or acknowledge the shared services cursor.
++.wicfs_bus_delay
++	PHP
++	PHA
++	LDA	#64
++.wicfs_bus_delay_loop
++	SEC
++	SBC	#1
++	BNE	wicfs_bus_delay_loop
++	PLA
++	PLP
++	RTS
++.wicfs_state_address_x
++	TXA
++	STA	&FCA6
++	JSR	wicfs_bus_delay
++	LDA	#&EF
++	STA	&FCA7
++	JSR	wicfs_bus_delay
++	LDA	#&FF
++	STA	&FCA8
++	JSR	wicfs_bus_delay
++	RTS
 +.wicfs_state_load
 +	PHP
 +	SEI
@@ -90,15 +117,11 @@
 +	PHA
 +	TYA
 +	PHA
-+	LDA	#0
-+	STA	&FCA6
-+	LDA	#&EF
-+	STA	&FCA7
-+	LDA	#&FF
-+	STA	&FCA8
 +	LDX	#0
 +.wicfs_state_load_loop
++	JSR	wicfs_state_address_x
 +	LDA	&FCA9
++	JSR	wicfs_bus_delay
 +	STA	wicfs_state_ram,X
 +	INX
 +	CPX	#wicfs_state_size
@@ -119,16 +142,12 @@
 +	PHA
 +	TYA
 +	PHA
-+	LDA	#0
-+	STA	&FCA6
-+	LDA	#&EF
-+	STA	&FCA7
-+	LDA	#&FF
-+	STA	&FCA8
 +	LDX	#0
 +.wicfs_state_save_loop
++	JSR	wicfs_state_address_x
 +	LDA	wicfs_state_ram,X
 +	STA	&FCA9
++	JSR	wicfs_bus_delay
 +	INX
 +	CPX	#wicfs_state_size
 +	BNE	wicfs_state_save_loop
@@ -146,7 +165,7 @@
      if __debug = 1
      php:jsr debug
      equs "in bupcfs",&0D,&EA
-@@ -378,6 +446,7 @@
+@@ -378,6 +464,7 @@
  	STA	wicfs_magic
  	LDA	#&5A
  	STA	wicfs_magic+1
@@ -154,7 +173,7 @@
  .b_initialise
  	JSR	cfsinit		    \initialisations
  
-@@ -544,6 +613,7 @@
+@@ -544,6 +631,7 @@
  	PHA
  	TYA
  	PHA
@@ -162,7 +181,7 @@
  	LDA	wicfs_magic
  	CMP	#&A5
  	BEQ	wicfs_reset_check2
-@@ -722,6 +792,7 @@
+@@ -722,6 +810,7 @@
  	LDA	#0
  	STA	wicfs_magic
  	STA	wicfs_magic+1

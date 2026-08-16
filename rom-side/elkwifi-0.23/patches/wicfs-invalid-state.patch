@@ -1,0 +1,64 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -678,6 +678,10 @@
+ .upfilev
+ 	JSR	wicfs_detect_machine
+ 	JSR	wicfs_state_load	\restore state which applications may overwrite
++	BCC	upfilev_state_valid
++	LDA	#0			\bounded OSFILE failure; no predecessor is trusted
++	RTS
++.upfilev_state_valid
+ 	PHA
+ 	LDA	#0
+ 	STA	filev_source
+@@ -686,6 +691,10 @@
+ .upfindv
+ 	JSR	wicfs_detect_machine
+ 	JSR	wicfs_state_load	\restore state before any vector forwarding
++	BCC	upfindv_state_valid
++	LDA	#0			\bounded OSFIND failure; no predecessor is trusted
++	RTS
++.upfindv_state_valid
+ 	PHA
+ 	LDA	#&FF
+ 	STA	filev_source
+@@ -852,7 +862,10 @@
+ 	PHA
+ 	JSR	wicfs_state_load
+ 	BCC	wicfs_reset_state_valid
+-	JMP	wicfs_reset_done
++	LDA	#0			\stale owned entries remain bounded after BREAK
++	STA	wicfs_magic		\and can never use volatile predecessor data
++	STA	wicfs_magic+1
++	JMP	wicfs_reset_done
+ .wicfs_reset_state_valid
+ 	LDA	wicfs_magic
+ 	CMP	#&A5
+@@ -1151,6 +1166,10 @@
+ 	STY	fscv_y
+ 	JSR	wicfs_detect_machine
+ 	JSR	wicfs_state_load	\restore predecessor FSCV after saving arguments
++	BCC	upfscv_state_valid
++	LDA	fscv_reason		\bounded claim; never jump through stale FSCVRTN
++	RTS
++.upfscv_state_valid
+ 	TSX				\previous ROM is byte three in the MOS vector frame
+ 	LDA	&0103,X
+ 	STA	currom
+@@ -1393,5 +1413,16 @@
+ .upbgetv
+     JSR wicfs_detect_machine
++    LDA wicfs_magic
++    CMP #&A5
++    BNE upbgetv_invalid
++    LDA wicfs_magic+1
++    CMP #&5A
++    BEQ upbgetv_state_valid
++.upbgetv_invalid
++    LDA #0
++    SEC                         \bounded EOF; no persisted transaction per byte
++    RTS
++.upbgetv_state_valid
+     STY bget_y
+     if __debug = 1
+     php:jsr debug

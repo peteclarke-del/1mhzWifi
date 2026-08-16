@@ -1,0 +1,456 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -47,12 +47,20 @@
+ fscv_prev_rom   = wicfs_state_ram+12
+ bytev_rtn       = wicfs_state_ram+13
+ wicfs_magic     = wicfs_state_ram+15
+-wicfs_cursor_y   = wicfs_state_ram+17
+-wicfs_cursor_page = wicfs_state_ram+18
+-wicfs_stream_start = wicfs_state_ram+19
+-wicfs_bytes_lo   = wicfs_state_ram+20
+-wicfs_bytes_hi   = wicfs_state_ram+21
+-wicfs_state_size = 22
++wicfs_state_size = 17
++wicfs_state_generation = wicfs_state_ram+17
++wicfs_state_checksum = wicfs_state_ram+18
++wicfs_state_expected = wicfs_state_ram+19
++wicfs_state_result = wicfs_state_ram+20
++wicfs_machine = wicfs_state_ram+21
++
++wicfs_record_valid = 0
++wicfs_record_version = 1
++wicfs_record_generation = 2
++wicfs_record_checksum = 3
++wicfs_record_payload = 4
++wicfs_record_version_value = 1
++wicfs_record_valid_value = &A5
+ 
+ serbuf	=	&06E0		\serial input buffer
+ notape	=	&0398		\location of external *TAPE trap
+@@ -206,6 +214,45 @@
+ 	PLA
+ 	PLP
+ 	RTS
++.wicfs_detect_machine
++	PHA
++	TXA
++	PHA
++	TYA
++	PHA
++	LDA	#&81
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	wicfs_machine
++	PLA
++	TAY
++	PLA
++	TAX
++	PLA
++	RTS
++.wicfs_select_public_zero
++	PHP
++	SEI
++	PHA
++	TXA
++	PHA
++	LDA	#0
++	LDX	wicfs_machine
++	CPX	#1
++	BEQ	wicfs_select_public_page
++	STA	&FCFD
++	JSR	wicfs_bus_delay
++	STA	&FCFE
++	JSR	wicfs_bus_delay
++.wicfs_select_public_page
++	STA	pagereg
++	JSR	wicfs_bus_delay
++	PLA
++	TAX
++	PLA
++	PLP
++	RTS
+ .wicfs_state_address_x
+ 	TXA
+ 	STA	&FCA6
+@@ -225,31 +268,114 @@
+ 	PHA
+ 	TYA
+ 	PHA
++	LDX	#wicfs_record_valid
++	JSR	wicfs_state_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	CMP	#wicfs_record_valid_value
++	BEQ	wicfs_state_valid_marker
++	JMP	wicfs_state_load_invalid
++.wicfs_state_valid_marker
++	LDX	#wicfs_record_version
++	JSR	wicfs_state_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	CMP	#wicfs_record_version_value
++	BEQ	wicfs_state_version_ok
++	JMP	wicfs_state_load_invalid
++.wicfs_state_version_ok
++	STA	wicfs_state_checksum
++	LDX	#wicfs_record_generation
++	JSR	wicfs_state_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	STA	wicfs_state_generation
++	EOR	wicfs_state_checksum
++	STA	wicfs_state_checksum
++	LDX	#wicfs_record_checksum
++	JSR	wicfs_state_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	STA	wicfs_state_expected
++	LDX	#wicfs_record_payload
++.wicfs_state_check_loop
++	JSR	wicfs_state_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	EOR	wicfs_state_checksum
++	STA	wicfs_state_checksum
++	INX
++	CPX	#wicfs_record_payload+wicfs_state_size
++	BNE	wicfs_state_check_loop
++	LDA	wicfs_state_checksum
++	CMP	wicfs_state_expected
++	BEQ	wicfs_state_checksum_ok
++	JMP	wicfs_state_load_invalid
++.wicfs_state_checksum_ok
++	LDX	#wicfs_record_generation
++	JSR	wicfs_state_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	CMP	wicfs_state_generation
++	BEQ	wicfs_state_generation_ok
++	JMP	wicfs_state_load_invalid
++.wicfs_state_generation_ok
+ 	LDX	#0
+-.wicfs_state_load_loop
++.wicfs_state_copy_loop
++	TXA
++	CLC
++	ADC	#wicfs_record_payload
++	TAX
+ 	JSR	wicfs_state_address_x
+ 	LDA	&FCA9
+ 	JSR	wicfs_bus_delay
++	PHA
++	TXA
++	SEC
++	SBC	#wicfs_record_payload
++	TAX
++	PLA
+ 	STA	wicfs_state_ram,X
+ 	INX
+ 	CPX	#wicfs_state_size
+-	BNE	wicfs_state_load_loop
+-	LDA	wicfs_cursor_y
+-	STA	pr_y
+-	LDA	wicfs_cursor_page
+-	STA	pr_r
+-	LDA	wicfs_stream_start
+-	STA	sbuft
+-	LDA	wicfs_bytes_lo
+-	STA	sbufl
+-	LDA	wicfs_bytes_hi
+-	STA	sbufh
++	BNE	wicfs_state_copy_loop
++	LDX	#wicfs_record_valid
++	JSR	wicfs_state_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	CMP	#wicfs_record_valid_value
++	BEQ	wicfs_state_final_valid
++	JMP	wicfs_state_load_invalid
++.wicfs_state_final_valid
++	LDX	#wicfs_record_generation
++	JSR	wicfs_state_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	CMP	wicfs_state_generation
++	BEQ	wicfs_state_final_generation
++	JMP	wicfs_state_load_invalid
++.wicfs_state_final_generation
++	LDA	#0
++	BEQ	wicfs_state_load_result
++.wicfs_state_load_invalid
++	LDA	#&FF
++.wicfs_state_load_result
++	STA	wicfs_state_result
+ 	PLA
+ 	TAY
+ 	PLA
+ 	TAX
+ 	PLA
+ 	PLP
++	PHA
++	LDA	wicfs_state_result
++	BEQ	wicfs_state_load_valid
++	PLA
++	SEC
++	RTS
++.wicfs_state_load_valid
++	PLA
++	CLC
+ 	RTS
+ 
+ .wicfs_state_save
+@@ -260,25 +374,56 @@
+ 	PHA
+ 	TYA
+ 	PHA
+-	LDA	pr_y
+-	STA	wicfs_cursor_y
+-	LDA	pr_r
+-	STA	wicfs_cursor_page
+-	LDA	sbuft
+-	STA	wicfs_stream_start
+-	LDA	sbufl
+-	STA	wicfs_bytes_lo
+-	LDA	sbufh
+-	STA	wicfs_bytes_hi
+-	LDX	#0
+-.wicfs_state_save_loop
++	LDX	#wicfs_record_valid
+ 	JSR	wicfs_state_address_x
+-	LDA	wicfs_state_ram,X
++	LDA	#0
+ 	STA	&FCA9
+ 	JSR	wicfs_bus_delay
+-	INX
+-	CPX	#wicfs_state_size
+-	BNE	wicfs_state_save_loop
++	LDX	#wicfs_record_generation
++	JSR	wicfs_state_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	CLC
++	ADC	#1
++	STA	wicfs_state_generation
++	LDA	#wicfs_record_version_value
++	EOR	wicfs_state_generation
++	STA	wicfs_state_checksum
++	LDY	#0
++.wicfs_state_save_payload
++	TYA
++	CLC
++	ADC	#wicfs_record_payload
++	TAX
++	JSR	wicfs_state_address_x
++	LDA	wicfs_state_ram,Y
++	STA	&FCA9
++	JSR	wicfs_bus_delay
++	EOR	wicfs_state_checksum
++	STA	wicfs_state_checksum
++	INY
++	CPY	#wicfs_state_size
++	BNE	wicfs_state_save_payload
++	LDX	#wicfs_record_checksum
++	JSR	wicfs_state_address_x
++	LDA	wicfs_state_checksum
++	STA	&FCA9
++	JSR	wicfs_bus_delay
++	LDX	#wicfs_record_version
++	JSR	wicfs_state_address_x
++	LDA	#wicfs_record_version_value
++	STA	&FCA9
++	JSR	wicfs_bus_delay
++	LDX	#wicfs_record_generation
++	JSR	wicfs_state_address_x
++	LDA	wicfs_state_generation
++	STA	&FCA9
++	JSR	wicfs_bus_delay
++	LDX	#wicfs_record_valid
++	JSR	wicfs_state_address_x
++	LDA	#wicfs_record_valid_value
++	STA	&FCA9
++	JSR	wicfs_bus_delay
+ 	PLA
+ 	TAY
+ 	PLA
+@@ -289,7 +434,13 @@
+ .wicfs_install
+ \Reload the installation record on every external entry. Application code and
+ \other ROM commands may freely reuse &0900-&09FF between vector calls.
++	JSR	wicfs_detect_machine
+ 	JSR	wicfs_state_load
++	BCC	wicfs_install_state_valid
++	LDA	#0
++	STA	wicfs_magic
++	STA	wicfs_magic+1
++.wicfs_install_state_valid
+     if __debug = 1
+     php:jsr debug
+     equs "in bupcfs",&0D,&EA
+@@ -495,7 +646,7 @@
+ 	STA	wicfs_magic+1
+ .b_initialise
+ 	JSR	cfsinit		    \initialisations
+-	JSR	wicfs_state_save	\persist authoritative initial cursor and length
++	JSR	wicfs_state_save	\commit immutable vector ownership record
+ 
+ .brom	
+     LDA	#vdu_on		    \restore screen output
+@@ -513,6 +664,7 @@
+ \load & run (*RUN), sequential access file open and single byte get. 
+ 
+ .upfilev
++	JSR	wicfs_detect_machine
+ 	JSR	wicfs_state_load	\restore state which applications may overwrite
+ 	PHA
+ 	LDA	#0
+@@ -520,6 +672,7 @@
+ 	PLA
+ 	JMP	filev_entry
+ .upfindv
++	JSR	wicfs_detect_machine
+ 	JSR	wicfs_state_load	\restore state before any vector forwarding
+ 	PHA
+ 	LDA	#&FF
+@@ -577,7 +730,6 @@
+ 	LDA	&0101,X
+ 	STA	pbh
+ 	JSR	filev_load_info		\return catalogue data required by CHAIN
+-	JSR	wicfs_state_save	\persist cursor consumed by this OSFILE load
+ 	PLA
+ 	TAY
+ 	PLA
+@@ -585,7 +737,6 @@
+ 	LDA	#1			\file found
+ 	RTS
+ .upf_a1_not_found
+-	JSR	wicfs_state_save	\persist the completed unsuccessful search
+ 	PLA
+ 	TAY
+ 	PLA
+@@ -686,6 +837,9 @@
+ 	TYA
+ 	PHA
+ 	JSR	wicfs_state_load
++	BCC	wicfs_reset_state_valid
++	JMP	wicfs_reset_done
++.wicfs_reset_state_valid
+ 	LDA	wicfs_magic
+ 	CMP	#&A5
+ 	BEQ	wicfs_reset_check2
+@@ -967,7 +1119,6 @@
+ .chain_code_end
+ 
+ .filev_actioned
+-	JSR	wicfs_state_save
+ 	LDX	filev_x
+ 	LDY	filev_y
+ 	RTS
+@@ -979,6 +1130,7 @@
+ 	STA	fscv_reason
+ 	STX	fscv_x
+ 	STY	fscv_y
++	JSR	wicfs_detect_machine
+ 	JSR	wicfs_state_load	\restore predecessor FSCV after saving arguments
+ 	TSX				\previous ROM is byte three in the MOS vector frame
+ 	LDA	&0103,X
+@@ -1211,8 +1363,7 @@
+ 	AND	#&7F
+ 	STA	loadrun
+ 
+-.clfscv	JSR	wicfs_state_save	\persist cursor and lifecycle changes
+-	JMP	actioned		\return command claimed
++.clfscv	JMP	actioned		\return command claimed
+ 
+ .xfscv
+ 	LDA	fscv_prev_rom
+@@ -1239,7 +1390,7 @@
+ \Handles BGET (single byte read from sequential access file)
+ 
+ .upbgetv
+-    JSR wicfs_state_load       \restore lifecycle state on every external entry
++    JSR wicfs_detect_machine
+     STY bget_y
+     if __debug = 1
+     php:jsr debug
+@@ -1268,6 +1419,5 @@
+ 	PLA
+ 	TAX
+ 	LDA	temp
+-	JSR	wicfs_state_save
+ 	LDY	bget_y
+ 	RTS				\claim while preserving OSBGET X/Y and carry
+@@ -1629,6 +1780,8 @@
+ 	CMP	#&7C		\..or <||>
+ 	BEQ	sr_a4
+ 	JSR	upper		\else rationalise case
++	CPX	#10		\CFS filenames are at most ten characters
++	BCS	sr_a4		\terminate before the keyboard buffer at &03E0
+ 	STA	&03D2,X
+ 	INX			\save chr in CFS workspace
+ .sr_a3	INY
+@@ -2346,7 +2498,7 @@
+     beq nodata      \jump if &00, end-of-tape is reached
+     php             \the AP5 JIM selectors are shared with other services
+     sei             \keep bank, page and data read one atomic transaction
+-    jsr set_bank_1  \select paged ram bank
++    jsr wicfs_select_public_zero
+     ldy pr_y        \load pointer to paged ram
+     lda pr_r
+     sta pagereg
+@@ -2358,13 +2510,7 @@
+     inc pr_r        \advance the software shadow; FCFF is write-only through AP5/Pi1MHz
+ .getbyte1
+     sty pr_y        \save pointer
+-    lda pr_r        \load page-register shadow
+-    sta pagereg     \select the next physical page
+-    jsr wicfs_bus_delay
+-    jsr set_bank_0  \select first paged ram bank
+-    lda #0          \leave the complete public JIM address at 00:00:00
+-    sta pagereg
+-    jsr wicfs_bus_delay
++    jsr wicfs_select_public_zero \leave public JIM at 00:00:00
+     pla             \recover data before the older saved flags below it
+     plp
+     pha             \preserve data while updating the software byte count
+@@ -2392,17 +2538,14 @@
+     beq nodata      \jump if &00, end-of-tape is reached
+     php             \protect the shared selector for the non-forwarding peek too
+     sei
+-    jsr set_bank_1  \select paged ram bank
++    jsr wicfs_select_public_zero
+     ldy pr_y        \load pointer to paged ram
+     lda pr_r
+     sta pagereg
+     jsr wicfs_bus_delay
+     lda pageram,y   \load data
+     pha             \save data
+-    jsr set_bank_0  \select first paged ram bank
+-    lda #0
+-    sta pagereg
+-    jsr wicfs_bus_delay
++    jsr wicfs_select_public_zero
+     pla
+     plp             \the data byte was stacked above the saved flags
+ 	CLC 			\and return flagging byte ready (C=0)
+@@ -2433,7 +2576,7 @@
+ 	STA	CFSact2
+     php             \read the Pi length trailer without a shared-JIM race
+     sei
+-    JSR set_bank_1  \ retain the stock bank call; AP5 exposes one 64K window
++    JSR wicfs_select_public_zero
+     LDA #&FF        \get tape length 
+     STA pagereg     \ (this is stored in the last two bytes of the paged RAM)
+     JSR wicfs_bus_delay
+@@ -2441,10 +2584,7 @@
+     STA sbufl
+     LDA &FDFF
+     STA sbufh
+-    JSR set_bank_0
+-    LDA #0
+-    STA pagereg
+-    JSR wicfs_bus_delay
++    JSR wicfs_select_public_zero
+     plp
+ 	LDA	#0
+ 	STA	host_basic_pending	\clear any stale host continuation request

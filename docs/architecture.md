@@ -123,7 +123,9 @@ ABI while parsing and are round-tripped with vector ownership on every claimed
 vector operation. The state is copied through `&FCA6-&FCA9` to
 `&FFEF00-&FFEF15` in the Pi1MHz services buffer. This range
 sits directly below the command pages at `&FFF000` and outside the AP5-visible
-UEF window. State is reloaded for installation and invalidated during reset.
+UEF window. The state copier reuses the bounded network cursor routines, so
+selector publication and each FCA9 auto-increment are acknowledged before the
+following byte. State is reloaded for installation and invalidated during reset.
 The public ElkWiFi driver page shadow is transient at `heap+&D8`. No persistent
 state is kept in application memory, ADFS `&0Dxx`, Tube workspace, or the
 keyboard command queue.
@@ -136,8 +138,10 @@ ROM which has already reclaimed a vector.
 
 `*UEF LOAD` produces the same JIM image from a file on the current MOS filing
 system. It uses OSFIND and OSBGET rather than reading ADFS or DFS structures
-directly. No importer state is kept in `&0900`: the open handle remains in the
-OSBGET-preserved X register and the byte count remains in the final JIM page.
+directly. No importer state is kept in `&0900`: the OSFIND handle is kept in a
+private stack frame and recovered into Y before every OSBGET. It is not kept in
+X because the import loop uses TSX for its length frame. The byte count remains
+in the final JIM page.
 After each source byte, the ROM reselects its `&FCFF` page, so an ADFS, DFS or
 MMFS read cannot redirect the destination by changing the shared selector.
 Once the source file is closed, the command queues the normal tape, PAGE, NEW,

@@ -214,8 +214,12 @@ aperture is shared by firmware services. For the known 2,907-byte payload, the
 ROM replaces its three `LDA &FD00,Y` catalogue reads with calls to a small
 trampoline at `&1FF0`. The trampoline reads the current AP5-visible JIM page.
 Its title-selection page write similarly calls a trampoline at `&1FE0`. The
-patch is applied only after the payload size and all four original instruction
-sites have been verified.
+helper places its fixed padding after the `&FCFF` write so the Pi callback has
+completed before the menu's first indirect catalogue read. Padding before the
+write permits the first publisher byte to come from the previous JIM page
+while the following filename bytes come from the selected page. The patch is
+applied only after the payload size and all four original instruction sites
+have been verified.
 
 The base-address helper is stored at `&1FC5`, immediately after the temporary
 TAPE command. The I/O-processor return trampoline is at `&1FD0`, and the

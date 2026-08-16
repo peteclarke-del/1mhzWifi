@@ -56,12 +56,14 @@
          }
  
          /* Clear paged RAM. */
-@@ -157,6 +173,8 @@
+@@ -157,6 +173,10 @@
          if (debugon) debugread(addr);
          if (addr==pc) fetchc[addr]=31;
          else          readc[addr]=31;
-+        if (pi1mhz_elkulator_handles(addr))
++        pi1mhz_elkulator_sync_host_clock(cycles);
++        if (pi1mhz_elkulator_handles_read(addr))
 +                return pi1mhz_elkulator_read(addr);
++        pi1mhz_elkulator_snoop_read(addr);
          if (addr<0x2000)
          {
                  if (FASTLOW) return ram2[addr];
@@ -83,15 +85,12 @@
  
                  if (rombank==0x6) return ram6[addr&0x3FFF];
  
-@@ -230,6 +247,11 @@
+@@ -230,6 +248,8 @@
  {
          if (debugon) debugwrite(addr,val);
          writec[addr]=31;
-+        if (pi1mhz_elkulator_handles(addr))
-+        {
-+                pi1mhz_elkulator_write(addr, val);
-+                return;
-+        }
++        pi1mhz_elkulator_sync_host_clock(cycles);
++        pi1mhz_elkulator_snoop_write(addr, val);
  //        if (addr==0x5820) rpclog("Write 5820\n");
  //        if (addr==0x5B10) rpclog("Write 5B10\n");
  //        if (addr==0x5990) rpclog("Write 5990\n");

@@ -1,0 +1,40 @@
+diff --git a/src/secure_service.c b/src/secure_service.c
+index 0000000..0000000 100644
+--- a/src/secure_service.c
++++ b/src/secure_service.c
+@@ -44,18 +44,35 @@
+     command[10] = (uint8_t)'S';
+ }
+ 
++/* Real hardware bring-up trace: shares the net_service stage-marker byte
++   (fixed command page + 0xFF, beyond NET_IO_MAX so no command payload can
++   reach it) so an SSH capability-probe timeout, which waits via the same
++   net_dispatch/net_debug_stage path, reports which of these two services
++   last touched it. 0x8x distinguishes this service from net_service's 1-6
++   range. Harmless in a non-debug build - one extra store. */
++static void secure_debug_mark(uint8_t stage)
++{
++   uint32_t p = (DISC_RAM_BASE | 0xFF0000u | (0xF0u << 8)) + 0xFFu;
++   Pi1MHz->JIM_ram[p] = stage;
++}
++
+ void secure_service_command(uint32_t command_pointer, uint32_t addr,
+                             uint8_t data)
+ {
+     (void)data;
++    secure_debug_mark(0x81u);
+     /* Capability discovery is a fixed memory reply and is deliberately
+        independent of the main poll table. This also distinguishes a missing
+        command route from a stalled secure provider on physical hardware. */
+     if (Pi1MHz->JIM_ram[command_pointer] == NTS_SEC_CAPS) {
++        secure_debug_mark(0x82u);
+         secure_write_capabilities(&Pi1MHz->JIM_ram[command_pointer]);
++        secure_debug_mark(0x83u);
+         Pi1MHz_MemoryWrite(addr, NTS_OK);
++        secure_debug_mark(0x84u);
+         return;
+     }
++    secure_debug_mark(0x85u);
+     /* The 8-bit host issues mailbox operations synchronously, so there is at
+        most one live caller. Always latch the newest command, like the native
+        net service does. In particular this prevents a command arriving

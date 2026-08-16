@@ -8,6 +8,8 @@ void ap5_tube_close(void);
 void ap5_tube_reset(void);
 void ap5_tube_prepare_cold_boot(void);
 void ap5_tube_run_host_cycles(int host_cycles);
+void ap5_tube_sync_host_clock(int host_cycle_counter);
+void ap5_tube_rebase_host_clock(int host_cycle_counter);
 int ap5_tube_enabled(void);
 int ap5_tube_handles(uint16_t address);
 uint8_t ap5_tube_host_read(uint16_t address);

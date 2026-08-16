@@ -1,0 +1,64 @@
+--- a/src/main.c
++++ b/src/main.c
+@@ -10,7 +10,7 @@ static int one_shot_key = -1;
+ static int one_shot_key_delay;
+ static int one_shot_key_frames;
+-static int scripted_keys[64];
+-static int scripted_delays[64];
++static int scripted_keys[256];
++static int scripted_delays[256];
+ static int scripted_key_count;
+ static int scripted_key_index;
+ static int scripted_key_delay;
+@@ -20,11 +20,11 @@ static int scripted_key_frames;
+ static void parse_scripted_keys(const char *spec)
+ {
+-        char copy[1024];
++        char copy[4096];
+         char *item;
+         strncpy(copy, spec, sizeof(copy) - 1);
+         copy[sizeof(copy) - 1] = 0;
+         item = strtok(copy, ",");
+-        while (item && scripted_key_count < 64)
++        while (item && scripted_key_count < 256)
+         {
+                 char *separator = strchr(item, ':');
+                 int delay = 5;
+@@ -37,7 +37,9 @@ static void parse_scripted_keys(const char *spec)
+                         code = atoi(separator + 1);
+                 }
+                 else code = atoi(item);
+-                if (code >= 0 && code < KEY_MAX)
++                if ((code >= 0 && code < KEY_MAX) ||
++                    code == 2000 || code == 2001 ||
++                    (code >= 1000 && code < 1000 + KEY_MAX))
+                 {
+                         scripted_delays[scripted_key_count] = delay;
+                         scripted_keys[scripted_key_count++] = code;
+@@ -386,11 +388,24 @@ void runelk()
+                         if (scripted_key_delay) {
+                                 scripted_key_delay--;
+                         } else if (scripted_key_frames < 6) {
+-                                key[scripted_key] = 1;
++                                if (scripted_key == 2000) {
++                                        key[keylookup[KEY_LSHIFT]] = 1;
++                                } else if (scripted_key == 2001) {
++                                        key[keylookup[KEY_LSHIFT]] = 0;
++                                } else if (scripted_key >= 1000) {
++                                        key[scripted_key - 1000] = 1;
++                                } else {
++                                        key[keylookup[scripted_key]] = 1;
++                                }
+                                 scripted_key_frames++;
+                         } else {
+-                                key[scripted_key] = 0;
++                                if (scripted_key != 2000 && scripted_key != 2001) {
++                                        if (scripted_key >= 1000)
++                                                key[scripted_key - 1000] = 0;
++                                        else
++                                                key[keylookup[scripted_key]] = 0;
++                                }
+                                 scripted_key_index++;
+                                 scripted_key_frames = 0;
+                                 if (scripted_key_index < scripted_key_count)
+                                         scripted_key_delay = scripted_delays[scripted_key_index];

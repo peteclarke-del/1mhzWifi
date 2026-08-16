@@ -7,6 +7,7 @@ OSFIND = &FFCE
 OSBGET = &FFD7
 
 .uef_cmd
+ jsr wicfs_detect_machine
  jsr skipspace1
  ldx #0
 .uef_load_option
@@ -48,81 +49,134 @@ OSBGET = &FFD7
  bne uef_opened
  jmp uef_open_failed
 .uef_opened
- tax                         \ X is preserved by OSBGET and holds the handle
+ pha                         \ file handle below the two-byte length frame
 
  \ The last two bytes of the 64 KiB UEF window are its authoritative length
- \ trailer, so the largest accepted image is &FFFE bytes.
- jsr uef_select_length
+ \ trailer, so the largest accepted image is &FFFE bytes. Keep the live
+ \ length in a two-byte stack frame. No fixed RAM address is safe across all
+ \ filing systems, and the frame remains private across balanced MOS calls.
  lda #0
- sta &FDFE
- sta &FDFF
+ pha                         \ high byte at &0102,S
+ pha                         \ low byte at &0101,S
+ php
+ sei
+ lda #0
+ ldy #0
+ jsr uef_commit_length
+ plp
 
 .uef_read
- txa
- tay
+ tsx
+ ldy &0103,x                 \ recover handle after TSX length operations
  jsr OSBGET
  bcs uef_read_end
- pha
+ sta temp
 
- \ The current filing system may use JIM during OSBGET. Reselect the complete
- \ 1MHzWifi address after every byte before reading or writing our state.
- jsr uef_select_length
- lda &FDFE
- sta zp
- lda &FDFF
+ \ Check the CPU-side length before entering the atomic JIM transaction.
+ tsx
+ lda &0102,x
  cmp #&FF
  bne uef_have_space
- lda zp
+ lda &0101,x
  cmp #&FE
  bcc uef_have_space
  jmp uef_full
 .uef_have_space
- lda &FDFF
+ \ The current filing system may use JIM during OSBGET. Reselect the complete
+ \ 1MHzWifi address before writing the downloaded byte.
+ php
+ sei
+ jsr wicfs_select_public_zero
+ tsx
+ lda &0103,x                \ high byte below saved flags
  sta pagereg
- ldy zp
- pla
+ jsr wicfs_bus_delay
+ ldy &0102,x                \ low byte below saved flags
+ lda temp
  sta pageram,y
-
- jsr uef_select_length
- inc &FDFE
+ jsr wicfs_bus_delay
+ inc &0102,x
+ bne uef_byte_stored
+ inc &0103,x
+.uef_byte_stored
+ plp
+ tsx
+ lda &0101,x
  bne uef_read
- inc &FDFF
+ php
+ sei
+ ldy &0102,x
+ jsr uef_commit_length
+ plp
  jsr check_esc
  bcc uef_read
  jsr uef_close
+ pla
+ pla
+ pla
  jmp call_claimed
 
 .uef_read_end
  cmp #&FE                    \ normal OSBGET end-of-file indication
  beq uef_complete
- pha
+ sta temp
  jsr uef_close
  jsr printtext
  equs "UEF read error &",&EA
- pla
+ lda temp
  jsr printhex
  jsr osnewl
+ pla
+ pla
+ pla
  jmp call_claimed
 
 .uef_complete
  jsr uef_close
+ php
+ sei
+ tsx
+ lda &0102,x                \ low byte below saved flags
+ ldy &0103,x                \ high byte below saved flags
+ jsr uef_commit_length
  jsr uef_select_length
  lda &FDFE
- ora &FDFF
+ sta temp
+ lda &FDFF
+ tsx
+ sta &0103,x                \ high frame byte below saved flags
+ lda temp
+ sta &0102,x                \ low frame byte below saved flags
+ plp
+ tsx
+ lda &0102,x                \ high frame byte after saved flags are removed
+ ora &0101,x                \ low frame byte
  bne uef_nonempty
  jmp uef_empty
 .uef_nonempty
  jsr service_driver_uef_normalize
  cmp #'I'
  bne uef_not_invalid
- jmp uef_invalid
+ jmp uef_invalid_cleanup
 .uef_not_invalid
  cmp #'T'
  bne uef_normalized
- jmp uef_too_large
+ jmp uef_too_large_cleanup
 .uef_normalized
- sta temp
+ pha                         \ preserve normalize result above length frame
+ php
+ sei
  jsr uef_select_length
+ lda &FDFE
+ sta temp
+ lda &FDFF
+ tsx
+ sta &0104,x
+ lda temp
+ sta &0103,x
+ plp
+ pla
+ sta temp
  jsr printtext
  equs "UEF ",&EA
  lda temp
@@ -143,12 +197,28 @@ OSBGET = &FFD7
 .uef_format_done
  jsr printtext
  equs "OK &",&EA
- lda &FDFF
+ tsx
+ lda &0102,x
  jsr printhex
- lda &FDFE
+ tsx
+ lda &0101,x
  jsr printhex
  jsr printtext
  equs " bytes in JIM",&0D,&EA
+
+ \ Both Tube-active and Tube-off paths must first make the same host-side
+ \ filing-system transition. This runs through host OSCLI only; it neither
+ \ addresses nor transfers data to the Tube.
+ jsr menu_select_tape
+ bcc uef_tape_selected
+ pla
+ pla
+ pla
+ jmp call_claimed
+.uef_tape_selected
+ pla
+ pla
+ pla
 
  \ A Tube language would otherwise consume the queued CHAIN. Enter the host
  \ language without disabling, resetting or transferring through the Tube.
@@ -199,21 +269,34 @@ OSBGET = &FFD7
 
 
 .uef_full
- pla
  jsr uef_close
+ pla
+ pla
+ pla
  ldx #(error_buffer_full-error_table)
  jmp error
 
 .uef_empty
+ pla
+ pla
+ pla
  jsr printtext
  equs "Empty UEF file",&0D,&EA
  jmp call_claimed
 
+.uef_invalid_cleanup
+ pla
+ pla
+ pla
 .uef_invalid
  jsr printtext
  equs "Invalid UEF, gzip or ZIP file",&0D,&EA
  jmp call_claimed
 
+.uef_too_large_cleanup
+ pla
+ pla
+ pla
 .uef_too_large
  jsr printtext
  equs "Expanded UEF exceeds &FFFE bytes",&0D,&EA
@@ -230,22 +313,37 @@ OSBGET = &FFD7
  jmp call_claimed
 
 .uef_close
- txa
- tay
+ tsx
+ \ JSR uef_close has placed its two-byte return address above the live
+ \ low/high length frame. The OSFIND handle is therefore five bytes above
+ \ the current stack pointer here, rather than the inline read-loop offset.
+ ldy &0105,x
  lda #0
  jsr OSFIND
  rts
 
 .uef_select_length
+ jsr wicfs_select_public_zero
  lda #&FF
  sta pagereg
+ jsr wicfs_bus_delay
+ rts
+
+.uef_commit_length
+ pha                         \ uef_select_length uses A for page &FF
+ jsr uef_select_length
+ pla
+ sta &FDFE
+ jsr wicfs_bus_delay
+ tya
+ sta &FDFF
+ jsr wicfs_bus_delay
  rts
 
 .uef_load_word
  equs "LOAD"
 
 .uef_launch
- equs "*TAPE",&0D
  equs "PAGE=&0E00",&0D
  equs "NEW",&0D
  equs "*QUPRUN",&0D

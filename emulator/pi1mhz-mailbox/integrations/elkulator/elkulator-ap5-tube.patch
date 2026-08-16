@@ -2,19 +2,30 @@ diff --git a/src/6502.c b/src/6502.c
 index dc44f24..64d1710 100644
 --- a/src/6502.c
 +++ b/src/6502.c
-@@ -3,6 +3,7 @@
+@@ -3,6 +3,8 @@
  #include <allegro.h>
  #include <stdio.h>
  #include "elk.h"
 +#include "ap5_tube.h"
++#include "pi1mhz_elkulator.h"
  
  int timetolive;
  int ins=0;
-@@ -1727,6 +1728,7 @@ void exec6502()
+@@ -23,6 +25,8 @@ void reset6502()
+         p.c=p.z=p.d=p.v=p.n=0;
+         p.i=1;
+         cycles=0;
++        ap5_tube_rebase_host_clock(cycles);
++        pi1mhz_elkulator_rebase_host_clock(cycles);
+         mrbmapped=0;
+         resetmem();
+ }
+@@ -1727,6 +1731,8 @@ void exec6502()
                  }
                  ins++;
                  oldcycs=cycles-oldcycs;
-+                ap5_tube_run_host_cycles(oldcycs);
++                ap5_tube_sync_host_clock(cycles);
++                pi1mhz_elkulator_sync_host_clock(cycles);
                  if (cpureset)
                  {
                          cpureset=0;
@@ -150,19 +161,22 @@ index 08f011f..8ea2415 100644
  
  static const char * roms = "roms";   // Name of directory containing rom files
  
-@@ -175,6 +176,8 @@ uint8_t readmem(uint16_t addr)
+@@ -175,8 +176,11 @@ uint8_t readmem(uint16_t addr)
          else          readc[addr]=31;
-         if (pi1mhz_elkulator_handles(addr))
+         pi1mhz_elkulator_sync_host_clock(cycles);
++        ap5_tube_sync_host_clock(cycles);
+         if (pi1mhz_elkulator_handles_read(addr))
                  return pi1mhz_elkulator_read(addr);
+         pi1mhz_elkulator_snoop_read(addr);
 +        if (ap5_tube_handles(addr))
 +                return ap5_tube_host_read(addr);
          if (addr<0x2000)
          {
                  if (FASTLOW) return ram2[addr];
-@@ -252,6 +255,11 @@ void writemem(uint16_t addr, uint8_t val)
-                 pi1mhz_elkulator_write(addr, val);
-                 return;
-         }
+@@ -249,5 +253,11 @@ void writemem(uint16_t addr, uint8_t val)
+         pi1mhz_elkulator_sync_host_clock(cycles);
++        ap5_tube_sync_host_clock(cycles);
+         pi1mhz_elkulator_snoop_write(addr, val);
 +        if (ap5_tube_handles(addr))
 +        {
 +                ap5_tube_host_write(addr, val);

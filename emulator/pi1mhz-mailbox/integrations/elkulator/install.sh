@@ -21,6 +21,8 @@ cp "$component_dir/include/pi1mhz_wolfssh.h" "$target/src/"
 cp "$component_dir/src/pi1mhz_wolfssh.c" "$target/src/"
 cp "$integration_dir/pi1mhz_elkulator.h" "$target/src/"
 cp "$integration_dir/pi1mhz_elkulator.c" "$target/src/"
+cp "$integration_dir/beebscsi_elkulator.h" "$target/src/"
+cp "$integration_dir/beebscsi_elkulator.c" "$target/src/"
 cp "$integration_dir/tube/ap5_tube.h" "$target/src/"
 cp "$integration_dir/tube/ap5_tube.c" "$target/src/"
 cp "$integration_dir/tube/vrEmu6502.h" "$target/src/"
@@ -47,16 +49,19 @@ apply_combined_section() {
         emit { print }
     ' "$integration_dir/elkulator.patch" > "$section_patch"
     test -s "$section_patch"
-    patch --batch -d "$target" -p1 < "$section_patch"
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 < "$section_patch"
     rm -f "$section_patch"
 }
 
 if ! grep -q 'pi1mhz_elkulator.h' "$target/src/mem.c"; then
     apply_combined_section src/mem.c
+elif grep -q 'pi1mhz_elkulator_handles(addr)' "$target/src/mem.c"; then
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 \
+        < "$integration_dir/elkulator-snoop-upgrade.patch"
 fi
 if ! grep -q '^int rambanks\[16\];' "$target/src/main.c"; then
     if grep -q 'elkwifiname' "$target/src/main.c"; then
-        patch --batch -d "$target" -p1 \
+        patch --batch --no-backup-if-mismatch -d "$target" -p1 \
             < "$integration_dir/elkulator-elkwifi-main.patch"
     else
         apply_combined_section src/main.c
@@ -66,8 +71,10 @@ if ! grep -q 'void enable_ram_n(int bank);' "$target/src/elk.h"; then
     apply_combined_section src/elk.h
 fi
 
-if ! grep -q 'parse_scripted_keys' "$target/src/main.c"; then
-    patch -d "$target" -p1 < "$integration_dir/elkulator-autokeys.patch"
+if grep -q 'static int scripted_keys\[64\];' "$target/src/main.c"; then
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 < "$integration_dir/elkulator-autokeys-upgrade.patch"
+elif ! grep -q 'parse_scripted_keys' "$target/src/main.c"; then
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 < "$integration_dir/elkulator-autokeys.patch"
 fi
 
 # Append through Automake's supported += form instead of rewriting the
@@ -90,12 +97,15 @@ apply_tube_section() {
         emit { print }
     ' "$integration_dir/elkulator-ap5-tube.patch" > "$section_patch"
     test -s "$section_patch"
-    patch --batch -d "$target" -p1 < "$section_patch"
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 < "$section_patch"
     rm -f "$section_patch"
 }
 
-if ! grep -q 'ap5_tube_run_host_cycles' "$target/src/6502.c"; then
+if ! grep -q 'ap5_tube_sync_host_clock' "$target/src/6502.c"; then
     apply_tube_section src/6502.c
+elif ! grep -q 'ap5_tube_rebase_host_clock' "$target/src/6502.c"; then
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 \
+        < "$integration_dir/elkulator-clock-rebase-upgrade.patch"
 fi
 if ! grep -q 'ap5_tube.c' "$target/src/Makefile.am"; then
     apply_tube_section src/Makefile.am
@@ -111,11 +121,36 @@ if ! grep -q 'ap5_tube_host_irq' "$target/src/ula.c"; then
 fi
 if ! grep -q 'ap5_tube_init' "$target/src/main.c"; then
     if grep -q 'elkwifiname' "$target/src/main.c"; then
-        patch --batch -d "$target" -p1 \
+        patch --batch --no-backup-if-mismatch -d "$target" -p1 \
             < "$integration_dir/elkulator-ap5-tube-elkwifi.patch"
     else
         apply_tube_section src/main.c
     fi
+fi
+
+if ! grep -q 'beebscsi_elkulator.c' "$target/src/Makefile.am"; then
+    printf '\nelkulator_SOURCES += beebscsi_elkulator.c\n' \
+        >> "$target/src/Makefile.am"
+fi
+
+apply_beebscsi_section() {
+    source_path=$1
+    section_patch="$target/.pi1mhz-beebscsi-$(basename "$source_path").patch"
+    awk -v header="--- a/$source_path" '
+        $0 == header { emit = 1 }
+        emit && /^--- a\// && $0 != header { exit }
+        emit { print }
+    ' "$integration_dir/elkulator-beebscsi.patch" > "$section_patch"
+    test -s "$section_patch"
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 < "$section_patch"
+    rm -f "$section_patch"
+}
+
+if ! grep -q 'beebscsi_elkulator.h' "$target/src/mem.c"; then
+    apply_beebscsi_section src/mem.c
+fi
+if ! grep -q 'beebscsi_elkulator.h' "$target/src/ula.c"; then
+    apply_beebscsi_section src/ula.c
 fi
 
 if [ -n "${PI1MHZ_WOLFSSH_PREFIX:-}" ]; then
@@ -139,4 +174,4 @@ if [ -n "${PI1MHZ_WOLFSSH_PREFIX:-}" ]; then
     fi
 fi
 
-echo "Installed Pi1MHz mailbox and AP5 Tube devices into $target"
+echo "Installed Pi1MHz mailbox, BeebSCSI and AP5 Tube devices into $target"

@@ -30,30 +30,49 @@ _Static_assert(NTS_SEC_CAPS == SERVICE_CMD_SECURE_FIRST,
 _Static_assert(NTS_SEC_SSH_PASSWORD <= SERVICE_CMD_SECURE_LAST,
                "secure service command exceeds reserved range");
 
+static void secure_write_capabilities(uint8_t *command)
+{
+    command[1] = 1u;
+    command[2] = 1u;
+    command[3] = capability_features;
+    command[4] = 0xB8u;
+    command[5] = 0x88u;
+    command[6] = capability_managed_ssh;
+    command[7] = 1u; /* wolfSSH/wolfCrypt provider */
+    command[8] = (uint8_t)'N';
+    command[9] = (uint8_t)'T';
+    command[10] = (uint8_t)'S';
+}
+
+/* Real hardware bring-up trace: shares the net_service stage-marker byte
+   (fixed command page + 0xFF, beyond NET_IO_MAX so no command payload can
+   reach it) so an SSH capability-probe timeout, which waits via the same
+   net_dispatch/net_debug_stage path, reports which of these two services
+   last touched it. 0x8x distinguishes this service from net_service's 1-6
+   range. Harmless in a non-debug build - one extra store. */
+static void secure_debug_mark(uint8_t stage)
+{
+   uint32_t p = (DISC_RAM_BASE | 0xFF0000u | (0xF0u << 8)) + 0xFFu;
+   Pi1MHz->JIM_ram[p] = stage;
+}
+
 void secure_service_command(uint32_t command_pointer, uint32_t addr,
                             uint8_t data)
 {
     (void)data;
-    /* Capability discovery is a pure, fixed-size mailbox operation. Complete
-       it in the services callback so a host can identify this ABI even while
-       the ordinary poll is finishing RNG/wolfSSH reset work. This mirrors the
-       synchronous ElkWiFi STATUS probe and does not call FatFs, lwIP or crypto
-       from FIQ context. */
+    secure_debug_mark(0x81u);
+    /* Capability discovery is a fixed memory reply and is deliberately
+       independent of the main poll table. This also distinguishes a missing
+       command route from a stalled secure provider on physical hardware. */
     if (Pi1MHz->JIM_ram[command_pointer] == NTS_SEC_CAPS) {
-        uint8_t *command = &Pi1MHz->JIM_ram[command_pointer];
-        command[1] = 1u;
-        command[2] = 1u;
-        command[3] = capability_features;
-        command[4] = 0xB8u;
-        command[5] = 0x88u;
-        command[6] = capability_managed_ssh;
-        command[7] = 1u; /* wolfSSH/wolfCrypt provider */
-        command[8] = (uint8_t)'N';
-        command[9] = (uint8_t)'T';
-        command[10] = (uint8_t)'S';
+        secure_debug_mark(0x82u);
+        secure_write_capabilities(&Pi1MHz->JIM_ram[command_pointer]);
+        secure_debug_mark(0x83u);
         Pi1MHz_MemoryWrite(addr, NTS_OK);
+        secure_debug_mark(0x84u);
         return;
     }
+    secure_debug_mark(0x85u);
     /* The 8-bit host issues mailbox operations synchronously, so there is at
        most one live caller. Always latch the newest command, like the native
        net service does. In particular this prevents a command arriving

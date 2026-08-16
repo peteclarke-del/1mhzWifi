@@ -8,6 +8,7 @@
 \ transient within one driver call, so keep it in the ROM heap. &03E0-&03FF is
 \ the MOS keyboard buffer and must remain untouched by MENU/UEF command queues.
 driver_page_shadow = heap+&D8
+driver_machine = heap+&D9 \ transient machine type for this driver call
 
 \ Please note that some functions or routines are not quite logical
 \ but they are implemented to keep driver compatibility with the 
@@ -36,10 +37,17 @@ driver_page_shadow = heap+&D8
  sta save_a                 \ save registers
  stx save_x
  sty save_y
+ \ OSBYTE &81 with X=0,Y=&FF is the documented machine-type query. Run it
+ \ before touching the JIM high selectors and retain the result only for this
+ \ driver call; heap is volatile and cannot hold a reset-time cache.
+ lda #&81
+ ldx #0
+ ldy #&FF
+ jsr osbyte
+ stx driver_machine
  jsr set_bank_0             \ ElkWiFi buffers are in JIM address 00:00:page
  lda #0
  sta driver_page_shadow
- sta pagereg                \ every public call starts at 00:00:00
  lda save_a
  cmp #0
  bne service_driver_not_0
@@ -154,9 +162,13 @@ driver_page_shadow = heap+&D8
 \ call does not clear the buffer and will mostly be called after a command
 \ is executed and the response is processed.
 .reset_buffer
+ php
+ sei
  ldx #&00
  stx driver_page_shadow
- stx pagereg
+ txa
+ jsr select_public_page_a
+ plp
  rts
 
 \ Initialize the data buffer, by resetting the paged ram register to 0
@@ -165,7 +177,13 @@ driver_page_shadow = heap+&D8
 \ before a command is executed.
 .clear_buffer
  jsr reset_buffer
+ php
+ sei
+ txa
+ jsr select_public_page_a
  stx pageram
+ jsr wicfs_bus_delay
+ plp
 ; txa
 ;.irb_l1
 ; sta pageram,x
@@ -177,21 +195,34 @@ driver_page_shadow = heap+&D8
 \ returns the character in A and the X register points 
 \ to the next data byte.
 .read_buffer
- lda pageram,x
  php
+ sei
+ lda driver_page_shadow
+ jsr select_public_page_a
+ lda pageram,x
+ plp
+ jsr read_buffer_inc
+ ora #0                    \ return N/Z for the byte read
+ rts
 .read_buffer_inc
  inx
  bne read_buffer_end
  jsr inc_page_reg
 .read_buffer_end
- plp
  rts
 
 \ Writes a character to the paged ram buffer at position X
 \ returns with X pointing to the next byte
 .write_buffer
  php
+ sei
+ pha
+ lda driver_page_shadow
+ jsr select_public_page_a
+ pla
  sta pageram,x
+ jsr wicfs_bus_delay
+ plp
  jmp read_buffer_inc
 
 \ Decrements the 24 bit data pointer. On the Electron most transfers will be smaller than
@@ -228,7 +259,11 @@ rts
  inx                    \ increment the value
  beq buffer_end         \ if it becomes zero then the end of the buffer (paged ram) is reached
  stx driver_page_shadow
- stx pagereg            \ write back to page register (i.e. select next page)
+ php
+ sei
+ txa
+ jsr select_public_page_a \ write back to page register (i.e. select next page)
+ plp
  ldx #0                 \ reset y register
  cpx #1                 \ clears Z-flag
 .buffer_end

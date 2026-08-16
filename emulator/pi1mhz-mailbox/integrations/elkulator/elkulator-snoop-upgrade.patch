@@ -1,0 +1,28 @@
+--- a/src/mem.c
++++ b/src/mem.c
+@@ -175,8 +175,10 @@ uint8_t readmem(uint16_t addr)
+         if (debugon) debugread(addr);
+         if (addr==pc) fetchc[addr]=31;
+         else          readc[addr]=31;
+-        if (pi1mhz_elkulator_handles(addr))
++        pi1mhz_elkulator_sync_host_clock(cycles);
++        if (pi1mhz_elkulator_handles_read(addr))
+                 return pi1mhz_elkulator_read(addr);
++        pi1mhz_elkulator_snoop_read(addr);
+         if (addr<0x2000)
+         {
+                 if (FASTLOW) return ram2[addr];
+@@ -250,11 +252,8 @@ void writemem(uint16_t addr, uint8_t val)
+ {
+         if (debugon) debugwrite(addr,val);
+         writec[addr]=31;
+-        if (pi1mhz_elkulator_handles(addr))
+-        {
+-                pi1mhz_elkulator_write(addr, val);
+-                return;
+-        }
++        pi1mhz_elkulator_sync_host_clock(cycles);
++        pi1mhz_elkulator_snoop_write(addr, val);
+ //        if (addr==0x5820) rpclog("Write 5820\n");
+ //        if (addr==0x5B10) rpclog("Write 5B10\n");
+ //        if (addr==0x5990) rpclog("Write 5990\n");

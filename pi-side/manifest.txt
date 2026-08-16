@@ -5,7 +5,7 @@ Reviewed upstream
 -----------------
 
 - Branch: master
-- Commit: 516a267493d9f19e6bf2f4a2ea4c3e7472b12135
+- Commit: d08242ee1b35cf1285b72c9ec1869e98081a8c3e
 - Verification metadata: upstream.env
 
 Installer and review tools
@@ -23,10 +23,12 @@ Installer and review tools
 Ordered Pi1MHz patches
 ----------------------
 
+- bus-window-adjacent-preservation.patch
 - integration.patch
 - service-range-online.patch
 - uef-normalize.patch
 - services-capacity-test.patch
+- deterministic-service-dispatch.patch
 - gitversion-untracked-content.patch
 - gitversion-third-party.patch
 - secure-service.patch
@@ -47,6 +49,8 @@ Ordered Pi1MHz patches
 - wifi-off-state.patch
 - wifi-scan-cancel.patch
 - wifi-profile-validation.patch
+- net-debug-stage.patch
+- secure-debug-stage.patch
 
 Added source overlays
 ---------------------

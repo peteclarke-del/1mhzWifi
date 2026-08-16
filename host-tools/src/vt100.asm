@@ -661,7 +661,7 @@ VT_STRING_ESCAPE = 7
     RTS
 
 \ Mode/report scaffolding. Replies need a small renderer-to-transport queue;
-\ the parser records the request now so SSH and TERM can add that queue later.
+\ the parser records the request now so SSH and TELNET can add that queue later.
 .vt_set_mode                      \ CSI [ ? ] Ps h (SM/DECSET)
     LDA #1
     BNE vt_record_mode

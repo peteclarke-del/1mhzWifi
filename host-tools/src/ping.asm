@@ -6,20 +6,24 @@ ORG APP_START
 GUARD APP_LIMIT
 
 .start
+    JSR application_check_workspace
+    BCS ping_memory_safe
+    JMP application_exit
+.ping_memory_safe
     JSR mos_get_command_tail
     JSR tool_read_argument
     BCS ping_have_host
     LDX #LO(ping_usage)
     LDY #HI(ping_usage)
     JSR tool_print_string
-    RTS
+    JMP application_exit
 .ping_have_host
     JSR net_probe
     BCS ping_service_present
     LDX #LO(ping_no_service)
     LDY #HI(ping_no_service)
     JSR tool_print_string
-    RTS
+    JMP application_exit
 .ping_service_present
     LDA #4
     STA ping_remaining
@@ -29,13 +33,12 @@ GUARD APP_LIMIT
     LDX #0
 .ping_copy_host
     LDA tool_argument,X
-    STA SERVICE_DATA
+    JSR net_data_write
     BEQ ping_dispatch
     INX
     BNE ping_copy_host
 .ping_dispatch
-    LDA #NET_DISPATCH
-    STA SERVICE_COMMAND
+    JSR net_dispatch_start
     LDA #0
     STA ping_timeout_lo
     LDA #8
@@ -58,15 +61,21 @@ GUARD APP_LIMIT
 .ping_result
     CMP #NET_OK
     BNE ping_error
+    PHP
+    SEI
     JSR net_select_command
     LDA #1
-    STA SERVICE_ADDR_LO
+    JSR net_set_cursor_low
+    JSR net_copy_selected_string
+    PLP
     LDX #LO(ping_reply)
     LDY #HI(ping_reply)
     JSR tool_print_string
 .ping_print_response
-    LDA SERVICE_DATA
+    LDX ping_response_index
+    LDA net_rx_host,X
     BEQ ping_response_done
+    INC ping_response_index
     CMP #'+'
     BEQ ping_print_response
     CMP #13
@@ -81,6 +90,8 @@ GUARD APP_LIMIT
 .ping_error
     JSR tool_show_error
 .ping_response_done
+    LDA #0
+    STA ping_response_index
     DEC ping_remaining
     BEQ ping_done
     LDA #25
@@ -94,13 +105,12 @@ GUARD APP_LIMIT
 .ping_cancel
     LDA #ELKWIFI_CMD_CANCEL
     JSR net_begin
-    LDA #NET_DISPATCH
-    STA SERVICE_COMMAND
+    JSR net_dispatch_start
     LDX #LO(ping_cancelled)
     LDY #HI(ping_cancelled)
     JSR tool_print_string
 .ping_done
-    RTS
+    JMP application_exit
 
 .ping_usage
     EQUS "Usage: *PING host", 13, 0
@@ -114,6 +124,8 @@ GUARD APP_LIMIT
     EQUS "Ping cancelled.", 13, 0
 .ping_remaining
     EQUB 0
+.ping_response_index
+    EQUB 0
 .ping_timeout_lo
     EQUB 0
 .ping_timeout_hi
@@ -123,6 +135,7 @@ GUARD APP_LIMIT
 
 INCLUDE "src/common/pi1mhz_net.asm"
 INCLUDE "src/common/tool_common.asm"
+INCLUDE "src/common/application.asm"
 
 .end
 SAVE start, end, start

@@ -6,20 +6,24 @@ ORG APP_START
 GUARD APP_LIMIT
 
 .start
+    JSR application_check_workspace
+    BCS ssh_memory_safe
+    JMP application_exit
+.ssh_memory_safe
     JSR mos_get_command_tail
     JSR build_ssh_target
     BCS ssh_have_target
     LDX #LO(usage_text)
     LDY #HI(usage_text)
     JSR print_string
-    RTS
+    JMP application_exit
 .ssh_have_target
     JSR net_probe
     BCS ssh_service_present
     LDX #LO(no_service_text)
     LDY #HI(no_service_text)
     JSR print_string
-    RTS
+    JMP application_exit
 .ssh_service_present
     JSR secure_probe
     CMP #NET_OK
@@ -33,7 +37,7 @@ GUARD APP_LIMIT
     JSR print_string
     LDA #NET_LOCAL_TIMEOUT
     JSR show_error
-    RTS
+    JMP application_exit
 .ssh_probe_secure_ok
     LDA secure_features
     AND #2
@@ -138,11 +142,15 @@ GUARD APP_LIMIT
     LDA net_length
     ORA net_length + 1
     BEQ ssh_poll_keyboard
-    JSR net_select_rx
+    JSR net_copy_rx_to_host
+    LDA #0
+    STA ssh_rx_index
     LDA net_length
     STA ssh_rx_remaining
 .ssh_render_rx
-    LDA SERVICE_DATA
+    LDX ssh_rx_index
+    LDA net_rx_host,X
+    INC ssh_rx_index
     JSR vt_process
     DEC ssh_rx_remaining
     BNE ssh_render_rx
@@ -223,7 +231,7 @@ GUARD APP_LIMIT
     BEQ ssh_close_done
     JSR restore_keyboard
 .ssh_close_done
-    RTS
+    JMP application_exit
 .ssh_secure_error
     PHA
     LDX #LO(secure_required_text)
@@ -231,7 +239,7 @@ GUARD APP_LIMIT
     JSR print_string
     PLA
     JSR show_error
-    RTS
+    JMP application_exit
 
 \ The secure service leaves `SHA256:<base64>` at JIM &020500 when an
 \ unknown key is encountered. It has already cryptographically verified the
@@ -240,16 +248,22 @@ GUARD APP_LIMIT
     LDX #LO(unknown_host_text)
     LDY #HI(unknown_host_text)
     JSR print_string
+    PHP
+    SEI
     LDA #0
-    STA SERVICE_ADDR_LO
-    LDA #5
-    STA SERVICE_ADDR_MI
-    LDA #2
-    STA SERVICE_ADDR_HI
+    LDX #5
+    LDY #2
+    JSR net_select_address
+    JSR net_copy_selected_string
+    PLP
+    LDX #0
 .ssh_print_fingerprint
-    LDA SERVICE_DATA
+    LDA net_rx_host,X
     BEQ ssh_fingerprint_done
+    INX
+    STX ssh_fingerprint_index
     JSR OSASCI
+    LDX ssh_fingerprint_index
     JMP ssh_print_fingerprint
 .ssh_fingerprint_done
     LDX #LO(accept_text)
@@ -578,7 +592,7 @@ GUARD APP_LIMIT
 .local_closed_text
     EQUS 13, "Disconnected.", 13, 0
 .error_text
-    EQUS 13, "SSH error &", 0
+    EQUS 13, "SSH 0.1.52 error &", 0
 .tcp_prefix
     EQUS "TCP://", 0
 .url_buffer
@@ -601,6 +615,10 @@ GUARD APP_LIMIT
     EQUB 0
 .ssh_rx_remaining
     EQUB 0
+.ssh_rx_index
+    EQUB 0
+.ssh_fingerprint_index
+    EQUB 0
 .keyboard_active
     EQUB 0
 .saved_escape_break
@@ -615,6 +633,7 @@ GUARD APP_LIMIT
 INCLUDE "src/common/pi1mhz_net.asm"
 INCLUDE "src/common/pi1mhz_secure.asm"
 INCLUDE "src/vt100.asm"
+INCLUDE "src/common/application.asm"
 
 .end
 SAVE start, end, start

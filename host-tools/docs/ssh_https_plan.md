@@ -25,12 +25,13 @@ patches, while the repository-level Makefile runs their common validation.
 ## Current SSD contents
 
 - `NETMENU`: launcher and command summary.
-- `TERM`: Telnet client with a bounded 40 by 24 VT100 parser.
+- `TELNET`: Telnet client with a bounded 40 by 24 VT100 parser.
 - `SSH`: SSH v2 client with host-key confirmation, Pi-resident keys and hidden
   password fallback.
-- `PING`, `NSLOOK`, `FTP`, `HGET` and `VIEWDAT` are planned but are not shipped
-  until their implementations and functional tests are complete. DFS limits
-  names to seven characters, hence the planned `VIEWDAT` name.
+- `PING` and `NSLOOK` are implemented and shipped.
+- `FTP`, `HGET` and `VIEWDAT` are planned but are not shipped until their
+  implementations and functional tests are complete. DFS limits names to
+  seven characters, hence the planned `VIEWDAT` name.
 
 ## Responsibility split
 
@@ -96,7 +97,7 @@ not use the VT100 renderer. It needs:
 - Complete common stream and managed secure-service ABIs.
 - Provide host-key storage and Pi-resident identities.
 - Support hidden password fallback.
-- Validate TERM and SSH through py65, Elkulator and real SSH fixtures.
+- Validate TELNET and SSH through py65, Elkulator and real SSH fixtures.
 
 Status: implemented. Physical hardware qualification remains outstanding.
 

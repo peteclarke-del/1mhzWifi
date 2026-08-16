@@ -13,24 +13,32 @@ uflag = heap+&FD
 laddr = heap+&FE
 
 .wget_context_switch_in
+ php
+ sei
  pha
  lda net_primary_page
  sta load_addr+1
  jsr set_bank_1
  lda pr_r
  sta pagereg
+ jsr wicfs_bus_delay
  ldy pr_y
  pla
+ plp
  rts
 
 .wget_context_switch_out
+ php
+ sei
  pha
  sty pr_y
  jsr set_bank_0
  lda load_addr+1
  sta net_primary_page
  sta pagereg
+ jsr wicfs_bus_delay
  pla
+ plp
  rts
 
 .wget_set_default_load
@@ -104,6 +112,7 @@ laddr = heap+&FE
  inc pr_r
  lda pr_r
  sta pagereg
+ jsr wicfs_bus_delay
  inc zp+3
  dec zp+4
  bne wget_swramload_l1

@@ -1,0 +1,128 @@
+\ Small host-side loader shared by the measured MMFS/ADFS and DFS envelopes.
+\ At &2000 it lies above DFS OSHWM=&1F00. With HIMEM=&1D00 it initially lies
+\ in writable display RAM, then survives because MODE 4 starts at &5800. The
+\ main image starts at &2200, beyond the loader's guarded extent.
+
+INCLUDE "src/common/mos.inc"
+
+loader_ptr = &70
+LOADER_START = &2000
+LOADER_LIMIT = &2200
+
+ORG LOADER_START
+GUARD LOADER_LIMIT
+
+.start
+    LDA #&83
+    JSR OSBYTE
+    STX LOADER_COOKIE + 2
+    STY LOADER_COOKIE + 3
+    CPY #HI(LOADER_START)
+    BCC loader_address_ok
+    BNE loader_wrong_envelope
+    CPX #LO(LOADER_START)
+    BCC loader_address_ok
+    BEQ loader_address_ok
+.loader_wrong_envelope
+    LDX #LO(wrong_envelope_text)
+    LDY #HI(wrong_envelope_text)
+    JSR loader_print
+    RTS
+
+.loader_address_ok
+    LDA #&84
+    JSR OSBYTE
+    STX LOADER_COOKIE + 4
+    STY LOADER_COOKIE + 5
+    LDA #'N'
+    STA LOADER_COOKIE
+    LDA #'T'
+    STA LOADER_COOKIE + 1
+    LDA #1
+    LDX #loader_ptr
+    LDY #0
+    JSR OSARGS
+    LDY #0
+.loader_prefix
+    LDA target_command,Y
+    STA loader_command,Y
+    INY
+    CMP #' '
+    BNE loader_prefix
+    LDX #0
+.loader_tail
+    LDA (loader_ptr,X)
+    CMP #13
+    BEQ loader_tail_done
+    CPY #loader_command_end - loader_command - 1
+    BCS loader_tail_done
+    STA loader_command,Y
+    INY
+    INC loader_ptr
+    BNE loader_tail_next
+    INC loader_ptr + 1
+.loader_tail_next
+    JMP loader_tail
+.loader_tail_done
+    LDA #13
+    STA loader_command,Y
+
+    \ Move screen memory before MOS loads the main utility at &2200.
+    LDA #22
+    JSR OSWRCH
+    LDA #4
+    JSR OSWRCH
+    LDA #&84
+    JSR OSBYTE
+    CPY #HI(APP_LIMIT)
+    BCC loader_no_room
+    BNE loader_run
+    CPX #LO(APP_LIMIT)
+    BCC loader_no_room
+.loader_run
+    LDX #LO(loader_command)
+    LDY #HI(loader_command)
+    JSR OSCLI
+    RTS
+.loader_no_room
+    LDX #LO(no_room_text)
+    LDY #HI(no_room_text)
+.loader_print
+    STX loader_ptr
+    STY loader_ptr + 1
+    LDY #0
+.loader_print_loop
+    LDA (loader_ptr),Y
+    BEQ loader_print_done
+    JSR OSASCI
+    INY
+    BNE loader_print_loop
+.loader_print_done
+    RTS
+
+.target_command
+IF LOADER_ID = 1
+    EQUS "NTMENU "
+ELIF LOADER_ID = 2
+    EQUS "NTTEL "
+ELIF LOADER_ID = 3
+    EQUS "NTSSH "
+ELIF LOADER_ID = 4
+    EQUS "NTPING "
+ELIF LOADER_ID = 5
+    EQUS "NTNSLK "
+ELIF LOADER_ID = 6
+    EQUS "NTHWD "
+ELSE
+    ERROR "Unknown LOADER_ID"
+ENDIF
+.wrong_envelope_text
+    EQUS "NetTools loader requires OSHWM <= &2000",13,0
+.no_room_text
+    EQUS "NetTools loader could not obtain MODE 4 RAM",13,0
+.loader_command
+    SKIP 96
+.loader_command_end
+
+.end
+SAVE start, end, start

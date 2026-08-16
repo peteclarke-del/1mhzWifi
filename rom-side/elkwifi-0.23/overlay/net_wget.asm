@@ -32,7 +32,15 @@ net_bytes_lo = heap+&F3
 net_bytes_hi = heap+&F4
 net_paged_page = heap+&E4
 net_paged_offset = heap+&E5
-net_primary_page = heap+&E6
+\ heap+&E6 collides with menu.asm's menu_basic_slot (same shared "heap"
+\ workspace) - use &E7, which nothing else in the ROM build allocates.
+net_primary_page = heap+&E7
+\ heap+&E0-&E3 and &E7 are otherwise unused across the whole ROM build.
+\ &F5-&F7 collide with wget.asm's proto/newln/clptr, and &E6 collides with
+\ menu.asm's menu_basic_slot - both share the same "heap" workspace.
+net_cursor_lo = heap+&E0
+net_cursor_mid = heap+&E1
+net_cursor_hi = heap+&E2
 
 \ Close the ElkWiFi-compatible raw socket and display the Pi response. The
 \ inherited wget_close routine is also an internal silent cleanup path.
@@ -41,6 +49,7 @@ net_primary_page = heap+&E6
  jmp generic_cmd
 
 .pi_wget_cmd
+ jsr detect_jim_machine
  lda #0
  sta net_transfer_ok
  sta net_received
@@ -322,13 +331,19 @@ net_primary_page = heap+&E6
  sta sbufl
  lda net_bytes_hi
  sta sbufh
+ php
+ sei
  jsr set_bank_1
  lda #&FF
  sta pagereg
+ jsr wicfs_bus_delay
  lda net_bytes_lo
  sta &FDFE
+ jsr wicfs_bus_delay
  lda net_bytes_hi
  sta &FDFF
+ jsr wicfs_bus_delay
+ plp
  lda uflag
  beq pi_wget_normalized
  \ ElkWiFi -U means "store in paged RAM"; it does not promise that the
@@ -338,19 +353,27 @@ net_primary_page = heap+&E6
  \ the optional normalisation service.
  lda #'R'
  sta net_result
+ php
+ sei
  lda #0
  sta pagereg
+ jsr wicfs_bus_delay
  lda pageram
+ sta zp
+ lda pageram+1
+ sta zp+1
+ plp
+ lda zp
  cmp #&1F
  bne pi_wget_check_zip
- lda pageram+1
+ lda zp+1
  cmp #&8B
  beq pi_wget_normalize_compressed
 .pi_wget_check_zip
- lda pageram
+ lda zp
  cmp #'P'
  bne pi_wget_raw_paged
- lda pageram+1
+ lda zp+1
  cmp #'K'
  bne pi_wget_raw_paged
 .pi_wget_normalize_compressed
@@ -369,20 +392,35 @@ net_primary_page = heap+&E6
 .pi_wget_normalize_ok
  sta net_result
  \ Command 93 rewrites the authoritative trailer with the expanded length.
+ php
+ sei
+ jsr set_bank_1
+ lda #&FF
+ sta pagereg
+ jsr wicfs_bus_delay
  lda &FDFE
  sta net_bytes_lo
  sta sbufl
  lda &FDFF
  sta net_bytes_hi
  sta sbufh
+ plp
  jmp pi_wget_normalized
 .pi_wget_raw_paged
+ php
+ sei
  lda #&FF
  sta pagereg
+ jsr wicfs_bus_delay
+ plp
 .pi_wget_normalized
+ php
+ sei
  jsr set_bank_0
  lda net_primary_page
  sta pagereg
+ jsr wicfs_bus_delay
+ plp
  lda sflag
  beq pi_wget_finish_close
  jsr wget_copy_file_to_swr
@@ -475,26 +513,31 @@ net_primary_page = heap+&E6
  jsr set_bank_1
  lda net_paged_page
  sta pagereg
+ jsr wicfs_bus_delay
  ldy net_paged_offset
  pla
  sta pageram,y
+ jsr wicfs_bus_delay
  iny
  bne pi_wget_paged_pointer_ok
  inc net_paged_page
  beq pi_wget_paged_full
  lda net_paged_page
  sta pagereg
+ jsr wicfs_bus_delay
 .pi_wget_paged_pointer_ok
  sty net_paged_offset
  jsr set_bank_0
  lda net_primary_page
  sta pagereg
+ jsr wicfs_bus_delay
  plp
  rts
 .pi_wget_paged_full
  jsr set_bank_0
  lda net_primary_page
  sta pagereg
+ jsr wicfs_bus_delay
  plp
  jsr pi_wget_close
  ldx #(error_buffer_full-error_table)
@@ -525,21 +568,103 @@ net_primary_page = heap+&E6
  jmp net_address_high
 
 .net_address_low
+ sta net_cursor_lo
  sta &FC00+net_svc_addr_lo
+ jsr wicfs_bus_delay
  rts
 .net_address_mid
+ sta net_cursor_mid
  sta &FC00+net_svc_addr_mid
+ jsr wicfs_bus_delay
  rts
 .net_address_high
+ sta net_cursor_hi
  sta &FC00+net_svc_addr_hi
+ jsr wicfs_bus_delay
  rts
 
 .net_write_a
+ php
+ sei
+ pha
+ lda net_cursor_lo
+ sta &FC00+net_svc_addr_lo
+ jsr wicfs_bus_delay
+ lda net_cursor_mid
+ sta &FC00+net_svc_addr_mid
+ jsr wicfs_bus_delay
+ lda net_cursor_hi
+ sta &FC00+net_svc_addr_hi
+ jsr wicfs_bus_delay
+ pla
  sta &FC00+net_svc_data
+ jsr wicfs_bus_delay
+ inc net_cursor_lo
+ bne net_write_done
+ inc net_cursor_mid
+ bne net_write_done
+ inc net_cursor_hi
+.net_write_done
+ jsr net_wait_cursor
+ plp
  rts
 
 .net_read_a
+ php
+ sei
+ lda net_cursor_lo
+ sta &FC00+net_svc_addr_lo
+ jsr wicfs_bus_delay
+ lda net_cursor_mid
+ sta &FC00+net_svc_addr_mid
+ jsr wicfs_bus_delay
+ lda net_cursor_hi
+ sta &FC00+net_svc_addr_hi
+ jsr wicfs_bus_delay
  lda &FC00+net_svc_data
+ jsr wicfs_bus_delay
+ pha
+ inc net_cursor_lo
+ bne net_read_done
+ inc net_cursor_mid
+ bne net_read_done
+ inc net_cursor_hi
+.net_read_done
+ jsr net_wait_cursor
+ pla
+ plp
+ cmp #0
+ rts
+
+\ FCA9 read/write callbacks advance the shared cursor asynchronously on real
+\ Pi1MHz hardware. Wait until the complete published cursor matches the
+\ software cursor before another transaction can select FCA6-FCA8. The loop is
+\ deliberately bounded and preserves A and X.
+.net_wait_cursor
+ pha
+ txa
+ pha
+ ldx #0
+.net_wait_cursor_loop
+ lda &FC00+net_svc_addr_lo
+ jsr wicfs_bus_delay
+ cmp net_cursor_lo
+ bne net_wait_cursor_again
+ lda &FC00+net_svc_addr_mid
+ jsr wicfs_bus_delay
+ cmp net_cursor_mid
+ bne net_wait_cursor_again
+ lda &FC00+net_svc_addr_hi
+ jsr wicfs_bus_delay
+ cmp net_cursor_hi
+ beq net_wait_cursor_done
+.net_wait_cursor_again
+ dex
+ bne net_wait_cursor_loop
+.net_wait_cursor_done
+ pla
+ tax
+ pla
  rts
 
 \ Dispatch handle zero (&F0).  Bit 7 means the Pi main loop has not serviced
@@ -551,8 +676,12 @@ net_primary_page = heap+&E6
  lda #&FF                 \ about five seconds at one yield per video frame
  sta net_wait_hi
 .net_dispatch_again
+ php
+ sei
  lda #&F0
  sta &FC00+net_svc_command
+ jsr wicfs_bus_delay
+ plp
 .net_dispatch_busy
  lda &FC00+net_svc_command
  bpl net_dispatch_ready
