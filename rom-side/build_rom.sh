@@ -42,7 +42,7 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.52"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.53"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)

@@ -39,23 +39,23 @@ build/NETMENU: src/netmenu.asm src/common/mos.inc src/common/application.asm | b
 build/HWDTEST: src/hwdtest.asm src/common/pi1mhz_net.asm src/common/tool_common.asm src/common/mos.inc src/common/application.asm | build
 	$(BEEBASM) -i src/hwdtest.asm -o $@ -D NET_DEBUG=0
 
-build/NETMENUL: src/tool_loader.asm src/common/mos.inc | build
-	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=1
+build/NETMENUL: src/tool_loader.asm src/common/mos.inc build/NETMENU | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=1 -D MAIN_SIZE=$$(wc -c < build/NETMENU)
 
-build/TELNETL: src/tool_loader.asm src/common/mos.inc | build
-	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=2
+build/TELNETL: src/tool_loader.asm src/common/mos.inc build/TELNET | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=2 -D MAIN_SIZE=$$(wc -c < build/TELNET)
 
-build/SSHL: src/tool_loader.asm src/common/mos.inc | build
-	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=3
+build/SSHL: src/tool_loader.asm src/common/mos.inc build/SSH | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=3 -D MAIN_SIZE=$$(wc -c < build/SSH)
 
-build/PINGL: src/tool_loader.asm src/common/mos.inc | build
-	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=4
+build/PINGL: src/tool_loader.asm src/common/mos.inc build/PING | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=4 -D MAIN_SIZE=$$(wc -c < build/PING)
 
-build/NSLOOKL: src/tool_loader.asm src/common/mos.inc | build
-	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=5
+build/NSLOOKL: src/tool_loader.asm src/common/mos.inc build/NSLOOK | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=5 -D MAIN_SIZE=$$(wc -c < build/NSLOOK)
 
-build/HWDTESTL: src/tool_loader.asm src/common/mos.inc | build
-	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=6
+build/HWDTESTL: src/tool_loader.asm src/common/mos.inc build/HWDTEST | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=6 -D MAIN_SIZE=$$(wc -c < build/HWDTEST)
 
 LOADERS := build/NETMENUL build/TELNETL build/SSHL build/PINGL build/NSLOOKL build/HWDTESTL
 

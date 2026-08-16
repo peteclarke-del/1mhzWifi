@@ -178,11 +178,10 @@ tracked elsewhere.
   Electron and `&FE30` on the BBC family. On non-Electron hosts, verify the
   compiled default `*MENU` is rejected and a target-specific custom
   `*MENUSRC` remains usable.
-- [ ] Repeat physical `*HWDTEST`, `*NSLOOK` and `*SSH` with the 0.1.52 SSD and
+- [ ] Repeat physical `*HWDTEST`, `*NSLOOK` and `*SSH` with the 0.1.53 SSD and
   matching kernel. The 0.1.46 hardware diagnostic established that immediate
   FCA9 auto-increment read-back differs from the synchronous emulator model.
-  Version 0.1.52 explicitly addresses every ROM and NetTools transfer byte,
-  waits for selector publication and the bounded FCA9 callback acknowledgement,
+  Version 0.1.53 waits for selector publication and the bounded FCA9 callback acknowledgement,
   validates OSHWM/HIMEM and tests NSLOOK and managed SSH with both asynchronous
   stages delayed. The 0.1.44 diagnostic
   SSD reported `>2D S00 <2A` for
@@ -204,7 +203,16 @@ tracked elsewhere.
   wait remains in place. The assembled SSD completes a real
   public-key-authenticated SSH shell under Elkulator; physical hardware remains
   the open gate.
-- [ ] Repeat `*MENU` and `*UEF LOAD` on physical hardware with ROM 0.1.52 after
+- [ ] Confirm 0.1.53 HWDTEST reports capability features `07` and readiness
+  `01` on Pi Zero W, Zero 2 W and Pi 3. The 0.1.52 physical capture reported
+  features `01` and readiness `00`; HWDTEST incorrectly called that PASS.
+  Version 0.1.53 uses a wall-clock RNG deadline and treats that state as FAIL.
+- [ ] Re-run direct TITLES WGET. If error `&30` remains, record the new
+  `HTTP status &xxxx` line. The exact 11,498-byte response passes through the
+  real Pi `net_service.c` test with an 8 KiB ring, 1460-byte segments,
+  refused-pbuf retry and 240-byte reads. The reported status distinguishes an
+  upstream response from request or parser corruption.
+- [ ] Repeat `*MENU` and `*UEF LOAD` on physical hardware with ROM 0.1.53 after
   the WiCFS lifecycle state path was moved onto the acknowledged FCA6-FCA9
   cursor routines. The delayed-FIQ Elkulator gate reaches animated Thrust
   gameplay with the AP5 Tube disabled and enabled. Arcadians remains a known
@@ -237,10 +245,10 @@ station-mode, plain-HTTP command surface. The native-tools SSD ships only the
 implemented TELNET, SSH and NETMENU programs. ROM 0.1.30 reached visible Zalaga,
 Arcadians, Last of the Free and E-Type gameplay in the AP5-accurate live
 Elkulator profile without a Tube. Castle of Riddles reached its interactive
-command prompt. The current 0.1.52 ROM passes fresh, current-hash FrakV2 MENU
+command prompt. The current 0.1.53 ROM passes fresh, current-hash FrakV2 MENU
 runs and local Thrust gameplay with Tube disabled and enabled.
 
-ROM 0.1.52 retains host-only WiCFS transfer and the Tube-active host
+ROM 0.1.53 retains host-only WiCFS transfer and the Tube-active host
 BASIC workspace. `QHOST` now queues `PAGE=&E00` before the internal WiCFS
 second stage, so BASIC CHAIN continuation uses the same host address range
 with Tube enabled and disabled. No Tube register is accessed and no program is
@@ -274,7 +282,7 @@ Tube. The matching Elkulator profile now mounts MMFS and runs the Desk Diary
 UEF end to end; physical execution and filing-system recovery after Break are
 still required.
 
-After the 0.1.52 Tube-active, filing-system reset and WiFi association
+After the 0.1.53 Tube-active, filing-system reset and WiFi association
 corrections pass on physical hardware, the ROM
 version moves to a 0.9.x release-candidate series. Version 1.0 requires the
 original-ElkWiFi OSWORD comparison and all filing-system coexistence gates.

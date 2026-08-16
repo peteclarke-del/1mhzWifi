@@ -200,7 +200,7 @@ class MergedRepositoryTest(unittest.TestCase):
 
     def test_packaged_kernels_have_matching_recovery_revisions(self) -> None:
         pattern = re.compile(
-            rb"Pi1MHz ElkWiFi 0\.1\.52, kernel "
+            rb"Pi1MHz ElkWiFi 0\.1\.53, kernel "
             rb"(V1\.30-84-gd08242e-dirty)"
         )
         revisions = []
@@ -225,6 +225,11 @@ class MergedRepositoryTest(unittest.TestCase):
         )
         self.assertIn("firmware/Pi1MHz/ElkWiFi.rom", patch)
         self.assertIn("GIT binary patch", patch)
+        self.assertIn("Pi1MHz ElkWiFi 0.1.53, kernel", patch)
+        self.assertNotIn("Pi1MHz ElkWiFi 0.1.52, kernel", patch)
+        self.assertIn("RPI_GetSystemTime() - started_us >= 750000u", patch)
+        self.assertIn("exact MENU TITLES transfer shape", patch)
+        self.assertIn("TITLES reaches bounded EOF", patch)
 
     def test_fixed_service_children_cannot_consume_dynamic_slots(self) -> None:
         dispatch = (

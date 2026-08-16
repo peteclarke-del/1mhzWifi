@@ -45,7 +45,7 @@
  * first 64K so the host and Pi always refer to the same physical bytes. */
 #define ELKWIFI_UEF_BASE 0u
 #define ELKWIFI_VERSION_RESPONSE \
-   "Pi1MHz ElkWiFi 0.1.52, kernel " GITVERSION "\r\n\r\nOK\r\n"
+   "Pi1MHz ElkWiFi 0.1.53, kernel " GITVERSION "\r\n\r\nOK\r\n"
 
 _Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
                "ElkWiFi service range start disagrees with services.h");

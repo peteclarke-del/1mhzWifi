@@ -360,8 +360,12 @@ GUARD APP_LIMIT
     CMP #1
     BNE caps_invalid
     LDA diag_caps_bytes + 2
-    AND #1
-    BEQ caps_invalid
+    AND #3
+    CMP #3                    \ random and managed SSH must both be ready
+    BNE caps_invalid
+    LDA diag_caps_bytes + 5
+    CMP #1                    \ provider readiness byte
+    BNE caps_invalid
     LDA diag_caps_bytes + 7
     CMP #'N'
     BNE caps_invalid

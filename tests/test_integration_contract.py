@@ -116,6 +116,17 @@ class IntegrationContractTest(unittest.TestCase):
         for source in (service, service_header):
             self.assertNotRegex(source.lower(), r"\btube\b|\bparasite\b")
 
+    def test_secure_rng_startup_uses_a_wall_clock_deadline(self) -> None:
+        source = (
+            ROOT
+            / "pi-side/pi1mhz-516a267/overlay/src/secure_service_wolfssh.c"
+        ).read_text()
+        self.assertIn('#include "rpi/systimer.h"', source)
+        self.assertIn("uint32_t started_us = RPI_GetSystemTime()", source)
+        self.assertIn("RPI_GetSystemTime() - started_us >= 750000u", source)
+        self.assertIn("RPI_WaitMicroSeconds(1u)", source)
+        self.assertNotIn("uint32_t timeout = 1000000u", source)
+
     def test_wifi_credentials_persist_and_runtime_network_is_enabled(self) -> None:
         service = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c").read_text()
         service_header = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.h").read_text()
@@ -132,6 +143,7 @@ class IntegrationContractTest(unittest.TestCase):
         http_status_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-status.patch").read_text()
         tcp_diagnostics_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/tcp-diagnostics.patch").read_text()
         truncated_http_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-truncated-body.patch").read_text()
+        titles_transfer_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-titles-transfer.patch").read_text()
         http_user_agent_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-user-agent.patch").read_text()
         off_state_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-off-state.patch").read_text()
         profile_patch = (
@@ -218,6 +230,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("h->http_body_read < h->http_content_length", truncated_http_patch)
         self.assertIn("NET_ERR_TCP_CLOSED", truncated_http_patch)
         self.assertIn("truncated HTTP body -> TCP_CLOSED", truncated_http_patch)
+        self.assertIn("http-titles-transfer.patch", installer)
+        self.assertIn("TITLES_LENGTH = 11498", titles_transfer_patch)
+        self.assertIn("TITLES payload is byte-exact", titles_transfer_patch)
+        self.assertIn("TITLES refused pbuf retry is bounded", titles_transfer_patch)
+        self.assertIn("TITLES reaches bounded EOF", titles_transfer_patch)
         self.assertIn("http-user-agent.patch", installer)
         self.assertIn("User-Agent: ElkWiFi/0.23", http_user_agent_patch)
         self.assertIn("wifi-off-state.patch", installer)
@@ -248,7 +265,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_ERR_NO_WIFI", service)
         self.assertIn("wifi_get_state() == WIFI_STATE_ERROR", service)
         self.assertIn("Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS", service)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.52, kernel " GITVERSION', service)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.53, kernel " GITVERSION', service)
         self.assertIn("drv_svc_radio = 91", service_driver)
         wifi_control = service_driver.split(".service_driver_wifi_control", 1)[1].split(
             ".service_driver_ping", 1
@@ -695,9 +712,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", public_driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/patches/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.52"', identity)
+        self.assertIn('romversion         equs "0.1.53"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/overlay/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.52 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.53 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)

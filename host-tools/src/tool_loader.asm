@@ -8,6 +8,7 @@ INCLUDE "src/common/mos.inc"
 loader_ptr = &70
 LOADER_START = &2000
 LOADER_LIMIT = &2200
+MAIN_END = APP_START + MAIN_SIZE
 
 ORG LOADER_START
 GUARD LOADER_LIMIT
@@ -74,10 +75,10 @@ GUARD LOADER_LIMIT
     JSR OSWRCH
     LDA #&84
     JSR OSBYTE
-    CPY #HI(APP_LIMIT)
+    CPY #HI(MAIN_END)
     BCC loader_no_room
     BNE loader_run
-    CPX #LO(APP_LIMIT)
+    CPX #LO(MAIN_END)
     BCC loader_no_room
 .loader_run
     LDX #LO(loader_command)

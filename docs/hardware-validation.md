@@ -12,12 +12,12 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       d08242ee1b35cf1285b72c9ec1869e98081a8c3e
-1MHzWifi ROM bfaf33235ac4b3d96bae3c47a38080d5fd01795094bd52af5d42933bbfaf8f04
-kernel.img   991edb294ccdc9c7e7e3406676c3cf6df8a7a4d44a16af529a9315c95f539906
-kernel7.img  4f241520a41615e29a5500d2f62e751c0cb8ae28d5e51d1a55e8e76c4e4c305c
+1MHzWifi ROM 0b64d0d4b5521f6496a9234d8c47e0602b0f1e327e719d69ed78827b874caec0
+kernel.img   cbcf7fa3c5c1cf205f2e16b4e06f21aca12e5d76f791eae2cd374a0a329fb8db
+kernel7.img  58af8090c3f1a7a5ad611f31ebf157e0743efd143bd805b9274470a21e9774ce
 EMMFS.rom    b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955
-nettools.ssd ce526c0023ad073ecdfe02bc804ea86b6162b405ffdd5d8c26dbc93df3c2ba8f
-bundle ZIP   a9def4ca2a415d429292d2678761923e2bba4c06da63842316c0852243c00eaa
+nettools.ssd 80bea9186ab34fa8cf51bc5455cd8c22af4a92a0af062b88c565224d42b072dc
+bundle ZIP   3f7a5c88a60857560adfa379903175566f64d3bf1001069fba0404e0895f4f96
 ```
 
 The Pi1MHz commit was the official `master` tip verified on 15 August 2026. Run
@@ -52,7 +52,7 @@ CYW43455 firmware at runtime.
 - [x] Cold-boot the current ROM with the photographed ROM order and reach the
   BASIC prompt with the AP5 Tube disabled and enabled. The Tube-on run must
   contain the exact `AP5 Tube: external 3MHz 65C02 enabled` startup marker.
-- [x] Boot ROM 0.1.52 with Electron OS, BASIC and ADFS in Elkulator. Confirm
+- [x] Boot ROM 0.1.53 with Electron OS, BASIC and ADFS in Elkulator. Confirm
   both ROM banners and a BASIC prompt.
 - [x] Run current-ROM MENU acceptance with reviewed, title-specific gameplay
   references, input-correlated state changes, complete stream hashes and close
@@ -62,10 +62,10 @@ CYW43455 firmware at runtime.
 - [x] Repeat `*UEF LOAD THRUST` with the strengthened runner, Tube disabled and
   enabled. Require reviewed title and gameplay references around the scripted
   Space input, reject known prompt/MOS-error screens, and retain pre/post media
-  hashes. The 0.1.52 candidate reaches moving gameplay in both Tube states
+  hashes. The 0.1.53 candidate reaches moving gameplay in both Tube states
   through the real read-only BeebSCSI LUN. Earlier 0.1.40 screenshots are
   references only.
-- [ ] Repeat the complete MENU title matrix with the 0.1.52 hardware-test ROM. The
+- [ ] Repeat the complete MENU title matrix with the 0.1.53 hardware-test ROM. The
   THRUST and live FrakV2 gameplay evidence is retained, but the complete
   catalogue requires its own run.
   The full catalogue remains a physical and batch-emulator gate. The earlier
@@ -75,14 +75,14 @@ CYW43455 firmware at runtime.
   return. Elkulator's expansion ROM becomes unavailable after `*TAPE`, so this
   transition must be proved on AP5 hardware.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.52` before recording any further hardware test result.
+  `1MHzWifi 0.1.53` before recording any further hardware test result.
 - [x] Boot the photographed ROM layout in Elkulator: RH Plus 1 1.33
   in C, BASIC in B, writable sideways RAM in 7 and 6, AFM 1.09 in 5,
-  1MHzWifi 0.1.52 in 3, and Acorn ADFS 1.00 in 1. Run the live `*MENU` and
+  1MHzWifi 0.1.53 in 3, and Acorn ADFS 1.00 in 1. Run the live `*MENU` and
   satisfy the strengthened FrakV2 gameplay gate with the AP5 Tube disabled and
   enabled. The complete catalogue remains a separate unchecked gate.
 - [ ] Boot the minimum supported layout in Elkulator: 32K Electron, Plus 1,
-  AP5-constrained Pi1MHz mailbox, 1MHzWifi 0.1.52 and the Electron normal-ROM
+  AP5-constrained Pi1MHz mailbox, 1MHzWifi 0.1.53 and the Electron normal-ROM
   Pi1MHz build of MMFS 1.60. No Plus 2, sideways RAM, ADFS or Tube is present.
   Mount a FAT32 Pi SD-card image containing `BEEB.MMB`, select fixture disc
   507, catalogue `DESK`, run `*UEF LOAD DESK`, and satisfy an application-state
@@ -252,14 +252,14 @@ substitute is not acceptance evidence for this AP5 configuration.
 
 Earlier releases corrected the AP5 selector and WiCFS state corruption.
 Versions 0.1.24 and 0.1.25 attempted Tube transfers, which was the wrong
-architecture. Version 0.1.52 contains no Tube transfer path and preserves the
+architecture. Version 0.1.53 contains no Tube transfer path and preserves the
 stock cassette sequence. The private host launch enters Electron BASIC and
 queues `PAGE=&E00` before WiCFS so a Tube-active cold BASIC does not retain its
 `&23xx` program workspace. Physical Tube-enabled gameplay remains the
 acceptance gate.
 
 The maintained Elkulator Tube model now provides a repeatable diagnostic gate.
-With the photographed ROM order, live Pi1MHz Internet backend, ROM 0.1.52 and
+With the photographed ROM order, live Pi1MHz Internet backend, ROM 0.1.53 and
 the Acorn 1.20 Tube boot ROM, cold boot starts `Acorn TUBE 6502 64K`
 automatically. `*MENU`, entered using `@` for the emulator's `*` key mapping,
 waits for the traced `TITLES` close before selecting a title. Fresh FrakV2
@@ -271,7 +271,7 @@ produced identical UEF hashes in every Tube-on/off pair. The experimental
 0.1.38 MOS-managed handoff returned to the prompt and was rejected. ROM 0.1.40
 restored the proven launch path and reached Frak, Zalaga and Arcadians gameplay
 Tube off and Tube on. Last of the Free remained a `Bad program` failure in both
-modes. ROM 0.1.52 retains the host-only architecture and current FrakV2
+modes. ROM 0.1.53 retains the host-only architecture and current FrakV2
 evidence. It does not copy a UEF
 or game into parasite memory, issue `TUBE OFF`, reset the fitted Tube, or access
 a Tube register.
@@ -284,7 +284,7 @@ a Tube register.
   selected program reaches its execution address rather than returning to the
   BASIC prompt after the download.
 - [ ] Retest Zalaga, Arcadians, Last of the Free, E-Type, Frak, Chuckie Egg
-  and DeskDiary with ROM 0.1.52 on
+  and DeskDiary with ROM 0.1.53 on
   the physical Electron and AP5. Earlier physical builds failed on Zalaga and
   DeskDiary. Zalaga and Arcadians reach gameplay through the live Elkulator
   bridge without a Tube.
@@ -405,7 +405,7 @@ a Tube register.
   ElkWiFi 0.23 ROM. Record function 18 IFCFG, function 4 JOIN query and
   function 8 TCP-open responses.
 - [ ] Repeat the unchanged original-ElkWiFi ElkChat path with the 1MHzWifi
-  0.1.52 hardware-test ROM
+  0.1.53 hardware-test ROM
   and the kernel revision reported by the bundled `*VERSION`. None of the
   calls may block or
   raise `Not implemented`.
@@ -494,10 +494,11 @@ byte from that selector callback too. A fast ROM or assembled NetTools client
 could therefore consume stale FCA9 data before the selector callback ran.
 The rejected 0.1.51 candidate added a bounded settling interval to every ROM
 selector and data transaction. Although it passed the delayed-selector model,
-it regressed MENU and local UEF loading on physical hardware. The recovery ROM
-therefore keeps the proven 0.1.49 WGET and WiCFS paths unchanged and applies
-settling only to ordinary service-response copies, including `*VERSION`.
-NetTools retains a CPU-local bounded delay in its own mailbox transport. It
+it regressed MENU and local UEF loading on physical hardware. The current WGET
+path still contains bounded mailbox and JIM settling and must not be described
+as byte-identical to 0.1.49. The conservative emulator measures about 42
+seconds for the 11,498-byte TITLES transfer. NetTools retains a CPU-local
+bounded delay in its own mailbox transport. It
 must not read FRED or JIM while waiting because another bus transaction can
 replace the pending one-slot FIQ event. Automated tests
 complete IFCFG, delayed `*VERSION`, SSH capability discovery, NSLOOK and a
@@ -515,13 +516,16 @@ Capture each of the three screens through the final `*VERSION` output. The raw
 auto-increment line is diagnostic rather than a pass gate: the current hardware
 observation is `00 F0 FF 5E FAIL`, while the synchronous emulator reports
 `01 F0 FF 5E PASS`. The release gate is `FCA9 callback ACK: PASS`,
-`Addressed JIM block: PASS` and `Secure CAPS result=&00`. Compare the machine
+`Addressed JIM block: PASS`, `Secure CAPS result=&00`, capability feature bits
+`&03` or greater, and provider readiness byte `&01`. Version 0.1.53 correctly
+reports FAIL for the physical `CAPS 1-5: 01 01 01 ...` result because managed
+SSH is not ready. Compare the machine
 byte, Tube byte, OSHWM, MEMTOP,
 FILEV, FSCV, WORDV and complete ROM order between both runs. This separates a
 MOS or ROM-layout mismatch from an `&FCA6-&FCAA` bus publication failure without
 modifying ADFS, MMFS or DFS data and without touching Tube state.
 
-- [ ] With the packaged 0.1.52 kernel and matching SSD, run `*NSLOOK example.com` with
+- [ ] With the packaged 0.1.53 kernel and matching SSD, run `*NSLOOK example.com` with
   Tube disabled and enabled. It must print an IPv4 address, return normally,
   and never report `&2A` or `Bad program`.
 - [ ] Run `*SSH user@host` with Tube disabled and enabled. Capability command

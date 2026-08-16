@@ -80,14 +80,20 @@ known-host persistence on the Pi. Password bytes are wiped after handoff.
 Known-host updates use a synchronized temporary file, backup rename and
 rollback.
 
+The BCM hardware RNG discards its first `0x40000` oscillator bits. Provider
+initialisation waits against the SoC microsecond timer for up to 750 ms. The
+previous fixed iteration count expired at different wall-clock times on Pi
+Zero and Pi 3 and could leave the managed SSH feature disabled until reboot.
+
 The Services dispatcher first publishes the standard selector echo, completing
 the physical host write transaction, then routes the fixed raw-network,
 ElkWiFi and secure command ranges directly. Each fixed handler replaces that
 echo with `BUSY` or its final result. Dynamic and unknown commands retain the
 upstream selector-echo behaviour. Host clients treat every bit-7-set value as
 busy until their bounded deadline.
-Secure capability discovery is a fixed synchronous reply and does not depend
-on the poll table or wolfSSH provider readiness. Host NetTools mask IRQ while
+Secure capability discovery is a fixed synchronous reply. Its result does not
+depend on the poll table, but its feature and readiness bytes report the
+current wolfSSH provider state. Host NetTools mask IRQ while
 selecting and using the shared FCA6-FCA9 JIM cursor, preventing MMFS, ADFS or
 another interrupt-side JIM client from redirecting a request mid-block.
 ElkWiFi reset cleanup masks Pi IRQ and FIQ while it publishes a terminal result

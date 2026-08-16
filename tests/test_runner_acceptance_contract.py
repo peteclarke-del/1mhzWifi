@@ -86,6 +86,15 @@ class RunnerAcceptanceContractTests(unittest.TestCase):
         self.assertIn('EQUS "PASS",13,0', source)
         self.assertIn('EQUS "FAIL",13,0', source)
 
+    def test_real_ssh_runner_is_bounded_and_retains_failures(self):
+        source = (
+            ROOT / "host-tools/tests/run_elkulator_ssh_real.sh"
+        ).read_text()
+        self.assertIn("ELKULATOR_SSH_TIMEOUT:-90", source)
+        self.assertIn('timeout "${elkulator_timeout}s"', source)
+        self.assertIn("Elkulator SSH diagnostics retained", source)
+        self.assertIn('test_passed=1', source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,10 +13,16 @@ source_copy=$test_root/elkulator
 trace_dir=$test_root/traces
 ssh_dir=$test_root/ssh
 server_pid=
+test_passed=0
+elkulator_timeout=${ELKULATOR_SSH_TIMEOUT:-90}
 
 cleanup() {
     if [[ -n "$server_pid" ]]; then kill "$server_pid" 2>/dev/null || true; fi
-    rm -rf -- "$test_root"
+    if [[ "$test_passed" == 1 ]]; then
+        rm -rf -- "$test_root"
+    else
+        echo "Elkulator SSH diagnostics retained in $test_root" >&2
+    fi
 }
 trap cleanup EXIT
 test -f "$elkulator_source/src/mem.c"
@@ -51,7 +57,7 @@ sed -i \
 docker run --rm -v "$source_copy:/work" -w /work "$builder_image" \
     bash -lc 'autoreconf -fi && ./configure >/tmp/configure.log && make -s -j2'
 
-timeout 45s docker run --rm --ipc=host --network=host \
+timeout "${elkulator_timeout}s" docker run --rm --ipc=host --network=host \
     -e DISPLAY="$display_name" -e XAUTHORITY=/tmp/xauth \
     -e PI1MHZ_MAILBOX=live -e PI1MHZ_SSH_DIR=/ssh \
     -e PI1MHZ_SSH_DEBUG="${PI1MHZ_SSH_DEBUG:-0}" \
@@ -70,4 +76,5 @@ grep -q $'^SSH_USER\t0\ttest' "$trace"
 grep -q $'^CLOSE\t0\tTCP://127.0.0.1:22022/' "$trace"
 read_hex=$(awk -F '\t' '$1 == "READ" { printf "%s", $3 }' "$trace")
 [[ "$read_hex" == *"5245414c20535348204f4b"* ]]
+test_passed=1
 echo "Full Elkulator assembled SSD -> real wolfSSH server: OK"

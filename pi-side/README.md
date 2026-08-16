@@ -250,5 +250,10 @@ into the kernel; the poll loop then replaces that startup snapshot with actual
 provider readiness. SSH open, authentication and session traffic remain
 asynchronous and bounded through the normal Pi1MHz poll path.
 
+The RNG readiness wait is measured with the SoC microsecond timer, not CPU
+iterations. This gives Pi Zero, Zero 2 and Pi 3 the same 750 ms deadline while
+the hardware discards its initial oscillator output. HWDTEST requires managed
+SSH feature bit 1 and readiness byte 1 before it reports PASS.
+
 Credentials are not protected at rest. Do not use a production WiFi password
 in public test artifacts.

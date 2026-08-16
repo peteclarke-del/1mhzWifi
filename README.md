@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.52` hardware-test ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.53` hardware-test ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -20,14 +20,20 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-Version 0.1.52 is the current hardware-test build. Earlier 0.1.50 and
+Version 0.1.53 is the current hardware-test build. Earlier 0.1.50 and
 0.1.51 timing and WiCFS cursor changes caused physical MENU and local UEF
-regressions, so they are not release baselines. The recovered ROM keeps the
-0.1.49 WGET and WiCFS transfer paths byte-for-byte, adds the verified local
-OSFIND/OSBGET handle repair, then applies a narrowly
-scoped settling delay only while the ROM copies ordinary Pi service responses.
-That change targets the corrupt `*VERSION` output without changing tape data.
-NetTools uses the same bounded settling interval for its own mailbox transfers.
+regressions, so they are not release baselines. Version 0.1.53 retains the
+0.1.52 WiCFS execution path. Its WGET transport is not byte-identical to
+0.1.49: mailbox and JIM accesses include bounded settling required by the
+delayed-FIQ model. The published TITLES transfer takes about 42 seconds in the
+conservative emulator profile, during which `Loading title data` remains on
+screen. Physical timing remains an acceptance gate.
+
+This release fixes two independently observed diagnostics. The Pi hardware RNG
+wait now uses a 750 ms system-timer deadline instead of a CPU-speed-dependent
+iteration count which could permanently disable wolfSSH on a Pi 3. HWDTEST now
+fails unless both secure random and managed SSH are ready. WGET error `&30`
+also prints the parsed HTTP status before closing the handle.
 
 The current ROM has reached animated THRUST gameplay through `*UEF LOAD` with
 the Tube disabled and enabled in the maintained Elkulator hardware model. The
@@ -110,14 +116,14 @@ does not replace host programs already held on another disc image.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.52 retains the WiCFS changes and compressed-UEF Pi
+host ROM. Release 0.1.53 retains the WiCFS changes and compressed-UEF Pi
 service introduced in 0.1.8, supports zero-byte CFS marker files, preserves a
 live WiFi association across host resets, and restores the `WGET -U` contract for
 raw paged-RAM data such as the published menu TITLES catalogue. The matched
 kernel still provides service command 93 for ZIP and gzip UEF normalization,
 so replace both the ROM and the kernel from the same bundle.
 
-Release 0.1.52 includes the public application ABI repairs. OSWORD `&65`
+Release 0.1.53 includes the public application ABI repairs. OSWORD `&65`
 functions 0 and 1 reset volatile TCP state without dropping the saved
 association, function 4 reads the caller's JOIN block, function 8 preserves
 the port field across
@@ -125,7 +131,7 @@ DNS resolution, and function 9 accepts the original single-connection setup
 as a successful no-op. These paths are used by ElkChat and other applications
 which call the driver directly rather than issuing star commands.
 
-Release 0.1.52 keeps all WiCFS state out of `&03E0-&03FF`, the MOS keyboard
+Release 0.1.53 keeps all WiCFS state out of `&03E0-&03FF`, the MOS keyboard
 input buffer which holds the queued `*REWIND` and `CHAIN ""` launch. Stream
 state again uses the original WiCFS cassette-workspace zero-page locations.
 Vector ownership and predecessor state is persisted through the AP5-forwarded
@@ -140,19 +146,19 @@ service calls. The ROM therefore discards its saved WiCFS ownership record and
 does not restore stale predecessor vectors over ADFS, DFS, MMFS or another ROM
 which has already reclaimed them during the same reset pass.
 
-Release 0.1.52 also retains the common WiCFS completion-path correction used by `*MENU`
+Release 0.1.53 also retains the common WiCFS completion-path correction used by `*MENU`
 and `*UEF LOAD`. The cassette last-block bit is now tested before the legacy
 loader compatibility helper can change the processor flags. A completed file
 therefore returns to MOS at its own final block instead of consuming later
 files and eventually reporting `End of UEF` or an invalid chunk type.
 
-Release 0.1.52 uses the single standard 64K JIM window which the AP5 actually
+Release 0.1.53 uses the single standard 64K JIM window which the AP5 actually
 exposes through `&FCFF` and `&FD00-&FDFF`. Each WiCFS read is an interrupt-safe
 page-select and data transaction. The data byte is recovered before
 the saved processor flags because both values occupy the 6502 hardware stack
 during the transaction.
 
-Release 0.1.52 retains the removal of the incorrect Tube-transfer path exposed
+Release 0.1.53 retains the removal of the incorrect Tube-transfer path exposed
 by physical testing. 1MHzWifi is an Electron 1MHz-bus filing system and always
 places UEF data in host memory. The patched menu uses OSBYTE `&EA` only to
 detect an active Tube. It then enters the installed BASIC ROM directly on the
@@ -160,7 +166,7 @@ Electron and queues `PAGE=&E00` before the internal WiCFS launch command. It
 does not access Tube registers, claim a channel, disable the Tube, or transfer
 code through it. The stock menu launch remains `REWIND`, then `CHAIN ""`.
 
-Release 0.1.52 also retains the original Zalaga loader's cassette `/` handoff fix.
+Release 0.1.53 also retains the original Zalaga loader's cassette `/` handoff fix.
 WiCFS now handles FSCV reason 8 locally while it is the active filing system.
 Earlier builds forwarded that notification through the displaced cassette
 handler's extended-vector frame, so the following FSCV reason 2 never reached
@@ -197,12 +203,12 @@ retaining the current Pi1MHz source revision.
 Release hashes:
 
 ```text
-1MHzWifi ROM bfaf33235ac4b3d96bae3c47a38080d5fd01795094bd52af5d42933bbfaf8f04
-kernel.img   991edb294ccdc9c7e7e3406676c3cf6df8a7a4d44a16af529a9315c95f539906
-kernel7.img  4f241520a41615e29a5500d2f62e751c0cb8ae28d5e51d1a55e8e76c4e4c305c
+1MHzWifi ROM 0b64d0d4b5521f6496a9234d8c47e0602b0f1e327e719d69ed78827b874caec0
+kernel.img   cbcf7fa3c5c1cf205f2e16b4e06f21aca12e5d76f791eae2cd374a0a329fb8db
+kernel7.img  58af8090c3f1a7a5ad611f31ebf157e0743efd143bd805b9274470a21e9774ce
 EMMFS.rom    b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955
-nettools.ssd ce526c0023ad073ecdfe02bc804ea86b6162b405ffdd5d8c26dbc93df3c2ba8f
-bundle ZIP   a9def4ca2a415d429292d2678761923e2bba4c06da63842316c0852243c00eaa
+nettools.ssd 80bea9186ab34fa8cf51bc5455cd8c22af4a92a0af062b88c565224d42b072dc
+bundle ZIP   3f7a5c88a60857560adfa379903175566f64d3bf1001069fba0404e0895f4f96
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -336,7 +342,7 @@ The maintained Elkulator adapter now includes an AP5 Tube ULA and external
 cold boot without manual intervention. A clean live run with the photographed
 ROM order first reproduced the hardware boundary exactly with 0.1.25: Zalaga
 downloaded, the initial `ZALAGA 05 05EE` file loaded, and execution returned to
-the Tube BASIC prompt. The current 0.1.52 differential exercises catalogue
+the Tube BASIC prompt. The current 0.1.53 differential exercises catalogue
 entries by sorted index, not by title-specific ROM behavior. The exact final
 ROM reaches FrakV2 gameplay through MENU and enters Thrust gameplay through
 local UEF import with Tube disabled and enabled. Physical-hardware

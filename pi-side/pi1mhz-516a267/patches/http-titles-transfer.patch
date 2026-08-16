@@ -1,0 +1,112 @@
+diff --git a/src/tests/net/test_net.c b/src/tests/net/test_net.c
+--- a/src/tests/net/test_net.c
++++ b/src/tests/net/test_net.c
+@@ -1029,6 +1029,108 @@ int main(void)
+    CHECK(issue(NET_CMD_URL_READ, 0) == NET_ERR_TCP_CLOSED,
+          "truncated HTTP body -> TCP_CLOSED, not successful EOF");
+ 
++   printf("== N: device - exact MENU TITLES transfer shape ==\n");
++   world_reset();
++   strcpy((char *)&Pi1MHz->JIM_ram[CP(0) + 2u],
++          "HTTP://acornelectron.nl/uefarchive/TITLES");
++   g_dns_sync = 1;
++   IP_ADDR4(&g_dns_result, 192, 0, 2, 80);
++   CHECK(issue(NET_CMD_URL_OPEN, 0) == NET_PENDING,
++         "TITLES open -> PENDING");
++   g_last_pcb->connected(g_last_pcb->arg, g_last_pcb, ERR_OK);
++   CHECK(issue(NET_CMD_URL_OPEN, 0) == NET_OK,
++         "TITLES open -> OK");
++   {
++      enum { TITLES_LENGTH = 11498, SEGMENT = 1460, READ_MAX = 240 };
++      static const char header[] =
++         "HTTP/1.0 200 OK\r\nContent-Length: 11498\r\n"
++         "Content-Type: application/octet-stream\r\n\r\n";
++      uint8_t *wire = malloc((sizeof header - 1u) + TITLES_LENGTH);
++      uint8_t *received = malloc(TITLES_LENGTH);
++      size_t wire_length = (sizeof header - 1u) + TITLES_LENGTH;
++      size_t sent = 0u, total = 0u;
++      int transfer_ok = 1;
++      CHECK(wire != NULL && received != NULL,
++            "TITLES test buffers allocated");
++      if (wire != NULL && received != NULL) {
++         memcpy(wire, header, sizeof header - 1u);
++         for (size_t i = 0u; i < TITLES_LENGTH; i++)
++            wire[sizeof header - 1u + i] = (uint8_t)(i * 37u + 11u);
++         while (sent < wire_length) {
++            u16_t length = (u16_t)(wire_length - sent);
++            struct pbuf *p;
++            err_t accepted;
++            unsigned retries = 64u;
++            if (length > SEGMENT) length = SEGMENT;
++            p = make_pbuf(wire + sent, length);
++            accepted = g_last_pcb->recv(g_last_pcb->arg, g_last_pcb,
++                                        p, ERR_OK);
++            while (accepted == ERR_MEM && retries-- != 0u) {
++               jwr24(CP(0) + 1u, READ_MAX);
++               jwr32(CP(0) + 4u, 0x9000u);
++               CHECK(issue(NET_CMD_URL_READ, 0) == NET_OK,
++                     "TITLES drains while lwIP retains refused pbuf");
++               {
++                  uint32_t got = jrd24(CP(0) + 1u);
++                  CHECK(total + got <= TITLES_LENGTH,
++                        "TITLES drain remains within declared length");
++                  if (got == 0u || total + got > TITLES_LENGTH) {
++                     transfer_ok = 0;
++                     break;
++                  }
++                  memcpy(received + total, &Pi1MHz->JIM_ram[0x9000], got);
++                  total += got;
++               }
++               if (!transfer_ok) break;
++               accepted = g_last_pcb->recv(g_last_pcb->arg, g_last_pcb,
++                                            p, ERR_OK);
++            }
++            CHECK(accepted != ERR_MEM,
++                  "TITLES refused pbuf retry is bounded");
++            if (accepted != ERR_OK) {
++               if (accepted == ERR_MEM) pbuf_free(p);
++               transfer_ok = 0;
++               break;
++            }
++            sent += length;
++         }
++         if (transfer_ok)
++            g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, NULL, ERR_OK);
++         {
++            unsigned reads = 64u;
++            uint8_t result = NET_OK;
++            while (transfer_ok && result != NET_EOF && reads-- != 0u) {
++               uint32_t got;
++               jwr24(CP(0) + 1u, READ_MAX);
++               jwr32(CP(0) + 4u, 0x9000u);
++               result = issue(NET_CMD_URL_READ, 0);
++               if (result == NET_EOF) continue;
++               CHECK(result == NET_OK,
++                     "TITLES read completes without HTTP error");
++               if (result != NET_OK) {
++                  transfer_ok = 0;
++                  break;
++               }
++               got = jrd24(CP(0) + 1u);
++               CHECK(got != 0u && total + got <= TITLES_LENGTH,
++                     "TITLES read makes bounded progress");
++               if (got == 0u || total + got > TITLES_LENGTH) {
++                  transfer_ok = 0;
++                  break;
++               }
++               memcpy(received + total, &Pi1MHz->JIM_ram[0x9000], got);
++               total += got;
++            }
++            CHECK(result == NET_EOF, "TITLES reaches bounded EOF");
++         }
++         CHECK(total == TITLES_LENGTH, "TITLES returns exactly 11498 bytes");
++         CHECK(memcmp(received, wire + sizeof header - 1u,
++                      TITLES_LENGTH) == 0, "TITLES payload is byte-exact");
++      }
++      free(received);
++      free(wire);
++   }
++
+    printf("== N: device - malformed URL ==\n");
+    world_reset();
+    strcpy((char *)&Pi1MHz->JIM_ram[CP(0) + 2u], "notaurl");

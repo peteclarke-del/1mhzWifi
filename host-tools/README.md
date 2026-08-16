@@ -56,8 +56,9 @@ complete implementations and functional tests.
 Each public command is a small bootstrap at `&FFFF2000`. This is above the
 measured DFS OSHWM of `&1F00`. On the photographed MMFS/ADFS profile, where
 HIMEM is `&1D00`, it initially occupies writable display RAM. The bootstrap
-preserves the command tail, selects MODE 4 and verifies HIMEM `&5800` before
-running the non-overlapping main image at `&FFFF2200`. MODE 4 screen memory
+preserves the command tail, selects MODE 4 and verifies HIMEM against the exact
+end of its corresponding main image before running that image at `&FFFF2200`.
+MODE 4 screen memory
 starts at `&5800`, so clearing the new screen does not erase either stage.
 
 The `&FFFF` address prefix keeps both stages on the I/O processor when a Tube
@@ -80,8 +81,9 @@ and the
   and managed secure service commands 94-100.
 - `net_enable=1` in `Pi1MHz.cfg`.
 - Configured, associated WiFi.
-- Host OSHWM no higher than `&2000`. The bootstrap establishes MODE 4 memory
-  for the main image from `&2200` to `&5800`.
+- Host OSHWM no higher than `&2000`. The bootstrap selects MODE 4 and requires
+  writable memory from `&2200` through the exact end of the requested tool.
+  No loader reserves the unused part of the assembly guard up to `&5800`.
 
 ## Repository layout
 
@@ -200,6 +202,11 @@ must pass `make test`, `make test-elkulator`, `make test-ssh-real` and
 `make test-elkulator-ssh-real` before hardware testing. The real-server gates
 prove Ed25519 authentication, PTY/shell setup, encrypted bidirectional data,
 changed-host rejection and bad-key authentication failure.
+
+The assembled-SSD real-server run has a 90-second default deadline under the
+conservative mailbox timing profile. Set `ELKULATOR_SSH_TIMEOUT` to override
+it. A failed run retains its disposable Elkulator tree and mailbox trace under
+`/tmp/pi1mhz-elkulator-real.*` and prints that path before exiting.
 
 The current assembled-SSD real-server gate completes public-key authentication,
 PTY allocation, shell input/output and close without returning `&2D`. In the

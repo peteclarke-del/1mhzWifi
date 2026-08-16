@@ -73,7 +73,8 @@ class Pi1MHzMemory:
                  read_chunks=(1, 2, 7, 3, 31), host_known=True,
                  password_required=False, expected_password=b"secret",
                  dispatch_busy_reads=0, auto_increment=True,
-                 delayed_selector_accesses=0):
+                 delayed_selector_accesses=0, secure_features=7,
+                 secure_ready=1):
         self.ram = bytearray(65536)
         self.jim = bytearray(1 << 24)
         self.service = service
@@ -105,6 +106,8 @@ class Pi1MHzMemory:
         self.raw_opened = False
         self.dns_polls = 0
         self.ping_count = 0
+        self.secure_features = secure_features
+        self.secure_ready = secure_ready
 
     def _select_address(self):
         if self.delayed_selector_accesses:
@@ -224,7 +227,7 @@ class Pi1MHzMemory:
         if command == 90:  # cancel asynchronous ElkWiFi operation
             return NET_OK
         if command == 80:  # ElkWiFi status/version
-            response = b"Pi1MHz ElkWiFi 0.1.52, kernel fixture\r\n\r\nOK\r\n\0"
+            response = b"Pi1MHz ElkWiFi 0.1.53, kernel fixture\r\n\r\nOK\r\n\0"
             self.jim[block + 1:block + 1 + len(response)] = response
             return NET_OK
         if command == 60:  # URL_OPEN
@@ -268,7 +271,8 @@ class Pi1MHzMemory:
             return NET_OK
         if command == 94:  # SEC_CAPS
             self.jim[block + 1:block + 11] = bytes(
-                (1, 1, 7, 0xB8, 0x88, 1, 1, ord("N"), ord("T"), ord("S"))
+                (1, 1, self.secure_features, 0xB8, 0x88,
+                 self.secure_ready, 1, ord("N"), ord("T"), ord("S"))
             )
             return NET_OK
         if command == 95:  # SEC_RANDOM
@@ -374,7 +378,7 @@ class ClientMachine:
                  dispatch_busy_reads=0, tube=False, auto_increment=True,
                  delayed_selector_accesses=0,
                  oshwm=0x0E00, himem=0x5800, load_address=APP_START,
-                 mode4_himem=0x5800):
+                 mode4_himem=0x5800, secure_features=7, secure_ready=1):
         self.memory = Pi1MHzMemory(
             service=service, incoming=incoming, eof_after_data=eof_after_data,
             host_known=host_known, password_required=password_required,
@@ -382,6 +386,7 @@ class ClientMachine:
             dispatch_busy_reads=dispatch_busy_reads,
             auto_increment=auto_increment,
             delayed_selector_accesses=delayed_selector_accesses,
+            secure_features=secure_features, secure_ready=secure_ready,
         )
         self.memory.load(load_address, binary)
         self.argument_address = 0x1000
@@ -532,6 +537,7 @@ class EmulatedClientTests(unittest.TestCase):
         cls.nslook = dfs_file(image, "NTNSLK")
         cls.hwdtest = dfs_file(image, "NTHWD")
         cls.ssh_loader = dfs_file(image, "SSH")
+        cls.hwdtest_loader = dfs_file(image, "HWDTEST")
 
     def test_public_loader_moves_screen_then_runs_host_main(self):
         for tube, oshwm in ((False, 0x0800), (True, 0x0800), (False, 0x1F00)):
@@ -561,6 +567,16 @@ class EmulatedClientTests(unittest.TestCase):
         self.assertIn("requires OSHWM <= &2000", machine.screen.text())
         self.assertEqual(machine.oscli_commands, [])
 
+    def test_public_loader_requires_only_its_exact_main_image(self):
+        exact_end = APP_START + len(self.hwdtest)
+        machine = ClientMachine(
+            self.hwdtest_loader, "", load_address=LOADER_START,
+            oshwm=0x1F00, himem=0x1D00, mode4_himem=exact_end,
+        )
+        machine.run()
+        self.assertEqual(machine.himem, exact_end)
+        self.assertEqual(machine.oscli_commands, ["NTHWD "])
+
     def test_hardware_diagnostic_matches_emulated_services_contract(self):
         machine = ClientMachine(self.hwdtest, "")
         machine.memory.ram[0x21F0:0x21F6] = b"NT\x00\x08\x00\x1d"
@@ -578,7 +594,18 @@ class EmulatedClientTests(unittest.TestCase):
         self.assertIn("CAPS 6-10: 01 01 4E 54 53", visible)
         self.assertIn("HWDTEST RESULT PASS", visible)
         self.assertEqual(machine.oscli_commands, ["ROMS"])
-        self.assertIn("Pi1MHz ElkWiFi 0.1.52", visible)
+        self.assertIn("Pi1MHz ElkWiFi 0.1.53", visible)
+
+    def test_hardware_diagnostic_fails_when_managed_ssh_is_not_ready(self):
+        machine = ClientMachine(
+            self.hwdtest, "", secure_features=1, secure_ready=0,
+        )
+        machine.memory.ram[0x21F0:0x21F6] = b"NT\x00\x08\x00\x1d"
+        machine.run()
+        visible = "\n".join(machine.screen_captures + [machine.screen.text()])
+        self.assertIn("CAPS 1-5: 01 01 01 B8 88", visible)
+        self.assertIn("CAPS 6-10: 00 01 4E 54 53", visible)
+        self.assertIn("HWDTEST RESULT FAIL", visible)
 
     def test_ping_uses_icmp_service_four_times(self):
         machine = ClientMachine(self.ping, "example.test")

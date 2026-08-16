@@ -8,6 +8,7 @@
 
 #include "BeebSCSI/fatfs/ff.h"
 #include "rpi/base.h"
+#include "rpi/systimer.h"
 #include "wifi/wifi_lwip.h"
 #include "lwip/altcp.h"
 #include "lwip/dns.h"
@@ -98,9 +99,15 @@ static uint32_t rng_last;
 
 static int rng_word(uint32_t *out)
 {
-    uint32_t timeout = 1000000u;
-    while ((BCM_RNG_STATUS >> 24) == 0u && timeout != 0u) timeout--;
-    if (timeout == 0u) return -1;
+    /* Initialisation discards 0x40000 oscillator bits. An iteration-count
+       timeout expires much sooner on a Pi 3 than on a Pi Zero and can leave
+       managed SSH disabled for the entire boot. Use a wall-clock deadline so
+       every supported CPU receives the same hardware settling time. */
+    uint32_t started_us = RPI_GetSystemTime();
+    while ((BCM_RNG_STATUS >> 24) == 0u) {
+        if (RPI_GetSystemTime() - started_us >= 750000u) return -1;
+        RPI_WaitMicroSeconds(1u);
+    }
     *out = BCM_RNG_DATA;
     if (rng_have_last && *out == rng_last) return -1;
     rng_last = *out;

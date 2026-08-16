@@ -592,7 +592,7 @@ GUARD APP_LIMIT
 .local_closed_text
     EQUS 13, "Disconnected.", 13, 0
 .error_text
-    EQUS 13, "SSH 0.1.52 error &", 0
+    EQUS 13, "SSH 0.1.53 error &", 0
 .tcp_prefix
     EQUS "TCP://", 0
 .url_buffer

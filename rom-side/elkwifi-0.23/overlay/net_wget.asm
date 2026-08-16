@@ -14,8 +14,10 @@ net_svc_command = &AA
 net_cmd_url_open = 60
 net_cmd_url_read = 61
 net_cmd_url_close = 63
+net_cmd_url_status = 64
 net_result_pending = 1
 net_result_eof = &20
+net_result_http_status = &30
 
 net_count = heap+&E8
 net_cli_y = heap+&E9
@@ -722,6 +724,31 @@ net_cursor_hi = heap+&E2
  jsr printtext
  equs "Network error &",&EA
  lda net_result
+ jsr printhex
+ jsr osnewl
+ lda net_result
+ cmp #net_result_http_status
+ bne pi_wget_close_claimed
+ \ Preserve the server's actual HTTP status before URL_CLOSE clears the
+ \ handle.  Error &30 alone cannot distinguish a redirect or rejection from
+ \ a malformed/corrupted response on physical Pi1MHz hardware.
+ jsr net_command_address
+ lda #net_cmd_url_status
+ jsr net_write_a
+ jsr net_dispatch_wait
+ cmp #0
+ bne pi_wget_close_claimed
+ lda #7
+ jsr net_address_low
+ jsr net_read_a
+ sta net_load_lo
+ jsr net_read_a
+ sta net_load_hi
+ jsr printtext
+ equs "HTTP status &",&EA
+ lda net_load_hi
+ jsr printhex
+ lda net_load_lo
  jsr printhex
  jsr osnewl
 .pi_wget_close_claimed
