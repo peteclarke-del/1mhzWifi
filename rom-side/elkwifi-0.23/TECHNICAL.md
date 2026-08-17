@@ -51,6 +51,8 @@ driver contract; later function 18 calls report whether addressing is ready.
 
 Unsupported cartridge-only functions return a MOS `Not implemented` error.
 They do not call removed UART, flash, printer or baud-rate code.
+The dynamic MOS BRK block is built in the retired network-printer workspace,
+not the `&0100` processor stack used by the original ROM.
 
 ## Command implementation
 
@@ -79,6 +81,14 @@ short RAM tail selects a displaced sideways-ROM owner without fetching the
 next instruction from a ROM which has just been paged out. Reset clears
 persisted ownership after MOS has rebuilt the vectors, avoiding stale
 restoration over ADFS, DFS or MMFS.
+
+The ROM records its service-supplied bank number at installation time and does
+not assume a fixed sideways slot. The OSWORD entry is tested with service ROM
+numbers 0 through 15. `*WGET -S` uses the bank supplied by the caller and
+verifies that the selected bank is writable; it does not search for or reserve
+a particular sideways-RAM bank. Optional consumers must use an allocator or
+fall back when none is available, because MMFS, language ROMs and user hardware
+may occupy any bank.
 
 The OSFILE control-block pointer and X/Y are preserved across a load. Returned
 catalogue metadata is taken from the UEF header after the payload has been

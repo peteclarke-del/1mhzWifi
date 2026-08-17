@@ -158,7 +158,7 @@ install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/se
 install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
 install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
 
-for patch_name in bus-window-adjacent-preservation.patch integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-titles-transfer.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch net-debug-stage.patch secure-debug-stage.patch; do
+for patch_name in bus-window-adjacent-preservation.patch integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-titles-transfer.patch net-rx-window.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch net-debug-stage.patch net-debug-test-window.patch secure-debug-stage.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -282,6 +282,11 @@ for patch_name in bus-window-adjacent-preservation.patch integration.patch servi
             grep -q 'TITLES returns exactly 11498 bytes' "$upstream/src/tests/net/test_net.c" &&
             patch_present=true
             ;;
+        net-rx-window.patch)
+            grep -q '#define NET_RX_RING_SIZE    65536u' "$upstream/src/net_service.h" &&
+            grep -q 'TITLES fits as one coalesced lwIP pbuf chain' "$upstream/src/tests/net/test_net.c" &&
+            patch_present=true
+            ;;
         http-user-agent.patch)
             grep -q 'User-Agent: ElkWiFi/0.23' "$upstream/src/net_service.c" &&
             patch_present=true
@@ -304,6 +309,11 @@ for patch_name in bus-window-adjacent-preservation.patch integration.patch servi
             ;;
         net-debug-stage.patch)
             grep -q 'net_debug_mark' "$upstream/src/net_service.c" &&
+            patch_present=true
+            ;;
+        net-debug-test-window.patch)
+            grep -q '#define TEST_JIM_SIZE 0x1000000u' \
+                "$upstream/src/tests/net/stubs/Pi1MHz.h" &&
             patch_present=true
             ;;
         secure-debug-stage.patch)

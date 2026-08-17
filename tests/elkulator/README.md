@@ -101,6 +101,13 @@ events for commands which produce them. Frame references must be captures from
 the same emulator window geometry. Camera photographs are evidence for manual
 comparison, not valid pixel-level NCC references.
 
+`--wifi-rom-slot BANK` installs 1MHzWifi in any sideways bank from 0 through
+15. It defaults to bank 3 only to reproduce the photographed machine. If that
+bank contains a profile ROM, relocate the displaced ROM explicitly with
+`--extra-rom OTHER_BANK=/path/to/rom`. The requested 1MHzWifi bank is applied
+last. This makes bank relocation part of the test input rather than an
+assumption in the ROM or runner.
+
 Example MMFS invocation, using the ROM slot and image number from the SD build
 under test:
 

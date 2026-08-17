@@ -116,16 +116,21 @@ class IntegrationContractTest(unittest.TestCase):
         for source in (service, service_header):
             self.assertNotRegex(source.lower(), r"\btube\b|\bparasite\b")
 
-    def test_secure_rng_startup_uses_a_wall_clock_deadline(self) -> None:
+    def test_secure_rng_startup_is_incremental_and_capabilities_are_live(self) -> None:
         source = (
             ROOT
             / "pi-side/pi1mhz-516a267/overlay/src/secure_service_wolfssh.c"
         ).read_text()
-        self.assertIn('#include "rpi/systimer.h"', source)
-        self.assertIn("uint32_t started_us = RPI_GetSystemTime()", source)
-        self.assertIn("RPI_GetSystemTime() - started_us >= 750000u", source)
-        self.assertIn("RPI_WaitMicroSeconds(1u)", source)
-        self.assertNotIn("uint32_t timeout = 1000000u", source)
+        service = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service.c"
+        ).read_text()
+        self.assertIn("static void rng_begin(void)", source)
+        self.assertIn("static void rng_poll(void)", source)
+        self.assertIn("rng_sample_count == 8u", source)
+        self.assertIn("nts_pi_wolfssh_random_ready", source)
+        self.assertIn("nts_pi_wolfssh_poll();\n    secure_refresh_capabilities();", service)
+        self.assertIn("static volatile uint8_t capability_features;", service)
+        self.assertNotIn("static volatile uint8_t capability_features =", service)
 
     def test_wifi_credentials_persist_and_runtime_network_is_enabled(self) -> None:
         service = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c").read_text()
@@ -144,6 +149,9 @@ class IntegrationContractTest(unittest.TestCase):
         tcp_diagnostics_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/tcp-diagnostics.patch").read_text()
         truncated_http_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-truncated-body.patch").read_text()
         titles_transfer_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-titles-transfer.patch").read_text()
+        net_rx_window_patch = (
+            ROOT / "pi-side/pi1mhz-516a267/patches/net-rx-window.patch"
+        ).read_text()
         http_user_agent_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-user-agent.patch").read_text()
         off_state_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-off-state.patch").read_text()
         profile_patch = (
@@ -194,7 +202,6 @@ class IntegrationContractTest(unittest.TestCase):
             (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-rejoin-queue.patch").exists()
         )
         self.assertIn("Re-read the saved profile on every host reset", service)
-        self.assertIn("wifi_get_state() >= WIFI_STATE_FIRMWARE_READY", service)
         self.assertIn("WIFI_SDIO_TX_PROBE_COMMAND_MFP", join_reference_patch)
         self.assertIn("WIFI_SDIO_TX_PROBE_COMMAND_DISASSOC", leave_patch)
         self.assertIn("g_runtime_rejoin_allowed = false", leave_patch)
@@ -235,6 +242,12 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("TITLES payload is byte-exact", titles_transfer_patch)
         self.assertIn("TITLES refused pbuf retry is bounded", titles_transfer_patch)
         self.assertIn("TITLES reaches bounded EOF", titles_transfer_patch)
+        self.assertIn("net-rx-window.patch", installer)
+        self.assertIn("NET_RX_RING_SIZE    65536u", net_rx_window_patch)
+        self.assertIn("uint32_t          rx_count", net_rx_window_patch)
+        self.assertIn(
+            "TITLES fits as one coalesced lwIP pbuf chain", net_rx_window_patch
+        )
         self.assertIn("http-user-agent.patch", installer)
         self.assertIn("User-Agent: ElkWiFi/0.23", http_user_agent_patch)
         self.assertIn("wifi-off-state.patch", installer)
@@ -265,7 +278,16 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_ERR_NO_WIFI", service)
         self.assertIn("wifi_get_state() == WIFI_STATE_ERROR", service)
         self.assertIn("Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS", service)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.53, kernel " GITVERSION', service)
+        self.assertNotIn(
+            "Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS\n       && wifi_get_state()",
+            service,
+        )
+        status_case = service.split("case ELKWIFI_CMD_STATUS:", 1)[1].split(
+            "case ELKWIFI_CMD_RADIO:", 1
+        )[0]
+        self.assertNotIn("wifi_get_state", status_case)
+        self.assertIn("response_string(cp, ELKWIFI_VERSION_RESPONSE)", status_case)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.54, kernel " GITVERSION', service)
         self.assertIn("drv_svc_radio = 91", service_driver)
         wifi_control = service_driver.split(".service_driver_wifi_control", 1)[1].split(
             ".service_driver_ping", 1
@@ -449,7 +471,7 @@ class IntegrationContractTest(unittest.TestCase):
         service_driver = (
             ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm"
         ).read_text()
-        self.assertIn("driver_page_shadow = heap+&D8", driver)
+        self.assertIn("driver_page_shadow = drv_svc_workspace+19", driver)
         self.assertNotIn("ldx pagereg", driver)
         self.assertNotIn("inc pagereg", service_driver)
 
@@ -703,7 +725,7 @@ class IntegrationContractTest(unittest.TestCase):
         public_driver = (ROOT / "rom-side/elkwifi-0.23/overlay/driver.asm").read_text()
         rom_patch = (ROOT / "rom-side/elkwifi-0.23/patches/integration.patch").read_text()
         banner_patch = (ROOT / "rom-side/elkwifi-0.23/patches/banner-spacing.patch").read_text()
-        self.assertIn("drv_svc_response_count = errorspace+14", driver)
+        self.assertIn("drv_svc_response_count = drv_svc_workspace+11", driver)
         self.assertIn("lda #240\n sta drv_svc_response_count", driver)
         self.assertIn("lda #100", driver)
         self.assertIn("lda #19", driver)
@@ -712,9 +734,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", public_driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/patches/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.53"', identity)
+        self.assertIn('romversion         equs "0.1.54"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/overlay/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.53 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.54 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
@@ -737,7 +759,7 @@ class IntegrationContractTest(unittest.TestCase):
             " jmp service_driver_service_unclaimed",
             timeout,
         )
-        self.assertIn("drv_svc_command_copy = errorspace+16", driver)
+        self.assertIn("drv_svc_command_copy = drv_svc_workspace+13", driver)
         self.assertNotIn("cmp #drv_svc_status", driver.split(".service_driver_dispatch", 1)[1])
         self.assertIn("lda #8\n sta drv_svc_timeout_outer", driver)
         result = driver.split("\n.service_driver_result\n", 1)[1].split(
@@ -870,6 +892,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("lda #drv_svc_cancel", driver)
         self.assertIn("lda drv_svc_cancelled", ping)
         self.assertIn("bcs ping_cancelled", ping)
+        self.assertIn("ping_request_count = heap+&B1", ping)
+        self.assertIn("stx ping_request_count", ping)
+        self.assertIn("dec ping_request_count", ping)
+        self.assertNotIn("stx size", ping)
+        self.assertNotIn("dec size", ping)
         self.assertIn("ELKWIFI_CMD_CANCEL       90u", header)
         self.assertIn("if (request_cancel)", service)
         self.assertIn("ping_close();", service)

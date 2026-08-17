@@ -16,9 +16,11 @@ svc_menu_get = 84
 svc_menu_set = 85
 svc_menu_default = 86
 
-menusrc_index = errorspace
-menusrc_timeout_lo = errorspace+1
-menusrc_timeout_hi = errorspace+2
+\ errorspace is the CPU stack page. MENUSRC needs ordinary volatile workspace,
+\ not a BRK construction buffer.
+menusrc_index = heap+&B0
+menusrc_timeout_lo = heap+&B1
+menusrc_timeout_hi = heap+&B2
 
 .menusrc_cmd
  jsr skipspace1

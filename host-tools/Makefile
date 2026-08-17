@@ -90,22 +90,31 @@ build/SSHBOOT: src/ssh_smoke_boot.asm | build
 build/SSHREALBOOT: src/ssh_real_smoke_boot.asm | build
 	$(BEEBASM) -i $<
 
+build/TELNETREALBOOT: src/telnet_real_smoke_boot.asm | build
+	$(BEEBASM) -i $<
+
 build/telnet-smoke.ssd: src/smoke_disc.asm build/TELNETBOOT build/NETMENU build/TELNET build/SSH $(LOADERS) | build
 	rm -f $@
 	$(BEEBASM) -i src/smoke_disc.asm -do $@ -opt 3 -title TELNET \
-		-D SSH_SMOKE=0 -D SSH_REAL_SMOKE=0
+		-D SSH_SMOKE=0 -D SSH_REAL_SMOKE=0 -D TELNET_REAL_SMOKE=0
 	truncate -s 204800 $@
 
 build/ssh-smoke.ssd: src/smoke_disc.asm build/SSHBOOT build/NETMENU build/TELNET build/SSH $(LOADERS) | build
 	rm -f $@
 	$(BEEBASM) -i src/smoke_disc.asm -do $@ -opt 3 -title SSH_TEST \
-		-D SSH_SMOKE=1 -D SSH_REAL_SMOKE=0
+		-D SSH_SMOKE=1 -D SSH_REAL_SMOKE=0 -D TELNET_REAL_SMOKE=0
 	truncate -s 204800 $@
 
 build/ssh-real-smoke.ssd: src/smoke_disc.asm build/SSHREALBOOT build/NETMENU build/TELNET build/SSH $(LOADERS) | build
 	rm -f $@
 	$(BEEBASM) -i src/smoke_disc.asm -do $@ -opt 3 -title SSH_REAL \
-		-D SSH_SMOKE=0 -D SSH_REAL_SMOKE=1
+		-D SSH_SMOKE=0 -D SSH_REAL_SMOKE=1 -D TELNET_REAL_SMOKE=0
+	truncate -s 204800 $@
+
+build/telnet-real-smoke.ssd: src/smoke_disc.asm build/TELNETREALBOOT build/NETMENU build/TELNET build/SSH $(LOADERS) | build
+	rm -f $@
+	$(BEEBASM) -i src/smoke_disc.asm -do $@ -opt 3 -title TEL_REAL \
+		-D SSH_SMOKE=0 -D SSH_REAL_SMOKE=0 -D TELNET_REAL_SMOKE=1
 	truncate -s 204800 $@
 
 emulator-smoke-images: build/telnet-smoke.ssd build/ssh-smoke.ssd

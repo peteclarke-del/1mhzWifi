@@ -12,6 +12,25 @@
     JSR OSBYTE
     STX application_himem
     STY application_himem + 1
+
+    \ With an active Tube, &83/&84 describe the language processor rather
+    \ than the I/O processor memory containing this &FFFFxxxx image. Only
+    \ accept that case after the public host loader has left its signature;
+    \ the loader has already selected MODE 4 and checked its host envelope.
+    LDA #&EA
+    LDX #0
+    LDY #&FF
+    JSR OSBYTE
+    CPX #0
+    BEQ application_check_oshwm
+    LDA LOADER_COOKIE
+    CMP #'N'
+    BNE application_check_oshwm
+    LDA LOADER_COOKIE + 1
+    CMP #'T'
+    BEQ application_memory_safe
+
+.application_check_oshwm
     LDX application_oshwm
     LDY application_oshwm + 1
     CPY #HI(APP_START)

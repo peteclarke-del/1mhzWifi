@@ -26,6 +26,7 @@ class ElkWiFiMemory:
         self.page = 0
         self.result = 0
         self.connected = False
+        self.connected_address = None
         self.sent = bytearray()
         self.send_schedule = []
         self.receive = bytearray()
@@ -177,6 +178,7 @@ class ElkWiFiMemory:
             self.jim[base + 4:base + 8] = bytes((93, 184, 216, 34))
             self.result = 0
         elif command == 47:  # connect
+            self.connected_address = bytes(self.jim[base + 1:base + 7])
             self.connected = True
             self.result = 0
         elif command == 50:  # send
@@ -233,7 +235,8 @@ class ElkWiFiOSWORDMachine:
         self.last_x = None
         self.last_y = None
 
-    def call(self, function, x=0, y=0, *, limit=2_000_000):
+    def call(self, function, x=0, y=0, *, limit=2_000_000,
+             stack_pointer=0xFF, service_rom=5, expected_error=None):
         block = 0x0600
         self.memory.ram[block:block + 3] = bytes((function, x, y))
         self.memory.ram[0xEF] = 0x65
@@ -244,11 +247,20 @@ class ElkWiFiOSWORDMachine:
         service = self.memory.rom[4] | (self.memory.rom[5] << 8)
         mpu = MPU(memory=self.memory, pc=service)
         mpu.a = 8
-        mpu.x = 5
+        mpu.x = service_rom
         mpu.y = 0
-        mpu.sp = 0xFF
+        mpu.sp = stack_pointer
         mpu.stPushWord(RETURN_SENTINEL - 1)
         for _ in range(limit):
+            if mpu.pc == 0x0D90:
+                end = self.memory.ram.find(0, 0x0D92, 0x0DB0)
+                message = bytes(self.memory.ram[0x0D92:end])
+                if expected_error is None:
+                    raise AssertionError(
+                        f"unexpected MOS error: {message.decode('ascii')}"
+                    )
+                self.assert_error(message, expected_error)
+                return message
             if mpu.pc == RETURN_SENTINEL:
                 if mpu.a != 0:
                     raise AssertionError(f"OSWORD &65 was not claimed: A={mpu.a:02X}")
@@ -268,6 +280,13 @@ class ElkWiFiOSWORDMachine:
         raise AssertionError(
             f"OSWORD function {function} did not return; PC={mpu.pc:04X}"
         )
+
+    @staticmethod
+    def assert_error(actual, expected):
+        if actual != expected:
+            raise AssertionError(
+                f"MOS error {actual!r} does not match {expected!r}"
+            )
 
 
 class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
@@ -295,7 +314,7 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
     def test_public_driver_detects_machine_before_touching_jim_bank(self):
         # Machine type controls whether the BBC-family high JIM selectors are
         # written. The result must be refreshed for each call because the
-        # overlay's heap is explicitly volatile application workspace.
+        # driver state is explicitly transient and cannot be a boot-time cache.
         source = (ROOT / "rom-side" / "elkwifi-0.23" / "overlay" /
                   "driver.asm").read_text()
         entry = source.split(".wifidriver", 1)[1].split(
@@ -306,13 +325,20 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         select = entry.lower().index("jsr set_bank_0")
         self.assertLess(query, cache)
         self.assertLess(cache, select)
-        self.assertIn("heap is volatile", entry)
+        self.assertIn("not valid as a reset-time cache", entry)
 
     def test_function_9_single_connection_returns_local_ok(self):
         self.machine.memory.ram[0x2000:0x2002] = b"0\r"
         self.machine.call(9, 0x20, 0x00)
         self.assertEqual(self.machine.memory.public_response(), b"OK\r\n")
         self.assertEqual(self.machine.memory.page, 0)
+
+    def test_osword_entry_is_independent_of_sideways_rom_slot(self):
+        self.machine.memory.ram[0x2000:0x2002] = b"0\r"
+        for slot in range(16):
+            with self.subTest(slot=slot):
+                self.machine.call(9, 0x20, 0x00, service_rom=slot)
+                self.assertEqual(self.machine.memory.public_response(), b"OK\r\n")
 
     def test_status_join_and_control_calls_return_bounded_responses(self):
         self.machine.call(18)
@@ -331,6 +357,36 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         self.assertIn(b"OK", self.machine.memory.public_response())
         self.machine.call(0)
         self.assertEqual(self.machine.memory.public_response(), b"OK\r\n")
+
+    def test_osword_status_does_not_overwrite_stack_or_application_workspace(self):
+        # A service ROM may be entered at any application stack depth. Earlier
+        # builds placed service state at &0103 and later moved it into &09xx;
+        # those are respectively the live CPU stack and ADFS/application RAM.
+        stack_canary = bytes(range(0x30, 0x3F))
+        app_addresses = (0x09B0, 0x09D8, 0x09D9, 0x09E0, 0x09E1,
+                         0x09E2, 0x09EC, 0x09ED)
+        self.machine.memory.ram[0x0103:0x0112] = stack_canary
+        for address in app_addresses:
+            self.machine.memory.ram[address] = 0xA5
+
+        self.machine.call(18, stack_pointer=0x40)
+
+        self.assertEqual(self.machine.memory.ram[0x0103:0x0112], stack_canary)
+        self.assertEqual(
+            bytes(self.machine.memory.ram[address] for address in app_addresses),
+            bytes([0xA5]) * len(app_addresses),
+        )
+
+    def test_osword_error_block_does_not_overwrite_live_stack(self):
+        stack_canary = bytes(range(0x30, 0x3F))
+        self.machine.memory.ram[0x0103:0x0112] = stack_canary
+
+        message = self.machine.call(
+            11, stack_pointer=0x40, expected_error=b"Not implemented"
+        )
+
+        self.assertEqual(message, b"Not implemented")
+        self.assertEqual(self.machine.memory.ram[0x0103:0x0112], stack_canary)
 
     def test_status_survives_delayed_fca9_callback(self):
         self.machine = ElkWiFiOSWORDMachine(
@@ -358,6 +414,10 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         self.machine.memory.ram[0x2000:0x2000 + len(connect)] = connect
         self.machine.call(8, 0x20, 0x00)
         self.assertIn(b"CONNECT", self.machine.memory.public_response())
+        self.assertEqual(
+            self.machine.memory.connected_address,
+            bytes((93, 184, 216, 34, 80, 0)),
+        )
 
         request = b"GET /zxReadAllMessages.php HTTP/1.0\r\nHost:www.chat64.nl\r\n\r\n"
         self.machine.memory.ram[0x3000:0x3000 + len(request)] = request

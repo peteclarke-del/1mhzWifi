@@ -19,11 +19,21 @@ static volatile uint32_t pending_cp;
 static volatile uint32_t pending_addr;
 static bool reset_pending;
 static nts_secure_service service;
-/* This bundle is built with the managed wolfSSH provider. Advertise the
-   compiled ABI immediately; secure_poll replaces this snapshot with actual
-   provider readiness after each reset. */
-static volatile uint8_t capability_features = 7u;
-static volatile uint8_t capability_managed_ssh = 1u;
+/* Report only capabilities which the hardware provider has reached. */
+static volatile uint8_t capability_features;
+static volatile uint8_t capability_managed_ssh;
+
+static void secure_refresh_capabilities(void)
+{
+    bool random_ready = nts_pi_wolfssh_random_ready();
+    bool ssh_ready = nts_pi_wolfssh_ready();
+    service.managed_ssh = ssh_ready;
+    capability_managed_ssh = ssh_ready ? 1u : 0u;
+    capability_features = (uint8_t)((random_ready ? 1u : 0u) |
+        (ssh_ready ? 2u : 0u) |
+        (ssh_ready && service.port != NULL &&
+         service.port->ssh_password != NULL ? 4u : 0u));
+}
 
 _Static_assert(NTS_SEC_CAPS == SERVICE_CMD_SECURE_FIRST,
                "secure service first command mismatch");
@@ -90,16 +100,12 @@ static void secure_poll(void)
         nts_pi_wolfssh_reset();
         service.port = nts_pi_wolfssh_port();
         service.opaque = nts_pi_wolfssh_context();
-        service.managed_ssh = nts_pi_wolfssh_ready();
-        capability_managed_ssh = service.managed_ssh ? 1u : 0u;
-        capability_features = (uint8_t)(1u |
-            (service.managed_ssh ? 2u : 0u) |
-            (service.managed_ssh && service.port != NULL &&
-             service.port->ssh_password != NULL ? 4u : 0u));
+        secure_refresh_capabilities();
         reset_pending = false;
     }
 
     nts_pi_wolfssh_poll();
+    secure_refresh_capabilities();
     if (pending) {
         uint32_t cp = pending_cp;
         uint32_t addr = pending_addr;

@@ -13,6 +13,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 #include <zlib.h>
 
@@ -37,6 +38,7 @@
 #define ELKWIFI_CMD_PING         88u
 #define ELKWIFI_CMD_DATETIME     89u
 #define ELKWIFI_CMD_CANCEL       90u
+#define ELKWIFI_CMD_RADIO        91u
 #define ELKWIFI_CMD_ONLINE       92u
 #define ELKWIFI_CMD_UEF_NORMALIZE 93u
 #define SEC_CMD_CAPS       94u
@@ -52,6 +54,8 @@
 #define NET_ERR_DNS       0x24u
 #define NET_ERR_CONN      0x25u
 #define ELKWIFI_ERR_PARAM 0x40u
+#define ELKWIFI_ERR_NO_WIFI 0x44u
+#define ELKWIFI_ERR_IO 0x45u
 #define NET_MAX_HANDLES   8u
 #define MENU_MAX          220u
 #define MENU_DEFAULT "http://acornelectron.nl/uefarchive/MENU"
@@ -93,8 +97,18 @@ struct pi1mhz_net_backend {
     FILE *trace;
     char menu_url[MENU_MAX + 1u];
     char wifi_ssid[33];
+    char wifi_password[65];
+    char wifi_security[6];
+    char wifi_profile_path[512];
+    int wifi_present;
     int wifi_enabled;
     int wifi_associated;
+    int wifi_has_address;
+    int wifi_connecting;
+    uint64_t wifi_associate_at_ms;
+    uint64_t wifi_dhcp_at_ms;
+    unsigned wifi_associate_delay_ms;
+    unsigned wifi_dhcp_delay_ms;
     unsigned scan_fields;
     FILE *sd_image;
     size_t sd_image_size;
@@ -104,6 +118,166 @@ struct pi1mhz_net_backend {
     pi1mhz_wolfssh *ssh;
 #endif
 };
+
+static void trace_line(pi1mhz_net_backend *backend, const char *event,
+                       unsigned handle, const char *detail);
+
+static uint64_t monotonic_ms(void)
+{
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now))
+        return 0u;
+    return (uint64_t)now.tv_sec * 1000u + (uint64_t)now.tv_nsec / 1000000u;
+}
+
+static unsigned env_unsigned(const char *name, unsigned fallback)
+{
+    const char *text = getenv(name);
+    char *end;
+    unsigned long value;
+    if (!text || !*text)
+        return fallback;
+    errno = 0;
+    value = strtoul(text, &end, 10);
+    if (errno || *end || value > 60000u)
+        return fallback;
+    return (unsigned)value;
+}
+
+static void wifi_start_join(pi1mhz_net_backend *backend)
+{
+    uint64_t now = monotonic_ms();
+    backend->wifi_enabled = 1;
+    backend->wifi_connecting = 1;
+    backend->wifi_associated = 0;
+    backend->wifi_has_address = 0;
+    backend->wifi_associate_at_ms = now + backend->wifi_associate_delay_ms;
+    backend->wifi_dhcp_at_ms = backend->wifi_associate_at_ms +
+                               backend->wifi_dhcp_delay_ms;
+}
+
+static void wifi_update(pi1mhz_net_backend *backend)
+{
+    uint64_t now;
+    if (!backend->wifi_connecting)
+        return;
+    now = monotonic_ms();
+    if (!backend->wifi_associated && now >= backend->wifi_associate_at_ms)
+        backend->wifi_associated = 1;
+    if (backend->wifi_associated && now >= backend->wifi_dhcp_at_ms) {
+        backend->wifi_has_address = 1;
+        backend->wifi_connecting = 0;
+    }
+}
+
+static int wifi_credentials_valid(const char *ssid, const char *password,
+                                  const char *security);
+
+static int wifi_profile_load(pi1mhz_net_backend *backend)
+{
+    FILE *profile;
+    char header[16];
+    char security[16];
+    char ssid[64];
+    char password[96];
+    if (!backend->wifi_profile_path[0])
+        return 0;
+    profile = fopen(backend->wifi_profile_path, "rb");
+    if (!profile)
+        return 0;
+    if (!fgets(header, sizeof(header), profile) ||
+        !fgets(security, sizeof(security), profile) ||
+        !fgets(ssid, sizeof(ssid), profile) ||
+        !fgets(password, sizeof(password), profile)) {
+        fclose(profile);
+        return 0;
+    }
+    fclose(profile);
+    header[strcspn(header, "\r\n")] = 0;
+    security[strcspn(security, "\r\n")] = 0;
+    ssid[strcspn(ssid, "\r\n")] = 0;
+    password[strcspn(password, "\r\n")] = 0;
+    if (strcmp(header, "ELKWIFI1") ||
+        (strcmp(security, "AUTO") && strcmp(security, "OPEN") &&
+         strcmp(security, "WEP") && strcmp(security, "WPA") &&
+         strcmp(security, "WPA2")) ||
+        !wifi_credentials_valid(ssid, password, security))
+        return 0;
+    strcpy(backend->wifi_security, security);
+    strcpy(backend->wifi_ssid, ssid);
+    strcpy(backend->wifi_password, password);
+    return 1;
+}
+
+static int wifi_profile_save(pi1mhz_net_backend *backend)
+{
+    FILE *profile;
+    int ok;
+    if (!backend->wifi_profile_path[0])
+        return 1;
+    profile = fopen(backend->wifi_profile_path, "wb");
+    if (!profile)
+        return 0;
+    ok = fprintf(profile, "ELKWIFI1\n%s\n%s\n%s\n",
+                 backend->wifi_security, backend->wifi_ssid,
+                 backend->wifi_password) > 0;
+    if (fclose(profile))
+        ok = 0;
+    return ok;
+}
+
+static int wifi_hex_key(const char *value)
+{
+    for (; *value; value++)
+        if (!(('0' <= *value && *value <= '9') ||
+              ('a' <= *value && *value <= 'f') ||
+              ('A' <= *value && *value <= 'F')))
+            return 0;
+    return 1;
+}
+
+static int wifi_parse_credentials(const char *input, char security[6],
+                                  const char **password)
+{
+    static const char *const modes[] = { "AUTO", "WPA", "WPA2", "WEP" };
+    size_t i;
+    size_t length;
+    if (!strcasecmp(input, "OPEN")) {
+        strcpy(security, "OPEN");
+        *password = "";
+        return 1;
+    }
+    for (i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
+        length = strlen(modes[i]);
+        if (!strncasecmp(input, modes[i], length) && input[length] == ':') {
+            strcpy(security, modes[i]);
+            *password = input + length + 1u;
+            return 1;
+        }
+    }
+    strcpy(security, "AUTO");
+    *password = input;
+    return 1;
+}
+
+static int wifi_credentials_valid(const char *ssid, const char *password,
+                                  const char *security)
+{
+    size_t length;
+    if (!ssid[0] || strlen(ssid) > 32u || strlen(password) > 64u)
+        return 0;
+    length = strlen(password);
+    if (!strcmp(security, "OPEN"))
+        return length == 0u;
+    if (!strcmp(security, "AUTO"))
+        return length == 0u || (length >= 8u && length <= 63u);
+    if (!strcmp(security, "WPA") || !strcmp(security, "WPA2"))
+        return length >= 8u && length <= 63u;
+    if (!strcmp(security, "WEP"))
+        return length == 5u || length == 13u ||
+               ((length == 10u || length == 26u) && wifi_hex_key(password));
+    return 0;
+}
 
 static void elkwifi_response(uint8_t *command, const char *response)
 {
@@ -118,25 +292,46 @@ static uint8_t do_elkwifi_control(pi1mhz_net_backend *backend,
                                   uint8_t *command)
 {
     char response[MENU_MAX + 1u];
+    wifi_update(backend);
     switch (command[0]) {
     case ELKWIFI_CMD_STATUS:
+        if (!backend->wifi_present) {
+            trace_line(backend, "WIFI_STATUS", 0, "absent");
+            return ELKWIFI_ERR_NO_WIFI;
+        }
         if (!backend->wifi_enabled)
             backend->wifi_enabled = 1;
-        elkwifi_response(command, "Pi1MHz ElkWiFi 0.1.27\r\n");
+        elkwifi_response(command, "Pi1MHz ElkWiFi 0.1.54\r\n\r\nOK\r\n");
+        trace_line(backend, "WIFI_STATUS", 0, "ready");
+        return PI1MHZ_NET_OK;
+    case ELKWIFI_CMD_RADIO:
+        if (!backend->wifi_present) {
+            trace_line(backend, "WIFI_RADIO", 0, "absent");
+            return ELKWIFI_ERR_NO_WIFI;
+        }
+        backend->wifi_enabled = 1;
+        if (backend->wifi_ssid[0] && !backend->wifi_associated &&
+            !backend->wifi_connecting)
+            wifi_start_join(backend);
+        elkwifi_response(command, "OK\r\n");
+        trace_line(backend, "WIFI_RADIO", 0, "on");
         return PI1MHZ_NET_OK;
     case ELKWIFI_CMD_SCAN:
-        if (!backend->wifi_enabled)
-            return 0x44u;
+        if (!backend->wifi_present || !backend->wifi_enabled)
+            return ELKWIFI_ERR_NO_WIFI;
         if (backend->scan_fields == 7u)
             elkwifi_response(command,
                 "+CWLAP:(3,\"Pi1MHz-Fixture\",-42)\r\n\r\nOK\r\n");
         else
             elkwifi_response(command,
                 "+CWLAP:(3,\"Pi1MHz-Fixture\",-42,\"02:00:00:00:00:01\",6)\r\n\r\nOK\r\n");
+        trace_line(backend, "WIFI_SCAN", 0, "complete");
         return PI1MHZ_NET_OK;
     case ELKWIFI_CMD_JOIN:
         if (command[1] == 0u || command[1] == (uint8_t)'?') {
-            if (!backend->wifi_associated)
+            if (backend->wifi_connecting && !backend->wifi_associated)
+                elkwifi_response(command, "WIFI CONNECTING\r\n\r\nOK\r\n");
+            else if (!backend->wifi_associated)
                 elkwifi_response(command, "No AP\r\n\r\nOK\r\n");
             else {
                 snprintf(response, sizeof(response),
@@ -144,26 +339,52 @@ static uint8_t do_elkwifi_control(pi1mhz_net_backend *backend,
                          backend->wifi_ssid);
                 elkwifi_response(command, response);
             }
+            trace_line(backend, "WIFI_JOIN_QUERY", 0,
+                       backend->wifi_connecting ? "connecting" :
+                       (backend->wifi_associated ? "associated" : "no-ap"));
             return PI1MHZ_NET_OK;
         }
         if (command[1] == 2u || command[1] == 3u) {
+            uint8_t operation = command[1];
             backend->wifi_associated = 0;
-            if (command[1] == 3u)
+            backend->wifi_has_address = 0;
+            backend->wifi_connecting = 0;
+            if (operation == 3u)
                 backend->wifi_enabled = 0;
-            elkwifi_response(command, command[1] == 3u
+            elkwifi_response(command, operation == 3u
                                       ? "WIFI OFF\r\n\r\nOK\r\n"
                                       : "WIFI DISCONNECT\r\n\r\nOK\r\n");
+            trace_line(backend, operation == 3u ? "WIFI_RADIO" : "WIFI_LEAVE",
+                       0, operation == 3u ? "off" : "disconnected");
             return PI1MHZ_NET_OK;
         }
         if (command[1] == 1u) {
             const char *ssid = (const char *)command + 2;
+            const char *input_password;
+            const char *password;
             size_t length = strnlen(ssid, sizeof(backend->wifi_ssid));
             if (!length || length >= sizeof(backend->wifi_ssid))
                 return ELKWIFI_ERR_PARAM;
+            input_password = ssid + length + 1u;
+            if (strnlen(input_password, sizeof(backend->wifi_password)) >=
+                sizeof(backend->wifi_password) ||
+                !wifi_parse_credentials(input_password, backend->wifi_security,
+                                        &password) ||
+                !wifi_credentials_valid(ssid, password,
+                                        backend->wifi_security))
+                return ELKWIFI_ERR_PARAM;
             memcpy(backend->wifi_ssid, ssid, length + 1u);
-            backend->wifi_enabled = 1;
-            backend->wifi_associated = 1;
-            elkwifi_response(command, "WIFI CONNECTING AUTO\r\n\r\nOK\r\n");
+            strcpy(backend->wifi_password, password);
+            if (!wifi_profile_save(backend))
+                return ELKWIFI_ERR_IO;
+            wifi_start_join(backend);
+            snprintf(response, sizeof(response),
+                     "WIFI CONNECTING %s\r\n\r\nOK\r\n",
+                     backend->wifi_security);
+            elkwifi_response(command, response);
+            snprintf(response, sizeof(response), "%s %s", backend->wifi_ssid,
+                     backend->wifi_security);
+            trace_line(backend, "WIFI_JOIN", 0, response);
             return PI1MHZ_NET_OK;
         }
         return ELKWIFI_ERR_PARAM;
@@ -171,8 +392,10 @@ static uint8_t do_elkwifi_control(pi1mhz_net_backend *backend,
         snprintf(response, sizeof(response),
                  "+CIFSR:STAIP,\"%s\"\r\n"
                  "+CIFSR:STAMAC,\"02:00:00:00:00:01\"\r\n\r\nOK\r\n",
-                 backend->wifi_associated ? "192.168.0.2" : "0.0.0.0");
+                 backend->wifi_has_address ? "192.168.0.2" : "0.0.0.0");
         elkwifi_response(command, response);
+        trace_line(backend, "WIFI_IFCFG", 0,
+                   backend->wifi_has_address ? "192.168.0.2" : "0.0.0.0");
         return PI1MHZ_NET_OK;
     case ELKWIFI_CMD_LAPOPT:
         if (command[1] != 7u && command[1] != 127u)
@@ -183,7 +406,8 @@ static uint8_t do_elkwifi_control(pi1mhz_net_backend *backend,
         elkwifi_response(command, response);
         return PI1MHZ_NET_OK;
     case ELKWIFI_CMD_PING:
-        elkwifi_response(command, backend->wifi_associated
+        trace_line(backend, "PING", 0, (const char *)command + 1);
+        elkwifi_response(command, backend->wifi_has_address
                                   ? "+1\r\n" : "ERROR\r\n");
         return PI1MHZ_NET_OK;
     case ELKWIFI_CMD_DATETIME:
@@ -191,12 +415,22 @@ static uint8_t do_elkwifi_control(pi1mhz_net_backend *backend,
                                   ? "12:00:00\r\n" : "07-08-2026\r\n");
         return PI1MHZ_NET_OK;
     case ELKWIFI_CMD_CANCEL:
+        trace_line(backend, "CANCEL", 0, "");
         elkwifi_response(command, "OK\r\n");
         return PI1MHZ_NET_OK;
     case ELKWIFI_CMD_ONLINE:
-        elkwifi_response(command, backend->wifi_associated
-                                  ? "ONLINE 192.168.0.2\r\n"
-                                  : "OFFLINE\r\n");
+        if (backend->wifi_has_address)
+            elkwifi_response(command, "ONLINE 192.168.0.2\r\n");
+        else if (backend->wifi_connecting || backend->wifi_associated)
+            elkwifi_response(command, "OFFLINE CONNECTING\r\n");
+        else if (!backend->wifi_enabled)
+            elkwifi_response(command, "OFFLINE WIFI OFF\r\n");
+        else
+            elkwifi_response(command, "OFFLINE\r\n");
+        trace_line(backend, "WIFI_ONLINE", 0,
+                   backend->wifi_has_address ? "online" :
+                   (backend->wifi_connecting || backend->wifi_associated
+                    ? "connecting" : (backend->wifi_enabled ? "offline" : "off")));
         return PI1MHZ_NET_OK;
     default:
         return 0x42u;
@@ -510,12 +744,14 @@ static uint8_t do_raw_dns(pi1mhz_net_backend *backend, net_handle *handle,
                           unsigned index, uint8_t *command)
 {
     const char *hostname = (const char *)command + 1;
+    char traced_hostname[224];
     struct addrinfo hints;
     struct addrinfo *addresses = NULL;
     struct addrinfo *address;
     uint8_t result = NET_ERR_DNS;
     if (!handle->raw_allocated || !memchr(hostname, 0, 223u))
         return NET_ERR_PARAM;
+    snprintf(traced_hostname, sizeof(traced_hostname), "%s", hostname);
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
@@ -532,7 +768,7 @@ static uint8_t do_raw_dns(pi1mhz_net_backend *backend, net_handle *handle,
         break;
     }
     freeaddrinfo(addresses);
-    trace_line(backend, "DNS", index, hostname);
+    trace_line(backend, "DNS", index, traced_hostname);
     return result;
 }
 
@@ -901,6 +1137,8 @@ pi1mhz_net_backend *pi1mhz_net_backend_create(const char *mode,
                                                const char *trace_path,
                                                int exit_on_close)
 {
+    const char *profile_path;
+    const char *present;
     const char *sd_image_path;
     unsigned i;
     pi1mhz_net_backend *backend =
@@ -910,9 +1148,33 @@ pi1mhz_net_backend *pi1mhz_net_backend_create(const char *mode,
     backend->live = mode && !strcasecmp(mode, "live");
     backend->exit_on_close = exit_on_close;
     strcpy(backend->menu_url, MENU_DEFAULT);
-    strcpy(backend->wifi_ssid, "Pi1MHz-Fixture");
+    strcpy(backend->wifi_security, "AUTO");
+    backend->wifi_present = 1;
     backend->wifi_enabled = 1;
-    backend->wifi_associated = 1;
+    backend->wifi_associate_delay_ms =
+        env_unsigned("PI1MHZ_WIFI_ASSOCIATE_MS", 500u);
+    backend->wifi_dhcp_delay_ms = env_unsigned("PI1MHZ_WIFI_DHCP_MS", 500u);
+    present = getenv("PI1MHZ_WIFI_PRESENT");
+    if (present && (!strcmp(present, "0") || !strcasecmp(present, "no"))) {
+        backend->wifi_present = 0;
+        backend->wifi_enabled = 0;
+    }
+    profile_path = getenv("PI1MHZ_WIFI_PROFILE");
+    if (profile_path && *profile_path) {
+        if (strlen(profile_path) >= sizeof(backend->wifi_profile_path)) {
+            free(backend);
+            return NULL;
+        }
+        strcpy(backend->wifi_profile_path, profile_path);
+        if (backend->wifi_present && wifi_profile_load(backend))
+            wifi_start_join(backend);
+    } else {
+        /* Preserve the historical fixture default unless a persistence path
+           explicitly requests the boot/rejoin state machine. */
+        strcpy(backend->wifi_ssid, "Pi1MHz-Fixture");
+        backend->wifi_associated = backend->wifi_present;
+        backend->wifi_has_address = backend->wifi_present;
+    }
     backend->scan_fields = 127u;
     for (i = 0; i < NET_MAX_HANDLES; i++)
         backend->handles[i].fd = -1;
@@ -1161,6 +1423,7 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     size_t service_base;
     size_t service_size;
     net_handle *handle;
+    char command_detail[16];
     if (!backend || jim_size < PI1MHZ_SERVICE_SIZE)
         return NET_ERR_PARAM;
     service_base = jim_size - PI1MHZ_SERVICE_SIZE;
@@ -1170,6 +1433,9 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
         return NET_ERR_PARAM;
     service_jim = jim + service_base;
     command = service_jim + (command_pointer - service_base);
+    snprintf(command_detail, sizeof(command_detail), "%02X:%02X",
+             selector, command[0]);
+    trace_line(backend, "COMMAND", index, command_detail);
     if (command[0] == FAT_CMD_READ_SECTORS ||
         command[0] == FAT_CMD_WRITE_SECTORS)
         return do_fat_sectors(backend, command, service_jim, service_size);
@@ -1184,6 +1450,7 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     case ELKWIFI_CMD_PING:
     case ELKWIFI_CMD_DATETIME:
     case ELKWIFI_CMD_CANCEL:
+    case ELKWIFI_CMD_RADIO:
     case ELKWIFI_CMD_ONLINE:
         return do_elkwifi_control(backend, command);
     case ELKWIFI_CMD_MENU_GET:

@@ -197,11 +197,15 @@ class MergedRepositoryTest(unittest.TestCase):
         built = ROOT / "host-tools/build/nettools.ssd"
         self.assertTrue(bundled.is_file())
         self.assertEqual(bundled.read_bytes(), built.read_bytes())
+        bundled_rom = ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
+        built_rom = ROOT / "build/elkwifi_pi1mhz.rom"
+        self.assertTrue(bundled_rom.is_file())
+        self.assertEqual(bundled_rom.read_bytes(), built_rom.read_bytes())
 
     def test_packaged_kernels_have_matching_recovery_revisions(self) -> None:
         pattern = re.compile(
-            rb"Pi1MHz ElkWiFi 0\.1\.53, kernel "
-            rb"(V1\.30-84-gd08242e-dirty)"
+            rb"Pi1MHz ElkWiFi 0\.1\.54, kernel "
+            rb"(V1\.30-84-gd08242e-dirty\.7ebd3418)"
         )
         revisions = []
         for name in ("kernel.img", "kernel7.img"):
@@ -225,7 +229,7 @@ class MergedRepositoryTest(unittest.TestCase):
         )
         self.assertIn("firmware/Pi1MHz/ElkWiFi.rom", patch)
         self.assertIn("GIT binary patch", patch)
-        self.assertIn("Pi1MHz ElkWiFi 0.1.53, kernel", patch)
+        self.assertIn("Pi1MHz ElkWiFi 0.1.54, kernel", patch)
         self.assertNotIn("Pi1MHz ElkWiFi 0.1.52, kernel", patch)
         self.assertIn("RPI_GetSystemTime() - started_us >= 750000u", patch)
         self.assertIn("exact MENU TITLES transfer shape", patch)

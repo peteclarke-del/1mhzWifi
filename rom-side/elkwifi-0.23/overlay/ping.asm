@@ -1,6 +1,10 @@
 \ ElkWiFi-compatible PING through the Pi1MHz service.
 
-ping_wait_count = errorspace+18
+\ Never use errorspace (&0100) as persistent state: it is the CPU stack page.
+\ PING does not run concurrently with another driver command, so it can reuse
+\ the service driver's volatile heap range.
+ping_wait_count = heap+&B0
+ping_request_count = heap+&B1
 
 .ping_cmd
  jsr skipspace1
@@ -13,7 +17,7 @@ ping_wait_count = errorspace+18
 
 .ping_start
  ldx #5
- stx size
+ stx ping_request_count
  ldx #32
  stx time_out
 .ping_loop
@@ -57,7 +61,7 @@ ping_wait_count = errorspace+18
  dec ping_wait_count
  bne ping_wait_loop
 
- dec size
+ dec ping_request_count
  bne ping_loop
 .ping_cancelled
  jmp call_claimed

@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -313,6 +314,11 @@ pi1mhz_wolfssh *pi1mhz_wolfssh_create(const char *storage_directory)
     strcpy(provider->directory, storage_directory);
     provider->socket_fd = -1;
     if (wolfSSH_Init() != WS_SUCCESS) { free(provider); return NULL; }
+    /* A peer can close between wolfSSH's non-blocking receive and its next
+       protocol write.  POSIX would otherwise terminate the whole emulator
+       with SIGPIPE.  Bare-metal Pi1MHz reports this as EOF/error through the
+       mailbox, so make the emulator follow the same observable contract. */
+    if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) { free(provider); return NULL; }
     /* wolfSSH obtains the PTY name from TERM on POSIX. The mailbox contract is
        explicitly VT100, independent of the emulator process's own terminal. */
     if (setenv("TERM", "vt100", 1)) { free(provider); return NULL; }
@@ -452,14 +458,23 @@ int pi1mhz_wolfssh_password(pi1mhz_wolfssh *provider,
 
 int pi1mhz_wolfssh_read(pi1mhz_wolfssh *provider, uint8_t *out, size_t maximum)
 {
-    int result;
+    int result, error;
     if (!provider || provider->stage != PROVIDER_UP || maximum > UINT32_MAX)
         return -(int)NTS_ERR_CONN;
     result = wolfSSH_stream_read(provider->ssh, out, (word32)maximum);
     if (result >= 0) return result;
     if (want_io(provider, result)) return 0;
-    return wolfSSH_stream_peek(provider->ssh, NULL, 0) == 0 ?
-           -(int)NTS_EOF : -(int)NTS_ERR_PROTOCOL;
+    error = wolfSSH_get_error(provider->ssh);
+    if (debug_enabled())
+        fprintf(stderr, "wolfSSH_stream_read=%d (%s), session=%d (%s)\n",
+                result, wolfSSH_ErrorToName(result), error,
+                wolfSSH_get_error_name(provider->ssh));
+    if (result == WS_EOF || result == WS_CHANNEL_CLOSED ||
+        result == WS_SOCKET_ERROR_E ||
+        error == WS_EOF || error == WS_CHANNEL_CLOSED ||
+        error == WS_SOCKET_ERROR_E)
+        return -(int)NTS_EOF;
+    return -(int)NTS_ERR_PROTOCOL;
 }
 
 int pi1mhz_wolfssh_write(pi1mhz_wolfssh *provider, const uint8_t *data,

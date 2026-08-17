@@ -88,6 +88,10 @@ def main() -> int:
     parser.add_argument("--wifi-rom", type=Path, required=True)
     parser.add_argument("--disc", type=Path,
                         help="DFS fixture disc; required by the dfs profile")
+    parser.add_argument("--sd-image", type=Path,
+                        help="Pi1MHz SD image exposed to an installed MMFS ROM")
+    parser.add_argument("--mmfs-rom", type=Path,
+                        help="MMFS ROM loaded in writable sideways bank 7")
     parser.add_argument("--profile", choices=("dfs", "adfs-beebscsi"), default="dfs")
     parser.add_argument("--beebscsi-lun", type=Path)
     parser.add_argument("--beebscsi-dsc", type=Path,
@@ -120,6 +124,8 @@ def main() -> int:
         parser.error("--profile adfs-beebscsi requires --beebscsi-lun")
     if args.profile == "dfs" and args.disc is None:
         parser.error("--profile dfs requires --disc")
+    if (args.sd_image is None) != (args.mmfs_rom is None):
+        parser.error("--sd-image and --mmfs-rom must be supplied together")
     if args.beebscsi_lun is not None and not args.beebscsi_lun.is_file():
         parser.error(f"BeebSCSI LUN not found: {args.beebscsi_lun}")
     if args.beebscsi_lun and args.beebscsi_dsc is None:
@@ -131,6 +137,11 @@ def main() -> int:
     for path in (args.title_reference, args.gameplay_reference, *args.failure_reference):
         if not path.is_file():
             parser.error(f"screen reference not found: {path}")
+
+    for attribute in ("sd_image", "mmfs_rom", "beebscsi_lun", "beebscsi_dsc"):
+        path = getattr(args, attribute)
+        if path is not None:
+            setattr(args, attribute, path.resolve())
 
     if args.output.exists() and any(args.output.iterdir()):
         parser.error(f"output directory is not empty: {args.output}")
@@ -150,6 +161,8 @@ def main() -> int:
     ]
     if args.disc:
         command.extend(["-disc", str(args.disc.resolve())])
+    if args.mmfs_rom:
+        command.extend(["-rom", "7", str(args.mmfs_rom)])
     command.extend(["-autokeys", command_script(events)])
     if args.tube:
         command.extend(["-tube6502", str(roms / "6502tube_120.rom")])
@@ -162,6 +175,8 @@ def main() -> int:
     })
     if args.fiq_delay is not None:
         environment["PI1MHZ_FIQ_DELAY_ACCESSES"] = str(args.fiq_delay)
+    if args.sd_image:
+        environment["PI1MHZ_SD_IMAGE"] = str(args.sd_image)
     if args.beebscsi_lun:
         environment["PI1MHZ_BEEBSCSI_LUN"] = str(args.beebscsi_lun.resolve())
         environment["PI1MHZ_BEEBSCSI_READ_ONLY"] = "1"
@@ -181,12 +196,14 @@ def main() -> int:
         "rom_1_adfs": roms / "acorn-adfs.rom",
         "title_reference": args.title_reference,
         "gameplay_reference": args.gameplay_reference,
+        **({"rom_7_mmfs": args.mmfs_rom} if args.mmfs_rom else {}),
         **{f"failure_reference_{number}": reference
            for number, reference in enumerate(args.failure_reference)},
         **({"tube_rom": roms / "6502tube_120.rom"} if args.tube else {}),
     }
     media_inputs = {
         **({"disc": args.disc} if args.disc else {}),
+        **({"sd_image": args.sd_image} if args.sd_image else {}),
         **({"beebscsi_lun": args.beebscsi_lun} if args.beebscsi_lun else {}),
         **({"beebscsi_dsc": args.beebscsi_dsc} if args.beebscsi_dsc else {}),
     }

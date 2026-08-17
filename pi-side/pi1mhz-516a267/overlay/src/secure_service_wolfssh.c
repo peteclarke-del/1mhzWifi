@@ -93,9 +93,14 @@ static uint8_t rx_ring[SSH_RX_SIZE];
 static uint8_t file_buffer[SSH_FILE_SIZE + 1u];
 static bool provider_ready;
 static bool wolfssh_started;
+static bool wolfssh_init_attempted;
 static bool rng_started;
+static bool rng_ready;
 static bool rng_have_last;
 static uint32_t rng_last;
+static uint8_t rng_sample_count;
+static uint8_t rng_zero_count;
+static uint8_t rng_ones_count;
 
 static int rng_word(uint32_t *out)
 {
@@ -134,22 +139,42 @@ int nts_bcm_random_block(unsigned char *out, unsigned int length)
     return 0;
 }
 
-static bool rng_init(void)
+static void rng_begin(void)
 {
-    uint8_t sample[32];
-    unsigned int zero = 0, ones = 0;
     BCM_RNG_INT_MASK |= 1u;
     BCM_RNG_STATUS = 0x00040000u; /* discard the first 0x40000 oscillator bits */
     BCM_RNG_CTRL |= 1u;
     rng_started = true;
+    rng_ready = false;
     rng_have_last = false;
-    if (nts_bcm_random_block(sample, sizeof(sample)) != 0) return false;
-    for (unsigned int i = 0; i < sizeof(sample); i++) {
-        if (sample[i] == 0u) zero++;
-        if (sample[i] == 0xffu) ones++;
+    rng_sample_count = 0u;
+    rng_zero_count = 0u;
+    rng_ones_count = 0u;
+}
+
+static void rng_poll(void)
+{
+    uint32_t word;
+    if (!rng_started || rng_ready || (BCM_RNG_STATUS >> 24) == 0u) return;
+
+    word = BCM_RNG_DATA;
+    if (rng_have_last && word == rng_last) {
+        rng_started = false;
+        return;
     }
-    memset(sample, 0, sizeof(sample));
-    return zero != sizeof(sample) && ones != sizeof(sample);
+    rng_last = word;
+    rng_have_last = true;
+    for (unsigned int i = 0; i < 4u; i++) {
+        uint8_t value = (uint8_t)word;
+        if (value == 0u) rng_zero_count++;
+        if (value == 0xffu) rng_ones_count++;
+        word >>= 8;
+    }
+    rng_sample_count++;
+    if (rng_sample_count == 8u) {
+        rng_ready = rng_zero_count != 32u && rng_ones_count != 32u;
+        if (!rng_ready) rng_started = false;
+    }
 }
 
 static int port_random(void *opaque, uint8_t *out, size_t length)
@@ -668,7 +693,17 @@ static const nts_secure_port port = {
 const nts_secure_port *nts_pi_wolfssh_port(void) { return &port; }
 void *nts_pi_wolfssh_context(void) { return &client; }
 int nts_pi_wolfssh_ready(void) { return provider_ready; }
-void nts_pi_wolfssh_poll(void) { wifi_lwip_rx_kick(); }
+int nts_pi_wolfssh_random_ready(void) { return rng_ready; }
+void nts_pi_wolfssh_poll(void)
+{
+    wifi_lwip_rx_kick();
+    rng_poll();
+    if (rng_ready && !wolfssh_init_attempted) {
+        wolfssh_init_attempted = true;
+        provider_ready = wolfSSH_Init() == WS_SUCCESS;
+        wolfssh_started = provider_ready;
+    }
+}
 
 void nts_pi_wolfssh_reset(void)
 {
@@ -677,8 +712,9 @@ void nts_pi_wolfssh_reset(void)
         (void)wolfSSH_Cleanup();
         wolfssh_started = false;
     }
+    wolfssh_init_attempted = false;
     (void)f_mkdir("Pi1MHz");
     (void)f_mkdir(SSH_DIR);
-    provider_ready = rng_init() && wolfSSH_Init() == WS_SUCCESS;
-    wolfssh_started = provider_ready;
+    provider_ready = false;
+    rng_begin();
 }

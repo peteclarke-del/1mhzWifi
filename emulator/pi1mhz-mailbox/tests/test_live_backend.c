@@ -81,6 +81,126 @@ static void short_wait(void)
     nanosleep(&delay, NULL);
 }
 
+static void test_wifi_lifecycle(void)
+{
+    char profile_path[] = "/tmp/pi1mhz-wifi-test-XXXXXX";
+    char persisted[128];
+    int profile_fd = mkstemp(profile_path);
+    pi1mhz_net_backend *backend;
+    pi1mhz_mailbox mailbox;
+    uint8_t *command;
+    ssize_t length;
+
+    assert(profile_fd >= 0);
+    assert(!close(profile_fd));
+    assert(!unlink(profile_path));
+    assert(!setenv("PI1MHZ_WIFI_PROFILE", profile_path, 1));
+    assert(!setenv("PI1MHZ_WIFI_ASSOCIATE_MS", "1000", 1));
+    assert(!setenv("PI1MHZ_WIFI_DHCP_MS", "1000", 1));
+
+    backend = pi1mhz_net_backend_create("fixture", NULL, 0);
+    assert(backend);
+    assert(!pi1mhz_mailbox_init(&mailbox, pi1mhz_net_backend_dispatch, backend));
+    command = mailbox.jim + mailbox.services_base + 0xFFFF00u;
+    command[0] = 91;
+    assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
+    assert(!strcmp((const char *)command + 1, "OK\r\n"));
+
+    command[0] = 83;
+    assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
+    assert(strstr((const char *)command + 1, "+CIFSR:STAIP,\"0.0.0.0\""));
+
+    memset(command, 0, 224u);
+    command[0] = 82;
+    command[1] = 1;
+    strcpy((char *)command + 2, "Lifecycle-AP");
+    strcpy((char *)command + 2 + strlen("Lifecycle-AP") + 1u,
+           "WPA2:eightchars");
+    assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
+    assert(!strcmp((const char *)command + 1,
+                   "WIFI CONNECTING WPA2\r\n\r\nOK\r\n"));
+
+    command[0] = 82;
+    command[1] = 0;
+    assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
+    assert(!strcmp((const char *)command + 1,
+                   "WIFI CONNECTING\r\n\r\nOK\r\n"));
+    pi1mhz_mailbox_destroy(&mailbox);
+    pi1mhz_net_backend_destroy(backend);
+
+    profile_fd = open(profile_path, O_RDONLY);
+    assert(profile_fd >= 0);
+    length = read(profile_fd, persisted, sizeof(persisted) - 1u);
+    assert(length > 0);
+    persisted[length] = 0;
+    assert(!close(profile_fd));
+    assert(!strcmp(persisted,
+                   "ELKWIFI1\nWPA2\nLifecycle-AP\neightchars\n"));
+
+    /* A new Pi process reloads the persisted profile, associates, then gets
+       its DHCP address. Zero delays make both transitions deterministic. */
+    assert(!setenv("PI1MHZ_WIFI_ASSOCIATE_MS", "0", 1));
+    assert(!setenv("PI1MHZ_WIFI_DHCP_MS", "0", 1));
+    backend = pi1mhz_net_backend_create("fixture", NULL, 0);
+    assert(backend);
+    assert(!pi1mhz_mailbox_init(&mailbox, pi1mhz_net_backend_dispatch, backend));
+    command = mailbox.jim + mailbox.services_base + 0xFFFF00u;
+    command[0] = 83;
+    assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
+    assert(strstr((const char *)command + 1,
+                  "+CIFSR:STAIP,\"192.168.0.2\""));
+    command[0] = 92;
+    assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
+    assert(!strcmp((const char *)command + 1, "ONLINE 192.168.0.2\r\n"));
+    command[0] = 82;
+    command[1] = 2;
+    assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
+    command[0] = 83;
+    assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
+    assert(strstr((const char *)command + 1, "+CIFSR:STAIP,\"0.0.0.0\""));
+    pi1mhz_mailbox_destroy(&mailbox);
+    pi1mhz_net_backend_destroy(backend);
+
+    /* A syntactically valid profile with an invalid WPA2 key must not be
+       treated as a bootable saved association. */
+    profile_fd = open(profile_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    assert(profile_fd >= 0);
+    {
+        static const char invalid_profile[] =
+            "ELKWIFI1\nWPA2\nLifecycle-AP\nshort\n";
+        assert(write(profile_fd, invalid_profile,
+                     sizeof(invalid_profile) - 1u) ==
+               (ssize_t)(sizeof(invalid_profile) - 1u));
+    }
+    assert(!close(profile_fd));
+    backend = pi1mhz_net_backend_create("fixture", NULL, 0);
+    assert(backend);
+    assert(!pi1mhz_mailbox_init(&mailbox, pi1mhz_net_backend_dispatch, backend));
+    command = mailbox.jim + mailbox.services_base + 0xFFFF00u;
+    command[0] = 83;
+    assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
+    assert(strstr((const char *)command + 1,
+                  "+CIFSR:STAIP,\"0.0.0.0\""));
+    pi1mhz_mailbox_destroy(&mailbox);
+    pi1mhz_net_backend_destroy(backend);
+
+    assert(!setenv("PI1MHZ_WIFI_PRESENT", "0", 1));
+    backend = pi1mhz_net_backend_create("fixture", NULL, 0);
+    assert(backend);
+    assert(!pi1mhz_mailbox_init(&mailbox, pi1mhz_net_backend_dispatch, backend));
+    command = mailbox.jim + mailbox.services_base + 0xFFFF00u;
+    command[0] = 91;
+    assert(issue_control(&mailbox) == 0x44u);
+    pi1mhz_mailbox_destroy(&mailbox);
+    pi1mhz_net_backend_destroy(backend);
+
+    assert(!unsetenv("PI1MHZ_WIFI_PRESENT"));
+    assert(!unsetenv("PI1MHZ_WIFI_PROFILE"));
+    assert(!unsetenv("PI1MHZ_WIFI_ASSOCIATE_MS"));
+    assert(!unsetenv("PI1MHZ_WIFI_DHCP_MS"));
+    assert(!unlink(profile_path));
+}
+
 int main(void)
 {
     char sd_path[] = "/tmp/pi1mhz-sd-test-XXXXXX";
@@ -299,6 +419,7 @@ int main(void)
     close(listener);
     assert(waitpid(child, &status, 0) == child);
     assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    test_wifi_lifecycle();
     puts("Pi1MHz live loopback backend: OK");
     return 0;
 }

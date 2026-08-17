@@ -45,7 +45,7 @@
  * first 64K so the host and Pi always refer to the same physical bytes. */
 #define ELKWIFI_UEF_BASE 0u
 #define ELKWIFI_VERSION_RESPONSE \
-   "Pi1MHz ElkWiFi 0.1.53, kernel " GITVERSION "\r\n\r\nOK\r\n"
+   "Pi1MHz ElkWiFi 0.1.54, kernel " GITVERSION "\r\n\r\nOK\r\n"
 
 _Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
                "ElkWiFi service range start disagrees with services.h");
@@ -817,15 +817,10 @@ static uint8_t process_request(uint32_t cp)
 
    switch (command) {
       case ELKWIFI_CMD_STATUS:
-         if (wifi_get_state() == WIFI_STATE_DISABLED) {
-            if (!wifi_enable_radio())
-               return ELKWIFI_ERR_NO_WIFI;
-            return ELKWIFI_BUSY;
-         }
-         if (wifi_get_state() == WIFI_STATE_ERROR)
-            return ELKWIFI_ERR_NO_WIFI;
-         if (wifi_get_state() < WIFI_STATE_FIRMWARE_READY)
-            return ELKWIFI_BUSY;
+         /* Version discovery identifies the installed Pi service. It is not
+          * a radio-health probe and must remain available while CYW43 setup,
+          * association or DHCP is incomplete. Radio control has its own
+          * command and IFCFG/ONLINE expose the live network state. */
          response_string(cp, ELKWIFI_VERSION_RESPONSE);
          return ELKWIFI_OK;
 
@@ -943,16 +938,11 @@ void elkwifi_service_command(uint32_t cp, uint32_t addr, uint8_t data)
       return;
    }
 
-   /* STATUS is the transport/radio-presence probe used by *WIFI ON.  It only
-      reads already-initialised state and copies a fixed short reply, so finish
-      it in the FIQ callback.  Deferring this trivial operation to the main
-      poll created a real race with a fast Electron tight-polling FCAA: the
-      host could exhaust its timeout while the preceding WiFi poll still held
-      the cooperative loop.  All filesystem, scan and network operations stay
-      deferred below. */
-   if (Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS
-       && wifi_get_state() >= WIFI_STATE_FIRMWARE_READY
-       && wifi_get_state() < WIFI_STATE_ERROR) {
+   /* STATUS is version discovery, not a radio-presence test. It is a fixed
+      memory reply and can complete in the FIQ callback even while radio setup
+      is in progress or has failed. All filesystem, scan and network work
+      remains deferred below. */
+   if (Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS) {
       response_string(cp, ELKWIFI_VERSION_RESPONSE);
       Pi1MHz_MemoryWrite(addr, ELKWIFI_OK);
       return;

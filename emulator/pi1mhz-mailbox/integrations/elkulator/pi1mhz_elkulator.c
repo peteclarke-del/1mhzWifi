@@ -28,7 +28,7 @@ static int configure_fiq_timing(void)
        capture and service delays rather than treating these as measurements. */
     if (service_setting && *service_setting) {
         service_delay = strtoul(service_setting, &end, 0);
-        if (!end || *end || service_delay > 255u) {
+        if (!end || *end || service_delay > 10000000u) {
             fprintf(stderr, "Pi1MHz mailbox: invalid service delay %s\n",
                     service_setting);
             return -1;

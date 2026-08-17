@@ -42,7 +42,7 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.53"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.54"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)
@@ -165,7 +165,9 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             grep -q 'restore state which applications may overwrite' "$upstream/rom/wicfs.asm" &&
             grep -q 'restore state before any vector forwarding' "$upstream/rom/wicfs.asm" &&
             grep -q 'restore predecessor FSCV after saving arguments' "$upstream/rom/wicfs.asm" &&
-            grep -q 'restore lifecycle state on every external entry' "$upstream/rom/wicfs.asm" &&
+            { grep -q 'restore lifecycle state on every external entry' "$upstream/rom/wicfs.asm" ||
+              { grep -q '^\.upbgetv_state_valid' "$upstream/rom/wicfs.asm" &&
+                grep -q 'bounded EOF; no persisted transaction per byte' "$upstream/rom/wicfs.asm"; }; } &&
             patch_present=true
             ;;
         wicfs-opt.patch)
@@ -175,8 +177,12 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         wicfs-private-workspace.patch)
             grep -q '^wicfs_state_ram = &0380' "$upstream/rom/wicfs.asm" &&
-            grep -q '^wicfs_state_size = 22' "$upstream/rom/wicfs.asm" &&
-            grep -q 'persist cursor and lifecycle changes' "$upstream/rom/wicfs.asm" &&
+            { { grep -q '^wicfs_state_size = 22' "$upstream/rom/wicfs.asm" &&
+                grep -q 'persist cursor and lifecycle changes' "$upstream/rom/wicfs.asm"; } ||
+              { grep -q '^wicfs_state_size = 17' "$upstream/rom/wicfs.asm" &&
+                grep -q '^wicfs_state_generation = wicfs_state_ram+17' "$upstream/rom/wicfs.asm" &&
+                grep -q '^filev_x =   &0396' "$upstream/rom/wicfs.asm" &&
+                grep -q '^bget_y  =   &03B1' "$upstream/rom/wicfs.asm"; }; } &&
             patch_present=true
             ;;
         wicfs-basic-host.patch)
@@ -196,9 +202,24 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ! grep -q 'jsr wicfs_reset' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
+        wicfs-transactional-state.patch)
+            grep -q '^wicfs_record_valid_value = &A5' "$upstream/rom/wicfs.asm" &&
+            grep -q '^wicfs_state_generation = wicfs_state_ram+17' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.wicfs_state_save_payload' "$upstream/rom/wicfs.asm" &&
+            grep -q 'commit immutable vector ownership record' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-invalid-state.patch)
+            grep -q '^\.upfilev_state_valid' "$upstream/rom/wicfs.asm" &&
+            grep -q 'bounded OSFILE failure; no predecessor is trusted' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.upbgetv_invalid' "$upstream/rom/wicfs.asm" &&
+            grep -q 'bounded EOF; no persisted transaction per byte' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
         wicfs-jim-atomic.patch)
             grep -q 'keep bank, page and data read one atomic transaction' "$upstream/rom/wicfs.asm" &&
-            grep -q 'leave the complete public JIM address at 00:00:00' "$upstream/rom/wicfs.asm" &&
+            { grep -q 'leave the complete public JIM address at 00:00:00' "$upstream/rom/wicfs.asm" ||
+              grep -q 'wicfs_select_public_zero.*leave public JIM at 00:00:00' "$upstream/rom/wicfs.asm"; } &&
             grep -q 'recover data before the older saved flags below it' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
@@ -238,6 +259,7 @@ done
 install -m 0644 "$overlay_dir/menu.asm" "$upstream/rom/menu.asm"
 install -m 0644 "$overlay_dir/wificmd.asm" "$upstream/rom/wificmd.asm"
 install -m 0644 "$overlay_dir/driver.asm" "$upstream/rom/driver.asm"
+install -m 0644 "$overlay_dir/errors.asm" "$upstream/rom/errors.asm"
 install -m 0644 "$overlay_dir/serial.asm" "$upstream/rom/serial.asm"
 install -m 0644 "$overlay_dir/wget_helpers.asm" "$upstream/rom/wget.asm"
 

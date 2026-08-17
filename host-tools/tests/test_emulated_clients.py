@@ -227,7 +227,7 @@ class Pi1MHzMemory:
         if command == 90:  # cancel asynchronous ElkWiFi operation
             return NET_OK
         if command == 80:  # ElkWiFi status/version
-            response = b"Pi1MHz ElkWiFi 0.1.53, kernel fixture\r\n\r\nOK\r\n\0"
+            response = b"Pi1MHz ElkWiFi 0.1.54, kernel fixture\r\n\r\nOK\r\n\0"
             self.jim[block + 1:block + 1 + len(response)] = response
             return NET_OK
         if command == 60:  # URL_OPEN
@@ -577,6 +577,25 @@ class EmulatedClientTests(unittest.TestCase):
         self.assertEqual(machine.himem, exact_end)
         self.assertEqual(machine.oscli_commands, ["NTHWD "])
 
+    def test_tube_loader_ignores_parasite_memory_boundaries(self):
+        # Acorn's Tube contract makes &83/&84 language-processor values. They
+        # are not the MODE 4 host screen boundary for an &FFFFxxxx utility.
+        loader = ClientMachine(
+            self.hwdtest_loader, "", load_address=LOADER_START,
+            oshwm=0x8000, himem=0x0800, mode4_himem=0x0800, tube=True,
+        )
+        loader.run()
+        self.assertEqual(loader.oscli_commands, ["NTHWD "])
+        self.assertNotIn("could not obtain MODE 4 RAM", loader.screen.text())
+
+        main = ClientMachine(
+            self.nslook, "example.test", oshwm=0x8000, himem=0x0800,
+            mode4_himem=0x0800, tube=True,
+        )
+        main.memory.ram[0x21F0:0x21F2] = b"NT"
+        main.run()
+        self.assertIn("Address: 192.0.2.42", main.screen.text())
+
     def test_hardware_diagnostic_matches_emulated_services_contract(self):
         machine = ClientMachine(self.hwdtest, "")
         machine.memory.ram[0x21F0:0x21F6] = b"NT\x00\x08\x00\x1d"
@@ -594,7 +613,7 @@ class EmulatedClientTests(unittest.TestCase):
         self.assertIn("CAPS 6-10: 01 01 4E 54 53", visible)
         self.assertIn("HWDTEST RESULT PASS", visible)
         self.assertEqual(machine.oscli_commands, ["ROMS"])
-        self.assertIn("Pi1MHz ElkWiFi 0.1.53", visible)
+        self.assertIn("Pi1MHz ElkWiFi 0.1.54", visible)
 
     def test_hardware_diagnostic_fails_when_managed_ssh_is_not_ready(self):
         machine = ClientMachine(

@@ -18,6 +18,17 @@ GUARD LOADER_LIMIT
     JSR OSBYTE
     STX LOADER_COOKIE + 2
     STY LOADER_COOKIE + 3
+    \ With a Tube active, &83 is the parasite language's OSHWM and says
+    \ nothing about this &FFFF2000 I/O-processor image. The load metadata is
+    \ the processor-selection contract; defer to the fixed host envelope.
+    LDA #&EA
+    LDX #0
+    LDY #&FF
+    JSR OSBYTE
+    CPX #0
+    BNE loader_address_ok
+    LDX LOADER_COOKIE + 2
+    LDY LOADER_COOKIE + 3
     CPY #HI(LOADER_START)
     BCC loader_address_ok
     BNE loader_wrong_envelope
@@ -73,6 +84,20 @@ GUARD LOADER_LIMIT
     JSR OSWRCH
     LDA #4
     JSR OSWRCH
+
+    \ OSBYTE &84 is a language-processor value when a Tube is active. Acorn's
+    \ Tube contract returns the parasite HIMEM/program boundary, not the I/O
+    \ processor's MODE 4 screen boundary, so comparing it with MAIN_END can
+    \ reject a perfectly valid host image. The &FFFFxxxx file addresses keep
+    \ both loader stages in the I/O processor; after selecting MODE 4 the host
+    \ range &2200-MAIN_END is below screen memory. Retain the measured HIMEM
+    \ check when no Tube is active, where &84 describes the host directly.
+    LDA #&EA
+    LDX #0
+    LDY #&FF
+    JSR OSBYTE
+    CPX #0
+    BNE loader_run
     LDA #&84
     JSR OSBYTE
     CPY #HI(MAIN_END)

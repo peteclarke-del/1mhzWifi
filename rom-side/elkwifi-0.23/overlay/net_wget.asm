@@ -23,8 +23,10 @@ net_count = heap+&E8
 net_cli_y = heap+&E9
 net_wait_lo = heap+&EA
 net_wait_hi = heap+&EB
-net_empty_lo = heap+&EC
-net_empty_hi = heap+&ED
+\ The raw ElkWiFi OSWORD receive path shares these counters and the cursor
+\ helpers below. They must not occupy the &0900 ADFS/application workspace.
+net_empty_lo = drv_svc_workspace+24
+net_empty_hi = drv_svc_workspace+25
 net_result = heap+&EE
 net_transfer_ok = heap+&EF
 net_received = heap+&F0
@@ -40,9 +42,9 @@ net_primary_page = heap+&E7
 \ heap+&E0-&E3 and &E7 are otherwise unused across the whole ROM build.
 \ &F5-&F7 collide with wget.asm's proto/newln/clptr, and &E6 collides with
 \ menu.asm's menu_basic_slot - both share the same "heap" workspace.
-net_cursor_lo = heap+&E0
-net_cursor_mid = heap+&E1
-net_cursor_hi = heap+&E2
+net_cursor_lo = drv_svc_workspace+21
+net_cursor_mid = drv_svc_workspace+22
+net_cursor_hi = drv_svc_workspace+23
 
 \ Close the ElkWiFi-compatible raw socket and display the Pi response. The
 \ inherited wget_close routine is also an internal silent cleanup path.

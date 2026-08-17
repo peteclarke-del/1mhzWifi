@@ -26,21 +26,34 @@ drv_svc_uef_normalize = 93
 \ permitted in this delay because every such access posts a newer FIQ event.
 drv_svc_settle_iterations = 16
 
-drv_svc_timeout_lo = errorspace+3
-drv_svc_timeout_hi = errorspace+4
-drv_svc_saved_x = errorspace+5
-drv_svc_strings = errorspace+6
-drv_net_index = errorspace+7
-drv_net_port_lo = errorspace+8
-drv_net_port_hi = errorspace+9
-drv_net_chunk = errorspace+10
-drv_net_copy_count = errorspace+12
-drv_net_buf_x = errorspace+13
-drv_svc_response_count = errorspace+14
-drv_svc_timeout_outer = errorspace+15
-drv_svc_command_copy = errorspace+16
-drv_svc_cancelled = errorspace+17
-drv_svc_cursor = errorspace+11
+\ `errorspace` is &0100 on the Electron, which is the CPU stack page. The
+\ general `heap` is &0900 and belongs to the current language or application.
+\ Neither is safe for an OSWORD driver entered by an arbitrary application.
+\ Reuse the original ElkWiFi network-printer workspace instead. PRINTER is not
+\ part of 1MHzWifi and the original ROM reserves &0D90-&0DAF for `netprt`.
+\ This gives the compatibility driver private transient state without writing
+\ into ElkChat code or its live return stack.
+drv_svc_workspace = netprt
+drv_svc_timeout_lo = drv_svc_workspace+0
+drv_svc_timeout_hi = drv_svc_workspace+1
+drv_svc_saved_x = drv_svc_workspace+2
+drv_svc_strings = drv_svc_workspace+3
+drv_net_index = drv_svc_workspace+4
+drv_net_port_lo = drv_svc_workspace+5
+drv_net_port_hi = drv_svc_workspace+6
+drv_net_chunk = drv_svc_workspace+7
+drv_svc_cursor = drv_svc_workspace+8
+drv_net_copy_count = drv_svc_workspace+9
+drv_net_buf_x = drv_svc_workspace+10
+drv_svc_response_count = drv_svc_workspace+11
+drv_svc_timeout_outer = drv_svc_workspace+12
+drv_svc_command_copy = drv_svc_workspace+13
+drv_svc_cancelled = drv_svc_workspace+14
+
+\ Function 8 must retain all four DNS bytes while subsequent mailbox reads
+\ continue to use the shared cursor. These bytes complete the 19-byte block
+\ inside the original 32-byte `netprt` allocation.
+drv_net_ip = drv_svc_workspace+15
 
 drv_net_open = 45
 drv_net_dns = 46
@@ -284,7 +297,7 @@ drv_net_close = 53
 .service_driver_copy_ip
  jsr net_read_a
  ldx drv_net_copy_count
- sta heap+&E0,x
+ sta drv_net_ip,x
  inc drv_net_copy_count
  lda drv_net_copy_count
  cmp #4
@@ -342,7 +355,7 @@ drv_net_close = 53
  sta drv_net_index
 .service_driver_write_ip
  ldx drv_net_index
- lda heap+&E0,x
+ lda drv_net_ip,x
  jsr net_write_a
  inc drv_net_index
  lda drv_net_index

@@ -158,13 +158,23 @@ if [ -n "${PI1MHZ_WOLFSSH_PREFIX:-}" ]; then
     test -f "$PI1MHZ_WOLFSSH_PREFIX/lib/libwolfssl.a"
     mkdir -p "$target/src/pi1mhz-wolfssh/include" \
              "$target/src/pi1mhz-wolfssh/lib"
-    cp -a "$PI1MHZ_WOLFSSH_PREFIX/include/wolfssh" \
-          "$target/src/pi1mhz-wolfssh/include/"
-    cp -a "$PI1MHZ_WOLFSSH_PREFIX/include/wolfssl" \
-          "$target/src/pi1mhz-wolfssh/include/"
-    cp "$PI1MHZ_WOLFSSH_PREFIX/lib/libwolfssh.a" \
-       "$PI1MHZ_WOLFSSH_PREFIX/lib/libwolfssl.a" \
-       "$target/src/pi1mhz-wolfssh/lib/"
+    wolf_target="$target/src/pi1mhz-wolfssh"
+    for include_dir in wolfssh wolfssl; do
+        source_path=$(CDPATH= cd -- \
+            "$PI1MHZ_WOLFSSH_PREFIX/include/$include_dir" && pwd)
+        target_path="$wolf_target/include/$include_dir"
+        if [ ! -d "$target_path" ] ||
+           [ "$source_path" != "$(CDPATH= cd -- "$target_path" && pwd)" ]; then
+            cp -a "$source_path" "$wolf_target/include/"
+        fi
+    done
+    for library in libwolfssh.a libwolfssl.a; do
+        source_path="$PI1MHZ_WOLFSSH_PREFIX/lib/$library"
+        target_path="$wolf_target/lib/$library"
+        if [ "$source_path" != "$target_path" ]; then
+            cp "$source_path" "$target_path"
+        fi
+    done
     if ! grep -q 'PI1MHZ_WOLFSSH' "$target/src/Makefile.am"; then
         printf '%s\n' \
           'elkulator_CPPFLAGS = -D_POSIX_C_SOURCE=200809L -DPI1MHZ_WOLFSSH -I$(srcdir)/pi1mhz-wolfssh/include' \

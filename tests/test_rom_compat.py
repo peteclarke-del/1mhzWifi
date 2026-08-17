@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build" / "elkwifi_pi1mhz.rom"
-ROM_SHA256 = "0b64d0d4b5521f6496a9234d8c47e0602b0f1e327e719d69ed78827b874caec0"
+ROM_SHA256 = "d8bb1fc8fee0736efc8ea0b14b2950b528626a7116fe9a7414fe5eaec5e4a0a3"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -23,8 +23,8 @@ class RomCompatibilityTest(unittest.TestCase):
         copyright_offset = self.rom[7]
         self.assertEqual(self.rom[copyright_offset:copyright_offset + 4], b"\0(C)")
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.53\0")
-        self.assertIn(b"1MHzWifi 0.1.53 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.54\0")
+        self.assertIn(b"1MHzWifi 0.1.54 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -167,7 +167,7 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(".service_driver_cpmux", service)
         self.assertIn("cmp #'0'", service)
         self.assertIn("cmp #&0D", service)
-        self.assertIn("driver_page_shadow = heap+&D8", driver)
+        self.assertIn("driver_page_shadow = drv_svc_workspace+19", driver)
         common_entry = driver.split("jsr set_bank_0", 1)[1].split("lda save_a", 1)[0]
         self.assertIn("sta driver_page_shadow", common_entry)
         self.assertIn(".select_public_page_a", serial)
@@ -184,7 +184,26 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertGreaterEqual(service.count("jsr service_driver_read_a"), 3)
         self.assertGreaterEqual(service.count("jsr service_driver_wait_cursor"), 3)
 
+        # Electron errorspace is &0100, the CPU hardware stack. A deep public
+        # OSWORD caller such as ElkChat will have live return addresses there.
+        # Error construction and driver state must remain in the retired
+        # netprt block.
+        ping = (ROOT / "rom-side/elkwifi-0.23/overlay/ping.asm").read_text()
+        menusrc = (ROOT / "rom-side/elkwifi-0.23/overlay/menusrc.asm").read_text()
+        errors = (ROOT / "rom-side/elkwifi-0.23/overlay/errors.asm").read_text()
+        self.assertNotIn("errorspace+", service)
+        self.assertNotIn("errorspace+", ping)
+        self.assertNotIn("errorspace+", menusrc)
+        self.assertNotIn("errorspace", errors)
+        self.assertIn("error_workspace = netprt", errors)
+        self.assertIn("drv_svc_workspace = netprt", service)
+        self.assertIn("drv_net_ip = drv_svc_workspace+15", service)
+        self.assertIn("driver_page_shadow = drv_svc_workspace+19", driver)
+        self.assertIn("driver_machine = drv_svc_workspace+20", driver)
+
         transport = (ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm").read_text()
+        self.assertIn("net_cursor_lo = drv_svc_workspace+21", transport)
+        self.assertIn("net_empty_lo = drv_svc_workspace+24", transport)
         self.assertIn(".net_wait_cursor", transport)
         self.assertGreaterEqual(transport.count("jsr net_wait_cursor"), 2)
 

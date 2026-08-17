@@ -4,11 +4,11 @@
 \ Main service ROM
 \ Version 1.00
 
-\ AP5/Pi1MHz exposes &FCFF as a write-only JIM page selector. This value is
-\ transient within one driver call, so keep it in the ROM heap. &03E0-&03FF is
-\ the MOS keyboard buffer and must remain untouched by MENU/UEF command queues.
-driver_page_shadow = heap+&D8
-driver_machine = heap+&D9 \ transient machine type for this driver call
+\ AP5/Pi1MHz exposes &FCFF as a write-only JIM page selector. Keep the shadow
+\ and transient machine type in the service driver's private block. The stock
+\ `heap` at &0900 is ADFS/application workspace and is not safe during OSWORD.
+driver_page_shadow = drv_svc_workspace+19
+driver_machine = drv_svc_workspace+20
 
 \ Please note that some functions or routines are not quite logical
 \ but they are implemented to keep driver compatibility with the 
@@ -39,7 +39,7 @@ driver_machine = heap+&D9 \ transient machine type for this driver call
  sty save_y
  \ OSBYTE &81 with X=0,Y=&FF is the documented machine-type query. Run it
  \ before touching the JIM high selectors and retain the result only for this
- \ driver call; heap is volatile and cannot hold a reset-time cache.
+ \ driver call; it is not valid as a reset-time cache.
  lda #&81
  ldx #0
  ldy #&FF

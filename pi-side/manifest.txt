@@ -50,6 +50,7 @@ Ordered Pi1MHz patches
 - wifi-scan-cancel.patch
 - wifi-profile-validation.patch
 - net-debug-stage.patch
+- net-debug-test-window.patch
 - secure-debug-stage.patch
 
 Added source overlays

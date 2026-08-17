@@ -1,0 +1,157 @@
+diff --git a/src/net_service.c b/src/net_service.c
+index f235c69..89e1258 100644
+--- a/src/net_service.c
++++ b/src/net_service.c
+@@ -76,7 +76,7 @@ typedef struct {
+       records: [4 ip][2 port][2 len][len payload]. */
+    uint16_t          rx_head;
+    uint16_t          rx_tail;
+-   uint16_t          rx_count;
++   uint32_t          rx_count;
+    /* TNFS (N:TNFS://) session + one in-flight request, for the retry engine */
+    uint8_t           tnfs_phase;    /* TNFS_PH_*                            */
+    uint8_t           tnfs_seq;      /* sequence of the outstanding request  */
+@@ -170,9 +170,9 @@ static bool net_string_ok(uint32_t start)
+ }
+ 
+ /* ---- RX ring ------------------------------------------------------------- */
+-static inline uint16_t ring_free(const net_handle_t *h)
++static inline uint32_t ring_free(const net_handle_t *h)
+ {
+-   return (uint16_t)(NET_RX_RING_SIZE - h->rx_count);
++   return NET_RX_RING_SIZE - h->rx_count;
+ }
+ /* Copy a whole pbuf chain into the ring.  Caller guarantees it fits. */
+ static void ring_put_pbuf(net_handle_t *h, const struct pbuf *p)
+@@ -185,7 +185,7 @@ static void ring_put_pbuf(net_handle_t *h, const struct pbuf *p)
+          ring[h->rx_head] = src[i];
+          h->rx_head = (uint16_t)((h->rx_head + 1u) & (NET_RX_RING_SIZE - 1u));
+       }
+-      h->rx_count = (uint16_t)(h->rx_count + n);
++      h->rx_count += n;
+    }
+ }
+ /* Drain up to max bytes from the ring into a JIM destination. */
+@@ -197,7 +197,7 @@ static uint32_t ring_get(net_handle_t *h, uint32_t jim_dst, uint32_t max)
+       Pi1MHz->JIM_ram[jim_dst + i] = ring[h->rx_tail];
+       h->rx_tail = (uint16_t)((h->rx_tail + 1u) & (NET_RX_RING_SIZE - 1u));
+    }
+-   h->rx_count = (uint16_t)(h->rx_count - n);
++   h->rx_count -= n;
+    return n;
+ }
+ /* Append raw bytes to the ring (UDP record framing).  Caller ensures fit. */
+@@ -208,7 +208,7 @@ static void ring_put_mem(net_handle_t *h, const uint8_t *src, uint16_t len)
+       ring[h->rx_head] = src[i];
+       h->rx_head = (uint16_t)((h->rx_head + 1u) & (NET_RX_RING_SIZE - 1u));
+    }
+-   h->rx_count = (uint16_t)(h->rx_count + len);
++   h->rx_count += len;
+ }
+ /* Read len bytes from the ring into a local buffer (UDP record header). */
+ static void ring_get_mem(net_handle_t *h, uint8_t *dst, uint16_t len)
+@@ -218,7 +218,7 @@ static void ring_get_mem(net_handle_t *h, uint8_t *dst, uint16_t len)
+       dst[i] = ring[h->rx_tail];
+       h->rx_tail = (uint16_t)((h->rx_tail + 1u) & (NET_RX_RING_SIZE - 1u));
+    }
+-   h->rx_count = (uint16_t)(h->rx_count - len);
++   h->rx_count -= len;
+ }
+ 
+ /* ---- IPv4 <-> wire (network-order octets [b0,b1,b2,b3]) ------------------ */
+diff --git a/src/net_service.h b/src/net_service.h
+index 8ad002f..dac9f45 100644
+--- a/src/net_service.h
++++ b/src/net_service.h
+@@ -157,6 +157,6 @@ typedef enum {
+ #define NET_FLAG_RX_READY    0x08u /* bytes waiting in the RX ring           */
+ 
+ #define NET_MAX_HANDLES      8u    /* hard cap < MEMP_NUM_TCP_PCB (16)       */
+-#define NET_RX_RING_SIZE     8192u /* per-handle byte-stream ring            */
++#define NET_RX_RING_SIZE    65536u /* accepts any one lwIP TCP pbuf chain     */
+ 
+ #endif /* NET_SERVICE_H */
+diff --git a/src/tests/net/test_net.c b/src/tests/net/test_net.c
+index 87cd0b6..51e16ff 100644
+--- a/src/tests/net/test_net.c
++++ b/src/tests/net/test_net.c
+@@ -361,18 +361,20 @@ int main(void)
+    world_reset();
+    connect_handle(0);
+    {
+-      uint8_t *big = malloc(6000); memset(big, 'A', 6000);
+-      struct pbuf *p1 = make_pbuf(big, 6000);
++      uint8_t *big = malloc(60000); memset(big, 'A', 60000);
++      struct pbuf *p1 = make_pbuf_split(big, 60000, 1460);
+       CHECK(g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, p1, ERR_OK) == ERR_OK,
+-            "first 6000-byte segment fits");
++            "first 60000-byte chain fits");
+       struct pbuf *p2 = make_pbuf(big, 6000);
+       CHECK(g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, p2, ERR_OK) == ERR_MEM,
+             "second segment does not fit -> ERR_MEM (parked)");
+       issue(NET_CMD_RECV_AVAIL, 0);
+-      CHECK(jrd24(CP(0)+1) == 6000, "ring still holds only the first segment");
+-      jwr24(CP(0)+1, 6000); jwr32(CP(0)+4, 0x2000);
++      CHECK(jrd24(CP(0)+1) == 60000, "ring still holds only the first chain");
++      jwr24(CP(0)+1, 60000); jwr32(CP(0)+4, 0x0000);
+       issue(NET_CMD_RECV, 0);
+-      CHECK(jrd24(CP(0)+1) == 6000, "drained the first segment");
++      CHECK(jrd24(CP(0)+1) == 60000, "drained the first chain");
++      issue(NET_CMD_RECV_AVAIL, 0);
++      CHECK(jrd24(CP(0)+1) == 0, "large-chain drain leaves the ring empty");
+       CHECK(g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, p2, ERR_OK) == ERR_OK,
+             "redelivered parked segment now fits");
+       free(big);
+@@ -1053,6 +1055,52 @@ int main(void)
+          memcpy(wire, header, sizeof header - 1u);
+          for (size_t i = 0u; i < TITLES_LENGTH; i++)
+             wire[sizeof header - 1u + i] = (uint8_t)(i * 37u + 11u);
++         /* The CYW43 path may present several TCP segments as one pbuf chain.
++            A receiver sized only for one Ethernet segment passes synthetic
++            tests but can refuse this real delivery shape forever because
++            lwIP retries the complete chain, not a partial prefix. */
++         {
++            struct pbuf *whole = make_pbuf_split(wire, (u16_t)wire_length,
++                                                 SEGMENT);
++            err_t accepted = g_last_pcb->recv(g_last_pcb->arg, g_last_pcb,
++                                              whole, ERR_OK);
++            CHECK(accepted == ERR_OK,
++                  "TITLES fits as one coalesced lwIP pbuf chain");
++            if (accepted == ERR_OK) {
++               size_t one_total = 0u;
++               while (one_total < TITLES_LENGTH) {
++                  uint32_t got;
++                  jwr24(CP(0) + 1u, READ_MAX);
++                  jwr32(CP(0) + 4u, 0x9000u);
++                  CHECK(issue(NET_CMD_URL_READ, 0) == NET_OK,
++                        "coalesced TITLES read completes");
++                  got = jrd24(CP(0) + 1u);
++                  CHECK(got != 0u && one_total + got <= TITLES_LENGTH,
++                        "coalesced TITLES read makes bounded progress");
++                  if (got == 0u || one_total + got > TITLES_LENGTH) break;
++                  CHECK(memcmp(wire + (sizeof header - 1u) + one_total,
++                               &Pi1MHz->JIM_ram[0x9000], got) == 0,
++                        "coalesced TITLES bytes are exact");
++                  one_total += got;
++               }
++               CHECK(one_total == TITLES_LENGTH,
++                     "coalesced TITLES returns exactly 11498 bytes");
++            } else {
++               pbuf_free(whole);
++            }
++            CHECK(issue(NET_CMD_URL_CLOSE, 0) == NET_OK,
++                  "coalesced TITLES closes cleanly");
++            world_reset();
++            strcpy((char *)&Pi1MHz->JIM_ram[CP(0) + 2u],
++                   "HTTP://acornelectron.nl/uefarchive/TITLES");
++            g_dns_sync = 1;
++            IP_ADDR4(&g_dns_result, 192, 0, 2, 80);
++            CHECK(issue(NET_CMD_URL_OPEN, 0) == NET_PENDING,
++                  "segmented TITLES open -> PENDING");
++            g_last_pcb->connected(g_last_pcb->arg, g_last_pcb, ERR_OK);
++            CHECK(issue(NET_CMD_URL_OPEN, 0) == NET_OK,
++                  "segmented TITLES open -> OK");
++         }
+          while (sent < wire_length) {
+             u16_t length = (u16_t)(wire_length - sent);
+             struct pbuf *p;

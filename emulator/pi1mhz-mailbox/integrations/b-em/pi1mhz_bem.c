@@ -16,14 +16,25 @@ static int noe_enabled = 1;
 static int configure_fiq_timing(void)
 {
     const char *setting = getenv("PI1MHZ_FIQ_DELAY_ACCESSES");
+    const char *service_setting = getenv("PI1MHZ_SERVICE_DELAY_CYCLES");
     char *end = NULL;
     unsigned long delay;
+    unsigned long service_delay = 1;
 
-    pi1mhz_mailbox_set_timing(&mailbox, 2, 4, 1);
+    if (service_setting && *service_setting) {
+        service_delay = strtoul(service_setting, &end, 0);
+        if (!end || *end || service_delay > 10000000u) {
+            fprintf(stderr, "Pi1MHz mailbox: invalid service delay %s\n",
+                    service_setting);
+            return -1;
+        }
+    }
+    pi1mhz_mailbox_set_timing(&mailbox, 2, 4, (unsigned)service_delay);
     pi1mhz_mailbox_set_callback_timing(&mailbox, 4, 14, 0);
     if (!setting || !*setting) {
         fprintf(stderr, "Pi1MHz mailbox: physical timing profile "
-                "capture=2 simple=4 page=14 service=1 cycles\n");
+                "capture=2 simple=4 page=14 service=%lu cycles\n",
+                service_delay);
         return 0;
     }
     delay = strtoul(setting, &end, 0);
@@ -35,7 +46,8 @@ static int configure_fiq_timing(void)
         pi1mhz_mailbox_set_timing(&mailbox, 0, 0, 0);
         pi1mhz_mailbox_set_callback_timing(&mailbox, 0, 0, 0);
     } else {
-        pi1mhz_mailbox_set_timing(&mailbox, (unsigned)delay, 4, 1);
+        pi1mhz_mailbox_set_timing(&mailbox, (unsigned)delay, 4,
+                                  (unsigned)service_delay);
         pi1mhz_mailbox_set_callback_timing(&mailbox, 4, 14, 0);
     }
     fprintf(stderr, "Pi1MHz mailbox: compatibility capture delay %lu cycles\n",

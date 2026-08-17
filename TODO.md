@@ -92,6 +92,15 @@ half-written path in this release:
   without exceeding the stock 240-byte response.
 - [ ] Add power-failure-safe temporary-file and rename updates for saved
   profiles and menu settings if deployment requirements justify it.
+- [ ] Add an extended UEF tool family after the current loader and filing-system
+  matrix is qualified. Proposed commands are `*UEF TLOAD <file>` for a bounded
+  accelerated path, `*UEF CAT <file>` for cassette-file metadata,
+  `*UEF EXTRACT <file> [directory]` for reconstructing MOS files with load and
+  execution addresses, and `*UEF CREATE <file> [directory]` for producing a
+  standards-compliant cassette sequence. Keep UEF, gzip and ZIP parsing on the
+  Pi; keep all ADFS, DFS and MMFS catalogue, OSFILE and metadata operations in
+  the host ROM. Turbo mode must fall back to normal WiCFS semantics for chunks
+  or custom loaders which cannot be safely accelerated.
 - [x] Provide a Pi1MHz Services mailbox and JIM device for Elkulator. The
   maintained adapter is in `emulator/pi1mhz-mailbox` and includes command 93
   for compressed UEF tests.
@@ -127,9 +136,11 @@ ElkWiFi 0.23 cartridge and on 1MHzWifi.
   current 1MHzWifi ROM. Record byte-level response differences and either
   remove them or document why an exact match is impossible on Pi1MHz.
 - [ ] Boot the unchanged `ELKNET` diagnostic from `../elkChat`, then the
-  unchanged ElkChat SSD. Prove Network Status, association query, TCP open to
-  `www.chat64.nl:80`, complete function 13 HTTP response collection, close,
-  registration, public chat, private chat and user list on Elkulator.
+  unchanged ElkChat SSD. ELKNET, Network Status, association query, TCP open to
+  `www.chat64.nl:80`, complete function 13 HTTP response collection, public
+  chat, private conversations and a two-cycle user-list refresh now pass on
+  the current Elkulator binary. Exercise new-account registration separately;
+  the live SSD already contains credentials and therefore cannot prove it.
 - [ ] Repeat the unchanged ElkChat test on the physical Electron, AP5 and
   Pi1MHz setup, both with and without the Tube enabled. No Pi-specific client
   branch or function number is acceptable.
@@ -178,10 +189,15 @@ tracked elsewhere.
   Electron and `&FE30` on the BBC family. On non-Electron hosts, verify the
   compiled default `*MENU` is rejected and a target-specific custom
   `*MENUSRC` remains usable.
-- [ ] Repeat physical `*HWDTEST`, `*NSLOOK` and `*SSH` with the 0.1.53 SSD and
+- [x] Remove sideways-bank assumptions from the ROM and emulator gate. The
+  OSWORD service entry passes with MOS-supplied ROM numbers 0 through 15, the
+  Elkulator runner accepts `--wifi-rom-slot 0..15`, and its report records the
+  tested bank. `*WGET -S` continues to use and verify the caller-selected bank;
+  no sideways-RAM bank is reserved implicitly.
+- [ ] Repeat physical `*HWDTEST`, `*NSLOOK` and `*SSH` with the 0.1.54 SSD and
   matching kernel. The 0.1.46 hardware diagnostic established that immediate
   FCA9 auto-increment read-back differs from the synchronous emulator model.
-  Version 0.1.53 waits for selector publication and the bounded FCA9 callback acknowledgement,
+  Version 0.1.54 waits for selector publication and the bounded FCA9 callback acknowledgement,
   validates OSHWM/HIMEM and tests NSLOOK and managed SSH with both asynchronous
   stages delayed. The 0.1.44 diagnostic
   SSD reported `>2D S00 <2A` for
@@ -203,16 +219,16 @@ tracked elsewhere.
   wait remains in place. The assembled SSD completes a real
   public-key-authenticated SSH shell under Elkulator; physical hardware remains
   the open gate.
-- [ ] Confirm 0.1.53 HWDTEST reports capability features `07` and readiness
+- [ ] Confirm 0.1.54 HWDTEST reports capability features `07` and readiness
   `01` on Pi Zero W, Zero 2 W and Pi 3. The 0.1.52 physical capture reported
   features `01` and readiness `00`; HWDTEST incorrectly called that PASS.
-  Version 0.1.53 uses a wall-clock RNG deadline and treats that state as FAIL.
+  Version 0.1.54 uses a wall-clock RNG deadline and treats that state as FAIL.
 - [ ] Re-run direct TITLES WGET. If error `&30` remains, record the new
   `HTTP status &xxxx` line. The exact 11,498-byte response passes through the
   real Pi `net_service.c` test with an 8 KiB ring, 1460-byte segments,
   refused-pbuf retry and 240-byte reads. The reported status distinguishes an
   upstream response from request or parser corruption.
-- [ ] Repeat `*MENU` and `*UEF LOAD` on physical hardware with ROM 0.1.53 after
+- [ ] Repeat `*MENU` and `*UEF LOAD` on physical hardware with ROM 0.1.54 after
   the WiCFS lifecycle state path was moved onto the acknowledged FCA6-FCA9
   cursor routines. The delayed-FIQ Elkulator gate reaches animated Thrust
   gameplay with the AP5 Tube disabled and enabled. Arcadians remains a known
@@ -240,15 +256,40 @@ tracked elsewhere.
 
 ## Release gate
 
+### Physical Tube-off milestone, 17 August 2026
+
+ROM 0.1.54 with the matched Pi Zero 2 kernel now has a working physical
+Tube-off baseline. PING, TELNET, NSLOOK, SSH and HWDTEST run successfully.
+WiFi association, WGET, `*MENU` and local `*UEF LOAD` also work. This is the
+first milestone to preserve before performance or loader changes.
+
+- [ ] Stop NetTools from unconditionally selecting MODE 4. Preserve the
+  caller's active display mode by default. Any future 80-column or enhanced
+  terminal mode must be an explicit user option and must restore the previous
+  mode on exit where the MOS permits it.
+- [ ] Measure and optimise the physical mailbox/JIM transfer path. `*MENU`
+  title-data loading, WGET and UEF streaming are currently functional but
+  unacceptably slow. Record byte counts and elapsed times before changing bus
+  settling or polling. Do not remove delays merely because a synchronous
+  emulator passes.
+- [ ] Re-test ElkChat using `../elkChat/build/elkchat-live.ssd`, SHA-256
+  `5b4480142a369eeb4af1fe4dc23ed229f3a4131b6bc5b58843adc2599b03b722`.
+  That is the build-area image containing `ELKCFG`; `elkchat.ssd` does not
+  contain the user's saved credentials. On this milestone, User List hangs and
+  Public Chat still appends Settings-menu content. Capture the exact command
+  trace before changing the ROM ABI or the client.
+- [ ] Repeat this complete baseline with the Tube enabled only after the
+  Tube-off screen-mode, performance and ElkChat defects are characterised.
+
 No implementation placeholder remains on the declared 1MHzWifi ROM
 station-mode, plain-HTTP command surface. The native-tools SSD ships only the
 implemented TELNET, SSH and NETMENU programs. ROM 0.1.30 reached visible Zalaga,
 Arcadians, Last of the Free and E-Type gameplay in the AP5-accurate live
 Elkulator profile without a Tube. Castle of Riddles reached its interactive
-command prompt. The current 0.1.53 ROM passes fresh, current-hash FrakV2 MENU
+command prompt. The current 0.1.54 ROM passes fresh, current-hash FrakV2 MENU
 runs and local Thrust gameplay with Tube disabled and enabled.
 
-ROM 0.1.53 retains host-only WiCFS transfer and the Tube-active host
+ROM 0.1.54 retains host-only WiCFS transfer and the Tube-active host
 BASIC workspace. `QHOST` now queues `PAGE=&E00` before the internal WiCFS
 second stage, so BASIC CHAIN continuation uses the same host address range
 with Tube enabled and disabled. No Tube register is accessed and no program is
@@ -276,13 +317,16 @@ completing the real Electron, AP5, Pi1MHz and Tube checks in
 there must be recorded as new implementation defects before changing this
 status.
 
-The minimum hardware release profile is a 32K Electron with Plus 1, AP5,
-Pi1MHz and Electron MMFS. It must pass without Plus 2, sideways RAM, ADFS or a
-Tube. The matching Elkulator profile now mounts MMFS and runs the Desk Diary
-UEF end to end; physical execution and filing-system recovery after Break are
-still required.
+The minimum hardware release profile is a 32K Electron with Plus 1, AP5 and
+Pi1MHz. It must boot and expose the ROM command and OSWORD surfaces without
+Plus 2, sideways RAM, a filing-system expansion or a Tube. DFS, ADFS and MMFS
+are separate storage profiles, not requirements of the minimum machine. The
+matching bare Elkulator profile now boots the current ROM and returns a clean
+`*VERSION`; application and UEF tests use an explicitly declared storage
+profile. Physical execution and filing-system recovery after Break are still
+required.
 
-After the 0.1.53 Tube-active, filing-system reset and WiFi association
+After the 0.1.54 Tube-active, filing-system reset and WiFi association
 corrections pass on physical hardware, the ROM
 version moves to a 0.9.x release-candidate series. Version 1.0 requires the
 original-ElkWiFi OSWORD comparison and all filing-system coexistence gates.
