@@ -42,7 +42,6 @@ class IntegrationContractTest(unittest.TestCase):
         bundle = ROOT / "build/pi1mhz-all/Pi1MHz"
         expected_hashes = {
             "ADFS.rom": "4f785bb4572bde31a93f12687dec501c9005b6a0decc6ac943c657447095a563",
-            "EMMFS.rom": "b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955",
             "defscsi.cfg": "126d88b1923f5c71e48cff750f69a4ad42e657dbd885435534e51afb8aa9b864",
         }
         for name, expected in expected_hashes.items():

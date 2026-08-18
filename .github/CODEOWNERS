@@ -1,0 +1,9 @@
+# Default review ownership for repository changes.
+* @peteclarke-del
+
+# Workflow and release-policy changes require maintainer review.
+/.github/ @peteclarke-del
+/GOVERNANCE.md @peteclarke-del
+/LICENSING.md @peteclarke-del
+/NOTICE @peteclarke-del
+/SECURITY.md @peteclarke-del

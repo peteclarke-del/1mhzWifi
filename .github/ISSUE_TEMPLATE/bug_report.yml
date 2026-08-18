@@ -1,0 +1,77 @@
+name: Bug report
+description: Report a reproducible ROM, Pi firmware, host-tool or emulator fault.
+title: "[Bug]: "
+body:
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked the current TODO and existing issues for this fault.
+          required: true
+        - label: I removed passwords, private keys and other sensitive data.
+          required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Host ROM or ElkWiFi compatibility
+        - Pi1MHz firmware or WiFi
+        - MENU, WGET, UEF or WiCFS
+        - NetTools
+        - ElkChat compatibility
+        - Elkulator adapter
+        - B-Em adapter
+        - Build, packaging or documentation
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ROM and kernel identity
+      description: Provide the ROM version and SHA-256, kernel filename, revision and SHA-256.
+      placeholder: 1MHzWifi 0.1.x; ROM hash; kernel7.img; Pi1MHz revision; kernel hash
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware and ROM layout
+      description: Include Acorn model, MOS, expansions, ROM banks, RAM banks, filing system, Tube state, Pi model and power arrangement.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction sequence
+      description: Give the exact cold-boot state, commands, inputs and timing required.
+      placeholder: |
+        1. Cold boot with...
+        2. Enter *VERSION...
+        3. Enter...
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed result
+      description: Include the complete output and identify where progress stops.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: regression
+    attributes:
+      label: Regression and comparison results
+      description: State the last working version and results with Tube, filing-system, Pi model or emulator changes.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitised evidence
+      description: Attach logs, mailbox traces, reports or photographs after removing secrets.

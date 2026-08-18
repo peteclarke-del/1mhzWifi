@@ -168,7 +168,7 @@ def main() -> int:
                         help="optional 22-to-33-byte BeebSCSI geometry sidecar")
     parser.add_argument(
         "--extra-rom", action="append", type=parse_slot_rom, default=[],
-        metavar="SLOT=ROM", help="replace a profile slot, for example 2=EMMFS.rom",
+        metavar="SLOT=ROM", help="replace a profile slot, for example 2=/path/to/mmfs.rom",
     )
     parser.add_argument(
         "--setup-command", action="append", default=[],

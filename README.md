@@ -36,21 +36,24 @@ iteration count which could permanently disable wolfSSH on a Pi 3. HWDTEST now
 fails unless both secure random and managed SSH are ready. WGET error `&30`
 also prints the parsed HTTP status before closing the handle.
 
-The current 0.1.55 ROM has reached active THRUST gameplay through `*UEF LOAD`
-with the Tube disabled in the maintained Elkulator hardware model. Version
-0.1.54 also reached THRUST and live FrakV2 gameplay with the Tube disabled and
-enabled. Those earlier results protect the recovered baseline but do not sign
-off the changed 0.1.55 binary.
-Physical validation of `*VERSION`, SSH, MENU, local UEF loading and both Tube
-states remains mandatory before this build can be called fixed.
+The canonical `build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` 0.1.55 image, SHA-256
+`ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb`, now
+has a confirmed physical Tube-off baseline. WiFi, `*MENU`, NetTools and local
+`*UEF LOAD` work on the Electron, AP5 and Pi Zero 2 installation. Data transfer
+is nevertheless too slow for normal use. Thrust and Plan B enter gameplay but
+crash after several seconds, while Repton 2 and other titles still stall after
+loading. These are open execution defects, not successful title tests.
+Tube-enabled physical validation remains mandatory.
 
 The NetTools applications load at `&1D00` and validate OSHWM and HIMEM at every
-entry. If the active screen mode leaves too little application memory, they
-select portable MODE 4 and check again. Machine detection is refreshed at
-driver entry because the ROM heap is volatile application workspace and cannot
-hold a reset-time cache. The bundle retains the BCM43455 7.45.241 firmware used
-before the Pi 3A+ DHCP regression. Version 1.0 still requires the public
-ElkWiFi OSWORD comparison and the ADFS, DFS, MMFS and TAPE coexistence gates.
+entry. Their current bootstrap selects MODE 4 before entering the application;
+SSH therefore changes mode even when the caller's current screen provides
+enough memory. Preserving a suitable caller mode is open work. Machine
+detection is refreshed at driver entry because the ROM heap is volatile
+application workspace and cannot hold a reset-time cache. The bundle retains
+the BCM43455 7.45.241 firmware used before the Pi 3A+ DHCP regression. Version
+1.0 still requires the public ElkWiFi OSWORD comparison and the ADFS, DFS,
+MMFS and TAPE coexistence gates.
 
 The following command paths are implemented. Pi and JIM traffic stays on the
 1MHz bus. WiCFS loads into Electron host memory. The launcher uses MOS OSBYTE
@@ -213,9 +216,8 @@ Release hashes:
 1MHzWifi ROM ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb
 kernel.img   0a9beedc77d7828a6f5a1a1126f40f47ef601f2a2534840f70d416089d85534a
 kernel7.img  ea7273028a547ef314d2af70f27ed8f4392a7d15a6652df091f67062d5e1c1c9
-EMMFS.rom    b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955
 nettools.ssd a44d87062f5af4a84271816fa321d39f6c9220576f5d438affee98ae50630187
-bundle ZIP   ab024540d623a34b0fbc2063e382b187cca3f6ad4cb2df60bb52f3baadffc50b
+bundle ZIP   bb6be65644ca70a5104c9d9c8a14d25129050d185ca2aa932a726fd78e9a349d
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -368,4 +370,12 @@ emulator result.
 - [ElkWiFi ROM patch kit](rom-side/README.md)
 - [Pi1MHz patch kit](pi-side/README.md)
 - [Elkulator mailbox patch kit](emulator/pi1mhz-mailbox/README.md)
+- [Contributing](CONTRIBUTING.md)
+- [Project governance](GOVERNANCE.md)
+- [GitHub repository settings baseline](docs/github-repository-settings.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
+- [Support](SUPPORT.md)
+- [Security policy](SECURITY.md)
+- [Licensing status](LICENSING.md)
+- [Copyright and distribution notice](NOTICE)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)

@@ -79,8 +79,11 @@ Run this from the 1MHzWifi repository root:
 
 The command verifies that the checkout contains the reviewed ElkWiFi commit,
 applies the ROM patch series in a fixed order, installs the maintained assembly
-overlays, and writes `build/elkwifi_pi1mhz.rom`. A repeat invocation must report
-every patch as already applied and produce the same 16 KiB ROM.
+overlays, and writes the canonical
+`build/pi1mhz-all/Pi1MHz/ElkWiFi.rom`. A repeat invocation must report every
+patch as already applied and produce the same 16 KiB ROM. The legacy
+`build/elkwifi_pi1mhz.rom` name is a relative symbolic link to this file, not a
+second ROM image.
 
 The expected ROM SHA-256 is recorded in `SHA256SUMS` and enforced by
 `build.sh`. The Pi build will not start unless this ROM passes its size and hash
@@ -107,7 +110,6 @@ The `all` preset is the release build. It produces:
 - `build/pi1mhz-all/kernel7.img` for Pi Zero 2 W and Pi 3A+/3B/3B+
 - `build/pi1mhz-all/` as the complete FAT boot-partition candidate
 - `build/pi1mhz-all-hardware-test.zip` as the equivalent archive
-- `build/pi1mhz-all/Pi1MHz/EMMFS.rom` for a 32K Electron without sideways RAM
 - `build/pi1mhz-all/host-tools/nettools.ssd`, paired with the secure-service
   ABI in those kernels
 

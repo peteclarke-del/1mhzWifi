@@ -1,5 +1,9 @@
 # Contributing
 
+Participation is subject to the [code of conduct](CODE_OF_CONDUCT.md),
+[project governance](GOVERNANCE.md), [security policy](SECURITY.md) and current
+[licensing status](LICENSING.md).
+
 Changes must preserve the distinction between the host-facing ElkWiFi contract
 and the private Pi1MHz transport. Do not expose Pi implementation details by
 renumbering stock OSWORD functions or changing established command syntax.
@@ -35,6 +39,10 @@ sha256sum --check --strict SHA256SUMS
   may use an available Tube after 1MHzWifi has launched it.
 - Add a regression test for each corrected failure mode.
 - Record hardware model, hashes, and exact command output for hardware-only failures.
+- Keep third-party ROMs and test media under ignored local storage. Never add
+  them to commits, generated upstream patches or release archives unless their
+  redistribution has been reviewed and explicitly approved.
+- Identify all copied or derived source and confirm the right to contribute it.
 
 ## Commit scope
 
@@ -42,3 +50,15 @@ Keep commits narrow enough to review against the transport and host contracts.
 Generated ROM and bundle changes must be committed with the source changes that
 produced them. Do not commit local upstream checkouts, Python caches, production
 credentials, SD-card working files, or unrelated Pi1MHz changes.
+
+## Pull requests
+
+Open an issue first for public ABI changes, security-sensitive design changes,
+new hardware targets or changes which alter upstream licensing obligations.
+Complete the pull-request template and distinguish automated, emulator and
+physical-hardware evidence. An emulator result must state the precise runtime,
+ROM hashes and mailbox model. It must not be presented as physical validation.
+
+The maintainer may request that a large change be split by upstream target or
+failure mode. Generated patches and binaries must remain paired with the source
+and tests that produced them.

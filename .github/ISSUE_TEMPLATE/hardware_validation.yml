@@ -1,0 +1,63 @@
+name: Hardware validation result
+description: Record a pass or failure against the maintained hardware matrix.
+title: "[Hardware]: "
+body:
+  - type: input
+    id: candidate
+    attributes:
+      label: Candidate identity
+      description: Source commit, ROM version and hash, Pi1MHz revision, kernel filename and hash.
+    validations:
+      required: true
+  - type: textarea
+    id: machine
+    attributes:
+      label: Complete machine configuration
+      description: Acorn model, MOS, Plus units, AP5, Pi1MHz, RAM, ROM order, filing system, storage and Tube state.
+    validations:
+      required: true
+  - type: dropdown
+    id: pi
+    attributes:
+      label: Raspberry Pi model
+      options:
+        - Pi Zero
+        - Pi Zero W
+        - Pi Zero 2 W
+        - Pi 3A+
+        - Pi 3B
+        - Pi 3B+
+        - Other or emulator
+    validations:
+      required: true
+  - type: textarea
+    id: sequence
+    attributes:
+      label: Test sequence
+      description: Copy the applicable checklist steps and record exact commands and inputs.
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Outcome
+      options:
+        - Pass
+        - Fail
+        - Inconclusive
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and observations
+      description: Include hashes, output, timing, screenshots and any state needed to reproduce the result.
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Data handling
+      options:
+        - label: Evidence is sanitised and contains no credentials or private keys.
+          required: true

@@ -15,9 +15,8 @@ Pi1MHz       d08242ee1b35cf1285b72c9ec1869e98081a8c3e
 1MHzWifi ROM ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb
 kernel.img   0a9beedc77d7828a6f5a1a1126f40f47ef601f2a2534840f70d416089d85534a
 kernel7.img  ea7273028a547ef314d2af70f27ed8f4392a7d15a6652df091f67062d5e1c1c9
-EMMFS.rom    b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955
 nettools.ssd a44d87062f5af4a84271816fa321d39f6c9220576f5d438affee98ae50630187
-bundle ZIP   ab024540d623a34b0fbc2063e382b187cca3f6ad4cb2df60bb52f3baadffc50b
+bundle ZIP   bb6be65644ca70a5104c9d9c8a14d25129050d185ca2aa932a726fd78e9a349d
 ```
 
 The Pi1MHz commit was the official `master` tip verified on 15 August 2026. Run
@@ -30,6 +29,25 @@ for a clean card and may contain a fresh configuration template.
 
 Also preserve `/BeebSCSI0` and its `scsi*.dat` images. The bundle supplies the
 ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
+
+## Confirmed physical Tube-off milestone, 18 August 2026
+
+The tested host ROM was
+`build/pi1mhz-all/Pi1MHz/ElkWiFi.rom`, version 0.1.55, SHA-256
+`ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb`.
+The machine used the Electron, Plus 1, Plus 2, AP5, Pi1MHz, RAM expansion,
+ADFS/BeebSCSI and MMFS installation with the Tube disabled.
+
+WiFi association, `*MENU`, NetTools and local `*UEF LOAD` complete. PING,
+TELNET, NSLOOK, SSH and HWDTEST run. MENU, WGET and UEF transfers are painfully
+slow and require measured optimisation. SSH still forces MODE 4 rather than
+preserving a suitable caller mode.
+
+Thrust and Plan B reach gameplay but crash after several seconds. Repton 2 and
+other UEF applications still stall after loading. These are failed stability
+tests even though their initial loads complete. Public Chat in the current
+ElkChat live SSD appends main or Settings menu items, and Private Chat exits
+with `Bad program`. No Tube-enabled result is inferred from this milestone.
 
 ## Pi target matrix
 
@@ -85,8 +103,8 @@ CYW43455 firmware at runtime.
   satisfy the strengthened FrakV2 gameplay gate with the AP5 Tube disabled and
   enabled. The complete catalogue remains a separate unchecked gate.
 - [ ] Boot the minimum supported layout in Elkulator: 32K Electron, Plus 1,
-  AP5-constrained Pi1MHz mailbox, 1MHzWifi 0.1.55 and the Electron normal-ROM
-  Pi1MHz build of MMFS 1.60. No Plus 2, sideways RAM, ADFS or Tube is present.
+  AP5-constrained Pi1MHz mailbox, 1MHzWifi 0.1.55 and a user-supplied MMFS ROM.
+  No Plus 2, sideways RAM, ADFS or Tube is present.
   Mount a FAT32 Pi SD-card image containing `BEEB.MMB`, select fixture disc
   507, catalogue `DESK`, run `*UEF LOAD DESK`, and satisfy an application-state
   reference rather than generic screen motion.
@@ -141,9 +159,9 @@ results and use media which passes a native ADFS open/read check first.
 ## Supported configuration profiles
 
 The minimum release profile is a 32K Electron with a Plus 1, AP5, Pi1MHz on
-the 1MHz bus, 1MHzWifi and Electron MMFS. The normal-ROM Pi1MHz MMFS build is
-`MMFS/1/EMMFS.rom` in the official MMFS 1.60 release. This profile must not
-require a Plus 2, sideways RAM, ADFS or Tube.
+the 1MHz bus, 1MHzWifi and a user-supplied compatible filing-system ROM. This
+profile must not require a Plus 2, sideways RAM, ADFS or Tube. Filing-system
+ROMs are test inputs and are not distributed by this project.
 
 The stress profile reproduces the photographed machine: Plus 2, Plus 1, AP5,
 Pi1MHz, BeebSCSI ADFS, MMFS, 32K sideways RAM and an optional Tube. Its ROM

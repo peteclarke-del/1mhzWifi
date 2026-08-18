@@ -50,7 +50,7 @@ python3 tests/elkulator/run_catalogue_differential.py \
   --elkulator /tmp/elkulator-native-audit.H4MofS/elkulator/elkulator \
   --runtime-dir /tmp/elkulator-current.cRHZ8Z \
   --index /path/to/ElkWiFi/menu/data/index.txt \
-  --wifi-rom build/elkwifi_pi1mhz.rom \
+  --wifi-rom build/pi1mhz-all/Pi1MHz/ElkWiFi.rom \
   --output /tmp/1mhzwifi-catalogue-gate \
   --range 0:20
 ```
@@ -80,7 +80,7 @@ The photographed MMFS/ADFS machine reports OSHWM `&0800` and HIMEM `&1D00`
 before a tool changes mode. The earlier direct-DFS runner reported OSHWM
 `&1F00`; that is a different memory envelope and is not evidence for the
 physical failure. Use `--sd-image`, replace the appropriate ROM slot with
-`--extra-rom SLOT=/path/to/EMMFS.rom`, and provide the actual MMFS selection
+`--extra-rom SLOT=/path/to/your-mmfs.rom`, and provide the actual MMFS selection
 with one or more `--setup-command` options. `--disc` remains available for a
 separate DFS profile.
 
@@ -115,9 +115,9 @@ under test:
 python3 tests/elkulator/run_nettools_hardware.py \
   --elkulator /path/to/patched/elkulator \
   --runtime-dir /path/to/runtime \
-  --wifi-rom build/elkwifi_pi1mhz.rom \
+  --wifi-rom build/pi1mhz-all/Pi1MHz/ElkWiFi.rom \
   --sd-image /path/to/pi1mhz-sd.img \
-  --extra-rom 2=/path/to/EMMFS.rom \
+  --extra-rom 2=/path/to/your-mmfs.rom \
   --setup-command "din 0" \
   --command hwdtest \
   --hwd-pass-screen /path/to/known-good-hwd-d2-pass.png \

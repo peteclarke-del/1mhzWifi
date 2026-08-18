@@ -198,9 +198,15 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertTrue(bundled.is_file())
         self.assertEqual(bundled.read_bytes(), built.read_bytes())
         bundled_rom = ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
-        built_rom = ROOT / "build/elkwifi_pi1mhz.rom"
+        compatibility_link = ROOT / "build/elkwifi_pi1mhz.rom"
         self.assertTrue(bundled_rom.is_file())
-        self.assertEqual(bundled_rom.read_bytes(), built_rom.read_bytes())
+        self.assertTrue(compatibility_link.is_symlink())
+        self.assertEqual(compatibility_link.resolve(), bundled_rom.resolve())
+        with zipfile.ZipFile(ROOT / "build/pi1mhz-all-hardware-test.zip") as archive:
+            self.assertEqual(
+                archive.read("pi1mhz-all/Pi1MHz/ElkWiFi.rom"),
+                bundled_rom.read_bytes(),
+            )
 
     def test_packaged_kernels_have_matching_recovery_revisions(self) -> None:
         pattern = re.compile(

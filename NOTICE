@@ -1,0 +1,15 @@
+1MHzWifi
+Original integration work copyright (c) 2026 Peter Clarke
+
+No project-wide open-source licence is currently granted for this repository.
+See LICENSING.md before copying, redistributing or publishing source, patches
+or generated binaries.
+
+The repository contains integration work derived from or applied to ElkWiFi,
+Pi1MHz and emulator projects. Those materials retain their own copyright and
+licence terms. See THIRD_PARTY_NOTICES.md and the notices retained beside
+vendored source.
+
+Third-party ROMs, firmware, disc images, tape images and hard-drive images used
+for local testing are not covered by the 1MHzWifi copyright statement and must
+not be inferred to be redistributable.

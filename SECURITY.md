@@ -4,6 +4,17 @@ This project handles WiFi credentials and network traffic on an 8-bit host and
 a bare-metal Raspberry Pi. It is not suitable for untrusted networks in its
 current form.
 
+## Supported versions
+
+| Version | Security support |
+| --- | --- |
+| Current `main` hardware-test candidate | Supported |
+| Current published hardware-test bundle | Supported until replaced |
+| Earlier test builds | Not supported |
+
+Security fixes are developed on `main`. A report against an older build must
+be reproduced against the current candidate before a backport is considered.
+
 ## Known limits
 
 - Saved WiFi profiles and `Pi1MHz.cfg` passwords are plaintext on the FAT partition.
@@ -20,9 +31,14 @@ request over plaintext is a security defect.
 ## Reporting
 
 Do not open a public issue containing a real SSID, password, packet capture,
-private key, or SD-card image. Use GitHub private vulnerability reporting when
-it is enabled for the repository. Otherwise contact the repository owner
-privately before publishing details.
+private key, or SD-card image. Use
+[GitHub private vulnerability reporting](https://github.com/peteclarke-del/1mhzWifi/security/advisories/new).
+If that facility is unavailable, contact the maintainer privately through the
+details on the `peteclarke-del` GitHub profile before publishing details.
 
 Include affected ROM and kernel hashes, hardware models, the shortest command
 sequence that reproduces the issue, and sanitised logs.
+
+The maintainer will acknowledge a report when it is received, assess impact,
+coordinate a correction and agree disclosure timing with the reporter. No
+fixed response deadline is promised for this volunteer-maintained project.

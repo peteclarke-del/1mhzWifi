@@ -18,7 +18,8 @@ Build from a clean upstream checkout:
 ./build_rom.sh /path/to/ElkWiFi
 ```
 
-The ROM is written to `../build/elkwifi_pi1mhz.rom` relative to this
-directory. The monorepo release build verifies its size and recorded SHA-256.
+The ROM is written to `../build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` relative to this
+directory. `../build/elkwifi_pi1mhz.rom` is a compatibility symbolic link to
+the same file. The monorepo release build verifies its size and recorded SHA-256.
 The source build is deterministic, but physical Electron, filing-system and
 Tube coexistence tests remain separate acceptance gates.

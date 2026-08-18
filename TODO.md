@@ -257,28 +257,39 @@ tracked elsewhere.
 
 ## Release gate
 
-### Physical Tube-off milestone, 17 August 2026
+### Physical Tube-off milestone, 18 August 2026
 
-ROM 0.1.54 with the matched Pi Zero 2 kernel now has a working physical
-Tube-off baseline. PING, TELNET, NSLOOK, SSH and HWDTEST run successfully.
-WiFi association, WGET, `*MENU` and local `*UEF LOAD` also work. This is the
-first milestone to preserve before performance or loader changes.
+`build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` version 0.1.55, SHA-256
+`ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb`,
+with the matched Pi Zero 2 kernel now has a working physical Tube-off baseline.
+WiFi association, WGET, `*MENU`, local `*UEF LOAD`, PING, TELNET, NSLOOK, SSH
+and HWDTEST work. Preserve this exact artifact set before performance, loader
+or Tube changes.
 
-- [ ] Stop NetTools from unconditionally selecting MODE 4. Preserve the
-  caller's active display mode by default. Any future 80-column or enhanced
-  terminal mode must be an explicit user option and must restore the previous
-  mode on exit where the MOS permits it.
+The milestone does not prove stable UEF application execution. Thrust and Plan
+B reach gameplay and then crash after several seconds. Repton 2 and other
+titles still stall after loading. Record entry into gameplay separately from a
+stable application run and filing-system recovery.
+
+- [ ] Stop the NetTools loader and applications from unconditionally selecting
+  MODE 4. SSH is confirmed to force MODE 4 on physical hardware even when the
+  caller is already in a usable mode. Preserve the caller's display mode by
+  default. Any future 80-column or enhanced terminal mode must be an explicit
+  user option and must restore the previous mode on exit where the MOS permits
+  it.
 - [ ] Measure and optimise the physical mailbox/JIM transfer path. `*MENU`
   title-data loading, WGET and UEF streaming are currently functional but
   unacceptably slow. Record byte counts and elapsed times before changing bus
   settling or polling. Do not remove delays merely because a synchronous
   emulator passes.
-- [ ] Re-test ElkChat using `../elkChat/build/elkchat-live.ssd`, SHA-256
+- [ ] Fix ElkChat using `../elkChat/build/elkchat-live.ssd`, SHA-256
   `5b4480142a369eeb4af1fe4dc23ed229f3a4131b6bc5b58843adc2599b03b722`.
-  That is the build-area image containing `ELKCFG`; `elkchat.ssd` does not
-  contain the user's saved credentials. On this milestone, User List hangs and
-  Public Chat still appends Settings-menu content. Capture the exact command
-  trace before changing the ROM ABI or the client.
+  That current image contains `ELKCFG` and the host-only `&FFFF1900` load and
+  execution metadata. Its chat sources predate the image, so rebuilding the
+  unchanged sources is not expected to alter this result. Public Chat appends
+  main or Settings menu items and Private Chat exits with `Bad program` on the
+  physical Tube-off milestone. Capture the exact OSWORD and memory trace before
+  changing the ROM ABI or the client.
 - [ ] Repeat this complete baseline with the Tube enabled only after the
   Tube-off screen-mode, performance and ElkChat defects are characterised.
 

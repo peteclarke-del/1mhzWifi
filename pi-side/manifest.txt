@@ -68,7 +68,6 @@ Firmware inputs
 ---------------
 
 - firmware/brcmfmac43430-sdio.txt
-- firmware/EMMFS.rom
 - BCM43455 firmware 7.45.241, retrieved and hash-checked from Pi1MHz 8468a38
 - A 16 KiB host ROM supplied by the monorepo build or ELKWIFI_ROM
 

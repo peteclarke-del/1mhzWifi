@@ -113,7 +113,7 @@ class WicfsRuntimeContractTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.rom = (ROOT / "build/elkwifi_pi1mhz.rom").read_bytes()
+        cls.rom = (ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom").read_bytes()
 
     def find_rom_routine(self, pattern: bytes) -> re.Match[bytes]:
         matches = list(re.finditer(pattern, self.rom, re.S))

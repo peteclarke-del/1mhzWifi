@@ -292,7 +292,7 @@ class ElkWiFiOSWORDMachine:
 class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.rom = (ROOT / "build/elkwifi_pi1mhz.rom").read_bytes()
+        cls.rom = (ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom").read_bytes()
         source_root = Path(os.environ.get("ELKCHAT_SOURCE", ROOT.parent / "elkChat"))
         driver = source_root / "src/elkwifi.asm"
         cls.elkchat_driver = driver.read_text() if driver.is_file() else None

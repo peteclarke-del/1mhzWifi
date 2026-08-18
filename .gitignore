@@ -19,6 +19,9 @@ build/.pi1mhz-bundle.*/
 # Local hardware-test media. Do not publish third-party UEF images.
 /samples/
 
+# Local emulator ROM cache. These third-party binaries are test inputs only.
+/local-roms/
+
 # Unified host-tool and emulator outputs
 /host-tools/build/
 /host-tools/.test-deps/

@@ -44,7 +44,7 @@ Required build tools:
 
 - Git with initialised Pi1MHz submodules
 - Arm GCC 13 or later
-- A verified `build/elkwifi_pi1mhz.rom` in this repository
+- A verified `build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` in this repository
 
 The installer changes the supplied Pi1MHz checkout. Use a dedicated checkout,
 inspect its diff after installation, and retain the exact upstream commit in
@@ -86,12 +86,10 @@ The installer performs the following operations:
 2. Copies the maintained service and UEF normalisation sources into `src/`.
 3. Applies the Pi1MHz integration and CYW43 patches in a fixed order.
 4. Installs the matched host ROM as `firmware/Pi1MHz/ElkWiFi.rom`.
-5. Installs Electron MMFS Pi1MHz 1.60 as `firmware/Pi1MHz/EMMFS.rom` for
-   minimum 32K Electron systems which do not have sideways RAM.
-6. Enables the Services mailbox, ElkWiFi service, and net service defaults.
-7. Enables the three BeebSCSI defaults when no active value exists.
-8. Invokes the upstream Pi1MHz build script.
-9. Copies the firmware tree into a model-specific SD-card directory and ZIP.
+5. Enables the Services mailbox, ElkWiFi service, and net service defaults.
+6. Enables the three BeebSCSI defaults when no active value exists.
+7. Invokes the upstream Pi1MHz build script.
+8. Copies the firmware tree into a model-specific SD-card directory and ZIP.
 
 The installer is intended to be repeatable. Each patch has an explicit
 already-applied test. It preserves active configuration values rather than
@@ -186,10 +184,9 @@ does not include BeebSCSI LUN data. Preserve `/BeebSCSI0` and any other
 `/BeebSCSI*` directories when updating a card. A clean card needs a
 `/BeebSCSI0/scsi0.dat` image before ADFS has a hard disc to mount.
 
-The bundle retains upstream `SWMMFS.rom` for systems with writable sideways
-RAM and adds `EMMFS.rom` for a 32K Electron with only ROM storage. Both use
-the Pi1MHz FAT service and the `BEEB.MMB` file in the SD-card root. `EMMFS.rom`
-is the Electron normal-ROM, Pi1MHz-device build from MMFS 1.60.
+The bundle retains any filing-system ROMs supplied by upstream Pi1MHz. This
+project does not vendor additional ADFS, DFS or MMFS ROM images. Hardware and
+emulator tests that need another filing-system ROM must provide it separately.
 
 ## Persistent files
 

@@ -7,7 +7,6 @@ upstream projects:
 | --- | --- | --- |
 | ElkWiFi | <https://github.com/hoglet67/ElkWiFi> | `7bf366c97bec18bd238963c95e6f2aa6893cdb3a` |
 | Pi1MHz | <https://github.com/dp111/Pi1MHz> | `516a267493d9f19e6bf2f4a2ea4c3e7472b12135` |
-| MMFS | <https://github.com/hoglet67/MMFS> | 1.60 Electron Pi1MHz `EMMFS.rom` |
 | zlib puff | <https://github.com/madler/zlib/tree/v1.3.1/contrib/puff> | `v1.3.1`, puff 2.3 |
 | wolfSSL | <https://github.com/wolfSSL/wolfssl> | `65836b40693f8ea8d04daac0b1019d8e2e9394dd` |
 | wolfSSH | <https://github.com/wolfSSL/wolfssh> | `c2d169872e410251a6967fc47d4fc0c6f318b79c` |
@@ -18,11 +17,6 @@ Barr and Roland Leurs for WiCFS. Pi1MHz and its submodules contain their own
 copyright and licence notices. The SD-card bundle also contains Raspberry Pi
 boot files and Broadcom wireless firmware accompanied by
 `LICENCE.broadcom.txt`.
-
-`pi-side/firmware/EMMFS.rom` is the unmodified Electron normal-ROM build for
-the Pi1MHz device from the official MMFS 1.60 release. MMFS identifies Martin
-Mather as the original developer and David Banks as the current maintainer;
-its source repository is licensed under GPL-3.0.
 
 No project-wide licence has been inferred for this repository. The upstream
 ElkWiFi checkout used by this project does not contain a licence file. Before

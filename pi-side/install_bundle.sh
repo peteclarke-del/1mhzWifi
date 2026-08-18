@@ -116,11 +116,11 @@ fi
 
 # The host ROM is an input to a complete SD-card build, but not to the
 # source-only `apply` preset used to prepare an upstream review patch. A full
-# repository checkout uses build/elkwifi_pi1mhz.rom. A standalone patch kit
+# repository checkout uses build/pi1mhz-all/Pi1MHz/ElkWiFi.rom. A standalone patch kit
 # may supply ELKWIFI_ROM or place ElkWiFi.rom under pi-side/firmware.
 rom_source=${ELKWIFI_ROM:-}
-if [ -z "$rom_source" ] && [ -f "$root_dir/build/elkwifi_pi1mhz.rom" ]; then
-    rom_source="$root_dir/build/elkwifi_pi1mhz.rom"
+if [ -z "$rom_source" ] && [ -f "$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom" ]; then
+    rom_source="$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
     if [ -x "$root_dir/build.sh" ]; then
         "$root_dir/build.sh" --rom-only
     fi
@@ -360,7 +360,6 @@ install_if_changed "$bcm43455_tmp" "$upstream/$bcm43455_path"
 if [ -n "$rom_source" ]; then
     install_if_changed "$rom_source" "$upstream/firmware/Pi1MHz/ElkWiFi.rom"
 fi
-install_if_changed "$script_dir/firmware/EMMFS.rom" "$upstream/firmware/Pi1MHz/EMMFS.rom"
 
 # The raw socket/URL service is deliberately opt-in upstream.  This adapter
 # depends on it for OSWORD &65 TCP and *WGET, so enable it in the shipped
@@ -467,4 +466,3 @@ echo "Preserve /BeebSCSI*/scsi*.dat when updating an existing card."
 echo "This bundle does not include BeebSCSI hard-disc images."
 echo "Fit/load $upstream/firmware/Pi1MHz/ElkWiFi.rom as the host sideways ROM."
 echo "Install host-tools/nettools.ssd in the Electron's DFS/MMFS workflow."
-echo "For a 32K Electron without sideways RAM, fit Pi1MHz/EMMFS.rom as the MMFS ROM."
