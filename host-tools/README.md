@@ -56,10 +56,11 @@ complete implementations and functional tests.
 Each public command is a small bootstrap at `&FFFF2000`. This is above the
 measured DFS OSHWM of `&1F00`. On the photographed MMFS/ADFS profile, where
 HIMEM is `&1D00`, it initially occupies writable display RAM. The bootstrap
-preserves the command tail, selects MODE 4 and verifies HIMEM against the exact
-end of its corresponding main image before running that image at `&FFFF2200`.
-MODE 4 screen memory
-starts at `&5800`, so clearing the new screen does not erase either stage.
+preserves the command tail and verifies HIMEM against the exact end of its
+corresponding main image before running that image at `&FFFF2200`. It retains
+the current display mode when the screen boundary already leaves enough room,
+and selects MODE 4 only as a safe fallback. MODE 4 screen memory starts at
+`&5800`, so clearing that fallback screen does not erase either stage.
 
 The `&FFFF` address prefix keeps both stages on the I/O processor when a Tube
 is active. Neither stage claims nor uses the parasite. Every main entry point
@@ -81,8 +82,9 @@ and the
   and managed secure service commands 94-100.
 - `net_enable=1` in `Pi1MHz.cfg`.
 - Configured, associated WiFi.
-- Host OSHWM no higher than `&2000`. The bootstrap selects MODE 4 and requires
-  writable memory from `&2200` through the exact end of the requested tool.
+- Host OSHWM no higher than `&2000`. The bootstrap preserves a suitable current
+  mode, otherwise selects MODE 4, and requires writable memory from `&2200`
+  through the exact end of the requested tool.
   No loader reserves the unused part of the assembly guard up to `&5800`.
 
 ## Repository layout

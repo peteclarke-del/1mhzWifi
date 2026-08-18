@@ -35,6 +35,33 @@ static bool raw_uef(const uint8_t *data, size_t length)
        && memcmp(data, uef_magic, sizeof uef_magic) == 0;
 }
 
+size_t uef_wicfs_stream_length(const uint8_t *window, size_t length)
+{
+   size_t position = 12u;
+   size_t effective = length;
+   bool saw_data = false;
+
+   if (!raw_uef(window, length) || length < position)
+      return length;
+   while (position < length) {
+      size_t chunk_length;
+      uint16_t chunk_type;
+      if (length - position < 6u)
+         return length;
+      chunk_type = le16(window + position);
+      chunk_length = (size_t)le32(window + position + 2u);
+      position += 6u;
+      if (chunk_length > length - position)
+         return length;
+      position += chunk_length;
+      if (chunk_type == 0x0100u) {
+         effective = position;
+         saw_data = true;
+      }
+   }
+   return saw_data ? effective : length;
+}
+
 static bool skip_zero_string(const uint8_t *source, size_t limit, size_t *pos)
 {
    while (*pos < limit && source[(*pos)++] != 0u) {}

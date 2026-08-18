@@ -363,7 +363,10 @@ def main() -> int:
     if args.tube:
         command.extend(["-tube6502", str(roms / "6502tube_120.rom")])
 
-    environment = os.environ.copy()
+    environment = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("PI1MHZ_")
+    }
     environment.update({
         "DISPLAY": display,
         "PI1MHZ_MAILBOX": (

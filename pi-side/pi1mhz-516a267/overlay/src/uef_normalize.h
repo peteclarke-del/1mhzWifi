@@ -16,4 +16,9 @@ uef_normalize_result_t uef_normalize(uint8_t *window, size_t *length,
                                      size_t capacity, uint8_t *scratch,
                                      size_t scratch_size);
 
+/* WiCFS consumes only implicit tape-data chunks. Return the byte immediately
+ * after the last complete &0100 chunk so terminal carrier and gap chunks do
+ * not keep the virtual cassette active after the final program starts. */
+size_t uef_wicfs_stream_length(const uint8_t *window, size_t length);
+
 #endif

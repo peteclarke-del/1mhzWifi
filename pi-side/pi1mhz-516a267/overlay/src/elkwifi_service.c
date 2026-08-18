@@ -865,6 +865,7 @@ static uint8_t process_request(uint32_t cp)
             response_string(cp, "INVALID\r\n");
             return ELKWIFI_OK;
          }
+         length = uef_wicfs_stream_length(&Pi1MHz->JIM_ram[base], length);
          Pi1MHz->JIM_ram[trailer] = (uint8_t)length;
          Pi1MHz->JIM_ram[trailer + 1u] = (uint8_t)(length >> 8);
          response_string(cp, normalized == UEF_NORMALIZE_RAW ? "RAW\r\n"

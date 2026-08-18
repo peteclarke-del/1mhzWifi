@@ -500,17 +500,13 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("outside Tube and ADFS workspace", lifecycle_patch)
         self.assertNotRegex(lifecycle_patch, r"&D[0-9A-Fa-f]{2}")
 
-        # Reset remains passive unless the live BYTEV still points at WiCFS's
-        # RAM trap. Only that ownership proof permits reading persisted state
-        # and restoring vector entries which WiCFS still owns.
+        # Reset inspects live BYTEV and extended-vector ownership before it
+        # reads persisted state. BYTEV is independent because stream completion
+        # restores it while WiCFS can still own the filing vectors.
         reset_passive_patch = (
             ROOT / "rom-side/elkwifi-0.23/patches/wicfs-reset-passive.patch"
         ).read_text()
         self.assertIn("-                    jsr wicfs_reset", reset_passive_patch)
-        self.assertIn("Never read persisted WiCFS", reset_passive_patch)
-        self.assertIn("+                    lda BYTEV", reset_passive_patch)
-        self.assertIn("+                    cmp #<notape", reset_passive_patch)
-        self.assertIn("+                    cmp #>notape", reset_passive_patch)
         self.assertIn("+                    jsr release_owned_wicfs", reset_passive_patch)
         self.assertIn("-                    stx pagereg", reset_passive_patch)
         self.assertIn("Do not touch the AP5 JIM selector", reset_passive_patch)
@@ -519,6 +515,20 @@ class IntegrationContractTest(unittest.TestCase):
             "wicfs-reset-passive.patch",
             (ROOT / "rom-side/build_rom.sh").read_text(),
         )
+
+        stream_finish_patch = (
+            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-stream-finish.patch"
+        ).read_text()
+        self.assertIn(".wicfs_any_vector_owned", stream_finish_patch)
+        self.assertIn("jsr wicfs_any_vector_owned", stream_finish_patch)
+        self.assertIn("cannot execute a partially rewritten handler", stream_finish_patch)
+        self.assertEqual(stream_finish_patch.count("JSR\tinstall_extended_vector"), 0)
+        self.assertNotIn("wicfs_reset_select_tape", stream_finish_patch)
+        self.assertNotIn("LDA\t#&8C", stream_finish_patch)
+        self.assertIn(".wicfs_install_byte_trap", stream_finish_patch)
+        self.assertIn(".wicfs_install_invalid", stream_finish_patch)
+        self.assertIn("JSR\twicfs_finish_if_exhausted", stream_finish_patch)
+        self.assertIn("partially rewritten handler", stream_finish_patch)
 
         osfile_metadata_patch = (
             ROOT / "rom-side/elkwifi-0.23/patches/wicfs-osfile-metadata.patch"

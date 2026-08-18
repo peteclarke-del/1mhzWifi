@@ -31,7 +31,7 @@ install -m 0644 "$overlay_dir/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$overlay_dir/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$overlay_dir/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$overlay_dir/uef.asm" "$upstream/rom/uef.asm"
-for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-loader-compat.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-reset-passive.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-loader-compat.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-reset-passive.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch wicfs-stream-finish.patch rom-prune.patch routines-prune.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -216,6 +216,23 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             grep -q 'checkpoint before a loaded program runs' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
+        wicfs-stream-finish.patch)
+            grep -q '^\.wicfs_finish_if_exhausted' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.wicfs_install_byte_trap' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.wicfs_any_vector_owned' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.wicfs_install_check_partial' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.wicfs_prepare_byte_trap' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.wicfs_publish_byte_trap' "$upstream/rom/wicfs.asm" &&
+            grep -q 'commit rollback record before publishing hooks' "$upstream/rom/wicfs.asm" &&
+            grep -q 'capture any BYTEV owner installed by service &0F' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.wicfs_release_invalid_byte_trap' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.autorun_wicfs_abort' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.uef_run_failed' "$upstream/rom/uef.asm" &&
+            grep -q '^ bcs uef_run_failed' "$upstream/rom/uef.asm" &&
+            grep -q '^\.bUPCFS_installed' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.error_wicfs_state' "$upstream/rom/errors.asm" &&
+            patch_present=true
+            ;;
         wicfs-invalid-state.patch)
             grep -q '^\.upfilev_state_valid' "$upstream/rom/wicfs.asm" &&
             grep -q 'bounded OSFILE failure; no predecessor is trusted' "$upstream/rom/wicfs.asm" &&
@@ -295,7 +312,7 @@ labels_file="$upstream/rom/1mhzwifi-labels.json"
 (cd "$upstream/rom" && "$beebasm_command" -i ElkWifi.asm -dd -labels "$labels_file")
 python3 "$script_dir/check_combined_ram_layout.py" "$upstream/rom" "$labels_file"
 mkdir -p "$root_dir/build"
-rom_output="$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
+rom_output=${ELKWIFI_ROM_OUTPUT:-"$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"}
 mkdir -p "$(dirname -- "$rom_output")"
 install -m 0644 "$upstream/rom/bbcwifi.rom" "$rom_output"
 sha256sum "$rom_output"

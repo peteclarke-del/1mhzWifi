@@ -7,6 +7,8 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -22,9 +24,28 @@ KEY_SHIFT_UP = 2001
 KEY_QUOTE = 69
 KEY_ENTER = 67
 KEY_SPACE = 75
+KEY_DIGITS = {
+    "1": 28, "2": 29, "3": 30, "4": 31, "5": 32,
+    "6": 33, "7": 34, "8": 35, "9": 36, "0": 37,
+}
 
 
-def command_events(profile: str) -> list[tuple[int, int]]:
+def elkulator_text_events(text: str) -> list[tuple[int, int]]:
+    events = []
+    for character in text.upper():
+        if "A" <= character <= "Z":
+            key = ord(character) - ord("A") + 1
+        elif character in KEY_DIGITS:
+            key = KEY_DIGITS[character]
+        elif character == " ":
+            key = KEY_SPACE
+        else:
+            raise ValueError(f"unsupported Elkulator command character: {character!r}")
+        events.append((2, key))
+    return events
+
+
+def command_events(profile: str, uef_file: str = "THRUST") -> list[tuple[int, int]]:
     setup = (1, 4, 6, 19) if profile == "adfs-beebscsi" else (4, 9, 19, 3)
     events = [
         (300, KEY_SHIFT_DOWN), (1, KEY_QUOTE), (1, KEY_SHIFT_UP),
@@ -40,9 +61,7 @@ def command_events(profile: str) -> list[tuple[int, int]]:
         ])
     events.extend([
         (300, KEY_SHIFT_DOWN), (1, KEY_QUOTE), (1, KEY_SHIFT_UP),
-        (2, 21), (2, 5), (2, 6), (2, KEY_SPACE),
-        (2, 12), (2, 15), (2, 1), (2, 4), (2, KEY_SPACE),
-        (2, 20), (2, 8), (2, 18), (2, 21), (2, 19), (2, 20),
+        *elkulator_text_events(f"UEF LOAD {uef_file}"),
         (2, KEY_ENTER),
     ])
     return events
@@ -53,8 +72,18 @@ def command_script(events: list[tuple[int, int]]) -> str:
 
 
 def capture(display: str, path: Path) -> None:
+    tree = subprocess.run(
+        ["xwininfo", "-display", display, "-root", "-tree"],
+        check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+    windows = re.findall(r'^\s+(0x[0-9a-f]+)\s+"Elkulator"',
+                         tree.stdout, flags=re.MULTILINE | re.IGNORECASE)
+    if len(windows) != 1:
+        raise RuntimeError(
+            f"expected one Elkulator window on {display}, found {len(windows)}"
+        )
     xwd = subprocess.run(
-        ["xwd", "-display", display, "-root", "-silent"],
+        ["xwd", "-display", display, "-id", windows[0], "-silent"],
         check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
     )
     subprocess.run(
@@ -73,12 +102,130 @@ def frame_change_pixels(left: Path, right: Path) -> int:
 
 
 def similarity(left: Path, right: Path) -> float:
+    """Compare guest pixels independently of X11 size and colour palette.
+
+    The same Electron frame may be captured as indexed colour, greyscale, or
+    at a different integer window scale.  NCC is unstable for these sparse
+    screens and previously missed a visually identical Thrust title frame.
+    Normalise both inputs to the Electron's 320x256 raster and compare their
+    thresholded pixels instead.
+    """
     result = subprocess.run(
-        ["compare", "-colorspace", "Gray", "-metric", "NCC",
-         str(left), str(right), "null:"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        ["convert", str(left), str(right), "-resize", "320x256!",
+         "-colorspace", "Gray", "-threshold", "50%", "-depth", "8",
+         "gray:-"],
+        check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
     )
-    return float(result.stderr.strip().split()[0])
+    pixels = 320 * 256
+    if len(result.stdout) != pixels * 2:
+        raise RuntimeError("ImageMagick returned an unexpected raster size")
+    left_raster = result.stdout[:pixels]
+    right_raster = result.stdout[pixels:]
+    left_foreground = sum(bool(pixel) for pixel in left_raster)
+    right_foreground = sum(bool(pixel) for pixel in right_raster)
+    foreground = left_foreground + right_foreground
+    if not foreground:
+        return 1.0
+    intersection = sum(
+        bool(left_pixel) and bool(right_pixel)
+        for left_pixel, right_pixel in zip(left_raster, right_raster)
+    )
+    return 2.0 * intersection / foreground
+
+
+def prepare_runtime(
+    source: Path, destination: Path, pi1mhz_cfg: Path | None = None,
+) -> Path:
+    """Create a deterministic non-Turbo Electron profile for one test run."""
+    destination.mkdir()
+    (destination / "roms").symlink_to((source / "roms").resolve(),
+                                      target_is_directory=True)
+    for rom in (source / "roms").iterdir():
+        if rom.is_file():
+            (destination / rom.name).symlink_to(rom.resolve())
+    ddnoise = source / "ddnoise"
+    if ddnoise.is_dir():
+        (destination / "ddnoise").symlink_to(ddnoise.resolve(),
+                                              target_is_directory=True)
+    source_cfg = source / "elk.cfg"
+    if not source_cfg.is_file():
+        raise RuntimeError(f"Elkulator configuration not found: {source_cfg}")
+    overrides = {
+        "plus1": "1",
+        "plus3": "0",
+        "dfsena": "0",
+        "adfsena": "0",
+        "turbo": "0",
+        "enable_jim": "0",
+    }
+    seen = set()
+    configured = []
+    for line in source_cfg.read_text().splitlines():
+        key, separator, _ = line.partition("=")
+        name = key.strip()
+        if separator and name in overrides:
+            configured.append(f"{name} = {overrides[name]}")
+            seen.add(name)
+        else:
+            configured.append(line)
+    for name, value in overrides.items():
+        if name not in seen:
+            configured.append(f"{name} = {value}")
+    (destination / "elk.cfg").write_text("\n".join(configured) + "\n")
+    pi_cfg = pi1mhz_cfg if pi1mhz_cfg is not None else source / "Pi1MHz.cfg"
+    if pi_cfg.is_file():
+        shutil.copy2(pi_cfg, destination / "Pi1MHz.cfg")
+    return destination
+
+
+def inject_elkulator_command(display: str, command: str) -> None:
+    """Type one MOS command using Elkulator's physical @-for-* mapping."""
+    keys = []
+    for character in command:
+        if character == "*":
+            keys.append("at")
+        elif character == " ":
+            keys.append("space")
+        elif character.isalpha():
+            keys.append(character.lower())
+        elif character.isdigit():
+            keys.append(character)
+        else:
+            raise ValueError(f"unsupported recovery command character: {character!r}")
+    inject_x11_keys(display, [*keys, "Return"])
+
+
+def beebscsi_read_count(log_path: Path) -> int:
+    """Count completed READ(6) commands emitted by the BeebSCSI model."""
+    if not log_path.exists():
+        return 0
+    return log_path.read_text(errors="replace").count("BeebSCSI trace: command 08")
+
+
+def sustained_motion_by_epoch(
+    screens: list[Path], times: list[float], start: float | None,
+    end: float | None, threshold: int = 100,
+) -> tuple[list[int], bool]:
+    """Require late motion and motion in at least two gameplay epochs."""
+    if start is None or end is None or end <= start:
+        return [], False
+    duration = end - start
+    if duration < 6.0:
+        return [], False
+    maxima = []
+    for epoch in range(3):
+        lower = start + duration * epoch / 3.0
+        upper = start + duration * (epoch + 1) / 3.0
+        selected = [
+            screen for screen, elapsed in zip(screens, times)
+            if lower <= elapsed and
+            (elapsed <= upper if epoch == 2 else elapsed < upper)
+        ]
+        changes = [frame_change_pixels(left, right)
+                   for left, right in zip(selected, selected[1:])]
+        maxima.append(max(changes, default=0))
+    moving_epochs = sum(change >= threshold for change in maxima)
+    return maxima, maxima[-1] >= threshold and moving_epochs >= 2
 
 
 def main() -> int:
@@ -86,6 +233,11 @@ def main() -> int:
     parser.add_argument("--elkulator", type=Path, required=True)
     parser.add_argument("--runtime-dir", type=Path, required=True)
     parser.add_argument("--wifi-rom", type=Path, required=True)
+    parser.add_argument(
+        "--pi1mhz-cfg", type=Path,
+        help=("Pi1MHz.cfg from the staged hardware image; recorded as immutable "
+              "provenance even though Elkulator does not execute the Pi kernel"),
+    )
     parser.add_argument("--disc", type=Path,
                         help="DFS fixture disc; required by the dfs profile")
     parser.add_argument("--sd-image", type=Path,
@@ -96,8 +248,25 @@ def main() -> int:
     parser.add_argument("--beebscsi-lun", type=Path)
     parser.add_argument("--beebscsi-dsc", type=Path,
                         help="optional 22-to-33-byte BeebSCSI geometry sidecar")
+    parser.add_argument(
+        "--uef-file", default="THRUST",
+        help="UEF filename in the selected filing-system directory",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--tube", action="store_true")
+    parser.add_argument(
+        "--recovery-check", action="store_true",
+        help=("after sustained gameplay, press Break, reselect ADFS and load "
+              "the same UEF a second time without restarting Elkulator"),
+    )
+    parser.add_argument(
+        "--sustain-seconds", type=float, default=30.0,
+        help="minimum first-run gameplay time before the recovery sequence",
+    )
+    parser.add_argument(
+        "--without-dfs-rom", action="store_true",
+        help="diagnostic only: omit bank 2 to isolate filing-system ROM interaction",
+    )
     parser.add_argument(
         "--fiq-delay", type=int,
         help=("override only the FIQ capture delay; omit this option to use "
@@ -119,10 +288,19 @@ def main() -> int:
     parser.add_argument("--title-reference", type=Path, required=True)
     parser.add_argument("--gameplay-reference", type=Path, required=True)
     parser.add_argument(
+        "--prompt-reference", type=Path,
+        help="reviewed MOS prompt used to gate each post-Break recovery command",
+    )
+    parser.add_argument(
         "--failure-reference", type=Path, action="append", required=True,
         help="known prompt or MOS-error screen; repeatable",
     )
-    parser.add_argument("--similarity", type=float, default=0.90)
+    parser.add_argument("--title-similarity", type=float, default=0.90)
+    parser.add_argument(
+        "--gameplay-similarity", type=float, default=0.80,
+        help="lower bound for a dynamic frame against the reviewed gameplay frame",
+    )
+    parser.add_argument("--failure-similarity", type=float, default=0.90)
     parser.add_argument("--xvfb", type=Path,
                         default=Path("/tmp/elkulator-tools/usr/bin/Xvfb"))
     args = parser.parse_args()
@@ -130,12 +308,22 @@ def main() -> int:
         parser.error("--sample-interval must be positive")
     if args.gameplay_input_delay < 0:
         parser.error("--gameplay-input-delay must not be negative")
+    if args.sustain_seconds < 6:
+        parser.error("--sustain-seconds must be at least 6")
+    if args.recovery_check and args.profile != "adfs-beebscsi":
+        parser.error("--recovery-check currently requires --profile adfs-beebscsi")
+    if args.recovery_check and args.prompt_reference is None:
+        parser.error("--recovery-check requires --prompt-reference")
+    if args.recovery_check and args.pi1mhz_cfg is None:
+        parser.error("--recovery-check requires an explicit --pi1mhz-cfg")
     gameplay_input = [key.strip() for key in args.gameplay_input.split(",")
                       if key.strip()]
     if not gameplay_input:
         parser.error("--gameplay-input must contain at least one key")
-    if not 0.5 <= args.similarity <= 1.0:
-        parser.error("--similarity must be between 0.5 and 1.0")
+    for option in ("title_similarity", "gameplay_similarity",
+                   "failure_similarity"):
+        if not 0.5 <= getattr(args, option) <= 1.0:
+            parser.error(f"--{option.replace('_', '-')} must be between 0.5 and 1.0")
     if args.profile == "adfs-beebscsi" and args.beebscsi_lun is None:
         parser.error("--profile adfs-beebscsi requires --beebscsi-lun")
     if args.profile == "dfs" and args.disc is None:
@@ -150,11 +338,16 @@ def main() -> int:
             args.beebscsi_dsc = candidate
     if args.beebscsi_dsc is not None and not args.beebscsi_dsc.is_file():
         parser.error(f"BeebSCSI geometry not found: {args.beebscsi_dsc}")
-    for path in (args.title_reference, args.gameplay_reference, *args.failure_reference):
+    if args.pi1mhz_cfg is not None and not args.pi1mhz_cfg.is_file():
+        parser.error(f"Pi1MHz configuration not found: {args.pi1mhz_cfg}")
+    for path in (args.title_reference, args.gameplay_reference,
+                 *([args.prompt_reference] if args.prompt_reference else []),
+                 *args.failure_reference):
         if not path.is_file():
             parser.error(f"screen reference not found: {path}")
 
-    for attribute in ("sd_image", "mmfs_rom", "beebscsi_lun", "beebscsi_dsc"):
+    for attribute in ("sd_image", "mmfs_rom", "beebscsi_lun", "beebscsi_dsc",
+                      "pi1mhz_cfg"):
         path = getattr(args, attribute)
         if path is not None:
             setattr(args, attribute, path.resolve())
@@ -163,8 +356,14 @@ def main() -> int:
         parser.error(f"output directory is not empty: {args.output}")
     args.output.mkdir(parents=True, exist_ok=True)
     display = f":{args.display}"
-    roms = args.runtime_dir / "roms"
-    events = command_events(args.profile)
+    test_runtime = prepare_runtime(
+        args.runtime_dir.resolve(), args.output / "runtime", args.pi1mhz_cfg,
+    )
+    roms = test_runtime / "roms"
+    try:
+        events = command_events(args.profile, args.uef_file)
+    except ValueError as error:
+        parser.error(str(error))
     command = [
         str(args.elkulator.resolve()),
         "-rom", "12", str(roms / "RHPLUS133.rom"),
@@ -172,9 +371,10 @@ def main() -> int:
         "-ram", "7", "-ram", "6",
         "-rom", "5", str(roms / "AFM1V09.rom"),
         "-rom", "3", str(args.wifi_rom.resolve()),
-        "-rom", "2", str(roms / "dfs.rom"),
         "-rom", "1", str(roms / "acorn-adfs.rom"),
     ]
+    if not args.without_dfs_rom:
+        command.extend(["-rom", "2", str(roms / "dfs.rom")])
     if args.disc:
         command.extend(["-disc", str(args.disc.resolve())])
     if args.mmfs_rom:
@@ -183,7 +383,10 @@ def main() -> int:
     if args.tube:
         command.extend(["-tube6502", str(roms / "6502tube_120.rom")])
 
-    environment = os.environ.copy()
+    environment = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("PI1MHZ_")
+    }
     environment.update({
         "DISPLAY": display,
         "PI1MHZ_MAILBOX": "fixture",
@@ -196,6 +399,7 @@ def main() -> int:
     if args.beebscsi_lun:
         environment["PI1MHZ_BEEBSCSI_LUN"] = str(args.beebscsi_lun.resolve())
         environment["PI1MHZ_BEEBSCSI_READ_ONLY"] = "1"
+        environment["PI1MHZ_BEEBSCSI_DEBUG"] = "1"
         environment["PI1MHZ_AP5_PROFILE"] = "full"
         environment["PI1MHZ_NOE"] = "1"
     if args.beebscsi_dsc:
@@ -208,14 +412,17 @@ def main() -> int:
         "rom_12_rhplus": roms / "RHPLUS133.rom",
         "rom_11_os": roms / "electron-basic.rom",
         "rom_5_ap5": roms / "AFM1V09.rom",
-        "rom_2_dfs": roms / "dfs.rom",
         "rom_1_adfs": roms / "acorn-adfs.rom",
         "title_reference": args.title_reference,
         "gameplay_reference": args.gameplay_reference,
+        **({"prompt_reference": args.prompt_reference}
+           if args.prompt_reference else {}),
+        **({"staged_pi1mhz_cfg": args.pi1mhz_cfg} if args.pi1mhz_cfg else {}),
         **({"rom_7_mmfs": args.mmfs_rom} if args.mmfs_rom else {}),
         **{f"failure_reference_{number}": reference
            for number, reference in enumerate(args.failure_reference)},
         **({"tube_rom": roms / "6502tube_120.rom"} if args.tube else {}),
+        **({"rom_2_dfs": roms / "dfs.rom"} if not args.without_dfs_rom else {}),
     }
     media_inputs = {
         **({"disc": args.disc} if args.disc else {}),
@@ -224,8 +431,9 @@ def main() -> int:
         **({"beebscsi_dsc": args.beebscsi_dsc} if args.beebscsi_dsc else {}),
     }
     config_inputs = {
-        "elk_cfg": args.runtime_dir / "elk.cfg",
-        "pi1mhz_cfg": args.runtime_dir / "Pi1MHz.cfg",
+        "source_elk_cfg": args.runtime_dir / "elk.cfg",
+        "test_elk_cfg": test_runtime / "elk.cfg",
+        "pi1mhz_cfg": test_runtime / "Pi1MHz.cfg",
     }
     immutable_provenance = snapshot(immutable_inputs)
     media_before = snapshot(media_inputs)
@@ -242,7 +450,7 @@ def main() -> int:
         if xvfb.poll() is not None:
             raise RuntimeError("Xvfb failed to start; inspect xvfb.log")
         process = subprocess.Popen(
-            command, cwd=args.runtime_dir.resolve(), env=environment,
+            command, cwd=test_runtime, env=environment,
             stdout=elk_log, stderr=subprocess.STDOUT, start_new_session=True,
         )
         deadline = time.monotonic() + args.wait
@@ -250,8 +458,25 @@ def main() -> int:
         number = 0
         capture_times = []
         first_game_input_seconds = None
+        first_gameplay_seconds = None
         gameplay_input_index = 0
         next_game_input_at = None
+        break_seconds = None
+        recovery_commands_seconds = None
+        recovery_title_seconds = None
+        recovery_gameplay_seconds = None
+        recovery_input_index = 0
+        recovery_next_input_at = None
+        recovery_commands = ["*ADFS", "*MOUNT", "*DIR UEF",
+                             f"*UEF LOAD {args.uef_file}"]
+        recovery_command_index = 0
+        recovery_command_sent_at = None
+        recovery_prompt_confirmations = 0
+        beebscsi_reads_before_break = None
+        captured_title_scores = []
+        captured_gameplay_scores = []
+        captured_failure_scores = {str(reference): []
+                                   for reference in args.failure_reference}
         while time.monotonic() < deadline and process.poll() is None:
             time.sleep(min(args.sample_interval,
                            max(0.0, deadline - time.monotonic())))
@@ -260,12 +485,22 @@ def main() -> int:
             elapsed = time.monotonic() - started
             capture_times.append(elapsed)
             number += 1
+            title_score = similarity(screenshot, args.title_reference)
+            gameplay_score = similarity(screenshot, args.gameplay_reference)
+            prompt_score = (similarity(screenshot, args.prompt_reference)
+                            if args.prompt_reference else 0.0)
+            captured_title_scores.append(title_score)
+            captured_gameplay_scores.append(gameplay_score)
+            for reference in args.failure_reference:
+                captured_failure_scores[str(reference)].append(
+                    similarity(screenshot, reference)
+                )
             # Do not guess when cassette loading has finished. Start the game
             # only after the reviewed native title/instructions frame is
             # visible, using the same focused X11 injection as the catalogue
             # runner.
             if (first_game_input_seconds is None and
-                    similarity(screenshot, args.title_reference) >= args.similarity):
+                    title_score >= args.title_similarity):
                 first_game_input_seconds = elapsed
                 inject_x11_keys(display, [gameplay_input[0]])
                 gameplay_input_index = 1
@@ -276,24 +511,78 @@ def main() -> int:
                 inject_x11_keys(display, [gameplay_input[gameplay_input_index]])
                 gameplay_input_index += 1
                 next_game_input_at = time.monotonic() + args.gameplay_input_delay
+            if (first_game_input_seconds is not None and
+                    first_gameplay_seconds is None and
+                    gameplay_score >= args.gameplay_similarity):
+                first_gameplay_seconds = elapsed
+            if (args.recovery_check and first_gameplay_seconds is not None and
+                    gameplay_input_index == len(gameplay_input) and
+                    break_seconds is None and
+                    elapsed >= first_gameplay_seconds + args.sustain_seconds):
+                inject_x11_keys(display, ["F12"])
+                break_seconds = elapsed
+                beebscsi_reads_before_break = beebscsi_read_count(
+                    args.output / "elkulator.log"
+                )
+            elif (break_seconds is not None and recovery_commands_seconds is None):
+                if recovery_command_sent_at is None:
+                    if (elapsed >= break_seconds + 3.0 and
+                            prompt_score >= args.failure_similarity):
+                        inject_elkulator_command(
+                            display, recovery_commands[recovery_command_index]
+                        )
+                        recovery_command_sent_at = elapsed
+                        if recovery_command_index == len(recovery_commands) - 1:
+                            recovery_commands_seconds = elapsed
+                elif (elapsed >= recovery_command_sent_at + 1.0 and
+                      prompt_score >= args.failure_similarity):
+                    recovery_prompt_confirmations += 1
+                    recovery_command_index += 1
+                    recovery_command_sent_at = None
+            elif (recovery_commands_seconds is not None and
+                    recovery_title_seconds is None and
+                    title_score >= args.title_similarity):
+                recovery_title_seconds = elapsed
+                inject_x11_keys(display, [gameplay_input[0]])
+                recovery_input_index = 1
+                recovery_next_input_at = time.monotonic() + args.gameplay_input_delay
+            elif (recovery_next_input_at is not None and
+                    recovery_input_index < len(gameplay_input) and
+                    time.monotonic() >= recovery_next_input_at):
+                inject_x11_keys(display, [gameplay_input[recovery_input_index]])
+                recovery_input_index += 1
+                recovery_next_input_at = time.monotonic() + args.gameplay_input_delay
+            if (recovery_title_seconds is not None and
+                    recovery_gameplay_seconds is None and
+                    gameplay_score >= args.gameplay_similarity):
+                recovery_gameplay_seconds = elapsed
+            elif (recovery_gameplay_seconds is not None and
+                  recovery_input_index == len(gameplay_input) and
+                  elapsed >= recovery_gameplay_seconds + 8.0):
+                break
         screenshots = sorted_screens(args.output)
-        pre_input = [screen for screen, elapsed in zip(screenshots, capture_times)
-                     if (first_game_input_seconds is None or
-                         elapsed <= first_game_input_seconds)]
-        post_input = [screen for screen, elapsed in zip(screenshots, capture_times)
-                      if (first_game_input_seconds is not None and
-                          elapsed > first_game_input_seconds + 1.0)]
-        title_scores = [similarity(screen, args.title_reference) for screen in pre_input]
-        gameplay_scores = [similarity(screen, args.gameplay_reference)
-                           for screen in post_input]
-        title_seen = max(title_scores, default=0.0) >= args.similarity
-        gameplay_seen = max(gameplay_scores, default=0.0) >= args.similarity
+        pre_indexes = [index for index, elapsed in enumerate(capture_times)
+                       if (first_game_input_seconds is None or
+                           elapsed <= first_game_input_seconds)]
+        post_indexes = [index for index, elapsed in enumerate(capture_times)
+                        if (first_game_input_seconds is not None and
+                            elapsed > first_game_input_seconds + 1.0 and
+                            (break_seconds is None or elapsed < break_seconds))]
+        pre_input = [screenshots[index] for index in pre_indexes]
+        post_input = [screenshots[index] for index in post_indexes]
+        title_scores = [captured_title_scores[index] for index in pre_indexes]
+        gameplay_scores = [captured_gameplay_scores[index] for index in post_indexes]
+        title_seen = max(title_scores, default=0.0) >= args.title_similarity
+        gameplay_seen = max(gameplay_scores, default=0.0) >= args.gameplay_similarity
         gameplay_screens = [screen for screen, score in zip(post_input, gameplay_scores)
-                            if score >= args.similarity]
+                            if score >= args.gameplay_similarity]
         gameplay_motion_pixels = [frame_change_pixels(left, right)
                                   for left, right in zip(
                                       gameplay_screens, gameplay_screens[1:])]
         gameplay_motion = max(gameplay_motion_pixels, default=0) >= 100
+        epoch_motion_pixels, sustained_gameplay_motion = sustained_motion_by_epoch(
+            screenshots, capture_times, first_gameplay_seconds, break_seconds,
+        ) if args.recovery_check else ([], gameplay_motion)
         # The last frame before input is the causal baseline. Comparing every
         # earlier loader frame with every later frame is both weaker evidence
         # and quadratic when a large ADFS directory takes time to scan.
@@ -302,14 +591,22 @@ def main() -> int:
             if pre_input else []
         )
         input_correlated_change = max(correlated_changes, default=0) >= 1000
-        failure_scores = {
-            str(reference): [similarity(screen, reference) for screen in screenshots]
-            for reference in args.failure_reference
-        }
+        failure_scores = captured_failure_scores
         failure_seen = any(
-            max(scores, default=0.0) >= args.similarity
+            max(scores, default=0.0) >= args.failure_similarity
             for scores in failure_scores.values()
         )
+        recovery_indexes = [
+            index for index, elapsed in enumerate(capture_times)
+            if (recovery_gameplay_seconds is not None and
+                elapsed >= recovery_gameplay_seconds)
+        ]
+        recovery_screens = [screenshots[index] for index in recovery_indexes]
+        recovery_motion_pixels = [
+            frame_change_pixels(left, right)
+            for left, right in zip(recovery_screens, recovery_screens[1:])
+        ]
+        recovery_motion = max(recovery_motion_pixels, default=0) >= 100
         alive_at_deadline = process.poll() is None
         if alive_at_deadline:
             os.killpg(process.pid, signal.SIGTERM)
@@ -328,20 +625,42 @@ def main() -> int:
             args.beebscsi_lun and
             "BeebSCSI: LUN 0 mounted at &FC40" in log_text
         )
+        beebscsi_reads_after = beebscsi_read_count(args.output / "elkulator.log")
+        post_break_beebscsi_reads = (
+            beebscsi_reads_after - beebscsi_reads_before_break
+            if beebscsi_reads_before_break is not None else 0
+        )
         tube_started = bool(
             not args.tube or
             "AP5 Tube: external 3MHz 65C02 enabled" in log_text
         )
+        recovery_passed = bool(
+            not args.recovery_check or
+            (break_seconds is not None and recovery_commands_seconds is not None and
+             recovery_title_seconds is not None and
+             recovery_gameplay_seconds is not None and
+             recovery_input_index == len(gameplay_input) and recovery_motion and
+             recovery_prompt_confirmations == len(recovery_commands) - 1 and
+             post_break_beebscsi_reads > 0)
+        )
         passed = bool(
             alive_at_deadline and title_seen and gameplay_seen and
             gameplay_input_index == len(gameplay_input) and
-            input_correlated_change and gameplay_motion and
+            input_correlated_change and sustained_gameplay_motion and
+            recovery_passed and
             media_unchanged and config_unchanged and
             tube_started and not failure_seen and not mos_errors and
             (args.profile != "adfs-beebscsi" or adfs_supported)
         )
         report = {
+            "argv": command,
+            "hardware_environment": {
+                key: environment[key]
+                for key in sorted(environment)
+                if key == "DISPLAY" or key.startswith("PI1MHZ_")
+            },
             "profile": args.profile,
+            "uef_file": args.uef_file,
             "adfs_beebscsi_supported": adfs_supported,
             "profile_note": (
                 "BeebSCSI LUN 0 mounted through the full-decode AP5 profile"
@@ -349,6 +668,7 @@ def main() -> int:
                 else "DFS approximation; BeebSCSI and MMFS are not present"
             ),
             "tube": args.tube,
+            "dfs_rom_present": not args.without_dfs_rom,
             "tube_started": tube_started,
             "timing_profile": (
                 "conservative-fault-injection" if args.fiq_delay is None
@@ -357,11 +677,14 @@ def main() -> int:
             "screenshots": [str(path) for path in screenshots],
             "capture_times_seconds": capture_times,
             "first_game_input_seconds": first_game_input_seconds,
+            "first_gameplay_seconds": first_gameplay_seconds,
             "game_input_source": "reviewed-title-frame-triggered X11 sequence",
             "gameplay_input": gameplay_input,
             "gameplay_input_complete": gameplay_input_index == len(gameplay_input),
             "acceptance_thresholds": {
-                "similarity": args.similarity,
+                "title_similarity": args.title_similarity,
+                "gameplay_similarity": args.gameplay_similarity,
+                "failure_similarity": args.failure_similarity,
                 "input_change_pixels": 1000,
                 "post_input_motion_pixels": 100,
             },
@@ -371,12 +694,30 @@ def main() -> int:
             "gameplay_seen_after_input": gameplay_seen,
             "gameplay_motion_pixels": gameplay_motion_pixels,
             "gameplay_motion": gameplay_motion,
+            "gameplay_epoch_motion_pixels": epoch_motion_pixels,
+            "sustained_gameplay_motion": sustained_gameplay_motion,
             "input_correlated_change_pixels": correlated_changes,
             "input_correlated_change": input_correlated_change,
             "failure_reference_scores": failure_scores,
             "failure_seen": failure_seen,
             "mos_errors_in_log": mos_errors,
             "still_running_at_deadline": alive_at_deadline,
+            "recovery": {
+                "required": args.recovery_check,
+                "break_seconds": break_seconds,
+                "commands_seconds": recovery_commands_seconds,
+                "commands": recovery_commands,
+                "prompt_confirmations": recovery_prompt_confirmations,
+                "beebscsi_reads_before_break": beebscsi_reads_before_break,
+                "beebscsi_reads_after": beebscsi_reads_after,
+                "post_break_beebscsi_reads": post_break_beebscsi_reads,
+                "second_title_seconds": recovery_title_seconds,
+                "second_gameplay_seconds": recovery_gameplay_seconds,
+                "second_input_complete": recovery_input_index == len(gameplay_input),
+                "second_gameplay_motion_pixels": recovery_motion_pixels,
+                "second_gameplay_motion": recovery_motion,
+                "passed": recovery_passed,
+            },
             "stream_trace": {
                 "available": bool(trace_lines),
                 "lines": trace_lines,

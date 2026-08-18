@@ -1,0 +1,684 @@
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -132,11 +132,22 @@
+                     \ still live. In that case release only entries WiCFS owns.
+                     lda BYTEV
+                     cmp #<notape
+-                    bne autorun_wicfs_released
++                    beq autorun_wicfs_low_matches
+                     lda BYTEV+1
+                     cmp #>notape
+-                    bne autorun_wicfs_released
++                    beq autorun_wicfs_abort
++                    bne autorun_check_wicfs_vectors
++.autorun_wicfs_low_matches
++                    lda BYTEV+1
++                    cmp #>notape
++                    bne autorun_wicfs_abort
++                    beq autorun_release_wicfs
++.autorun_check_wicfs_vectors
++                    jsr wicfs_any_vector_owned
++                    bcc autorun_wicfs_released
++.autorun_release_wicfs
+                     jsr release_owned_wicfs
++                    bcs autorun_wicfs_abort
+ .autorun_wicfs_released
+                     lda #&D7                    \ Turn off default banner
+                     ldx #0
+@@ -169,6 +180,13 @@
+                     tay
+                     lda #1                      \ restore reason code
+                     rts                         \ end of routine
++.autorun_wicfs_abort
++                    pla
++                    tax
++                    pla
++                    tay
++                    lda #1
++                    rts
+ 
+ \ Command table
+ 
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -202,6 +202,10 @@
+ \ Keep the command-service stack handling outside the callable installer.
+ \ *UEF uses the same installer before it queues REWIND and CHAIN.
+ 	JSR	wicfs_install
++	BCC	bUPCFS_installed
++	LDX	#(error_wicfs_state-error_table)
++	JMP	error
++.bUPCFS_installed
+ 	JMP	call_claimed
+ 
+ \Persist only vector ownership and predecessor addresses outside host RAM.
+@@ -483,9 +487,14 @@
+ 	JSR	wicfs_state_load
+ 	BCC	wicfs_install_state_valid
+ 	LDA	#0
++	STA	wicfs_state_result
+ 	STA	wicfs_magic
+ 	STA	wicfs_magic+1
++	BEQ	wicfs_install_state_ready
+ .wicfs_install_state_valid
++	LDA	#1
++	STA	wicfs_state_result
++.wicfs_install_state_ready
+     if __debug = 1
+     php:jsr debug
+     equs "in bupcfs",&0D,&EA
+@@ -503,24 +512,114 @@
+ 	STY	evptr+1
+ 	LDA	OSFILEV
+ 	CMP	#<&FF1B
+-	BNE	b_install
++	BNE	wicfs_install_not_file
+ 	LDA	OSFILEV+1
+ 	CMP	#>&FF1B
+-	BNE	b_install
++	BNE	wicfs_install_not_file
+ 	LDY	#27
+ 	LDA	(evptr),Y
+ 	CMP	#<upfilev
+-	BNE	b_install
++	BNE	wicfs_install_not_file
+ 	INY
+ 	LDA	(evptr),Y
+ 	CMP	#>upfilev
+-	BNE	b_install
++	BNE	wicfs_install_not_file
++	INY
++	LDA	(evptr),Y
++	CMP	slotid
++	BEQ	wicfs_install_file_owned
++.wicfs_install_not_file
++	JMP	wicfs_install_check_partial
++.wicfs_install_file_owned
++	LDA	OSBGETV
++	CMP	#<&FF21
++	BNE	wicfs_install_invalid_jump
++	LDA	OSBGETV+1
++	CMP	#>&FF21
++	BNE	wicfs_install_invalid_jump
++	LDY	#33
++	LDA	(evptr),Y
++	CMP	#<upbgetv
++	BNE	wicfs_install_invalid_jump
++	INY
++	LDA	(evptr),Y
++	CMP	#>upbgetv
++	BNE	wicfs_install_invalid_jump
++	INY
++	LDA	(evptr),Y
++	CMP	slotid
++	BNE	wicfs_install_invalid_jump
++	LDA	OSFINDV
++	CMP	#<&FF2A
++	BNE	wicfs_install_invalid_jump
++	LDA	OSFINDV+1
++	CMP	#>&FF2A
++	BNE	wicfs_install_invalid_jump
++	LDY	#42
++	LDA	(evptr),Y
++	CMP	#<upfindv
++	BNE	wicfs_install_invalid_jump
++	INY
++	LDA	(evptr),Y
++	CMP	#>upfindv
++	BNE	wicfs_install_invalid_jump
++	INY
++	LDA	(evptr),Y
++	CMP	slotid
++	BNE	wicfs_install_invalid_jump
++	LDA	OSFSCV
++	CMP	#<&FF2D
++	BNE	wicfs_install_invalid_jump
++	LDA	OSFSCV+1
++	CMP	#>&FF2D
++	BNE	wicfs_install_invalid
++	LDY	#45
++	LDA	(evptr),Y
++	CMP	#<upfscv
++	BNE	wicfs_install_invalid
++	INY
++	LDA	(evptr),Y
++	CMP	#>upfscv
++	BNE	wicfs_install_invalid
+ 	INY
+ 	LDA	(evptr),Y
+ 	CMP	slotid
+-	BNE	b_install
++	BNE	wicfs_install_invalid_jump
++	JMP	wicfs_install_components_ok
++.wicfs_install_invalid_jump
++	JMP	wicfs_install_invalid
++.wicfs_install_components_ok
++	LDA	wicfs_state_result
++	BEQ	wicfs_install_invalid
++	LDA	wicfs_magic
++	CMP	#&A5
++	BNE	wicfs_install_invalid
++	LDA	wicfs_magic+1
++	CMP	#&5A
++	BNE	wicfs_install_invalid
++	JSR	wicfs_install_byte_trap
+ 	JMP	b_initialise
+ 
++.wicfs_install_check_partial
++	JSR	wicfs_any_vector_owned
++	BCS	wicfs_install_invalid
++	LDA	BYTEV
++	CMP	#<notape
++	BNE	wicfs_install_check_byte_high
++	JMP	wicfs_install_invalid
++.wicfs_install_check_byte_high
++	LDA	BYTEV+1
++	CMP	#>notape
++	BEQ	wicfs_install_invalid
++	JMP	b_install
++
++.wicfs_install_invalid
++	LDA	#0
++	STA	wicfs_magic
++	STA	wicfs_magic+1
++	SEC
++	RTS
++
+ .b_install
+ \Tell the current filing system it is being replaced, then retain its direct
+ \vectors for operations WiCFS does not implement. *UPCFS selects *TAPE first,
+@@ -534,15 +633,6 @@
+ 	STX	evptr
+ 	STY	evptr+1
+ 
+-\and external code for *TAPE trap
+-	LDX	#0		        \index on X
+-.b_a2
+-	LDA	osb_s,X 		\get a byte
+-	STA	notape,X		\copy to ram
+-	INX			        \increment index
+-	CPX	#(osb_e-osb_s)	\all done?
+-	BNE	b_a2	    	\no, loop for next
+-
+ \now set the UPCFS vectors
+ 	LDA	#&FF
+ 	STA	filev_prev_rom
+@@ -629,6 +719,12 @@
+ 	STA	fscv_prev_rom
+ 
+ .b_previous_vectors_saved
++	JSR	wicfs_prepare_byte_trap
++	LDA	#&A5
++	STA	wicfs_magic
++	LDA	#0
++	STA	wicfs_magic+1
++	JSR	wicfs_state_save	\commit rollback record before publishing hooks
+ 
+ \Use MOS extended vectors so vector entry never occupies &0400-&07FF. That
+ \range may contain the host implementation for an independently fitted Tube.
+@@ -672,19 +768,9 @@
+ 	LDY	#0
+ 	JSR	OSBYTE
+ 
+-	LDA	BYTEV		    \OSBYTE intercept
+-	STA	notape+(osb_j-osb_s)+1
+-	STA	bytev_rtn
+-	LDA	BYTEV+1
+-	STA	notape+(osb_j-osb_s)+2
+-	STA	bytev_rtn+1
+-	PHP
+-	SEI			        \no interrupts during OSBYTE redirect
+-	LDA	#<notape
+-	STA	BYTEV
+-	LDA	#>notape
+-	STA	BYTEV+1
+-	PLP
++	JSR	wicfs_prepare_byte_trap
++	JSR	wicfs_state_save	\capture any BYTEV owner installed by service &0F
++	JSR	wicfs_publish_byte_trap
+ 	LDA	#&A5
+ 	STA	wicfs_magic
+ 	LDA	#&5A
+@@ -702,7 +788,189 @@
+ 	JSR	xmess
+ 
+ .Bquit	
++	CLC
+ 	RTS			        \return to the command-specific wrapper
++\ Install or reinstall the *TAPE OSBYTE trap independently of the extended
++\ filing vectors. The complete RAM-copy and BYTEV update is atomic so an IRQ
++\ cannot execute a partially rewritten handler.
++.wicfs_install_byte_trap
++	JSR	wicfs_prepare_byte_trap
++	JSR	wicfs_state_save	\persist a newly captured later BYTEV owner
++	JMP	wicfs_publish_byte_trap
++.wicfs_prepare_byte_trap
++	PHP
++	SEI
++	LDX	#0
++.wicfs_copy_byte_trap
++	LDA	osb_s,X
++	STA	notape,X
++	INX
++	CPX	#(osb_e-osb_s)
++	BNE	wicfs_copy_byte_trap
++	LDA	BYTEV
++	CMP	#<notape
++	BNE	wicfs_capture_bytev
++	LDA	BYTEV+1
++	CMP	#>notape
++	BEQ	wicfs_patch_byte_trap
++.wicfs_capture_bytev
++	LDA	BYTEV
++	STA	bytev_rtn
++	LDA	BYTEV+1
++	STA	bytev_rtn+1
++.wicfs_patch_byte_trap
++	LDA	bytev_rtn
++	STA	notape+(osb_j-osb_s)+1
++	LDA	bytev_rtn+1
++	STA	notape+(osb_j-osb_s)+2
++	PLP
++	RTS
++.wicfs_publish_byte_trap
++	PHP
++	SEI
++	LDA	#<notape
++	STA	BYTEV
++	LDA	#>notape
++	STA	BYTEV+1
++	PLP
++	RTS
++
++\ Release only the cassette BYTEV trap after the final stream byte. Filing
++\ vectors stay installed until reset because a multi-stage loader may CHAIN
++\ another file before the stream is exhausted.
++.wicfs_finish_if_exhausted
++	PHP
++	SEI
++	LDA	sbufl
++	ORA	sbufh
++	BNE	wicfs_finish_unlock
++	LDA	BYTEV
++	CMP	#<notape
++	BNE	wicfs_finish_unlock
++	LDA	BYTEV+1
++	CMP	#>notape
++	BNE	wicfs_finish_unlock
++	LDA	bytev_rtn
++	STA	BYTEV
++	LDA	bytev_rtn+1
++	STA	BYTEV+1
++.wicfs_finish_unlock
++	PLP
++.wicfs_finish_done
++	RTS
++
++\ Report live WiCFS extended-vector ownership without consulting persisted JIM
++\ state. Reset can call this during ROM scan without requiring a Pi response.
++\ A, X, Y and the MOS extended-table pointer workspace are preserved; carry is
++\ set only when an exact handler and current-ROM tuple is still installed.
++.wicfs_any_vector_owned
++	PHA
++	TXA
++	PHA
++	TYA
++	PHA
++	LDA	pbl
++	PHA
++	LDA	pbh
++	PHA
++	LDA	#&A8
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	evptr
++	STY	evptr+1
++	LDA	OSFILEV
++	CMP	#<&FF1B
++	BNE	wicfs_owned_check_bget
++	LDA	OSFILEV+1
++	CMP	#>&FF1B
++	BNE	wicfs_owned_check_bget
++	LDY	#27
++	LDA	(evptr),Y
++	CMP	#<upfilev
++	BNE	wicfs_owned_check_bget
++	INY
++	LDA	(evptr),Y
++	CMP	#>upfilev
++	BNE	wicfs_owned_check_bget
++	INY
++	LDA	(evptr),Y
++	CMP	&F4
++	BEQ	wicfs_owned_yes
++.wicfs_owned_check_bget
++	LDA	OSBGETV
++	CMP	#<&FF21
++	BNE	wicfs_owned_check_find
++	LDA	OSBGETV+1
++	CMP	#>&FF21
++	BNE	wicfs_owned_check_find
++	LDY	#33
++	LDA	(evptr),Y
++	CMP	#<upbgetv
++	BNE	wicfs_owned_check_find
++	INY
++	LDA	(evptr),Y
++	CMP	#>upbgetv
++	BNE	wicfs_owned_check_find
++	INY
++	LDA	(evptr),Y
++	CMP	&F4
++	BEQ	wicfs_owned_yes
++.wicfs_owned_check_find
++	LDA	OSFINDV
++	CMP	#<&FF2A
++	BNE	wicfs_owned_check_fsc
++	LDA	OSFINDV+1
++	CMP	#>&FF2A
++	BNE	wicfs_owned_check_fsc
++	LDY	#42
++	LDA	(evptr),Y
++	CMP	#<upfindv
++	BNE	wicfs_owned_check_fsc
++	INY
++	LDA	(evptr),Y
++	CMP	#>upfindv
++	BNE	wicfs_owned_check_fsc
++	INY
++	LDA	(evptr),Y
++	CMP	&F4
++	BEQ	wicfs_owned_yes
++.wicfs_owned_check_fsc
++	LDA	OSFSCV
++	CMP	#<&FF2D
++	BNE	wicfs_owned_no
++	LDA	OSFSCV+1
++	CMP	#>&FF2D
++	BNE	wicfs_owned_no
++	LDY	#45
++	LDA	(evptr),Y
++	CMP	#<upfscv
++	BNE	wicfs_owned_no
++	INY
++	LDA	(evptr),Y
++	CMP	#>upfscv
++	BNE	wicfs_owned_no
++	INY
++	LDA	(evptr),Y
++	CMP	&F4
++	BEQ	wicfs_owned_yes
++.wicfs_owned_no
++	CLC
++	BCC	wicfs_owned_restore
++.wicfs_owned_yes
++	SEC
++.wicfs_owned_restore
++	PLA
++	STA	pbh
++	PLA
++	STA	pbl
++	PLA
++	TAY
++	PLA
++	TAX
++	PLA
++	RTS
++
+ 
+ \-------------------------------------------------------------------------------
+ \Main FILEV, FINDV, FSCV and BGETV entry points. Traps full file loads,
+@@ -783,6 +1051,7 @@
+ 	LDA	&0101,X
+ 	STA	pbh
+ 	JSR	filev_load_info		\return catalogue data required by CHAIN
++	JSR	wicfs_finish_if_exhausted
+ 	JSR	wicfs_state_save	\checkpoint cursor before executing loaded code
+ 	PLA
+ 	TAY
+@@ -891,13 +1160,24 @@
+ 	PHA
+ 	TYA
+ 	PHA
++	LDA	#0
++	STA	wicfs_state_result
+ 	JSR	wicfs_state_load
+ 	BCC	wicfs_reset_state_valid
+ 	LDA	#0			\stale owned entries remain bounded after BREAK
+ 	STA	wicfs_magic		\and can never use volatile predecessor data
+ 	STA	wicfs_magic+1
++	STA	wicfs_state_result
++	JSR	wicfs_release_invalid_byte_trap
++	BCS	wicfs_reset_invalid_trap_bad
++	JMP	wicfs_reset_done
++.wicfs_reset_invalid_trap_bad
++	LDA	#1
++	STA	wicfs_state_result
+ 	JMP	wicfs_reset_done
+ .wicfs_reset_state_valid
++	LDA	#0
++	STA	wicfs_state_result
+ 	LDA	wicfs_magic
+ 	CMP	#&A5
+ 	BEQ	wicfs_reset_check2
+@@ -906,20 +1186,26 @@
+ 	LDA	wicfs_magic+1
+ 	CMP	#&5A
+ 	BEQ	wicfs_reset_active
++	CMP	#0			\prepared rollback record before hook publication
++	BEQ	wicfs_reset_active
+ 	JMP	wicfs_reset_done
+ .wicfs_reset_active
+ \Restore BYTEV before using OSBYTE. This keeps reset recovery independent of
+ \the RAM *TAPE trap and its cassette workspace remaining intact.
++	PHP
++	SEI
+ 	LDA	BYTEV
+ 	CMP	#<notape
+-	BNE	wicfs_reset_get_table
++	BNE	wicfs_reset_byte_done
+ 	LDA	BYTEV+1
+ 	CMP	#>notape
+-	BNE	wicfs_reset_get_table
++	BNE	wicfs_reset_byte_done
+ 	LDA	bytev_rtn
+ 	STA	BYTEV
+ 	LDA	bytev_rtn+1
+ 	STA	BYTEV+1
++.wicfs_reset_byte_done
++	PLP
+ .wicfs_reset_get_table
+ 	LDA	#&A8
+ 	LDX	#0
+@@ -942,6 +1228,12 @@
+ 	LDA	(evptr),Y
+ 	CMP	slotid
+ 	BNE	wicfs_restore_bget
++	LDA	OSFILEV
++	CMP	#<&FF1B
++	BNE	wicfs_restore_bget
++	LDA	OSFILEV+1
++	CMP	#>&FF1B
++	BNE	wicfs_restore_bget
+ 	LDY	#27
+ 	LDA	FILVRTN
+ 	STA	(evptr),Y
+@@ -951,6 +1243,7 @@
+ 	INY
+ 	LDA	filev_prev_rom
+ 	STA	(evptr),Y
++	LDA	filev_prev_rom
+ 	BMI	wicfs_file_direct
+ 	LDA	#<&FF1B
+ 	LDX	#>&FF1B
+@@ -975,6 +1268,12 @@
+ 	LDA	(evptr),Y
+ 	CMP	slotid
+ 	BNE	wicfs_restore_find
++	LDA	OSBGETV
++	CMP	#<&FF21
++	BNE	wicfs_restore_find
++	LDA	OSBGETV+1
++	CMP	#>&FF21
++	BNE	wicfs_restore_find
+ 	LDY	#33
+ 	LDA	BGETRTN
+ 	STA	(evptr),Y
+@@ -984,6 +1283,7 @@
+ 	INY
+ 	LDA	bget_prev_rom
+ 	STA	(evptr),Y
++	LDA	bget_prev_rom
+ 	BMI	wicfs_bget_direct
+ 	LDA	#<&FF21
+ 	LDX	#>&FF21
+@@ -1008,6 +1308,12 @@
+ 	LDA	(evptr),Y
+ 	CMP	slotid
+ 	BNE	wicfs_restore_fsc
++	LDA	OSFINDV
++	CMP	#<&FF2A
++	BNE	wicfs_restore_fsc
++	LDA	OSFINDV+1
++	CMP	#>&FF2A
++	BNE	wicfs_restore_fsc
+ 	LDY	#42
+ 	LDA	findv_rtn
+ 	STA	(evptr),Y
+@@ -1017,6 +1323,7 @@
+ 	INY
+ 	LDA	findv_prev_rom
+ 	STA	(evptr),Y
++	LDA	findv_prev_rom
+ 	BMI	wicfs_find_direct
+ 	LDA	#<&FF2A
+ 	LDX	#>&FF2A
+@@ -1041,6 +1348,12 @@
+ 	LDA	(evptr),Y
+ 	CMP	slotid
+ 	BNE	wicfs_restore_byte
++	LDA	OSFSCV
++	CMP	#<&FF2D
++	BNE	wicfs_restore_byte
++	LDA	OSFSCV+1
++	CMP	#>&FF2D
++	BNE	wicfs_restore_byte
+ 	LDY	#45
+ 	LDA	FSCVRTN
+ 	STA	(evptr),Y
+@@ -1050,6 +1363,7 @@
+ 	INY
+ 	LDA	fscv_prev_rom
+ 	STA	(evptr),Y
++	LDA	fscv_prev_rom
+ 	BMI	wicfs_fsc_direct
+ 	LDA	#<&FF2D
+ 	LDX	#>&FF2D
+@@ -1077,6 +1391,8 @@
+ 	STA	wicfs_magic
+ 	STA	wicfs_magic+1
+ 	JSR	wicfs_state_save
++	LDA	#0
++	STA	wicfs_state_result
+ 	PLP
+ .wicfs_reset_done
+ 	PLA
+@@ -1085,6 +1401,60 @@
+ 	TAX
+ 	PLA
+ 	PLP
++	LDA	wicfs_state_result
++	CMP	#1
++	RTS
++
++\ An invalid persisted record cannot supply BYTEV's predecessor. Accept only
++\ an intact RAM trap and recover the JMP target embedded when it was installed.
++\ Carry set means the trap is corrupt and the reset service must avoid OSBYTE.
++.wicfs_release_invalid_byte_trap
++	LDA	BYTEV
++	CMP	#<notape
++	BNE	wicfs_invalid_trap_released
++	LDA	BYTEV+1
++	CMP	#>notape
++	BNE	wicfs_invalid_trap_released
++	LDA	notape
++	CMP	#&C9
++	BNE	wicfs_invalid_trap_bad
++	LDA	notape+1
++	CMP	#&8C
++	BNE	wicfs_invalid_trap_bad
++	LDA	notape+2
++	CMP	#&D0
++	BNE	wicfs_invalid_trap_bad
++	LDA	notape+3
++	CMP	#1
++	BNE	wicfs_invalid_trap_bad
++	LDA	notape+4
++	CMP	#&60
++	BNE	wicfs_invalid_trap_bad
++	LDA	notape+5
++	CMP	#&4C
++	BNE	wicfs_invalid_trap_bad
++	LDA	notape+6
++	ORA	notape+7
++	BEQ	wicfs_invalid_trap_bad
++	LDA	notape+6
++	CMP	#<notape
++	BNE	wicfs_invalid_trap_restore
++	LDA	notape+7
++	CMP	#>notape
++	BEQ	wicfs_invalid_trap_bad
++.wicfs_invalid_trap_restore
++	PHP
++	SEI
++	LDA	notape+6
++	STA	BYTEV
++	LDA	notape+7
++	STA	BYTEV+1
++	PLP
++.wicfs_invalid_trap_released
++	CLC
++	RTS
++.wicfs_invalid_trap_bad
++	SEC
+ 	RTS
+ \OSFILE metadata return complete
+ 
+@@ -1428,7 +1798,8 @@
+ 	AND	#&7F
+ 	STA	loadrun
+ 
+-.clfscv	JSR	wicfs_state_save	\checkpoint before a loaded program runs
++.clfscv	JSR	wicfs_finish_if_exhausted
++	JSR	wicfs_state_save	\checkpoint before a loaded program runs
+ 	JMP	actioned		\return command claimed
+ 
+ .xfscv
+--- a/rom/uef.asm
++++ b/rom/uef.asm
+@@ -253,6 +253,13 @@
+ \ continues to use QUPCFS and retains its original behaviour.
+ .uef_run_cmd
+  jsr wicfs_install
++ bcs uef_run_failed
++ lda wicfs_magic
++ cmp #&A5
++ bne uef_run_failed
++ lda wicfs_magic+1
++ cmp #&5A
++ bne uef_run_failed
+  ldx #0
+ .uef_run_queue
+  stx temp
+@@ -266,6 +273,10 @@
+  bne uef_run_queue
+ .uef_run_started
+  jmp call_claimed
++.uef_run_failed
++ jsr printtext
++ equs "WiCFS state invalid; power cycle",&0D,&EA
++ jmp call_claimed
+ 
+ 
+ .uef_full

@@ -79,17 +79,34 @@ GUARD LOADER_LIMIT
     LDA #13
     STA loader_command,Y
 
-    \ Move screen memory before MOS loads the main utility at &2200.
+    \ Preserve the current display mode when its host screen boundary already
+    \ leaves room for the main image. With a Tube active OSBYTE &84 describes
+    \ the parasite, so retain MODE 4 as the measured host fallback.
+    LDA #&EA
+    LDX #0
+    LDY #&FF
+    JSR OSBYTE
+    CPX #0
+    BNE loader_select_mode4
+    LDA LOADER_COOKIE + 5
+    CMP #HI(MAIN_END)
+    BCC loader_select_mode4
+    BNE loader_screen_ready
+    LDA LOADER_COOKIE + 4
+    CMP #LO(MAIN_END)
+    BCS loader_screen_ready
+.loader_select_mode4
     LDA #22
     JSR OSWRCH
     LDA #4
     JSR OSWRCH
+.loader_screen_ready
 
     \ OSBYTE &84 is a language-processor value when a Tube is active. Acorn's
     \ Tube contract returns the parasite HIMEM/program boundary, not the I/O
-    \ processor's MODE 4 screen boundary, so comparing it with MAIN_END can
+    \ processor's host screen boundary, so comparing it with MAIN_END can
     \ reject a perfectly valid host image. The &FFFFxxxx file addresses keep
-    \ both loader stages in the I/O processor; after selecting MODE 4 the host
+    \ both loader stages in the I/O processor; after the guarded mode choice the host
     \ range &2200-MAIN_END is below screen memory. Retain the measured HIMEM
     \ check when no Tube is active, where &84 describes the host directly.
     LDA #&EA

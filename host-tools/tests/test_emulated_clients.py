@@ -539,7 +539,7 @@ class EmulatedClientTests(unittest.TestCase):
         cls.ssh_loader = dfs_file(image, "SSH")
         cls.hwdtest_loader = dfs_file(image, "HWDTEST")
 
-    def test_public_loader_moves_screen_then_runs_host_main(self):
+    def test_public_loader_falls_back_to_mode4_then_runs_host_main(self):
         for tube, oshwm in ((False, 0x0800), (True, 0x0800), (False, 0x1F00)):
             with self.subTest(tube=tube, oshwm=oshwm):
                 machine = ClientMachine(
@@ -557,6 +557,18 @@ class EmulatedClientTests(unittest.TestCase):
                 self.assertEqual(
                     machine.oscli_commands, ["NTSSH alice@example.test 2222"],
                 )
+
+    def test_public_loader_preserves_a_suitable_host_display_mode(self):
+        machine = ClientMachine(
+            self.ssh_loader, "alice@example.test 2222",
+            load_address=LOADER_START, oshwm=0x0800, himem=0x7000,
+            mode4_himem=0x5800, tube=False,
+        )
+        machine.run()
+        self.assertEqual(machine.himem, 0x7000)
+        self.assertEqual(
+            machine.oscli_commands, ["NTSSH alice@example.test 2222"],
+        )
 
     def test_public_loader_rejects_unmeasured_higher_oshwm(self):
         machine = ClientMachine(

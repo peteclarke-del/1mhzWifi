@@ -215,19 +215,30 @@ def inject_x11_keys(display: str, keys: list[str]) -> None:
         x11.XSetInputFocus(handle, window, 2, 0)
         x11.XSync(handle, 0)
         for name in keys:
-            keysym = x11.XStringToKeysym(name.encode("ascii"))
-            keycode = x11.XKeysymToKeycode(handle, keysym) if keysym else 0
-            if not keycode:
-                raise ValueError(f"unknown or unmapped X11 key name: {name}")
-            if not xtst.XTestFakeKeyEvent(handle, keycode, 1, 0):
-                raise RuntimeError(f"XTest key-down failed for {name}")
+            # XKeysymToKeycode("at") returns a layout-dependent number key and
+            # does not add Shift.  Elkulator's default PC mapping assigns the
+            # Electron @/* key to the host apostrophe key.  Send that physical
+            # chord explicitly so MOS receives *, as it does for a user.
+            chord = ("Shift_L", "apostrophe") if name == "at" else (name,)
+            keycodes = []
+            for chord_name in chord:
+                keysym = x11.XStringToKeysym(chord_name.encode("ascii"))
+                keycode = x11.XKeysymToKeycode(handle, keysym) if keysym else 0
+                if not keycode:
+                    raise ValueError(
+                        f"unknown or unmapped X11 key name: {chord_name}"
+                    )
+                keycodes.append(keycode)
+                if not xtst.XTestFakeKeyEvent(handle, keycode, 1, 0):
+                    raise RuntimeError(f"XTest key-down failed for {chord_name}")
             x11.XSync(handle, 0)
             # Elkulator samples Allegro keyboard state. Keep the key down
             # across several 50 Hz samples instead of queueing down and up in
             # the same X server round trip.
             time.sleep(0.15)
-            if not xtst.XTestFakeKeyEvent(handle, keycode, 0, 0):
-                raise RuntimeError(f"XTest key-up failed for {name}")
+            for chord_name, keycode in reversed(tuple(zip(chord, keycodes))):
+                if not xtst.XTestFakeKeyEvent(handle, keycode, 0, 0):
+                    raise RuntimeError(f"XTest key-up failed for {chord_name}")
             x11.XSync(handle, 0)
             time.sleep(0.25)
     finally:
@@ -428,7 +439,10 @@ def run_one(args: argparse.Namespace, entry: dict[str, object], tube: bool,
     directory.mkdir(parents=True, exist_ok=True)
     trace = directory / "network.trace"
     log = directory / "elkulator.log"
-    environment = os.environ.copy()
+    environment = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("PI1MHZ_")
+    }
     environment.update({
         "DISPLAY": display,
         "PI1MHZ_MAILBOX": "live",

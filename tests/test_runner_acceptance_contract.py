@@ -1,8 +1,20 @@
+import importlib.util
 from pathlib import Path
+import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_uef_runner():
+    path = ROOT / "tests/elkulator/run_uef_gameplay.py"
+    spec = importlib.util.spec_from_file_location("uef_gameplay_runner", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
 class RunnerAcceptanceContractTests(unittest.TestCase):
@@ -65,19 +77,77 @@ class RunnerAcceptanceContractTests(unittest.TestCase):
         self.assertIn("failure_seen", source)
         self.assertIn("still_running_at_deadline", source)
         self.assertIn('"--gameplay-input"', source)
+        self.assertIn('"--uef-file"', source)
+        self.assertIn('"--without-dfs-rom"', source)
+        self.assertIn('"dfs_rom_present": not args.without_dfs_rom', source)
+        self.assertIn('command_events(args.profile, args.uef_file)', source)
         self.assertIn('default="space,space"', source)
         self.assertIn("gameplay_input_index == len(gameplay_input)", source)
         self.assertIn("inject_x11_keys(display, [gameplay_input[0]])", source)
-        self.assertIn("similarity(screenshot, args.title_reference)", source)
+        self.assertIn("title_score = similarity(screenshot, args.title_reference)", source)
         self.assertNotIn("(2500, KEY_SPACE)", source)
-        self.assertIn("gameplay_motion and", source)
+        self.assertIn("sustained_gameplay_motion and", source)
+        self.assertIn('"--recovery-check"', source)
+        self.assertIn('inject_x11_keys(display, ["F12"])', source)
+        self.assertIn('recovery_commands = ["*ADFS", "*MOUNT", "*DIR UEF"', source)
+        self.assertIn('display, recovery_commands[recovery_command_index]', source)
+        self.assertIn("recovery_passed and", source)
+        self.assertIn('"--prompt-reference"', source)
+        self.assertIn('"--recovery-check requires --prompt-reference"', source)
+        self.assertIn('"--recovery-check requires an explicit --pi1mhz-cfg"', source)
+        self.assertIn('environment["PI1MHZ_BEEBSCSI_DEBUG"] = "1"', source)
+        self.assertIn("recovery_prompt_confirmations == len(recovery_commands) - 1", source)
+        self.assertIn("post_break_beebscsi_reads > 0", source)
+        self.assertIn('"post_break_beebscsi_reads"', source)
+        self.assertIn('"second_gameplay_seconds"', source)
         self.assertIn("media_unchanged and config_unchanged", source)
-        self.assertIn("--similarity must be between 0.5 and 1.0", source)
+        self.assertIn("must be between 0.5 and 1.0", source)
+        self.assertIn("--gameplay-similarity", source)
+        self.assertIn("--failure-similarity", source)
         self.assertIn('"title_reference": args.title_reference', source)
         self.assertIn("output directory is not empty", source)
         self.assertIn('"acceptance_runner": Path(__file__).resolve()', source)
         self.assertIn('"AP5 Tube: external 3MHz 65C02 enabled"', source)
         self.assertIn("tube_started and", source)
+        self.assertIn('if not key.startswith("PI1MHZ_")', source)
+        self.assertIn('"hardware_environment"', source)
+        self.assertIn('"argv": command', source)
+        self.assertIn("args.pi1mhz_cfg", source)
+
+    def test_uef_sustained_motion_rejects_a_late_freeze(self):
+        runner = load_uef_runner()
+        screens = [Path(f"frame-{number}") for number in range(6)]
+        times = [0.0, 1.0, 3.0, 4.0, 6.0, 7.0]
+        with mock.patch.object(
+            runner, "frame_change_pixels", side_effect=[200, 0, 0],
+        ):
+            maxima, passed = runner.sustained_motion_by_epoch(
+                screens, times, 0.0, 9.0,
+            )
+        self.assertEqual(maxima, [200, 0, 0])
+        self.assertFalse(passed)
+
+    def test_uef_runtime_profile_disables_ambient_turbo_and_plus3(self):
+        runner = load_uef_runner()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (source / "roms").mkdir()
+            (source / "roms/os").write_bytes(b"os")
+            (source / "roms/sndrom").write_bytes(b"sound")
+            original = "plus1 = 0\nplus3 = 1\nturbo = 1\nadfsena = 1\n"
+            (source / "elk.cfg").write_text(original)
+            runtime = runner.prepare_runtime(source, root / "runtime")
+            configured = (runtime / "elk.cfg").read_text()
+            self.assertIn("plus1 = 1", configured)
+            self.assertIn("plus3 = 0", configured)
+            self.assertIn("turbo = 0", configured)
+            self.assertIn("adfsena = 0", configured)
+            self.assertEqual((source / "elk.cfg").read_text(), original)
+            self.assertTrue((runtime / "roms").is_symlink())
+            self.assertTrue((runtime / "os").is_symlink())
+            self.assertTrue((runtime / "sndrom").is_symlink())
 
     def test_provenance_separates_mutable_media_snapshots(self):
         for filename in (

@@ -34,6 +34,13 @@ references, a substantial input-correlated change, continued gameplay motion,
 no known prompt or MOS-error screen, an alive emulator at the deadline, and
 identical pre/post media and configuration hashes. The report also hashes the
 runner, provenance module, emulator, ROMs, media, and visual references.
+With `--recovery-check`, the runner requires an explicit staged
+`--pi1mhz-cfg` and reviewed `--prompt-reference`. After Break it waits for that
+prompt between `*ADFS`, `*MOUNT` and `*DIR UEF`, rather than typing the commands
+back-to-back. The second load must produce a new BeebSCSI READ(6) after Break,
+reach the reviewed title and gameplay frames, and show continued motion. A
+prompt image belongs only in `--prompt-reference`, not in the repeated
+`--failure-reference` arguments for a recovery run.
 When Tube mode is requested, a pass also requires Elkulator's explicit AP5
 Tube startup marker. Supplying `-tube6502` without starting the parasite can no
 longer produce a Tube-on pass.

@@ -43,11 +43,30 @@ TELNET, NSLOOK, SSH and HWDTEST run. MENU, WGET and UEF transfers are painfully
 slow and require measured optimisation. SSH still forces MODE 4 rather than
 preserving a suitable caller mode.
 
-Thrust and Plan B reach gameplay but crash after several seconds. Repton 2 and
-other UEF applications still stall after loading. These are failed stability
-tests even though their initial loads complete. Public Chat in the current
-ElkChat live SSD appends main or Settings menu items, and Private Chat exits
-with `Bad program`. No Tube-enabled result is inferred from this milestone.
+Frak loads and plays. Thrust reaches playable gameplay, but ADFS is no longer
+available afterwards and Break or reset does not restore it; a full power
+cycle is required. Repton 2 hangs as gameplay begins, Plan B remains unstable,
+and Arcadians hangs after loading its final `4C 4C49` cassette block. These are
+failed stability or filing-system recovery tests even though their initial
+loads complete. Public Chat in the current ElkChat live SSD appends main or
+Settings menu items, and Private Chat exits with `Bad program`. No Tube-enabled
+result is inferred from this milestone.
+
+The current candidate addresses both quick wins but has not replaced this
+physical result. NetTools preserves a suitable caller mode and falls back to
+MODE 4 only when the measured host boundary is too low. The relocated ElkChat
+client restores the full JIM selector before each page access; its dual-ROM
+Elkulator journey renders Public and Private Chat without Settings leakage or
+`Bad program`. Retest both changes on the same Tube-off machine before updating
+the confirmed milestone.
+
+An experimental snapshot of host workspace `&0E00-&1CFF` produced a positive
+emulator differential for the ADFS loss, but peer review rejected it. Restoring
+filing-system workspace from this ROM's reset service depends on ROM service
+order and can overwrite a newer ADFS, DFS or MMFS owner. The experiment is not
+part of the build. The replacement must recover only vector components still
+owned by WiCFS and must pass the full Break, ADFS catalogue/read and second-load
+sequence before physical Tube-off confirmation.
 
 ## Pi target matrix
 
@@ -343,12 +362,11 @@ a Tube register.
   reason-8 notification is handled locally.
 - [x] Select Arcadians as menu entry `O`; confirm the live 24,946-byte
   `Acornsoft/Arcadians_E.uef` download reaches its runnable game screen.
-- [ ] Record Arcadians as a physical Tube-on exception unless the recovery
-  retest changes the result. The current physical run completes with the Tube
-  disabled but fails at the end of its final cassette file with the Tube
-  enabled, while most tested titles run in both configurations. Do not add a
-  title-specific loader path. Escalate this only if it also fails Tube-off or
-  the same final-file failure appears across otherwise working titles.
+- [ ] Resolve the Arcadians final-file transition. The latest physical
+  Tube-off run hangs after loading `4C 4C49`, so this is not a Tube-only
+  exception. Capture the final UEF chunk, cassette status and execution
+  transition with Tube off and on and compare them with the working Frak path.
+  Do not add a title-specific loader path.
 - [x] Put the gzip DeskDiary sample on an emulated DFS disc as `DESK`, run
   `*UEF LOAD DESK`, confirm normalization from 10,631 to 20,580 bytes, and
   reach the application's `ADDRESS`/`PLANNER` menu without another command.

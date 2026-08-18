@@ -40,5 +40,6 @@ error_workspace = netprt
 .error_http_status      equs "HTTP error",&0D
 .error_no_pagedram      equs "No paged ram",&0D
 .error_disabled         equs "Wifi is disabled",&0D
+.error_wicfs_state      equs "WiCFS state invalid",&0D
 .error_opencon          equs "Connect error",&0D
 .error_bad_param        equs "Wrong parameter",&0D

@@ -53,7 +53,12 @@ class BuildTests(unittest.TestCase):
             self.assertEqual(load, 0x32200, name)
             self.assertEqual(execute, 0x32200, name)
 
-    def test_public_loaders_select_mode_before_nested_host_run(self):
+    def test_public_loaders_preserve_a_safe_mode_or_select_mode4(self):
+        source = (ROOT / "src/tool_loader.asm").read_text()
+        self.assertLess(source.index("LDA LOADER_COOKIE + 5"),
+                        source.index(".loader_select_mode4"))
+        self.assertLess(source.index(".loader_select_mode4"),
+                        source.index("LDA #22"))
         image = (BUILD / "nettools.ssd").read_bytes()
         targets = {
             "NETMENU": b"NTMENU ", "TELNET": b"NTTEL ", "SSH": b"NTSSH ",

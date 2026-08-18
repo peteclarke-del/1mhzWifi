@@ -1,3 +1,4 @@
+import os
 import pathlib
 import re
 import subprocess
@@ -13,6 +14,7 @@ from py65.devices.mpu6502 import MPU
 PATCH = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-private-workspace.patch"
 TRANSACTIONAL = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-transactional-state.patch"
 STREAM_CHECKPOINT = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-stream-checkpoint.patch"
+STREAM_FINISH = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-stream-finish.patch"
 ROM_START = 0x8000
 
 
@@ -111,9 +113,28 @@ class WicfsRuntimeContractTest(unittest.TestCase):
         )[0]
         self.assertLess(helper.index("sta &FCFF"), helper.index("nop:nop"))
 
+    def test_every_mos_error_fits_private_workspace(self) -> None:
+        source = (
+            ROOT / "rom-side/elkwifi-0.23/overlay/errors.asm"
+        ).read_text()
+        messages = re.findall(
+            r'^\.error_[A-Za-z0-9_]+\s+equs\s+"([^"]*)",&0D$',
+            source, re.MULTILINE,
+        )
+        self.assertGreater(len(messages), 10)
+        # BRK opcode, error number, message, and terminating NUL. The CR is
+        # the table delimiter and is not copied by error_loop.
+        for message in messages:
+            with self.subTest(message=message):
+                self.assertLessEqual(1 + 1 + len(message) + 1, 32)
+
     @classmethod
     def setUpClass(cls) -> None:
-        cls.rom = (ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom").read_bytes()
+        cls.rom_path = pathlib.Path(os.environ.get(
+            "ELKWIFI_TEST_ROM",
+            ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom",
+        ))
+        cls.rom = cls.rom_path.read_bytes()
 
     def find_rom_routine(self, pattern: bytes) -> re.Match[bytes]:
         matches = list(re.finditer(pattern, self.rom, re.S))
@@ -462,6 +483,152 @@ host_basic_pending = &03BD
         # checksummed 22-byte record for every OSBGET byte would recreate the
         # physical performance regression this checkpoint replaces.
         self.assertNotIn(".upbgetv", text)
+
+    def test_exhausted_stream_restores_and_rearms_the_osbyte_trap(self) -> None:
+        text = STREAM_FINISH.read_text()
+        self.assertIn("+.wicfs_finish_if_exhausted", text)
+        self.assertIn("+.wicfs_install_byte_trap", text)
+        self.assertGreaterEqual(
+            text.count("wicfs_finish_if_exhausted"), 3,
+            "OSFILE/CHAIN and FSCV/*RUN must share stream completion",
+        )
+        self.assertGreaterEqual(
+            text.count("wicfs_install_byte_trap"), 2,
+            "repeated UEF installs must use the complete trap wrapper",
+        )
+        self.assertGreaterEqual(text.count("wicfs_prepare_byte_trap"), 3)
+        self.assertGreaterEqual(text.count("wicfs_publish_byte_trap"), 3)
+        self.assertIn("+.wicfs_any_vector_owned", text)
+        self.assertIn("+                    jsr wicfs_any_vector_owned", text)
+        self.assertIn("cannot execute a partially rewritten handler", text)
+        self.assertEqual(text.count("+\tJSR\tinstall_extended_vector"), 0)
+        self.assertNotIn("+\tLDA\t#&8C", text)
+        finish = text.split("+.wicfs_finish_if_exhausted", 1)[1].split(
+            "+.wicfs_any_vector_owned", 1
+        )[0]
+        self.assertLess(finish.index("+\tSEI"), finish.index("+\tLDA\tBYTEV"))
+        self.assertIn("+.wicfs_install_invalid", text)
+        self.assertIn("WiCFS state invalid; power cycle", text)
+        for vector, dispatcher in (
+            ("OSFILEV", "&FF1B"),
+            ("OSBGETV", "&FF21"),
+            ("OSFINDV", "&FF2A"),
+            ("OSFSCV", "&FF2D"),
+        ):
+            self.assertIn(f"+\tLDA\t{vector}", text)
+            self.assertIn(f"+\tCMP\t#<{dispatcher}", text)
+            self.assertIn(f"+\tCMP\t#>{dispatcher}", text)
+        self.assertNotIn("JSR\twicfs_reset", text)
+
+    def test_stream_install_and_reset_are_transactional(self) -> None:
+        text = STREAM_FINISH.read_text()
+        self.assertIn("+.wicfs_install_check_partial", text)
+        self.assertIn("+.wicfs_install_components_ok", text)
+        self.assertIn("+.wicfs_release_invalid_byte_trap", text)
+        self.assertIn("+                    bcs autorun_wicfs_abort", text)
+        self.assertIn("+.autorun_wicfs_abort", text)
+        self.assertIn("+.uef_run_failed", text)
+        self.assertIn("+ bcs uef_run_failed", text)
+        self.assertIn("+\tBCC\tbUPCFS_installed", text)
+        self.assertIn("+\tLDX\t#(error_wicfs_state-error_table)", text)
+        self.assertIn("+.bUPCFS_installed", text)
+        self.assertIn(
+            '+ equs "WiCFS state invalid; power cycle",&0D,&EA', text
+        )
+
+        invalid = text.split("+.wicfs_install_invalid", 1)[1].split(
+            " .b_install", 1
+        )[0]
+        self.assertIn(
+            "+\tLDA\t#0\n+\tSTA\twicfs_magic\n+\tSTA\twicfs_magic+1",
+            invalid,
+        )
+        self.assertIn(" .Bquit\t\n+\tCLC\n", text)
+
+        prepared = text.index(
+            "+\tJSR\twicfs_state_save\t\\commit rollback record before publishing hooks"
+        )
+        predecessor_capture = text.index("+\tJSR\twicfs_prepare_byte_trap")
+        first_publish = text.index(" \\Use MOS extended vectors")
+        byte_publish = text.index("+\tJSR\twicfs_publish_byte_trap")
+        self.assertLess(predecessor_capture, prepared)
+        self.assertLess(prepared, first_publish)
+        self.assertLess(first_publish, byte_publish)
+        service_refresh = text.index(
+            "+\tJSR\twicfs_state_save\t\\capture any BYTEV owner installed by service &0F"
+        )
+        refreshed_prepare = text.rfind(
+            "+\tJSR\twicfs_prepare_byte_trap", first_publish, service_refresh
+        )
+        self.assertGreater(refreshed_prepare, first_publish)
+        self.assertLess(service_refresh, byte_publish)
+
+        wrapper = text.split("+.wicfs_install_byte_trap", 1)[1].split(
+            "+.wicfs_prepare_byte_trap", 1
+        )[0]
+        self.assertLess(wrapper.index("+\tJSR\twicfs_prepare_byte_trap"),
+                        wrapper.index("+\tJSR\twicfs_state_save"))
+        self.assertLess(wrapper.index("+\tJSR\twicfs_state_save"),
+                        wrapper.index("+\tJMP\twicfs_publish_byte_trap"))
+
+        partial = text.split("+.wicfs_install_check_partial", 1)[1].split(
+            "+.wicfs_install_invalid", 1
+        )[0]
+        self.assertIn(
+            "+\tLDA\tBYTEV\n+\tCMP\t#<notape\n"
+            "+\tBNE\twicfs_install_check_byte_high\n"
+            "+\tJMP\twicfs_install_invalid",
+            partial,
+        )
+
+        self.assertIn("+                    beq autorun_wicfs_low_matches", text)
+        self.assertIn("+                    beq autorun_wicfs_abort", text)
+        self.assertIn("+                    bne autorun_wicfs_abort", text)
+
+        ownership = text.split("+.wicfs_any_vector_owned", 1)[1].split(
+            "+.wicfs_owned_no", 1
+        )[0]
+        for vector, dispatcher, handler in (
+            ("OSFILEV", "&FF1B", "upfilev"),
+            ("OSBGETV", "&FF21", "upbgetv"),
+            ("OSFINDV", "&FF2A", "upfindv"),
+            ("OSFSCV", "&FF2D", "upfscv"),
+        ):
+            self.assertIn(f"+\tLDA\t{vector}", ownership)
+            self.assertIn(f"+\tCMP\t#<{dispatcher}", ownership)
+            self.assertIn(f"+\tCMP\t#>{dispatcher}", ownership)
+            self.assertIn(f"+\tCMP\t#<{handler}", ownership)
+            self.assertIn(f"+\tCMP\t#>{handler}", ownership)
+
+        invalid_trap = text.split(
+            "+.wicfs_release_invalid_byte_trap", 1
+        )[1].split(r" \OSFILE metadata return complete", 1)[0]
+        for opcode in ("#&C9", "#&8C", "#&D0", "#&60", "#&4C"):
+            self.assertIn(f"+\tCMP\t{opcode}", invalid_trap)
+        self.assertNotIn("+\tLDA\tnotape+8", invalid_trap)
+        self.assertIn("+.wicfs_invalid_trap_bad", invalid_trap)
+
+        build = (ROOT / "rom-side/build_rom.sh").read_text()
+        for marker in (
+            "wicfs_any_vector_owned", "wicfs_install_check_partial",
+            "wicfs_prepare_byte_trap", "wicfs_publish_byte_trap",
+            "commit rollback record before publishing hooks",
+            "capture any BYTEV owner installed by service &0F",
+            "wicfs_release_invalid_byte_trap", "autorun_wicfs_abort",
+            "uef_run_failed",
+            "bUPCFS_installed", "error_wicfs_state",
+        ):
+            self.assertIn(marker, build)
+
+    def test_reset_does_not_restore_arbitrary_host_workspace(self) -> None:
+        workspace_patch = (
+            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-workspace-preserve.patch"
+        )
+        self.assertFalse(workspace_patch.exists())
+        self.assertNotIn(
+            "wicfs-workspace-preserve.patch",
+            (ROOT / "rom-side/build_rom.sh").read_text(),
+        )
 
     def test_public_jim_selection_is_machine_local(self) -> None:
         text = TRANSACTIONAL.read_text()

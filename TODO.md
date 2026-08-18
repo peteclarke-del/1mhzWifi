@@ -266,30 +266,54 @@ WiFi association, WGET, `*MENU`, local `*UEF LOAD`, PING, TELNET, NSLOOK, SSH
 and HWDTEST work. Preserve this exact artifact set before performance, loader
 or Tube changes.
 
-The milestone does not prove stable UEF application execution. Thrust and Plan
-B reach gameplay and then crash after several seconds. Repton 2 and other
-titles still stall after loading. Record entry into gameplay separately from a
-stable application run and filing-system recovery.
+The milestone does not prove stable UEF application execution or filing-system
+recovery. Frak loads and plays. Thrust reaches playable gameplay, but ADFS is
+lost afterwards and cannot be reclaimed by Break or reset; only a power cycle
+restores it. Repton 2 hangs as gameplay begins, Plan B remains unstable, and
+Arcadians hangs after its final `4C 4C49` cassette block. Record entry into
+gameplay separately from a stable application run and filing-system recovery.
 
-- [ ] Stop the NetTools loader and applications from unconditionally selecting
-  MODE 4. SSH is confirmed to force MODE 4 on physical hardware even when the
-  caller is already in a usable mode. Preserve the caller's display mode by
-  default. Any future 80-column or enhanced terminal mode must be an explicit
-  user option and must restore the previous mode on exit where the MOS permits
-  it.
+- [x] Trace the filing-system vectors and workspace before `*UEF LOAD THRUST`,
+  at the WiCFS completion boundary, and after Break in the integrated emulator.
+  Thrust uses the MOS extended-vector area and the low filing-system workspace
+  as normal tape RAM. A snapshot experiment proved that restoring those bytes
+  can recover ADFS in the emulator, but peer review rejected the implementation
+  because reset-service ordering makes arbitrary workspace restoration unsafe.
+- [ ] Implement an ownership-safe ADFS recovery path without restoring arbitrary
+  host workspace. Invalid or inactive state must be passive; each extended and
+  standard vector must be restored only while WiCFS still owns that component;
+  BYTEV must be restored only when it still equals the WiCFS trap. Do not call
+  OSBYTE `&8C` from reset.
+- [ ] Repeat load, gameplay, Break, `*ADFS`, catalogue/read and a second UEF load
+  in the exact emulator profile and on the physical Tube-off Electron. A power
+  cycle must not be required. Keep the canonical ROM at 0.1.55 until this gate
+  and final peer review pass.
+- [ ] Trace Arcadians at the completed `4C 4C49` file boundary on the physical
+  Tube-off baseline. Compare the final UEF chunk, cassette status and queued
+  execution transition with Frak. Do not add a title-specific workaround.
+- [ ] Trace Repton 2 from its final cassette block into its first gameplay
+  frame and identify the first non-returning call or corrupted vector.
+
+- [x] Stop the NetTools loader from unconditionally selecting MODE 4. It now
+  preserves a caller mode whose host HIMEM covers the exact tool image and uses
+  MODE 4 only for an insufficient boundary or active Tube fallback. Assembled
+  6502 tests cover both paths. Physical Tube-off confirmation remains required.
+  Any future 80-column or enhanced terminal mode must be an explicit user
+  option and must restore the previous mode on exit where the MOS permits it.
 - [ ] Measure and optimise the physical mailbox/JIM transfer path. `*MENU`
   title-data loading, WGET and UEF streaming are currently functional but
   unacceptably slow. Record byte counts and elapsed times before changing bus
   settling or polling. Do not remove delays merely because a synchronous
   emulator passes.
-- [ ] Fix ElkChat using `../elkChat/build/elkchat-live.ssd`, SHA-256
-  `5b4480142a369eeb4af1fe4dc23ed229f3a4131b6bc5b58843adc2599b03b722`.
-  That current image contains `ELKCFG` and the host-only `&FFFF1900` load and
-  execution metadata. Its chat sources predate the image, so rebuilding the
-  unchanged sources is not expected to alter this result. Public Chat appends
-  main or Settings menu items and Private Chat exits with `Bad program` on the
-  physical Tube-off milestone. Capture the exact OSWORD and memory trace before
-  changing the ROM ABI or the client.
+- [x] Fix ElkChat in the relocated `8bit-net` workspace. The client now restores
+  JIM address `00:00:page` before every response access. The full Elkulator
+  journey passes through both Pi1MHz and the original ElkWiFi ROM, and its
+  OSWRCH trace proves Public Chat emits no Settings labels and Private Chat does
+  not exit through `Bad program`. The ignored live SSD was rebuilt from the
+  existing 94-byte local `ELKCFG` without exposing or changing its contents.
+- [ ] Repeat the Public Chat, Private Chat and User List journey on the physical
+  Tube-off Electron using that rebuilt live SSD. Emulator evidence is not a
+  substitute for this hardware result.
 - [ ] Repeat this complete baseline with the Tube enabled only after the
   Tube-off screen-mode, performance and ElkChat defects are characterised.
 

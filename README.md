@@ -38,12 +38,23 @@ also prints the parsed HTTP status before closing the handle.
 
 The canonical `build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` 0.1.55 image, SHA-256
 `ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb`, now
-has a confirmed physical Tube-off baseline. WiFi, `*MENU`, NetTools and local
-`*UEF LOAD` work on the Electron, AP5 and Pi Zero 2 installation. Data transfer
-is nevertheless too slow for normal use. Thrust and Plan B enter gameplay but
-crash after several seconds, while Repton 2 and other titles still stall after
-loading. These are open execution defects, not successful title tests.
-Tube-enabled physical validation remains mandatory.
+has a confirmed physical Tube-off baseline. WiFi, HWDTEST, NetTools, `*MENU`
+and local `*UEF LOAD` work on the Electron, AP5 and Pi Zero 2 installation.
+Data transfer is nevertheless too slow for normal use. Frak loads and plays.
+Thrust reaches playable gameplay, but ADFS then remains unavailable through
+Break and reset and returns only after a power cycle. Repton 2 hangs on entry
+to gameplay, Plan B remains unstable, and Arcadians hangs at the end of its
+final `4C 4C49` cassette block. These are open execution or filing-system
+recovery defects, not successful title tests. Tube-enabled physical validation
+remains mandatory.
+
+An experimental host-workspace snapshot made the exact staged BeebSCSI image
+pass a load, Break, ADFS remount and reload emulator sequence. Peer review
+rejected that design because restoring arbitrary filing-system workspace during
+reset is ROM-order dependent and can overwrite a newer filing-system owner.
+That experiment is not in the build. The canonical ROM remains 0.1.55 while an
+ownership-safe vector and BYTEV lifecycle change is tested. ADFS recovery after
+gameplay is still an open release gate.
 
 The NetTools applications load at `&1D00` and validate OSHWM and HIMEM at every
 entry. Their current bootstrap selects MODE 4 before entering the application;

@@ -34,6 +34,11 @@ class UefNormalizeTest(unittest.TestCase):
             ctypes.c_size_t, ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t,
         ]
         cls.normalize.restype = ctypes.c_int
+        cls.wicfs_length = ctypes.CDLL(str(library)).uef_wicfs_stream_length
+        cls.wicfs_length.argtypes = [
+            ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t,
+        ]
+        cls.wicfs_length.restype = ctypes.c_size_t
         fixture_library = Path(cls._temporary.name) / "libfixture_normalize.so"
         subprocess.run(
             ["cc", "-std=c11", "-shared", "-fPIC", "-O2",
@@ -86,6 +91,35 @@ class UefNormalizeTest(unittest.TestCase):
             return response.decode("ascii").strip(), bytes(jim[:length])
         finally:
             self.fixture.pi1mhz_net_backend_destroy(backend)
+
+    def effective_length(self, raw: bytes) -> int:
+        window = (ctypes.c_uint8 * len(raw)).from_buffer_copy(raw)
+        return self.wicfs_length(window, len(raw))
+
+    @staticmethod
+    def chunk(chunk_type: int, payload: bytes) -> bytes:
+        return struct.pack("<HI", chunk_type, len(payload)) + payload
+
+    def test_terminal_timing_chunks_do_not_extend_the_wicfs_stream(self) -> None:
+        header = b"UEF File!\0\x05\0"
+        data = self.chunk(0x0100, b"cassette block")
+        trailing = self.chunk(0x0110, b"\x58\x02") + self.chunk(0x0112, b"\x58\x02")
+        raw = header + data + trailing
+        expected = len(header + data)
+        self.assertEqual(self.effective_length(raw), expected)
+        fixture_format, fixture = self.run_fixture_normalize(raw)
+        self.assertEqual(fixture_format, "RAW")
+        self.assertEqual(fixture, raw[:expected])
+
+    def test_wicfs_length_keeps_later_data_and_malformed_streams(self) -> None:
+        header = b"UEF File!\0\x05\0"
+        first = self.chunk(0x0100, b"one")
+        gap = self.chunk(0x0112, b"\x01\0")
+        second = self.chunk(0x0100, b"two")
+        complete = header + first + gap + second
+        self.assertEqual(self.effective_length(complete), len(complete))
+        malformed = header + b"\x00\x01\xff\xff\xff\x7f"
+        self.assertEqual(self.effective_length(malformed), len(malformed))
 
     def test_raw_gzip_zip_and_zip_containing_gzip(self) -> None:
         raw = b"UEF File!\0" + bytes(range(64))
@@ -144,7 +178,9 @@ class UefNormalizeTest(unittest.TestCase):
                     sample.read_bytes()
                 )
                 self.assertEqual(fixture_result, result_names[pi_result])
-                self.assertEqual(fixture_bytes, pi_bytes)
+                self.assertEqual(
+                    fixture_bytes, pi_bytes[:self.effective_length(pi_bytes)]
+                )
 
 
 if __name__ == "__main__":

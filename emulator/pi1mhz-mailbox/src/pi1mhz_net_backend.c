@@ -499,6 +499,33 @@ static int is_raw_uef(const uint8_t *data, size_t length)
     return length >= sizeof(magic) && !memcmp(data, magic, sizeof(magic));
 }
 
+static size_t wicfs_stream_length(const uint8_t *window, size_t length)
+{
+    size_t position = 12u;
+    size_t effective = length;
+    int saw_data = 0;
+
+    if (!is_raw_uef(window, length) || length < position)
+        return length;
+    while (position < length) {
+        size_t chunk_length;
+        uint16_t chunk_type;
+        if (length - position < 6u)
+            return length;
+        chunk_type = uef_rd16(window + position);
+        chunk_length = (size_t)rd32(window + position + 2u);
+        position += 6u;
+        if (chunk_length > length - position)
+            return length;
+        position += chunk_length;
+        if (chunk_type == 0x0100u) {
+            effective = position;
+            saw_data = 1;
+        }
+    }
+    return saw_data ? effective : length;
+}
+
 static int zip_has_one_entry(const uint8_t *source, size_t length)
 {
     size_t pos;
@@ -641,6 +668,7 @@ static uint8_t normalize_uef_control(uint8_t *command, uint8_t *jim,
     }
 
 normalized:
+    output_length = wicfs_stream_length(window, output_length);
     window[UEF_CAPACITY] = (uint8_t)output_length;
     window[UEF_CAPACITY + 1u] = (uint8_t)(output_length >> 8);
     memcpy(command + 1, format, strlen(format) + 1u);
