@@ -217,177 +217,177 @@ HcmV?d00001
 
 diff --git a/firmware/Pi1MHz/ElkWiFi.rom b/firmware/Pi1MHz/ElkWiFi.rom
 new file mode 100644
-index 0000000000000000000000000000000000000000..e25a0fc53148f04d19f53dae880d6ddb522ae61d
+index 0000000000000000000000000000000000000000..25570ff8e3db04d6902514ee8c6b04031f73c2f2
 GIT binary patch
 literal 16384
-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
-HR}TCSG(;B@
+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
 
 literal 0
 HcmV?d00001
@@ -7918,7 +7918,7 @@ index 8a7a155..50fa0e4 100644
              }
 diff --git a/src/elkwifi_service.c b/src/elkwifi_service.c
 new file mode 100644
-index 0000000..3ff85ed
+index 0000000..a3fab6a
 --- /dev/null
 +++ b/src/elkwifi_service.c
 @@ -0,0 +1,1013 @@
@@ -7969,7 +7969,7 @@ index 0000000..3ff85ed
 + * first 64K so the host and Pi always refer to the same physical bytes. */
 +#define ELKWIFI_UEF_BASE 0u
 +#define ELKWIFI_VERSION_RESPONSE \
-+   "Pi1MHz ElkWiFi 0.1.54, kernel " GITVERSION "\r\n\r\nOK\r\n"
++   "Pi1MHz ElkWiFi 0.1.55, kernel " GITVERSION "\r\n\r\nOK\r\n"
 +
 +_Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
 +               "ElkWiFi service range start disagrees with services.h");
@@ -8983,7 +8983,7 @@ index 0000000..d160475
 +
 +#endif
 diff --git a/src/net_service.c b/src/net_service.c
-index 92fac86..77b2416 100644
+index 92fac86..1b7efcc 100644
 --- a/src/net_service.c
 +++ b/src/net_service.c
 @@ -59,6 +59,9 @@ typedef struct {
@@ -8996,6 +8996,63 @@ index 92fac86..77b2416 100644
     struct altcp_pcb *tpcb;          /* TCP pcb, NULL once freed by lwIP     */
     struct udp_pcb   *upcb;          /* UDP pcb                              */
     ip_addr_t         remote_ip;
+@@ -73,7 +76,7 @@ typedef struct {
+       records: [4 ip][2 port][2 len][len payload]. */
+    uint16_t          rx_head;
+    uint16_t          rx_tail;
+-   uint16_t          rx_count;
++   uint32_t          rx_count;
+    /* TNFS (N:TNFS://) session + one in-flight request, for the retry engine */
+    uint8_t           tnfs_phase;    /* TNFS_PH_*                            */
+    uint8_t           tnfs_seq;      /* sequence of the outstanding request  */
+@@ -167,9 +170,9 @@ static bool net_string_ok(uint32_t start)
+ }
+ 
+ /* ---- RX ring ------------------------------------------------------------- */
+-static inline uint16_t ring_free(const net_handle_t *h)
++static inline uint32_t ring_free(const net_handle_t *h)
+ {
+-   return (uint16_t)(NET_RX_RING_SIZE - h->rx_count);
++   return NET_RX_RING_SIZE - h->rx_count;
+ }
+ /* Copy a whole pbuf chain into the ring.  Caller guarantees it fits. */
+ static void ring_put_pbuf(net_handle_t *h, const struct pbuf *p)
+@@ -182,7 +185,7 @@ static void ring_put_pbuf(net_handle_t *h, const struct pbuf *p)
+          ring[h->rx_head] = src[i];
+          h->rx_head = (uint16_t)((h->rx_head + 1u) & (NET_RX_RING_SIZE - 1u));
+       }
+-      h->rx_count = (uint16_t)(h->rx_count + n);
++      h->rx_count += n;
+    }
+ }
+ /* Drain up to max bytes from the ring into a JIM destination. */
+@@ -194,7 +197,7 @@ static uint32_t ring_get(net_handle_t *h, uint32_t jim_dst, uint32_t max)
+       Pi1MHz->JIM_ram[jim_dst + i] = ring[h->rx_tail];
+       h->rx_tail = (uint16_t)((h->rx_tail + 1u) & (NET_RX_RING_SIZE - 1u));
+    }
+-   h->rx_count = (uint16_t)(h->rx_count - n);
++   h->rx_count -= n;
+    return n;
+ }
+ /* Append raw bytes to the ring (UDP record framing).  Caller ensures fit. */
+@@ -205,7 +208,7 @@ static void ring_put_mem(net_handle_t *h, const uint8_t *src, uint16_t len)
+       ring[h->rx_head] = src[i];
+       h->rx_head = (uint16_t)((h->rx_head + 1u) & (NET_RX_RING_SIZE - 1u));
+    }
+-   h->rx_count = (uint16_t)(h->rx_count + len);
++   h->rx_count += len;
+ }
+ /* Read len bytes from the ring into a local buffer (UDP record header). */
+ static void ring_get_mem(net_handle_t *h, uint8_t *dst, uint16_t len)
+@@ -215,7 +218,7 @@ static void ring_get_mem(net_handle_t *h, uint8_t *dst, uint16_t len)
+       dst[i] = ring[h->rx_tail];
+       h->rx_tail = (uint16_t)((h->rx_tail + 1u) & (NET_RX_RING_SIZE - 1u));
+    }
+-   h->rx_count = (uint16_t)(h->rx_count - len);
++   h->rx_count -= len;
+ }
+ 
+ /* ---- IPv4 <-> wire (network-order octets [b0,b1,b2,b3]) ------------------ */
 @@ -358,15 +361,31 @@ static err_t net_tcp_poll(void *arg, struct altcp_pcb *pcb)
     return ERR_OK;
  }
@@ -9290,7 +9347,7 @@ index 92fac86..77b2416 100644
  
     net_update_irq();
 diff --git a/src/net_service.h b/src/net_service.h
-index 7cfd975..8ad002f 100644
+index 7cfd975..dac9f45 100644
 --- a/src/net_service.h
 +++ b/src/net_service.h
 @@ -66,6 +66,8 @@
@@ -9316,6 +9373,14 @@ index 7cfd975..8ad002f 100644
  /* NET_PENDING is bit-7-CLEAR on purpose.  Bit 7 set means "the command was
     latched in FIQ but the main-loop poll has not produced a result yet" - the
     Beeb spins on it (the FAT-service "BMI wait" idiom) and it clears within one
+@@ -148,6 +157,6 @@ typedef enum {
+ #define NET_FLAG_RX_READY    0x08u /* bytes waiting in the RX ring           */
+ 
+ #define NET_MAX_HANDLES      8u    /* hard cap < MEMP_NUM_TCP_PCB (16)       */
+-#define NET_RX_RING_SIZE     8192u /* per-handle byte-stream ring            */
++#define NET_RX_RING_SIZE    65536u /* accepts any one lwIP TCP pbuf chain     */
+ 
+ #endif /* NET_SERVICE_H */
 diff --git a/src/puff.c b/src/puff.c
 new file mode 100644
 index 0000000..d759825
@@ -10254,10 +10319,10 @@ index d0b2ea8..450b204 100644
     endif()
 diff --git a/src/secure_service.c b/src/secure_service.c
 new file mode 100644
-index 0000000..8b049c7
+index 0000000..bf0cea1
 --- /dev/null
 +++ b/src/secure_service.c
-@@ -0,0 +1,135 @@
+@@ -0,0 +1,141 @@
 +/* Pi1MHz services-port wrapper for the NetTools secure ABI.
 + *
 + * FIQ only latches a command and publishes BUSY. All RNG, FatFs, lwIP and
@@ -10279,11 +10344,21 @@ index 0000000..8b049c7
 +static volatile uint32_t pending_addr;
 +static bool reset_pending;
 +static nts_secure_service service;
-+/* This bundle is built with the managed wolfSSH provider. Advertise the
-+   compiled ABI immediately; secure_poll replaces this snapshot with actual
-+   provider readiness after each reset. */
-+static volatile uint8_t capability_features = 7u;
-+static volatile uint8_t capability_managed_ssh = 1u;
++/* Report only capabilities which the hardware provider has reached. */
++static volatile uint8_t capability_features;
++static volatile uint8_t capability_managed_ssh;
++
++static void secure_refresh_capabilities(void)
++{
++    bool random_ready = nts_pi_wolfssh_random_ready();
++    bool ssh_ready = nts_pi_wolfssh_ready();
++    service.managed_ssh = ssh_ready;
++    capability_managed_ssh = ssh_ready ? 1u : 0u;
++    capability_features = (uint8_t)((random_ready ? 1u : 0u) |
++        (ssh_ready ? 2u : 0u) |
++        (ssh_ready && service.port != NULL &&
++         service.port->ssh_password != NULL ? 4u : 0u));
++}
 +
 +_Static_assert(NTS_SEC_CAPS == SERVICE_CMD_SECURE_FIRST,
 +               "secure service first command mismatch");
@@ -10350,16 +10425,12 @@ index 0000000..8b049c7
 +        nts_pi_wolfssh_reset();
 +        service.port = nts_pi_wolfssh_port();
 +        service.opaque = nts_pi_wolfssh_context();
-+        service.managed_ssh = nts_pi_wolfssh_ready();
-+        capability_managed_ssh = service.managed_ssh ? 1u : 0u;
-+        capability_features = (uint8_t)(1u |
-+            (service.managed_ssh ? 2u : 0u) |
-+            (service.managed_ssh && service.port != NULL &&
-+             service.port->ssh_password != NULL ? 4u : 0u));
++        secure_refresh_capabilities();
 +        reset_pending = false;
 +    }
 +
 +    nts_pi_wolfssh_poll();
++    secure_refresh_capabilities();
 +    if (pending) {
 +        uint32_t cp = pending_cp;
 +        uint32_t addr = pending_addr;
@@ -10621,10 +10692,10 @@ index 0000000..7184364
 +#endif
 diff --git a/src/secure_service_wolfssh.c b/src/secure_service_wolfssh.c
 new file mode 100644
-index 0000000..b9b22c9
+index 0000000..efe3012
 --- /dev/null
 +++ b/src/secure_service_wolfssh.c
-@@ -0,0 +1,684 @@
+@@ -0,0 +1,720 @@
 +/* Bare-metal Pi1MHz wolfSSH provider.
 + *
 + * This file is copied into the Pi1MHz source tree by install.sh.  It keeps
@@ -10720,9 +10791,14 @@ index 0000000..b9b22c9
 +static uint8_t file_buffer[SSH_FILE_SIZE + 1u];
 +static bool provider_ready;
 +static bool wolfssh_started;
++static bool wolfssh_init_attempted;
 +static bool rng_started;
++static bool rng_ready;
 +static bool rng_have_last;
 +static uint32_t rng_last;
++static uint8_t rng_sample_count;
++static uint8_t rng_zero_count;
++static uint8_t rng_ones_count;
 +
 +static int rng_word(uint32_t *out)
 +{
@@ -10761,22 +10837,42 @@ index 0000000..b9b22c9
 +    return 0;
 +}
 +
-+static bool rng_init(void)
++static void rng_begin(void)
 +{
-+    uint8_t sample[32];
-+    unsigned int zero = 0, ones = 0;
 +    BCM_RNG_INT_MASK |= 1u;
 +    BCM_RNG_STATUS = 0x00040000u; /* discard the first 0x40000 oscillator bits */
 +    BCM_RNG_CTRL |= 1u;
 +    rng_started = true;
++    rng_ready = false;
 +    rng_have_last = false;
-+    if (nts_bcm_random_block(sample, sizeof(sample)) != 0) return false;
-+    for (unsigned int i = 0; i < sizeof(sample); i++) {
-+        if (sample[i] == 0u) zero++;
-+        if (sample[i] == 0xffu) ones++;
++    rng_sample_count = 0u;
++    rng_zero_count = 0u;
++    rng_ones_count = 0u;
++}
++
++static void rng_poll(void)
++{
++    uint32_t word;
++    if (!rng_started || rng_ready || (BCM_RNG_STATUS >> 24) == 0u) return;
++
++    word = BCM_RNG_DATA;
++    if (rng_have_last && word == rng_last) {
++        rng_started = false;
++        return;
 +    }
-+    memset(sample, 0, sizeof(sample));
-+    return zero != sizeof(sample) && ones != sizeof(sample);
++    rng_last = word;
++    rng_have_last = true;
++    for (unsigned int i = 0; i < 4u; i++) {
++        uint8_t value = (uint8_t)word;
++        if (value == 0u) rng_zero_count++;
++        if (value == 0xffu) rng_ones_count++;
++        word >>= 8;
++    }
++    rng_sample_count++;
++    if (rng_sample_count == 8u) {
++        rng_ready = rng_zero_count != 32u && rng_ones_count != 32u;
++        if (!rng_ready) rng_started = false;
++    }
 +}
 +
 +static int port_random(void *opaque, uint8_t *out, size_t length)
@@ -11295,7 +11391,17 @@ index 0000000..b9b22c9
 +const nts_secure_port *nts_pi_wolfssh_port(void) { return &port; }
 +void *nts_pi_wolfssh_context(void) { return &client; }
 +int nts_pi_wolfssh_ready(void) { return provider_ready; }
-+void nts_pi_wolfssh_poll(void) { wifi_lwip_rx_kick(); }
++int nts_pi_wolfssh_random_ready(void) { return rng_ready; }
++void nts_pi_wolfssh_poll(void)
++{
++    wifi_lwip_rx_kick();
++    rng_poll();
++    if (rng_ready && !wolfssh_init_attempted) {
++        wolfssh_init_attempted = true;
++        provider_ready = wolfSSH_Init() == WS_SUCCESS;
++        wolfssh_started = provider_ready;
++    }
++}
 +
 +void nts_pi_wolfssh_reset(void)
 +{
@@ -11304,17 +11410,18 @@ index 0000000..b9b22c9
 +        (void)wolfSSH_Cleanup();
 +        wolfssh_started = false;
 +    }
++    wolfssh_init_attempted = false;
 +    (void)f_mkdir("Pi1MHz");
 +    (void)f_mkdir(SSH_DIR);
-+    provider_ready = rng_init() && wolfSSH_Init() == WS_SUCCESS;
-+    wolfssh_started = provider_ready;
++    provider_ready = false;
++    rng_begin();
 +}
 diff --git a/src/secure_service_wolfssh.h b/src/secure_service_wolfssh.h
 new file mode 100644
-index 0000000..6c35d6c
+index 0000000..4abd777
 --- /dev/null
 +++ b/src/secure_service_wolfssh.h
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,13 @@
 +#ifndef PI1MHZ_SECURE_SERVICE_WOLFSSH_H
 +#define PI1MHZ_SECURE_SERVICE_WOLFSSH_H
 +
@@ -11323,6 +11430,7 @@ index 0000000..6c35d6c
 +const nts_secure_port *nts_pi_wolfssh_port(void);
 +void *nts_pi_wolfssh_context(void);
 +int nts_pi_wolfssh_ready(void);
++int nts_pi_wolfssh_random_ready(void);
 +void nts_pi_wolfssh_poll(void);
 +void nts_pi_wolfssh_reset(void);
 +
@@ -11451,7 +11559,7 @@ index 89d2481..429c6b8 100644
 +#define ERR_CLSD       (-15)
  #endif
 diff --git a/src/tests/net/test_net.c b/src/tests/net/test_net.c
-index cdcac69..52e9da3 100644
+index cdcac69..00efe13 100644
 --- a/src/tests/net/test_net.c
 +++ b/src/tests/net/test_net.c
 @@ -315,7 +315,8 @@ int main(void)
@@ -11464,7 +11572,34 @@ index cdcac69..52e9da3 100644
  
     printf("== send ==\n");
     world_reset();
-@@ -408,7 +409,8 @@ int main(void)
+@@ -360,18 +361,20 @@ int main(void)
+    world_reset();
+    connect_handle(0);
+    {
+-      uint8_t *big = malloc(6000); memset(big, 'A', 6000);
+-      struct pbuf *p1 = make_pbuf(big, 6000);
++      uint8_t *big = malloc(60000); memset(big, 'A', 60000);
++      struct pbuf *p1 = make_pbuf_split(big, 60000, 1460);
+       CHECK(g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, p1, ERR_OK) == ERR_OK,
+-            "first 6000-byte segment fits");
++            "first 60000-byte chain fits");
+       struct pbuf *p2 = make_pbuf(big, 6000);
+       CHECK(g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, p2, ERR_OK) == ERR_MEM,
+             "second segment does not fit -> ERR_MEM (parked)");
+       issue(NET_CMD_RECV_AVAIL, 0);
+-      CHECK(jrd24(CP(0)+1) == 6000, "ring still holds only the first segment");
+-      jwr24(CP(0)+1, 6000); jwr32(CP(0)+4, 0x2000);
++      CHECK(jrd24(CP(0)+1) == 60000, "ring still holds only the first chain");
++      jwr24(CP(0)+1, 60000); jwr32(CP(0)+4, 0x0000);
+       issue(NET_CMD_RECV, 0);
+-      CHECK(jrd24(CP(0)+1) == 6000, "drained the first segment");
++      CHECK(jrd24(CP(0)+1) == 60000, "drained the first chain");
++      issue(NET_CMD_RECV_AVAIL, 0);
++      CHECK(jrd24(CP(0)+1) == 0, "large-chain drain leaves the ring empty");
+       CHECK(g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, p2, ERR_OK) == ERR_OK,
+             "redelivered parked segment now fits");
+       free(big);
+@@ -408,7 +411,8 @@ int main(void)
        CHECK(issue(NET_CMD_RECV, 0) == NET_OK, "recv drains buffered bytes despite reset -> OK");
        CHECK(jrd24(CP(0)+1) == 4, "got the 4 buffered bytes before signalling the error");
        jwr24(CP(0)+1, 64); jwr32(CP(0)+4, 0x9000);
@@ -11474,7 +11609,7 @@ index cdcac69..52e9da3 100644
     }
  
     printf("== DNS ==\n");
-@@ -986,6 +988,8 @@ int main(void)
+@@ -986,6 +990,8 @@ int main(void)
     g_tx[g_tx_len] = 0;
     CHECK(strstr((char *)g_tx, "GET /index.html HTTP/1.0") != NULL, "HTTP GET line sent");
     CHECK(strstr((char *)g_tx, "Host: 1.2.3.4") != NULL, "Host header sent");
@@ -11483,7 +11618,7 @@ index cdcac69..52e9da3 100644
     {
        static const char resp[] =
           "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n<html>hi</html>";
-@@ -1003,6 +1007,129 @@ int main(void)
+@@ -1003,6 +1009,175 @@ int main(void)
     CHECK((jrd8(CP(0)+7) | (jrd8(CP(0)+8)<<8)) == 200u, "url status reports HTTP 200 (+7..8)");
     CHECK(jrd8(CP(0)+3) == 1u, "DVSTAT connected byte set");
  
@@ -11535,6 +11670,52 @@ index cdcac69..52e9da3 100644
 +         memcpy(wire, header, sizeof header - 1u);
 +         for (size_t i = 0u; i < TITLES_LENGTH; i++)
 +            wire[sizeof header - 1u + i] = (uint8_t)(i * 37u + 11u);
++         /* The CYW43 path may present several TCP segments as one pbuf chain.
++            A receiver sized only for one Ethernet segment passes synthetic
++            tests but can refuse this real delivery shape forever because
++            lwIP retries the complete chain, not a partial prefix. */
++         {
++            struct pbuf *whole = make_pbuf_split(wire, (u16_t)wire_length,
++                                                 SEGMENT);
++            err_t accepted = g_last_pcb->recv(g_last_pcb->arg, g_last_pcb,
++                                              whole, ERR_OK);
++            CHECK(accepted == ERR_OK,
++                  "TITLES fits as one coalesced lwIP pbuf chain");
++            if (accepted == ERR_OK) {
++               size_t one_total = 0u;
++               while (one_total < TITLES_LENGTH) {
++                  uint32_t got;
++                  jwr24(CP(0) + 1u, READ_MAX);
++                  jwr32(CP(0) + 4u, 0x9000u);
++                  CHECK(issue(NET_CMD_URL_READ, 0) == NET_OK,
++                        "coalesced TITLES read completes");
++                  got = jrd24(CP(0) + 1u);
++                  CHECK(got != 0u && one_total + got <= TITLES_LENGTH,
++                        "coalesced TITLES read makes bounded progress");
++                  if (got == 0u || one_total + got > TITLES_LENGTH) break;
++                  CHECK(memcmp(wire + (sizeof header - 1u) + one_total,
++                               &Pi1MHz->JIM_ram[0x9000], got) == 0,
++                        "coalesced TITLES bytes are exact");
++                  one_total += got;
++               }
++               CHECK(one_total == TITLES_LENGTH,
++                     "coalesced TITLES returns exactly 11498 bytes");
++            } else {
++               pbuf_free(whole);
++            }
++            CHECK(issue(NET_CMD_URL_CLOSE, 0) == NET_OK,
++                  "coalesced TITLES closes cleanly");
++            world_reset();
++            strcpy((char *)&Pi1MHz->JIM_ram[CP(0) + 2u],
++                   "HTTP://acornelectron.nl/uefarchive/TITLES");
++            g_dns_sync = 1;
++            IP_ADDR4(&g_dns_result, 192, 0, 2, 80);
++            CHECK(issue(NET_CMD_URL_OPEN, 0) == NET_PENDING,
++                  "segmented TITLES open -> PENDING");
++            g_last_pcb->connected(g_last_pcb->arg, g_last_pcb, ERR_OK);
++            CHECK(issue(NET_CMD_URL_OPEN, 0) == NET_OK,
++                  "segmented TITLES open -> OK");
++         }
 +         while (sent < wire_length) {
 +            u16_t length = (u16_t)(wire_length - sent);
 +            struct pbuf *p;

@@ -287,7 +287,7 @@ class IntegrationContractTest(unittest.TestCase):
         )[0]
         self.assertNotIn("wifi_get_state", status_case)
         self.assertIn("response_string(cp, ELKWIFI_VERSION_RESPONSE)", status_case)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.54, kernel " GITVERSION', service)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.55, kernel " GITVERSION', service)
         self.assertIn("drv_svc_radio = 91", service_driver)
         wifi_control = service_driver.split(".service_driver_wifi_control", 1)[1].split(
             ".service_driver_ping", 1
@@ -734,9 +734,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jmp service_driver_version", public_driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/patches/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.54"', identity)
+        self.assertIn('romversion         equs "0.1.55"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/overlay/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.54 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.55 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)

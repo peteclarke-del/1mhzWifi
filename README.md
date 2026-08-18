@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.54` hardware-test ROM presents the applicable
+Micro through Pi1MHz. The `1MHzWifi 0.1.55` hardware-test ROM presents the applicable
 ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
@@ -20,10 +20,11 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-Version 0.1.54 is the current hardware-test build. Earlier 0.1.50 and
+Version 0.1.55 is the current hardware-test build. Earlier 0.1.50 and
 0.1.51 timing and WiCFS cursor changes caused physical MENU and local UEF
-regressions, so they are not release baselines. Version 0.1.54 retains the
-0.1.52 WiCFS execution path. Its WGET transport is not byte-identical to
+regressions, so they are not release baselines. Version 0.1.55 retains the
+0.1.54 WiCFS execution path and checkpoints its stream cursor at file and
+execution boundaries. Its WGET transport is not byte-identical to
 0.1.49: mailbox and JIM accesses include bounded settling required by the
 delayed-FIQ model. The published TITLES transfer takes about 42 seconds in the
 conservative emulator profile, during which `Loading title data` remains on
@@ -35,10 +36,11 @@ iteration count which could permanently disable wolfSSH on a Pi 3. HWDTEST now
 fails unless both secure random and managed SSH are ready. WGET error `&30`
 also prints the parsed HTTP status before closing the handle.
 
-The current ROM has reached animated THRUST gameplay through `*UEF LOAD` with
-the Tube disabled and enabled in the maintained Elkulator hardware model. The
-live published `*MENU` path has also downloaded and run FrakV2 in both Tube
-states. These emulator results protect the recovered game-loading baseline.
+The current 0.1.55 ROM has reached active THRUST gameplay through `*UEF LOAD`
+with the Tube disabled in the maintained Elkulator hardware model. Version
+0.1.54 also reached THRUST and live FrakV2 gameplay with the Tube disabled and
+enabled. Those earlier results protect the recovered baseline but do not sign
+off the changed 0.1.55 binary.
 Physical validation of `*VERSION`, SSH, MENU, local UEF loading and both Tube
 states remains mandatory before this build can be called fixed.
 
@@ -116,14 +118,14 @@ does not replace host programs already held on another disc image.
 
 When updating an existing test card, keep its `Pi1MHz.cfg` and saved
 `Pi1MHz/ElkWiFi.*` settings. Replace only the kernel used by that Pi and the
-host ROM. Release 0.1.54 retains the WiCFS changes and compressed-UEF Pi
+host ROM. Release 0.1.55 retains the WiCFS changes and compressed-UEF Pi
 service introduced in 0.1.8, supports zero-byte CFS marker files, preserves a
 live WiFi association across host resets, and restores the `WGET -U` contract for
 raw paged-RAM data such as the published menu TITLES catalogue. The matched
 kernel still provides service command 93 for ZIP and gzip UEF normalization,
 so replace both the ROM and the kernel from the same bundle.
 
-Release 0.1.54 includes the public application ABI repairs. OSWORD `&65`
+Release 0.1.55 includes the public application ABI repairs. OSWORD `&65`
 functions 0 and 1 reset volatile TCP state without dropping the saved
 association, function 4 reads the caller's JOIN block, function 8 preserves
 the port field across
@@ -131,7 +133,7 @@ DNS resolution, and function 9 accepts the original single-connection setup
 as a successful no-op. These paths are used by ElkChat and other applications
 which call the driver directly rather than issuing star commands.
 
-Release 0.1.54 keeps all WiCFS state out of `&03E0-&03FF`, the MOS keyboard
+Release 0.1.55 keeps all WiCFS state out of `&03E0-&03FF`, the MOS keyboard
 input buffer which holds the queued `*REWIND` and `CHAIN ""` launch. Stream
 state again uses the original WiCFS cassette-workspace zero-page locations.
 Vector ownership and predecessor state is persisted through the AP5-forwarded
@@ -140,25 +142,30 @@ attempted to use JIM page `00:02:00`, but an unmodified AP5 does not forward
 `&FCFD` or `&FCFE`; the write therefore aliased page zero and corrupted the
 start of every downloaded UEF. Its host copy exists only while installing or
 releasing WiCFS.
+Version 0.1.55 extends that transactional record with the current UEF offset,
+JIM page, stream-start flag and remaining-byte count. It writes the record
+only when a file is opened, closed, completed or about to execute. This lets a
+loaded title overwrite volatile cassette workspace without losing the next
+file position, while avoiding a services-mailbox transaction for every byte.
 The public driver's page shadow is similarly transient in ROM heap. During
 reset, MOS rebuilds the standard and extended vector tables before issuing ROM
 service calls. The ROM therefore discards its saved WiCFS ownership record and
 does not restore stale predecessor vectors over ADFS, DFS, MMFS or another ROM
 which has already reclaimed them during the same reset pass.
 
-Release 0.1.54 also retains the common WiCFS completion-path correction used by `*MENU`
+Release 0.1.55 also retains the common WiCFS completion-path correction used by `*MENU`
 and `*UEF LOAD`. The cassette last-block bit is now tested before the legacy
 loader compatibility helper can change the processor flags. A completed file
 therefore returns to MOS at its own final block instead of consuming later
 files and eventually reporting `End of UEF` or an invalid chunk type.
 
-Release 0.1.54 uses the single standard 64K JIM window which the AP5 actually
+Release 0.1.55 uses the single standard 64K JIM window which the AP5 actually
 exposes through `&FCFF` and `&FD00-&FDFF`. Each WiCFS read is an interrupt-safe
 page-select and data transaction. The data byte is recovered before
 the saved processor flags because both values occupy the 6502 hardware stack
 during the transaction.
 
-Release 0.1.54 retains the removal of the incorrect Tube-transfer path exposed
+Release 0.1.55 retains the removal of the incorrect Tube-transfer path exposed
 by physical testing. 1MHzWifi is an Electron 1MHz-bus filing system and always
 places UEF data in host memory. The patched menu uses OSBYTE `&EA` only to
 detect an active Tube. It then enters the installed BASIC ROM directly on the
@@ -166,7 +173,7 @@ Electron and queues `PAGE=&E00` before the internal WiCFS launch command. It
 does not access Tube registers, claim a channel, disable the Tube, or transfer
 code through it. The stock menu launch remains `REWIND`, then `CHAIN ""`.
 
-Release 0.1.54 also retains the original Zalaga loader's cassette `/` handoff fix.
+Release 0.1.55 also retains the original Zalaga loader's cassette `/` handoff fix.
 WiCFS now handles FSCV reason 8 locally while it is the active filing system.
 Earlier builds forwarded that notification through the displaced cassette
 handler's extended-vector frame, so the following FSCV reason 2 never reached
@@ -203,12 +210,12 @@ retaining the current Pi1MHz source revision.
 Release hashes:
 
 ```text
-1MHzWifi ROM d8bb1fc8fee0736efc8ea0b14b2950b528626a7116fe9a7414fe5eaec5e4a0a3
-kernel.img   8fcd5fdc06330872217d9d001c41d5d62201aed6dbfa0a05df00e7fa481a4631
-kernel7.img  88b3e0547f497c433d476292bf29518973138bd93bb7e24c553d08964ea2a1f8
+1MHzWifi ROM ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb
+kernel.img   0a9beedc77d7828a6f5a1a1126f40f47ef601f2a2534840f70d416089d85534a
+kernel7.img  ea7273028a547ef314d2af70f27ed8f4392a7d15a6652df091f67062d5e1c1c9
 EMMFS.rom    b6c766c9a469867cddc0b64900db1693565f59bb6a051dc1a36073e446165955
-nettools.ssd 3aa02d9e0ca0a00ea5175a5655ccae1dd9b0fcce4a1dfde24116a80863932f5e
-bundle ZIP   ce08f0bd2dbcdc6ce994bb546adee0cbc48019a17495af3df88de87b0c4097d3
+nettools.ssd a44d87062f5af4a84271816fa321d39f6c9220576f5d438affee98ae50630187
+bundle ZIP   ab024540d623a34b0fbc2063e382b187cca3f6ad4cb2df60bb52f3baadffc50b
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -342,10 +349,10 @@ The maintained Elkulator adapter now includes an AP5 Tube ULA and external
 cold boot without manual intervention. A clean live run with the photographed
 ROM order first reproduced the hardware boundary exactly with 0.1.25: Zalaga
 downloaded, the initial `ZALAGA 05 05EE` file loaded, and execution returned to
-the Tube BASIC prompt. The current 0.1.54 differential exercises catalogue
-entries by sorted index, not by title-specific ROM behavior. The exact final
-ROM reaches FrakV2 gameplay through MENU and enters Thrust gameplay through
-local UEF import with Tube disabled and enabled. Physical-hardware
+the Tube BASIC prompt. The differential runner exercises catalogue entries by
+sorted index, not by title-specific ROM behavior. The exact 0.1.55 ROM enters
+Thrust gameplay through local UEF import with the Tube disabled. Its MENU and
+Tube-enabled runs remain unchecked. Physical-hardware
 gameplay remains an open release gate and must not be inferred from the
 emulator result.
 

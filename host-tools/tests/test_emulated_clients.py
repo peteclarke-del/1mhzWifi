@@ -227,7 +227,7 @@ class Pi1MHzMemory:
         if command == 90:  # cancel asynchronous ElkWiFi operation
             return NET_OK
         if command == 80:  # ElkWiFi status/version
-            response = b"Pi1MHz ElkWiFi 0.1.54, kernel fixture\r\n\r\nOK\r\n\0"
+            response = b"Pi1MHz ElkWiFi 0.1.55, kernel fixture\r\n\r\nOK\r\n\0"
             self.jim[block + 1:block + 1 + len(response)] = response
             return NET_OK
         if command == 60:  # URL_OPEN
@@ -613,7 +613,7 @@ class EmulatedClientTests(unittest.TestCase):
         self.assertIn("CAPS 6-10: 01 01 4E 54 53", visible)
         self.assertIn("HWDTEST RESULT PASS", visible)
         self.assertEqual(machine.oscli_commands, ["ROMS"])
-        self.assertIn("Pi1MHz ElkWiFi 0.1.54", visible)
+        self.assertIn("Pi1MHz ElkWiFi 0.1.55", visible)
 
     def test_hardware_diagnostic_fails_when_managed_ssh_is_not_ready(self):
         machine = ClientMachine(

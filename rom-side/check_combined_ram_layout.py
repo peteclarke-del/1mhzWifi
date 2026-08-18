@@ -93,7 +93,7 @@ def main() -> int:
 
     expected = {
         "wicfs_state_ram": 0x0380,
-        "wicfs_machine": 0x0395,
+        "wicfs_machine": 0x00C3,
         "filev_x": 0x0396,
         "filev_y": 0x0397,
         "notape": 0x0398,

@@ -1,0 +1,76 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -47,12 +47,20 @@
+ fscv_prev_rom   = wicfs_state_ram+12
+ bytev_rtn       = wicfs_state_ram+13
+ wicfs_magic     = wicfs_state_ram+15
+-wicfs_state_size = 17
+-wicfs_state_generation = wicfs_state_ram+17
+-wicfs_state_checksum = wicfs_state_ram+18
+-wicfs_state_expected = wicfs_state_ram+19
+-wicfs_state_result = wicfs_state_ram+20
+-wicfs_machine = wicfs_state_ram+21
++wicfs_cursor_y = wicfs_state_ram+17
++wicfs_cursor_page = wicfs_state_ram+18
++wicfs_stream_start = wicfs_state_ram+19
++wicfs_bytes_lo = wicfs_state_ram+20
++wicfs_bytes_hi = wicfs_state_ram+21
++wicfs_state_size = 22
++
++\ Transaction scratch is zero-page and never part of the persisted payload.
++\ These locations are already private, transient WiCFS workspace.
++wicfs_state_generation = &C5
++wicfs_state_checksum = &C6
++wicfs_state_expected = &CD
++wicfs_state_result = &C4
++wicfs_machine = &C3
+ 
+ wicfs_record_valid = 0
+ wicfs_record_version = 1
+@@ -360,6 +368,16 @@
+ 	BEQ	wicfs_state_final_generation
+ 	JMP	wicfs_state_load_invalid
+ .wicfs_state_final_generation
++	LDA	wicfs_cursor_y
++	STA	pr_y
++	LDA	wicfs_cursor_page
++	STA	pr_r
++	LDA	wicfs_stream_start
++	STA	sbuft
++	LDA	wicfs_bytes_lo
++	STA	sbufl
++	LDA	wicfs_bytes_hi
++	STA	sbufh
+ 	LDA	#0
+ 	BEQ	wicfs_state_load_result
+ .wicfs_state_load_invalid
+@@ -391,6 +409,16 @@
+ 	PHA
+ 	TYA
+ 	PHA
++	LDA	pr_y
++	STA	wicfs_cursor_y
++	LDA	pr_r
++	STA	wicfs_cursor_page
++	LDA	sbuft
++	STA	wicfs_stream_start
++	LDA	sbufl
++	STA	wicfs_bytes_lo
++	LDA	sbufh
++	STA	wicfs_bytes_hi
+ 	LDX	#wicfs_record_valid
+ 	JSR	wicfs_state_address_x
+ 	LDA	#0
+@@ -666 +694 @@
+-	JSR	wicfs_state_save	\commit immutable vector ownership record
++	JSR	wicfs_state_save	\commit vector ownership and initial stream cursor
+@@ -749,0 +778 @@
++	JSR	wicfs_state_save	\checkpoint cursor before executing loaded code
+@@ -756,0 +786 @@
++	JSR	wicfs_state_save	\checkpoint the completed unsuccessful search
+@@ -1141,0 +1172 @@
++	JSR	wicfs_state_save	\persist open, close and cursor changes
+@@ -1385 +1417,2 @@
+-.clfscv	JMP	actioned		\return command claimed
++.clfscv	JSR	wicfs_state_save	\checkpoint before a loaded program runs
++	JMP	actioned		\return command claimed

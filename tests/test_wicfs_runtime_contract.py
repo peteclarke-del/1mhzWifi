@@ -12,6 +12,7 @@ from py65.devices.mpu6502 import MPU
 
 PATCH = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-private-workspace.patch"
 TRANSACTIONAL = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-transactional-state.patch"
+STREAM_CHECKPOINT = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-stream-checkpoint.patch"
 ROM_START = 0x8000
 
 
@@ -125,7 +126,7 @@ class WicfsRuntimeContractTest(unittest.TestCase):
             (".uef_cmd", ".wicfs_state_load", ".menu_cmd", ".pi_wget_cmd"))}]
         base = """
 wicfs_state_ram = &0380
-wicfs_machine = &0395
+wicfs_machine = &C3
 filev_x = &0396
 filev_y = &0397
 notape = &0398
@@ -237,7 +238,7 @@ host_basic_pending = &03BD
             with self.subTest(value=f"{value:04X}"):
                 memory = bytearray(0x10000)
                 memory[ROM_START:ROM_START + len(self.rom)] = self.rom
-                memory[0x0395] = 1  # Electron: only FCFF is Pi-visible.
+                memory[0x00C3] = 1  # Electron: only FCFF is Pi-visible.
                 mpu = MPU(memory=memory, pc=start)
                 mpu.a = value & 0xFF
                 mpu.y = value >> 8
@@ -449,17 +450,18 @@ host_basic_pending = &03BD
         self.assertNotRegex(text, r"(?m)^\+(?:filev_x|filev_y|bget_y|filev_source|fscv_reason|chain_\w+)\s*=\s*heap")
 
     def test_stream_cursor_is_round_tripped_with_vector_state(self) -> None:
-        text = TRANSACTIONAL.read_text()
-        self.assertIn("+wicfs_state_size = 17", text)
+        text = STREAM_CHECKPOINT.read_text()
+        self.assertIn("+wicfs_state_size = 22", text)
         for field in ("wicfs_cursor_y", "wicfs_cursor_page", "wicfs_stream_start",
                       "wicfs_bytes_lo", "wicfs_bytes_hi"):
-            self.assertNotRegex(text, rf"(?m)^\+.*{field}")
-        bget = text.split(" .upbgetv", 1)[1].split("@@ -1268", 1)[0]
-        self.assertNotRegex(bget, r"(?m)^\+.*wicfs_state_load")
-        self.assertNotRegex(
-            text.split("@@ -1268", 1)[1].split("@@ -1629", 1)[0],
-            r"(?m)^\+.*wicfs_state_save",
-        )
+            self.assertRegex(text, rf"(?m)^\+{field} = ")
+        self.assertIn("checkpoint cursor before executing loaded code", text)
+        self.assertIn("checkpoint before a loaded program runs", text)
+        self.assertIn("persist open, close and cursor changes", text)
+        # Persistence is deliberately at file/FSC boundaries. Rewriting a
+        # checksummed 22-byte record for every OSBGET byte would recreate the
+        # physical performance regression this checkpoint replaces.
+        self.assertNotIn(".upbgetv", text)
 
     def test_public_jim_selection_is_machine_local(self) -> None:
         text = TRANSACTIONAL.read_text()
@@ -530,8 +532,12 @@ host_basic_pending = &03BD
                 value ^= byte
             return bytes(record[payload_at:]) if value == record[checksum] else None
 
-        old = bytes(range(17))
-        new = bytes((value ^ 0xA5) for value in range(17))
+        # The payload includes 17 bytes of vector ownership followed by the
+        # UEF offset, page, start flag and two-byte remaining length. A title
+        # program may destroy the corresponding volatile zero-page values;
+        # the next WiCFS file entry must recover these final five bytes.
+        old = bytes(range(22))
+        new = bytes((value ^ 0xA5) for value in range(22))
         original = make_record(old, 7)
         new_generation = 8
         new_checksum = 1 ^ new_generation
@@ -550,6 +556,7 @@ host_basic_pending = &03BD
                 self.assertEqual(accepted, old)
             elif interrupted_after == len(writes):
                 self.assertEqual(accepted, new)
+                self.assertEqual(accepted[-5:], new[-5:])
             else:
                 self.assertIsNone(accepted, interrupted_after)
 

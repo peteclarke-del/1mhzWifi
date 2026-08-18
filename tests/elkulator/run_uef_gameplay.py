@@ -104,8 +104,18 @@ def main() -> int:
               "the conservative fault-injection default"),
     )
     parser.add_argument("--display", type=int, default=123)
-    parser.add_argument("--wait", type=float, default=150.0)
-    parser.add_argument("--sample-interval", type=float, default=2.0)
+    parser.add_argument("--wait", type=float, default=900.0)
+    parser.add_argument("--sample-interval", type=float, default=5.0)
+    parser.add_argument(
+        "--gameplay-input", default="space,space",
+        help=("comma-separated X11 keys sent after the reviewed title frame; "
+              "Thrust requires one Space for the score screen and another "
+              "for active play"),
+    )
+    parser.add_argument(
+        "--gameplay-input-delay", type=float, default=2.0,
+        help="minimum emulated wall time between gameplay input keys",
+    )
     parser.add_argument("--title-reference", type=Path, required=True)
     parser.add_argument("--gameplay-reference", type=Path, required=True)
     parser.add_argument(
@@ -118,6 +128,12 @@ def main() -> int:
     args = parser.parse_args()
     if args.sample_interval <= 0:
         parser.error("--sample-interval must be positive")
+    if args.gameplay_input_delay < 0:
+        parser.error("--gameplay-input-delay must not be negative")
+    gameplay_input = [key.strip() for key in args.gameplay_input.split(",")
+                      if key.strip()]
+    if not gameplay_input:
+        parser.error("--gameplay-input must contain at least one key")
     if not 0.5 <= args.similarity <= 1.0:
         parser.error("--similarity must be between 0.5 and 1.0")
     if args.profile == "adfs-beebscsi" and args.beebscsi_lun is None:
@@ -234,6 +250,8 @@ def main() -> int:
         number = 0
         capture_times = []
         first_game_input_seconds = None
+        gameplay_input_index = 0
+        next_game_input_at = None
         while time.monotonic() < deadline and process.poll() is None:
             time.sleep(min(args.sample_interval,
                            max(0.0, deadline - time.monotonic())))
@@ -249,7 +267,15 @@ def main() -> int:
             if (first_game_input_seconds is None and
                     similarity(screenshot, args.title_reference) >= args.similarity):
                 first_game_input_seconds = elapsed
-                inject_x11_keys(display, ["space"])
+                inject_x11_keys(display, [gameplay_input[0]])
+                gameplay_input_index = 1
+                next_game_input_at = time.monotonic() + args.gameplay_input_delay
+            elif (next_game_input_at is not None and
+                    gameplay_input_index < len(gameplay_input) and
+                    time.monotonic() >= next_game_input_at):
+                inject_x11_keys(display, [gameplay_input[gameplay_input_index]])
+                gameplay_input_index += 1
+                next_game_input_at = time.monotonic() + args.gameplay_input_delay
         screenshots = sorted_screens(args.output)
         pre_input = [screen for screen, elapsed in zip(screenshots, capture_times)
                      if (first_game_input_seconds is None or
@@ -308,6 +334,7 @@ def main() -> int:
         )
         passed = bool(
             alive_at_deadline and title_seen and gameplay_seen and
+            gameplay_input_index == len(gameplay_input) and
             input_correlated_change and gameplay_motion and
             media_unchanged and config_unchanged and
             tube_started and not failure_seen and not mos_errors and
@@ -330,7 +357,9 @@ def main() -> int:
             "screenshots": [str(path) for path in screenshots],
             "capture_times_seconds": capture_times,
             "first_game_input_seconds": first_game_input_seconds,
-            "game_input_source": "reviewed-title-frame-triggered X11 Space",
+            "game_input_source": "reviewed-title-frame-triggered X11 sequence",
+            "gameplay_input": gameplay_input,
+            "gameplay_input_complete": gameplay_input_index == len(gameplay_input),
             "acceptance_thresholds": {
                 "similarity": args.similarity,
                 "input_change_pixels": 1000,
