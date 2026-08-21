@@ -29,6 +29,7 @@ fi
 git clone --quiet --no-checkout "$source_tree" "$checkout"
 git -C "$checkout" checkout --quiet "$expected"
 
+ELKWIFI_ROM=${ELKWIFI_ROM:-$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom} \
 WOLFSSL_SOURCE=${WOLFSSL_SOURCE:-} \
 WOLFSSH_SOURCE=${WOLFSSH_SOURCE:-} \
     "$script_dir/install_bundle.sh" "$checkout" apply

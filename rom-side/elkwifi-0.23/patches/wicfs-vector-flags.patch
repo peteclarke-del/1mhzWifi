@@ -1,0 +1,85 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -1624,6 +1624,12 @@
+ \previous extended-vector owner. Its RTS returns through the existing MOS
+ \extended-vector frame, so MOS restores the caller's original ROM normally.
+ .chain_previous_rom
++	LDA	#&EA			\FILEV/FINDV have no saved entry flags: patch NOP
++	BNE	chain_previous_rom_mode
++.chain_previous_rom_fscv
++	LDA	#&28			\FSCV saved entry flags: patch PLP
++.chain_previous_rom_mode
++	PHA
+ 	LDA	#&81
+ 	LDX	#0
+ 	LDY	#&FF
+@@ -1651,6 +1657,8 @@
+ 	LDA	#12
+ .chain_preselect_ready
+ 	STA	chain_exec+(chain_preselect_value-chain_code)+1
++	PLA
++	STA	chain_exec+(chain_entry_flags-chain_code)
+ ASSERT chain_exec+(chain_code_end-chain_code) <= host_basic_pending
+ 	JMP	chain_exec
+ .chain_code
+@@ -1669,6 +1677,8 @@
+ 	LDX	chain_x
+ 	LDY	chain_y
+ 	PLP
++.chain_entry_flags
++	NOP			\patched to PLP only for an FSCV predecessor
+ 	JMP	(chain_target)
+ .chain_code_end
+ 
+@@ -1682,6 +1692,7 @@
+ \Filters selected FSCV functions
+ 
+ .upfscv
++	PHP			\preserve the complete extended-vector entry context
+ 	STA	fscv_reason
+ 	STX	fscv_x
+ 	STY	fscv_y
+@@ -1689,10 +1700,11 @@
+ 	JSR	wicfs_state_load	\restore predecessor FSCV after saving arguments
+ 	BCC	upfscv_state_valid
+ 	LDA	fscv_reason		\bounded claim; never jump through stale FSCVRTN
++	PLP
+ 	RTS
+ .upfscv_state_valid
+-	TSX				\previous ROM is byte three in the MOS vector frame
+-	LDA	&0103,X
++	TSX				\saved P precedes the MOS extended-vector frame
++	LDA	&0104,X
+ 	STA	currom
+ 	LDX	fscv_x
+ 	LDY	fscv_y
+@@ -1888,11 +1900,12 @@
+ 	STA	chain_target
+ 	LDA	FSCVRTN+1
+ 	STA	chain_target+1
+-	JMP	chain_previous_rom
++	JMP	chain_previous_rom_fscv
+ .xfscv_direct
+ 	LDA	fscv_reason
+ 	LDX	fscv_x
+ 	LDY	fscv_y
++	PLP
+ 	JMP	(FSCVRTN)		\return command unclaimed
+ 
+ \...............................................................................
+@@ -1953,6 +1966,7 @@
+ .actioned
+ 	LDY	loadrun
+ 	BPL	ret_fscv
++	PLP			\loaded code receives the native extended-vector stack
+ 	\ Reproduce the native cassette execution context without assuming a ROM
+ 	\ slot. If the displaced cassette vector was a direct MOS vector, retain
+ 	\ the real caller context captured from the extended-vector frame.
+@@ -2025,6 +2039,7 @@
+ 	RTS			\return through the intact MOS extended-vector frame
+ .run_code_end
+ .ret_fscv
++	PLP
+ 	RTS
+ 
+ \~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

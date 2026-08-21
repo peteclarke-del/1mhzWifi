@@ -178,10 +178,12 @@
  	LDY	bget_y
  	RTS				\claim while preserving OSBGET X/Y and carry
  
-@@ -1150,6 +1184,8 @@
+@@ -1150,6 +1184,10 @@
  	PLA
  	PLA
  	PLA
++	PLA
++	PLA
 +	PLA
 +	PLA
  	JMP	(&03C2)

@@ -86,6 +86,11 @@ menu_basic_slot = heap+&E6
     jmp call_claimed
 
 .menu_select_tape
+    \ Preserve the active disk filing system before selecting cassette. WiCFS
+    \ later consumes this snapshot so output files and final release return to
+    \ ADFS, DFS or MMFS rather than to the intermediate cassette owner.
+    jsr release_owned_wicfs
+    jsr wicfs_snapshot_pre_tape
     jsr wicfs_release_tape_trap
     bcc menu_tape_released
     jsr printtext
@@ -110,7 +115,7 @@ menu_basic_slot = heap+&E6
 .menu_tape_command_end
 
 \ WiCFS suppresses OSBYTE &8C while a downloaded UEF is active. Multi-stage
-\ cassette loaders, including Zalaga, restore the MOS vectors and issue *TAPE;
+\ cassette loaders may restore the MOS vectors and issue *TAPE;
 \ suppressing that request is part of the original WiCFS contract. MENU is the
 \ one controlled transition back to cassette state. Restore the BYTEV saved in
 \ the RAM trap before MENU deliberately executes its own TAPE command.

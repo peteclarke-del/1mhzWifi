@@ -1,0 +1,17 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -748,10 +748,8 @@
+ 
+ .b_install
+-\Tell the current filing system it is being replaced, then retain its direct
+-\vectors for operations WiCFS does not implement. *UPCFS selects *TAPE first,
+-\so these are the MOS cassette handlers rather than another extended owner.
+-	LDA	#6
+-	JSR	OSFSC
++\Retain the live cassette vectors before replacing them, matching original
++\ElkWiFi. Do not issue filing-system shutdown here: doing so changes the
++\cassette FSCV target and its observable OSBYTE return values.
+-	LDA	#&A8		\OSFSC may use B8/B9; refresh the extended table pointer
++	LDA	#&A8		\obtain the MOS extended-vector table pointer
+ 	LDX	#0
+ 	LDY	#&FF

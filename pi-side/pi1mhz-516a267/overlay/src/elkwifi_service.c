@@ -45,7 +45,7 @@
  * first 64K so the host and Pi always refer to the same physical bytes. */
 #define ELKWIFI_UEF_BASE 0u
 #define ELKWIFI_VERSION_RESPONSE \
-   "Pi1MHz ElkWiFi 0.1.55, kernel " GITVERSION "\r\n\r\nOK\r\n"
+   "Pi1MHz ElkWiFi 0.1.58, kernel " GITVERSION "\r\n\r\nOK\r\n"
 
 _Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
                "ElkWiFi service range start disagrees with services.h");
@@ -61,6 +61,7 @@ static bool service_initialised;
 static bool scan_waiting;
 static uint8_t scan_fields = 127u;
 static uint8_t uef_scratch[0xfffeu];
+static bool uef_trim_tail;
 
 typedef enum {
    NETOP_IDLE = 0,
@@ -331,6 +332,14 @@ static int16_t utc_offset_parse(const char *value)
       if (parsed > 14 * 60) return 0;
    }
    return (int16_t)(negative ? -parsed : parsed);
+}
+
+static bool config_enabled(const char *value)
+{
+   return value != NULL
+       && (strcmp(value, "1") == 0 || strcasecmp(value, "yes") == 0
+           || strcasecmp(value, "true") == 0
+           || strcasecmp(value, "on") == 0);
 }
 
 static void format_network_time(uint32_t cp, bool date)
@@ -865,7 +874,10 @@ static uint8_t process_request(uint32_t cp)
             response_string(cp, "INVALID\r\n");
             return ELKWIFI_OK;
          }
-         length = uef_wicfs_stream_length(&Pi1MHz->JIM_ram[base], length);
+         /* Original WiCFS receives the complete UEF. Tail trimming is an
+          * explicit diagnostic comparison only, not the compatibility path. */
+         if (uef_trim_tail)
+            length = uef_legacy_trim_length(&Pi1MHz->JIM_ram[base], length);
          Pi1MHz->JIM_ram[trailer] = (uint8_t)length;
          Pi1MHz->JIM_ram[trailer + 1u] = (uint8_t)(length >> 8);
          response_string(cp, normalized == UEF_NORMALIZE_RAW ? "RAW\r\n"
@@ -993,6 +1005,7 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
       lapopt_load();
       time_utc_offset_minutes = utc_offset_parse(
          config_get("elkwifi_utc_offset_minutes"));
+      uef_trim_tail = config_enabled(config_get("elkwifi_uef_trim_tail"));
    }
    /* Re-read the saved profile on every host reset, but credentials_load
     * preserves an already-running association when the profile is unchanged. */

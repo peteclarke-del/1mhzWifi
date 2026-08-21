@@ -40,3 +40,9 @@ Set `PI1MHZ_FIQ_DELAY_ACCESSES=5` to enable the conservative timing fault
 model used by the release smoke tests. It delays selector-to-data publication
 and FCA9 cursor acknowledgement instead of giving tight 6502 code an
 unrealistically synchronous mailbox.
+
+Set `PI1MHZ_BUS_TRACE=/path/to/bus.trace` when a test needs the exact order of
+host accesses to the services registers, JIM selector/window, and Tube
+register block. The trace includes emulated host cycles and mapped JIM byte
+addresses. It is diagnostic evidence from the emulator, not a physical bus
+timing measurement.

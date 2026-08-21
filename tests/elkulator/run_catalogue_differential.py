@@ -25,7 +25,8 @@ import time
 # These runners are both executable scripts and are imported directly by the
 # contract tests.  Make their sibling support module resolvable in both cases.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from provenance import snapshot, sorted_screens, source_revision
+from provenance import bus_trace_summary, snapshot, sorted_screens, source_revision
+from runtime import prepare_runtime
 
 
 SUFFIXES = (
@@ -106,6 +107,11 @@ def parse_arguments() -> argparse.Namespace:
         help=("override only the FIQ capture delay; omit this option to use "
               "the conservative fault-injection default"),
     )
+    parser.add_argument(
+        "--no-bus-trace", action="store_true",
+        help=("disable high-volume bus logging for performance measurement; "
+              "not permitted for Tube coexistence acceptance"),
+    )
     args = parser.parse_args()
     if not 0.5 <= args.similarity <= 1.0:
         parser.error("--similarity must be between 0.5 and 1.0")
@@ -115,6 +121,8 @@ def parse_arguments() -> argparse.Namespace:
         parser.error("--transition-margin must be greater than zero and at most one")
     if args.samples < 2 or args.control_samples < 2:
         parser.error("--samples and --control-samples must both be at least two")
+    if args.no_bus_trace and args.tube_mode == "both":
+        parser.error("--no-bus-trace cannot be used with --tube-mode both")
     if args.profile == "adfs-beebscsi" and args.beebscsi_lun is None:
         parser.error("--profile adfs-beebscsi requires --beebscsi-lun")
     if args.profile == "mmfs":
@@ -438,6 +446,7 @@ def run_one(args: argparse.Namespace, entry: dict[str, object], tube: bool,
     directory = args.output / f"{int(entry['index']):04d}-{entry['name']}" / label
     directory.mkdir(parents=True, exist_ok=True)
     trace = directory / "network.trace"
+    bus_trace = directory / "bus.trace"
     log = directory / "elkulator.log"
     environment = {
         key: value for key, value in os.environ.items()
@@ -448,6 +457,8 @@ def run_one(args: argparse.Namespace, entry: dict[str, object], tube: bool,
         "PI1MHZ_MAILBOX": "live",
         "PI1MHZ_TRACE": str(trace),
     })
+    if not args.no_bus_trace:
+        environment["PI1MHZ_BUS_TRACE"] = str(bus_trace)
     if args.fiq_delay is not None:
         environment["PI1MHZ_FIQ_DELAY_ACCESSES"] = str(args.fiq_delay)
     if args.sd_image:
@@ -526,9 +537,8 @@ def run_one(args: argparse.Namespace, entry: dict[str, object], tube: bool,
     log_text = log.read_text(errors="replace") if log.exists() else ""
     mos_errors = [text for text in ("Bad program", "Unexpected EOF", "Chunk type")
                   if text.casefold() in log_text.casefold()]
-    tube_started = bool(
-        not tube or "AP5 Tube: external 3MHz 65C02 enabled" in log_text
-    )
+    tube_started = "AP5 Tube: external 3MHz 65C02 enabled" in log_text
+    tube_requirement_satisfied = not tube or tube_started
     correlated_changes = [frame_change_pixels(screenshots[0], screen)
                           for screen in screenshots[1:]] if screenshots else []
     post_motion_changes = [frame_change_pixels(left, right)
@@ -564,8 +574,10 @@ def run_one(args: argparse.Namespace, entry: dict[str, object], tube: bool,
         "log": str(log),
         "alive_after_capture": alive_after_capture,
         "tube_started": tube_started,
+        "tube_requirement_satisfied": tube_requirement_satisfied,
         "mos_errors_in_log": mos_errors,
         "beebscsi_mounted": "BeebSCSI: LUN 0 mounted at &FC40" in log_text,
+        "bus_trace": bus_trace_summary(bus_trace),
     }
 
 
@@ -612,8 +624,12 @@ def main() -> int:
         raise SystemExit("missing gameplay input for: " +
                          ", ".join(missing_input_names))
     if args.output.exists() and any(args.output.iterdir()):
-        parser.error(f"output directory is not empty: {args.output}")
+        raise SystemExit(f"output directory is not empty: {args.output}")
     args.output.mkdir(parents=True, exist_ok=True)
+    source_runtime = args.runtime_dir
+    args.runtime_dir = prepare_runtime(
+        source_runtime, args.output / "runtime",
+    )
     display = f":{args.display}"
     xvfb_log = (args.output / "xvfb.log").open("wb")
     xvfb = subprocess.Popen(
@@ -672,6 +688,7 @@ def main() -> int:
             "conservative-fault-injection" if args.fiq_delay is None
             else f"capture-override-{args.fiq_delay}"
         ),
+        "bus_trace_enabled": not args.no_bus_trace,
         "profile_note": (
             "BeebSCSI LUN 0 mounted through the full-decode AP5 profile"
             if args.profile == "adfs-beebscsi"
@@ -688,7 +705,7 @@ def main() -> int:
                 "elk_cfg": args.runtime_dir / "elk.cfg",
                 "pi1mhz_cfg": args.runtime_dir / "Pi1MHz.cfg",
             }),
-            "runtime_source": source_revision(args.runtime_dir),
+            "runtime_source": source_revision(source_runtime),
             "integration_source": source_revision(Path(__file__).resolve().parents[2]),
         },
         "results": [],
@@ -754,7 +771,8 @@ def main() -> int:
             if on is not None:
                 passed = bool(
                     passed and on["closed"] and on["menu_ready"] and
-                    on["alive_after_capture"] and on["tube_started"] and
+                    on["alive_after_capture"] and
+                    on["tube_requirement_satisfied"] and
                     on_gameplay is not None and
                     on_gameplay >= args.gameplay_similarity and on["ready_seen"] and
                     on["gameplay_transition"] and on["input_correlated_change"] and

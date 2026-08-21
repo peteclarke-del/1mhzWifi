@@ -75,6 +75,13 @@ The runner types only `*MENU` during boot. It waits for the traced TITLES close
 event, focuses Elkulator, and then selects the requested catalogue letter.
 This avoids guessing how long ADFS and the live title-data transfer will take.
 
+`run_nettools_hardware.py` also accepts `--raw-command` for diagnostics which
+must be entered at a language prompt rather than through OSCLI. Its command
+keyboard covers ADFS `$` paths using the Electron's Shift+4 mapping. This was
+used with `*ADFS`, `*MOUNT`, `*BASIC`, then `PRINT PAGE` to measure `&1F00` in
+the full emulated profile. Do not substitute a DFS-only configuration for this
+check: it will hide an application loaded below the active ADFS workspace.
+
 ## NetTools hardware-profile diagnostic
 
 `run_nettools_hardware.py` records SHA-256 provenance for Elkulator, every ROM,
@@ -127,16 +134,18 @@ python3 tests/elkulator/run_nettools_hardware.py \
   --extra-rom 2=/path/to/your-mmfs.rom \
   --setup-command "din 0" \
   --command hwdtest \
-  --hwd-pass-screen /path/to/known-good-hwd-d2-pass.png \
+  --hwd-pass-screen /path/to/known-good-hwd-d4-pass.png \
   --reject-header-screen /path/to/header-only.png \
   --reject-memory-screen /path/to/emulator-memory-failure.png \
   --output /tmp/1mhzwifi-mmfs-hwd
 ```
 
-The D2 HWDTEST screen must show `Entry/opcode`, both before/after markers for
+The D4 HWDTEST screens must show `Entry/opcode`, both before/after markers for
 OSBYTE `&82` and `&81`, the requested and read-back FCA6-FCA9 selector bytes,
-and all ten secure capability bytes. `Loader OSHWM=&0800 HIMEM=&1D00` proves
-the pre-MODE envelope from the exact public loader path. A last line of
+all ten secure capability bytes, the relevant standard and extended vectors,
+their ROM owners, and all 26 persisted WiCFS state bytes. `Loader
+OSHWM=&0800 HIMEM=&1D00` proves the pre-MODE envelope from the exact public
+loader path. A last line of
 `Before OSBYTE &81`
 identifies a MOS/Tube call boundary. A CAPS result of zero with incorrect raw
 bytes identifies stale or partly published JIM data.

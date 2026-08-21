@@ -8,6 +8,28 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class MergedRepositoryTest(unittest.TestCase):
+    def test_production_sources_do_not_contain_title_specific_workarounds(self) -> None:
+        """WiCFS fixes must describe formats and MOS contracts, never titles."""
+        title_names = (
+            "arcadians", "bumblebee", "elite", "frak", "hopper", "mrwiz",
+            "planb", "repton", "thrust", "zalaga",
+        )
+        source_suffixes = {".asm", ".c", ".h", ".py", ".sh"}
+        roots = (
+            ROOT / "rom-side/elkwifi-0.23/overlay",
+            ROOT / "rom-side/elkwifi-0.23/patches",
+            ROOT / "pi-side/pi1mhz-516a267/overlay",
+            ROOT / "pi-side/pi1mhz-516a267/patches",
+            ROOT / "emulator/pi1mhz-mailbox/src",
+        )
+        for source_root in roots:
+            for path in source_root.rglob("*"):
+                if not path.is_file() or path.suffix.lower() not in source_suffixes:
+                    continue
+                text = path.read_text(errors="replace").lower()
+                for title in title_names:
+                    self.assertNotIn(title, text, f"{title} workaround in {path}")
+
     def test_pi_bus_byte_write_preserves_live_adjacent_register(self) -> None:
         patch = (
             ROOT
@@ -191,7 +213,9 @@ class MergedRepositoryTest(unittest.TestCase):
     def test_release_bundle_pairs_host_tools_with_firmware(self) -> None:
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         self.assertIn('make -C "$root_dir/host-tools" all', installer)
-        self.assertIn('"$bundle/host-tools/nettools.ssd"', installer)
+        self.assertIn('"$bundle_staged/host-tools/nettools.ssd"', installer)
+        self.assertIn('rm -rf -- "$bundle"', installer)
+        self.assertIn('mv "$bundle_staged" "$bundle"', installer)
 
         bundled = ROOT / "build/pi1mhz-all/host-tools/nettools.ssd"
         built = ROOT / "host-tools/build/nettools.ssd"
@@ -210,8 +234,8 @@ class MergedRepositoryTest(unittest.TestCase):
 
     def test_packaged_kernels_have_matching_recovery_revisions(self) -> None:
         pattern = re.compile(
-            rb"Pi1MHz ElkWiFi 0\.1\.55, kernel "
-            rb"(V1\.30-84-gd08242e-dirty\.e82d03ab)"
+            rb"Pi1MHz ElkWiFi 0\.1\.58, kernel "
+            rb"(V1\.30-84-gd08242e-dirty\.4ab8cb05)"
         )
         revisions = []
         for name in ("kernel.img", "kernel7.img"):
@@ -235,7 +259,7 @@ class MergedRepositoryTest(unittest.TestCase):
         )
         self.assertIn("firmware/Pi1MHz/ElkWiFi.rom", patch)
         self.assertIn("GIT binary patch", patch)
-        self.assertIn("Pi1MHz ElkWiFi 0.1.55, kernel", patch)
+        self.assertIn("Pi1MHz ElkWiFi 0.1.58, kernel", patch)
         self.assertNotIn("Pi1MHz ElkWiFi 0.1.52, kernel", patch)
         self.assertIn("RPI_GetSystemTime() - started_us >= 750000u", patch)
         self.assertIn("exact MENU TITLES transfer shape", patch)
@@ -353,6 +377,17 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn(write_case, backend)
         self.assertIn('setenv("PI1MHZ_SD_IMAGE"', tests)
         self.assertIn("Upstream MMFS uses commands 0/1", tests)
+
+    def test_elkulator_exposes_opt_in_bus_evidence_trace(self) -> None:
+        source = (
+            ROOT
+            / "emulator/pi1mhz-mailbox/integrations/elkulator/pi1mhz_elkulator.c"
+        ).read_text()
+        self.assertIn('getenv("PI1MHZ_BUS_TRACE")', source)
+        self.assertIn("address >= 0xFEE0u && address <= 0xFEFFu", source)
+        self.assertIn("address >= 0xFCFDu && address <= 0xFDFFu", source)
+        self.assertIn("jim=%08X", source)
+        self.assertIn("host_cycles += elapsed", source)
 
 
 if __name__ == "__main__":

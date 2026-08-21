@@ -2,7 +2,7 @@ diff --git a/src/scripts/gitversion.cmake b/src/scripts/gitversion.cmake
 index d2b524e..4ce565a 100644
 --- a/src/scripts/gitversion.cmake
 +++ b/src/scripts/gitversion.cmake
-@@ -59,8 +59,30 @@ if(GIT_VERSION MATCHES "-dirty$")
+@@ -59,8 +59,31 @@ if(GIT_VERSION MATCHES "-dirty$")
        OUTPUT_VARIABLE GIT_STATUS
        ERROR_QUIET
     )
@@ -22,7 +22,8 @@ index d2b524e..4ce565a 100644
 +   if(UNTRACKED_RESULT EQUAL 0 AND NOT GIT_UNTRACKED_FILES STREQUAL "")
 +      string(REPLACE "\n" ";" GIT_UNTRACKED_LIST "${GIT_UNTRACKED_FILES}")
 +      foreach(UNTRACKED_FILE IN LISTS GIT_UNTRACKED_LIST)
-+         if(EXISTS "${SRC_DIR}/${UNTRACKED_FILE}")
++         if(EXISTS "${SRC_DIR}/${UNTRACKED_FILE}" AND
++            NOT IS_DIRECTORY "${SRC_DIR}/${UNTRACKED_FILE}")
 +            file(SHA256 "${SRC_DIR}/${UNTRACKED_FILE}" UNTRACKED_HASH)
 +            string(APPEND GIT_UNTRACKED_CONTENT
 +               "${UNTRACKED_FILE}:${UNTRACKED_HASH}\n")

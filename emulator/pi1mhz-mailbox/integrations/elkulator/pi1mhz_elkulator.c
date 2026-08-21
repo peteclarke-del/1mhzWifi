@@ -14,6 +14,39 @@ static pi1mhz_mailbox mailbox;
 static pi1mhz_net_backend *backend;
 static pi1mhz_bus_profile bus_profile = PI1MHZ_BUS_AP5;
 static int noe_enabled = 1;
+static FILE *bus_trace;
+static unsigned long long host_cycles;
+static unsigned bus_trace_events;
+
+static int trace_address(uint16_t address)
+{
+    return (address >= 0xFCA6u && address <= 0xFCAAu) ||
+           (address >= 0xFCFDu && address <= 0xFDFFu) ||
+           (address >= 0xFEE0u && address <= 0xFEFFu);
+}
+
+static void trace_bus(char operation, uint16_t address, int value)
+{
+    uint32_t page;
+    uint32_t jim_address = 0xFFFFFFFFu;
+
+    if (!bus_trace || !trace_address(address))
+        return;
+    page = mailbox.page & 0xFFFFFFu;
+    if (address >= 0xFD00u && address <= 0xFDFFu)
+        jim_address = (page << 8) | (address & 0xFFu);
+    fprintf(bus_trace, "%llu %c %04X ", host_cycles, operation, address);
+    if (value < 0)
+        fputs("--", bus_trace);
+    else
+        fprintf(bus_trace, "%02X", value & 0xFF);
+    fprintf(bus_trace, " page=%06X", page);
+    if (jim_address != 0xFFFFFFFFu)
+        fprintf(bus_trace, " jim=%08X", jim_address);
+    fputc('\n', bus_trace);
+    if ((++bus_trace_events & 0xFFu) == 0u)
+        fflush(bus_trace);
+}
 
 static int configure_fiq_timing(void)
 {
@@ -108,6 +141,10 @@ static int preload_jim(void)
 
 static void shutdown_device(void)
 {
+    if (bus_trace) {
+        fclose(bus_trace);
+        bus_trace = NULL;
+    }
     pi1mhz_mailbox_destroy(&mailbox);
     pi1mhz_net_backend_destroy(backend);
     backend = NULL;
@@ -120,6 +157,7 @@ static void initialise_device(void)
     const char *exit_setting;
     const char *profile_setting;
     const char *noe_setting;
+    const char *bus_trace_path;
     if (initialised)
         return;
     initialised = 1;
@@ -147,6 +185,7 @@ static void initialise_device(void)
                strcmp(getenv("PI1MHZ_AP5_FULL_FRED"), "0"))
         bus_profile = PI1MHZ_BUS_AP5_FULL_FRED;
     trace = getenv("PI1MHZ_TRACE");
+    bus_trace_path = getenv("PI1MHZ_BUS_TRACE");
     exit_setting = getenv("PI1MHZ_EXIT_ON_CLOSE");
     backend = pi1mhz_net_backend_create(
         mode, trace, exit_setting && strcmp(exit_setting, "0"));
@@ -162,6 +201,16 @@ static void initialise_device(void)
         pi1mhz_net_backend_destroy(backend);
         backend = NULL;
         return;
+    }
+    if (bus_trace_path && *bus_trace_path) {
+        bus_trace = fopen(bus_trace_path, "w");
+        if (!bus_trace) {
+            fprintf(stderr, "Pi1MHz mailbox: cannot open bus trace %s\n",
+                    bus_trace_path);
+            shutdown_device();
+            return;
+        }
+        fputs("# cycle op address value selected-page mapped-jim\n", bus_trace);
     }
     enabled = 1;
     atexit(shutdown_device);
@@ -193,12 +242,20 @@ int pi1mhz_elkulator_handles_write(uint16_t address)
 void pi1mhz_elkulator_snoop_read(uint16_t address)
 {
     if (pi1mhz_elkulator_enabled() &&
-        pi1mhz_mailbox_profile_snoops(bus_profile, address, 0))
-        (void)pi1mhz_mailbox_bus_access(&mailbox, address, 0xFFu, 0);
+        pi1mhz_mailbox_profile_snoops(bus_profile, address, 0)) {
+        uint8_t value = pi1mhz_mailbox_bus_access(
+            &mailbox, address, 0xFFu, 0);
+        trace_bus('R', address, value);
+    } else if (address >= 0xFEE0u && address <= 0xFEFFu) {
+        /* The Tube device supplies the value after this snoop hook. */
+        trace_bus('R', address, -1);
+    }
 }
 
 void pi1mhz_elkulator_snoop_write(uint16_t address, uint8_t value)
 {
+    if (pi1mhz_elkulator_enabled())
+        trace_bus('W', address, value);
     if (pi1mhz_elkulator_enabled() &&
         pi1mhz_mailbox_profile_snoops(bus_profile, address, 1))
         (void)pi1mhz_mailbox_bus_access(&mailbox, address, value, 1);
@@ -206,11 +263,14 @@ void pi1mhz_elkulator_snoop_write(uint16_t address, uint8_t value)
 
 uint8_t pi1mhz_elkulator_read(uint16_t address)
 {
-    return pi1mhz_mailbox_bus_access(&mailbox, address, 0xFFu, 0);
+    uint8_t value = pi1mhz_mailbox_bus_access(&mailbox, address, 0xFFu, 0);
+    trace_bus('R', address, value);
+    return value;
 }
 
 void pi1mhz_elkulator_write(uint16_t address, uint8_t value)
 {
+    trace_bus('W', address, value);
     (void)pi1mhz_mailbox_bus_access(&mailbox, address, value, 1);
 }
 
@@ -221,6 +281,7 @@ void pi1mhz_elkulator_sync_host_clock(int host_cycle_counter)
     if (!enabled)
         return;
     elapsed = pi1mhz_host_clock_sync(&host_clock, host_cycle_counter);
+    host_cycles += elapsed;
     if (elapsed > 0)
         pi1mhz_mailbox_tick_fiq(&mailbox, elapsed);
 }

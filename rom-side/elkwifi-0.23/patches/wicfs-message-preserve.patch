@@ -1,0 +1,11 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -3139,6 +3139,8 @@
+ .xmess_a1
+ 	LDA	txt0,X		\get a character
++	PHA			\OSASCI may alter A; retain the byte used as terminator
+ 	JSR	OSASCI		\print it
++	PLA
+ 	INX			    \increment index
+ 	CMP	#cr		    \<cr>?
+ 	BNE xmess_a1	\no, loop for next character

@@ -4,7 +4,10 @@
 
 The host-facing contract is based on ElkWiFi 0.23. It includes the service ROM
 header, retained star commands, OSWORD `&65`, response framing, and error
-conventions. `*MENUSRC` and `*ONLINE` are additive extensions.
+conventions. `*MENUSRC` and `*ONLINE` are additive extensions. Original driver
+functions 29 to 31 remain reserved, as in pinned ElkWiFi 0.23. DATE, TIME and ONLINE use
+private ROM selectors 32-34, outside the original 0-31 driver table, so their
+star commands do not repurpose a published ElkWiFi call.
 Cartridge-specific commands are omitted where the required UART, printer port,
 or flash device does not exist.
 
@@ -24,9 +27,8 @@ transport.
 | `&FCA9` | Auto-incrementing data register |
 | `&FCAA` | Command dispatch and completion status |
 
-The ElkWiFi service owns command numbers 80-93. Commands 80-90 and 92-93 are
-assigned. Command 91 returns unsupported and is reserved in the source ABI for
-a future secure-open operation.
+The ElkWiFi service owns command numbers 80-93. All commands in that range are
+assigned. Command 91 controls the CYW43 radio for public driver function 24.
 
 The ROM accesses `&FCA6-&FCAA` directly from the Electron I/O processor. It
 does not use the BBC or Master FRED OSBYTE calls. Tube OSCLI and OSWORD calls
@@ -71,14 +73,23 @@ does not perform a matching cold boot.
 | 88 | DNS resolution and ICMP echo |
 | 89 | DNS and NTP date/time request |
 | 90 | Cancel an outstanding foreground network request |
-| 91 | Reserved secure-open ABI; returns unsupported |
+| 91 | Enable or disable the CYW43 radio for public driver function 24 |
 | 92 | Concise association and IPv4 readiness status |
 | 93 | Validate and normalize raw, gzip or ZIP UEF data in JIM |
 
 HTTP WGET uses the existing Pi1MHz net-service commands 60, 61, and 63. Raw
-TCP compatibility uses net-service commands 45-53. Host buffers are copied
-through reserved JIM scratch pages instead of passing host or parasite pointers
-to the Pi.
+TCP and connected UDP compatibility use net-service commands 45-53. Private net-service command
+58 copies received bytes from the service scratch page to the AP5-visible
+public JIM window. It is an internal transport acceleration behind public
+ElkWiFi function 13, not a new ElkWiFi function. The service scratch source is
+relative to `DISC_RAM_BASE`. The destination is an unbased offset into
+`JIM_ram[0..65535]`, matching the physical page-RAM mapping used by
+`&FCFF`/`&FDxx`; the host still observes the original bank `00:00`, sequential
+pages, response length and trailing zero.
+ROMs paired with an older kernel receive `Unsupported` and fall back to the
+original byte-at-a-time copy. Raw paged WGET output uses the same private copy
+operation; text and host-memory output retain their required per-byte handling.
+Host or parasite pointers are never passed to the Pi.
 
 NetTools uses a separate secure-service range. Commands 94-100 provide
 capability discovery, secure random data and managed SSH. Commands 101-113 are
@@ -96,7 +107,14 @@ parsed address and port. Function 9 accepts single-connection mode as a no-op;
 multiplexed mode is rejected because the Pi net service owns one raw socket.
 Its response is generated locally, leaves JIM at `00:00:00`, and records the
 four-byte response length without dispatching a Pi mailbox request. Function
-13 uses the same RAM page shadow while copying up to 4096 response bytes.
+13 uses the same RAM page shadow while gathering a response. The ROM accepts
+the original five-byte zero-page control block, retries partial TCP writes,
+waits synchronously for receive completion, starts at JIM page zero, advances
+across page boundaries, leaves a trailing zero and updates the original
+two-byte response length. Function 20 uses the same receive path. The private
+Pi copy operation does not change any of these public semantics. Function 8
+accepts the original TCP and UDP protocol fields. SSL is rejected rather than
+downgraded to plaintext.
 
 Automated ROM checks begin at the emitted OSWORD handler and verify its A/X/Y
 unpacking sequence, function 9 routing, caller-owned JOIN parameters, TCP port

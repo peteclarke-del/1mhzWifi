@@ -12,14 +12,14 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       d08242ee1b35cf1285b72c9ec1869e98081a8c3e
-1MHzWifi ROM ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb
-kernel.img   0a9beedc77d7828a6f5a1a1126f40f47ef601f2a2534840f70d416089d85534a
-kernel7.img  ea7273028a547ef314d2af70f27ed8f4392a7d15a6652df091f67062d5e1c1c9
-nettools.ssd a44d87062f5af4a84271816fa321d39f6c9220576f5d438affee98ae50630187
-bundle ZIP   bb6be65644ca70a5104c9d9c8a14d25129050d185ca2aa932a726fd78e9a349d
+1MHzWifi ROM 339609afa38bc3fed486fb78b7ba6be236d7419fc0d80f3653e692c3fb366877
+kernel.img   fad559ca1e3840e5487ac44c0753c78251ea208e95c9fd42edb1e66370dce39a
+kernel7.img  3c9a99898bb9c83ae113ddc4f6896b0187155854221d946d180e313d2b2aaec1
+nettools.ssd 7bca283a8ede47868576150a8db17cfb1943cd3dc14de4e06547683d1b084f2f
+bundle ZIP   2127a2a9cf9c5084ccdea4ca86e36152eb7fe0952010f5e21da1959c7b584956
 ```
 
-The Pi1MHz commit was the official `master` tip verified on 15 August 2026. Run
+The Pi1MHz commit was the official `master` tip verified on 19 August 2026. Run
 `./pi-side/check_upstream.sh` before producing another hardware-test bundle.
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -38,27 +38,27 @@ The tested host ROM was
 The machine used the Electron, Plus 1, Plus 2, AP5, Pi1MHz, RAM expansion,
 ADFS/BeebSCSI and MMFS installation with the Tube disabled.
 
-WiFi association, `*MENU`, NetTools and local `*UEF LOAD` complete. PING,
-TELNET, NSLOOK, SSH and HWDTEST run. MENU, WGET and UEF transfers are painfully
-slow and require measured optimisation. SSH still forces MODE 4 rather than
-preserving a suitable caller mode.
+With the full-stream candidate `kernel7.img`, HWDTEST, PING, NSLOOK and SSH
+pass. `*MENU` completes, although WGET takes about two minutes per tested game.
+Frak and Arcadians both load and play. Local `*UEF LOAD THRUST` also loads and
+plays. MENU, WGET and UEF transfers remain painfully slow and require measured
+optimisation.
 
-Frak loads and plays. Thrust reaches playable gameplay, but ADFS is no longer
-available afterwards and Break or reset does not restore it; a full power
-cycle is required. Repton 2 hangs as gameplay begins, Plan B remains unstable,
-and Arcadians hangs after loading its final `4C 4C49` cassette block. These are
-failed stability or filing-system recovery tests even though their initial
-loads complete. Public Chat in the current ElkChat live SSD appends main or
-Settings menu items, and Private Chat exits with `Bad program`. No Tube-enabled
+ADFS returns after every tested Break, including after MENU games and local
+Thrust. A subsequent `*UEF LOAD REPTON2` opens from ADFS, proving recovery
+across consecutive WiCFS sessions, but Repton 2 still stalls after loading.
+Bumble Bee completes. Plan B 2 reaches its application, but Break then loses
+ADFS. Mr Wiz stops at `MRWIZ4 1710`. Repton reaches its title and then reports
+`End of UEF`, `Searching`, `Loading` and `Cannot write!`. No Tube-enabled
 result is inferred from this milestone.
 
-The current candidate addresses both quick wins but has not replaced this
-physical result. NetTools preserves a suitable caller mode and falls back to
-MODE 4 only when the measured host boundary is too low. The relocated ElkChat
-client restores the full JIM selector before each page access; its dual-ROM
-Elkulator journey renders Public and Private Chat without Settings leakage or
-`Bad program`. Retest both changes on the same Tube-off machine before updating
-the confirmed milestone.
+NetTools preserves a suitable caller mode and falls back to MODE 4 only when
+the measured host boundary is too low. The relocated ElkChat client restores
+the full JIM selector before each page access, but its dual-ROM Elkulator
+journey is not hardware-faithful. On the physical Tube-off machine User List
+works, Public Chat displays Settings entries, and Private Chat exits with `Bad
+Program`. Treat the emulator journey as a rejected false pass until it
+reproduces these failures with the exact live SSD and host memory envelope.
 
 An experimental snapshot of host workspace `&0E00-&1CFF` produced a positive
 emulator differential for the ADFS loss, but peer review rejected it. Restoring
@@ -67,6 +67,25 @@ order and can overwrite a newer ADFS, DFS or MMFS owner. The experiment is not
 part of the build. The replacement must recover only vector components still
 owned by WiCFS and must pass the full Break, ADFS catalogue/read and second-load
 sequence before physical Tube-off confirmation.
+
+## Physical Tube-off milestone, 21 August 2026
+
+The matched 0.1.58 ROM and Pi Zero 2 kernel were exercised on the Electron,
+Plus 1, Plus 2, AP5, Pi1MHz, RAM expansion and ADFS/BeebSCSI configuration with
+the Tube disabled. MENU launches Frak and Arcadians to playable gameplay. Plan
+B also runs. Local `*UEF LOAD REPTON` now reaches gameplay, but has a long delay
+before starting.
+
+Two post-run recovery failures remain. After Frak, another `*MENU` hangs until
+a cold start. After Plan B, ADFS remains unavailable until a cold start. These
+are treated as evidence of one generic WiCFS vector, ownership or filing-system
+teardown defect. No title-specific production workaround is permitted.
+
+`*UEF LOAD MRWIZ` reports `UEF GZIP OK &3077 bytes in JIM` and then hangs. This
+places the observed failure after Pi-side gzip normalization but before the
+visible cassette-loading sequence, rather than at the final `MRWIZ4` block.
+SSH works, but entering its password from MODE 0 incorrectly changes the
+display to MODE 4. Tube-on behavior is not inferred from this milestone.
 
 ## Pi target matrix
 
@@ -291,6 +310,37 @@ fixture used by the normalisation test. It remains ignored because it is
 third-party test media. These files are observations from physical hardware,
 not emulator acceptance evidence.
 
+Map a candidate image before testing it:
+
+```sh
+python3 scripts/uef_map.py "samples/Thrust (1986)(Superior Software).uef"
+python3 scripts/uef_map.py --json "samples/Acornsoft Desk Diary (198x)(Acornsoft).uef"
+```
+
+The mapper validates every chunk boundary and reports the complete decoded
+length separately from the former firmware trim point. The normal candidate
+must use the complete length. `elkwifi_uef_trim_tail=1` exists only to reproduce
+the earlier behaviour in a controlled A/B/C hardware test.
+
+HWDTEST D4 is observational with respect to the WiCFS persistence record. Its
+write/read probe is at `&FFEE00`; it reads but never writes
+`&FFEF00-&FFEF19`. Capture D4 after cold boot, after WiCFS installation, after
+the last cassette file, immediately after Break, after `*ADFS`, and after a
+known ADFS file read. Compare BYTEV, FILEV, BGETV, FINDV, FSCV, the four
+extended handler/ROM-owner tuples and all `WSTATE` bytes. Running HWDTEST D2 or
+D3 is not valid lifecycle evidence because those builds do not provide the
+complete vector and state report. D2 additionally wrote over the WiCFS record.
+
+On 18 August 2026 the rebuilt behavioural model completed the Tube-off Thrust
+journey in full-stream mode with the photographed ROM order and read-only
+BeebSCSI LUN. It matched the reviewed title and gameplay frames after both
+input events, retained sustained motion, showed no failure frame or MOS error,
+and remained live at the deadline. The bus trace contained 248,956 relevant
+events, 70,742 mapped JIM accesses, 135,152 `&FCFF` writes and no Tube-register
+access. This validates the software-visible sequence and the candidate's full
+UEF length in the emulator. It does not validate AP5 electrical timing, Pi FIQ
+latency, SDIO scheduling or contention on physical hardware.
+
 `samples/RHPLUS133.rom` is the exact RH Plus 1.33 dump from the test Electron.
 Its SHA-256 is
 `cda520a110b160af2c750b2d28c84353ad2c3ede15b4821cf96452ee4dc3b5f8`.
@@ -362,11 +412,22 @@ a Tube register.
   reason-8 notification is handled locally.
 - [x] Select Arcadians as menu entry `O`; confirm the live 24,946-byte
   `Acornsoft/Arcadians_E.uef` download reaches its runnable game screen.
-- [ ] Resolve the Arcadians final-file transition. The latest physical
-  Tube-off run hangs after loading `4C 4C49`, so this is not a Tube-only
-  exception. Capture the final UEF chunk, cassette status and execution
-  transition with Tube off and on and compare them with the working Frak path.
-  Do not add a title-specific loader path.
+- [x] Resolve the Arcadians Tube-off final-file transition. The full-stream
+  physical candidate passes `4C 4C49` and reaches gameplay. Tube-on remains a
+  separate coexistence gate. Do not add a title-specific loader path.
+- [ ] Reproduce and trace the exact BeebSCSI Mr Wiz and Repton failures. The
+  source volume validates, gzip decoding succeeds, every UEF chunk is complete,
+  and every CFS header/data CRC and block sequence is valid. Mr Wiz includes a
+  valid final `MRWIZ4` block. Native cassette loading of the exact Repton image
+  enters the game after Space, while WiCFS corrupts the title and hardware
+  reports an end-of-stream/search/load/write sequence. Trace the first divergent
+  OSFIND, FILEV or FSCV request against original ElkWiFi behaviour. Review found
+  that the earlier host-only patch rejected OSFIND `&C0`, whereas original
+  ElkWiFi accepts OPENUP through its input-capable path. The 0.1.58 candidate
+  ROM restores that behavior and makes Service 1 passive after BYTEV release.
+  It reaches the Repton title in the exact emulator profile, but still does not
+  enter gameplay. Do not sign off the UEF path until the emulator reproduces
+  and passes the photographed transition.
 - [x] Put the gzip DeskDiary sample on an emulated DFS disc as `DESK`, run
   `*UEF LOAD DESK`, confirm normalization from 10,631 to 20,580 bytes, and
   reach the application's `ADDRESS`/`PLANNER` menu without another command.
@@ -381,6 +442,14 @@ a Tube register.
 - [ ] Repeat `*UEF LOAD` from hardware DFS, the ADFS hard disc and MMFS, including
   a path-qualified filename, Escape, missing file, empty file, and an image
   larger than `&FFFE` bytes.
+- [x] Differentially test the exact staged Thrust image through WiCFS and
+  Elkulator's untouched native cassette path under the same AP5, ADFS and
+  BeebSCSI profile. Both paths reach input-responsive gameplay. After a soft
+  Break, both paths report `Bad command` for `*ADFS`. This is not a WiCFS
+  divergence and must not be hidden with title-specific ROM logic. Confirm the
+  same native-cassette behavior on physical hardware before classifying it as
+  an AP5 reset-model issue or software behavior. A power-on recovery remains a
+  separate hardware expectation.
 - [ ] Run `*UEF LOAD DESKDIARY` with the 20,580-byte expanded image. Confirm
   the final zero-byte `V1` CFS marker completes without `Unexpected EOF` and
   the application continues through its intended launch path on physical
@@ -587,6 +656,32 @@ modifying ADFS, MMFS or DFS data and without touching Tube state.
   SWRAM build. Verify each public response remains intact while MMFS or ADFS
   also uses JIM. Version 0.1.46 reselects the AP5 page for every response byte
   with interrupts masked and does not cache machine type in volatile heap.
+  The physical result is currently User List working, Settings text inside
+  Public Chat, and `Bad Program` from Private Chat. The existing emulator uses
+  a DFS-only `32k.cfg` path and cannot validate the physical ADFS/SWR loader.
+  Its fixed `&1900` loader and `&1B00` staging/workspace overlap ADFS OSHWM
+  `&1D00`. Require an OSHWM-safe streamed SWR loader, atomic Pi1MHz JIM access,
+  16-bit chat request lengths, an embedded build ID, and state-segmented UI
+  assertions before repeating this gate.
+
+On 19 August the full Electron/AP5/ADFS profile was run against the exact
+read-only BeebSCSI LUN, with RAM banks 6 and 7 and the photographed ROM order.
+The automation first had to learn the Electron mapping for `$` (Shift+4), so
+that `*DIR $.UTILS.ELKCHAT` selected the real directory rather than testing an
+invalid path. The directory catalogued correctly. Both the staged ELKCHAT and
+the current unchanged build then failed after `*RUN ELKCHAT`, with `Bad name`
+and, for the staged build, `Bad program`. No Pi1MHz mailbox operation preceded
+the failure.
+
+The same profile entered BASIC after `*ADFS` and `*MOUNT`; `PRINT PAGE`
+returned 7936, or `&1F00`. The ELKCHAT file is loaded and executed at host
+`&1900`, below that live MOS boundary. The physical capture reported `&1D00`,
+which is also above `&1900`. This is now a reproduced loader-memory defect,
+not a reason to relax Elkulator's ADFS or sideways-RAM behaviour. A compatible
+launcher must itself load at or above the supported OSHWM, stream the sideways
+image without a 16K staging overwrite, and place its main-RAM workspace above
+the runtime OSHWM. It must retain the direct host-side SWR entry so an installed
+Tube is not selected as a destination.
 - [ ] Qualify SSH host keys, public-key and password authentication,
   known-host persistence, cancellation and long sessions on physical hardware.
 - [ ] Implement HTTPS before testing certificate chains, hostnames, clock

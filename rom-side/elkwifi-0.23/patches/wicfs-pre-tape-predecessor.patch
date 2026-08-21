@@ -1,0 +1,125 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -157,3 +157,5 @@
+ .wicfs_cmd
+ .aUPCFS
++	JSR	release_owned_wicfs	\abandon an earlier stream before taking a new snapshot
++	JSR	wicfs_snapshot_pre_tape	\remember ADFS/DFS/MMFS before *TAPE selects CFS
+     if __debug = 1
+@@ -206,4 +208,5 @@
+ 	LDX	#(error_wicfs_state-error_table)
+ 	JMP	error
+ .bUPCFS_installed
++	JSR	wicfs_apply_pre_tape
+ 	JMP	call_claimed
+@@ -277,6 +280,110 @@
+ 	STA	&FCA8
+ 	JSR	wicfs_bus_delay
+ 	RTS
++
++\A pending predecessor snapshot survives the queued *TAPE/PAGE/NEW/QUPCFS
++\sequence in private Pi JIM at &FFED00. It is deliberately separate from the
++\transactional active-stream record at &FFEF00.
++.wicfs_pending_address_x
++	TXA
++	STA	&FCA6
++	JSR	wicfs_bus_delay
++	LDA	#&ED
++	STA	&FCA7
++	JSR	wicfs_bus_delay
++	LDA	#&FF
++	STA	&FCA8
++	JSR	wicfs_bus_delay
++	RTS
++
++.wicfs_snapshot_pre_tape
++	PHP
++	SEI
++	PHA
++	TXA
++	PHA
++	TYA
++	PHA
++	LDA	#&A8
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	evptr
++	STY	evptr+1
++	LDX	#0
++	JSR	wicfs_pending_address_x
++	LDA	#0
++	STA	&FCA9		\invalidate before publishing any snapshot byte
++	JSR	wicfs_bus_delay
++	LDX	#1
++.wicfs_snapshot_loop
++	LDA	wicfs_snapshot_vector_offsets-1,X
++	TAY
++	LDA	(evptr),Y
++	PHA
++	JSR	wicfs_pending_address_x
++	PLA
++	STA	&FCA9
++	JSR	wicfs_bus_delay
++	INX
++	CPX	#13
++	BNE	wicfs_snapshot_loop
++	LDX	#0
++	JSR	wicfs_pending_address_x
++	LDA	#&A5
++	STA	&FCA9
++	JSR	wicfs_bus_delay
++	PLA
++	TAY
++	PLA
++	TAX
++	PLA
++	PLP
++	RTS
++
++.wicfs_apply_pre_tape
++	PHP
++	SEI
++	PHA
++	TXA
++	PHA
++	TYA
++	PHA
++	LDX	#0
++	JSR	wicfs_pending_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	CMP	#&A5
++	BNE	wicfs_apply_none
++	LDX	#0
++	JSR	wicfs_pending_address_x
++	LDA	#0
++	STA	&FCA9		\consume the snapshot before changing live state
++	JSR	wicfs_bus_delay
++	LDX	#1
++.wicfs_apply_loop
++	JSR	wicfs_pending_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	LDY	wicfs_snapshot_ram_offsets-1,X
++	STA	wicfs_state_ram,Y
++	INX
++	CPX	#13
++	BNE	wicfs_apply_loop
++	JSR	wicfs_state_save
++.wicfs_apply_none
++	PLA
++	TAY
++	PLA
++	TAX
++	PLA
++	PLP
++	RTS
++
++.wicfs_snapshot_vector_offsets
++	equb 27,28,29,33,34,35,42,43,44,45,46,47
++.wicfs_snapshot_ram_offsets
++	equb 3,4,5,6,7,8,1,2,9,10,11,12
+ .wicfs_state_load
+ 	PHP
+ 	SEI

@@ -21,6 +21,7 @@ from provenance import snapshot, sorted_screens, source_revision
 KEY_SHIFT_DOWN = 2000
 KEY_SHIFT_UP = 2001
 KEY_QUOTE = 69
+KEY_4 = 31
 KEY_STOP = 73
 KEY_ENTER = 67
 KEY_SPACE = 75
@@ -34,6 +35,7 @@ KEYS = {
     "z": 26, "0": 27, "1": 28, "2": 29, "3": 30, "4": 31,
     "5": 32, "6": 33, "7": 34, "8": 35, "9": 36, " ": KEY_SPACE,
     "@": KEY_QUOTE, ".": KEY_STOP,
+    ":": KEY_QUOTE,
 }
 
 NAMED_KEYS = {
@@ -43,15 +45,24 @@ NAMED_KEYS = {
 }
 
 
-def star_command(text: str, initial_delay: int) -> list[tuple[int, int]]:
-    events = [
-        (initial_delay, KEY_SHIFT_DOWN),
-        (1, KEY_QUOTE),
-        (1, KEY_SHIFT_UP),
-    ]
+def typed_command(text: str, initial_delay: int,
+                  *, star: bool = True) -> list[tuple[int, int]]:
+    events: list[tuple[int, int]] = []
+    if star:
+        events.extend((
+            (initial_delay, KEY_SHIFT_DOWN),
+            (1, KEY_QUOTE),
+            (1, KEY_SHIFT_UP),
+        ))
+    else:
+        events.append((initial_delay, KEYS[text[0].lower()]))
+        text = text[1:]
     for character in text.lower():
         if character == "!":
             events.extend(((2, KEY_SHIFT_DOWN), (1, KEYS["1"]),
+                           (1, KEY_SHIFT_UP)))
+        elif character == "$":
+            events.extend(((2, KEY_SHIFT_DOWN), (1, KEY_4),
                            (1, KEY_SHIFT_UP)))
         else:
             events.append((2, KEYS[character]))
@@ -79,13 +90,14 @@ def parse_timed_key(value: str) -> tuple[int, int]:
 def command_script(setup_commands: list[str], command: str,
                    escape_after: int | None = None,
                    command_delay: int = 300,
-                   post_keys: list[tuple[int, int]] | None = None) -> str:
+                   post_keys: list[tuple[int, int]] | None = None,
+                   raw_command: bool = False) -> str:
     events: list[tuple[int, int]] = []
     delay = command_delay
     for setup in setup_commands:
-        events.extend(star_command(setup, delay))
+        events.extend(typed_command(setup, delay))
         delay = command_delay
-    events.extend(star_command(command, delay))
+    events.extend(typed_command(command, delay, star=not raw_command))
     if escape_after is not None:
         # Use Elkulator's ordinary six-frame key hold. This models a human
         # Escape press and gives MOS time to sample and acknowledge the key.
@@ -175,6 +187,10 @@ def main() -> int:
         help="filing-system setup command before the tested command; repeatable",
     )
     parser.add_argument("--command", default="hwdtest")
+    parser.add_argument(
+        "--raw-command", action="store_true",
+        help="type the tested command without the Electron star prefix",
+    )
     parser.add_argument(
         "--expect", choices=("auto", "hwd", "ssh", "telnet", "nslook", "ping"),
         default="auto",
@@ -358,7 +374,7 @@ def main() -> int:
         command.extend(["-disc", str(args.disc.resolve())])
     command.extend(["-autokeys", command_script(
         setup_commands, args.command, args.escape_after, args.command_delay,
-        args.post_key,
+        args.post_key, args.raw_command,
     )])
     if args.tube:
         command.extend(["-tube6502", str(roms / "6502tube_120.rom")])

@@ -18,6 +18,38 @@ def load_uef_runner():
 
 
 class RunnerAcceptanceContractTests(unittest.TestCase):
+    def test_recovery_prompt_match_is_independent_of_screen_row(self) -> None:
+        runner = load_uef_runner()
+        width, height = 320, 256
+
+        def prompt_image(path: Path, top: int) -> None:
+            pixels = bytearray(width * height)
+            glyph = (
+                "10000000",
+                "01000000",
+                "00100000",
+                "00010000",
+                "00100000",
+                "01000000",
+                "10000000",
+            )
+            for row, line in enumerate(glyph):
+                for column, value in enumerate(line):
+                    if value == "1":
+                        pixels[(top + row) * width + column] = 255
+            path.write_bytes(
+                f"P5\n{width} {height}\n255\n".encode("ascii") + pixels
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            reference = Path(temporary) / "reference.pgm"
+            moved = Path(temporary) / "moved.pgm"
+            prompt_image(reference, 220)
+            prompt_image(moved, 40)
+            self.assertGreaterEqual(
+                runner.prompt_similarity(moved, reference), 0.9
+            )
+
     def test_ping_requires_bounded_request_count_and_clean_prompt(self) -> None:
         source = (ROOT / "tests/elkulator/run_nettools_hardware.py").read_text()
         self.assertIn('ping_count = trace_events.count("PING")', source)
@@ -100,7 +132,9 @@ class RunnerAcceptanceContractTests(unittest.TestCase):
         self.assertIn("post_break_beebscsi_reads > 0", source)
         self.assertIn('"post_break_beebscsi_reads"', source)
         self.assertIn('"second_gameplay_seconds"', source)
-        self.assertIn("media_unchanged and config_unchanged", source)
+        self.assertIn("media_state_ok and config_unchanged", source)
+        self.assertIn('"--writable-beebscsi-copy"', source)
+        self.assertIn("writable BeebSCSI media must be a disposable copy under /tmp", source)
         self.assertIn("must be between 0.5 and 1.0", source)
         self.assertIn("--gameplay-similarity", source)
         self.assertIn("--failure-similarity", source)
@@ -108,11 +142,30 @@ class RunnerAcceptanceContractTests(unittest.TestCase):
         self.assertIn("output directory is not empty", source)
         self.assertIn('"acceptance_runner": Path(__file__).resolve()', source)
         self.assertIn('"AP5 Tube: external 3MHz 65C02 enabled"', source)
-        self.assertIn("tube_started and", source)
+        self.assertIn("tube_requirement_satisfied and", source)
         self.assertIn('if not key.startswith("PI1MHZ_")', source)
         self.assertIn('"hardware_environment"', source)
         self.assertIn('"argv": command', source)
         self.assertIn("args.pi1mhz_cfg", source)
+        self.assertIn('"PI1MHZ_BUS_TRACE"', source)
+        self.assertIn('"bus_trace": bus_trace_summary', source)
+        self.assertIn('"tube_requirement_satisfied"', source)
+
+    def test_bus_trace_summary_preserves_failure_boundary(self):
+        runner = load_uef_runner()
+        with tempfile.TemporaryDirectory() as temporary:
+            trace = Path(temporary) / "bus.trace"
+            trace.write_text(
+                "# cycle op address value selected-page mapped-jim\n"
+                "10 W FCFF 02 page=000001\n"
+                "20 R FD05 AA page=000002 jim=00000205\n"
+                "30 R FEE0 -- page=000002\n"
+            )
+            summary = runner.bus_trace_summary(trace)
+        self.assertEqual(summary["event_count"], 3)
+        self.assertEqual(summary["tube_access_count"], 1)
+        self.assertEqual(summary["jim_access_count"], 1)
+        self.assertEqual(summary["last_jim_access"].split()[2], "FD05")
 
     def test_uef_sustained_motion_rejects_a_late_freeze(self):
         runner = load_uef_runner()
@@ -175,7 +228,8 @@ class RunnerAcceptanceContractTests(unittest.TestCase):
         self.assertIn('on["gameplay_transition"]', source)
         self.assertIn('off["menu_ready"]', source)
         self.assertIn('on["menu_ready"]', source)
-        self.assertIn('on["tube_started"]', source)
+        self.assertIn('on["tube_requirement_satisfied"]', source)
+        self.assertIn('"tube_started": tube_started', source)
         self.assertIn('"--tube-mode"', source)
         self.assertIn('args.tube_mode == "both"', source)
         self.assertIn('"--profile mmfs requires --sd-image and --mmfs-rom"', source)

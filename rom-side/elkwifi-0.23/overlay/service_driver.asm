@@ -19,6 +19,8 @@ drv_svc_cancel = 90
 drv_svc_radio = 91
 drv_svc_online = 92
 drv_svc_uef_normalize = 93
+drv_net_copy_public = 58
+drv_net_unsupported = &27
 
 \ Sixteen DEX/BNE iterations take 79 processor cycles. Even at the host's
 \ maximum 2 MHz rate this is at least 39.5 us, comfortably beyond the
@@ -54,6 +56,8 @@ drv_svc_cancelled = drv_svc_workspace+14
 \ continue to use the shared cursor. These bytes complete the 19-byte block
 \ inside the original 32-byte `netprt` allocation.
 drv_net_ip = drv_svc_workspace+15
+drv_net_type = drv_svc_workspace+24
+drv_net_protocol_second = drv_svc_workspace+25
 
 drv_net_open = 45
 drv_net_dns = 46
@@ -61,6 +65,7 @@ drv_net_connect = 47
 drv_net_send = 50
 drv_net_recv = 51
 drv_net_close = 53
+drv_net_status = 54
 
 .service_driver_init
 \Functions 0 and 1 reset the original ESP module. Pi1MHz has no separate
@@ -99,25 +104,31 @@ drv_net_close = 53
 .service_driver_lapopt
  lda #drv_svc_lapopt
  jsr service_driver_write_command
- lda heap
+ ldy #0
+ lda (paramblok),y
  cmp #'7'
  bne service_driver_lapopt_127
- lda heap+1
+ iny
+ lda (paramblok),y
  cmp #&0D
  bne service_driver_lapopt_bad
  ldy #7
  bne service_driver_lapopt_send
 .service_driver_lapopt_127
- lda heap
+ ldy #0
+ lda (paramblok),y
  cmp #'1'
  bne service_driver_lapopt_bad
- lda heap+1
+ iny
+ lda (paramblok),y
  cmp #'2'
  bne service_driver_lapopt_bad
- lda heap+2
+ iny
+ lda (paramblok),y
  cmp #'7'
  bne service_driver_lapopt_bad
- lda heap+3
+ iny
+ lda (paramblok),y
  cmp #&0D
  bne service_driver_lapopt_bad
  ldy #127
@@ -130,13 +141,103 @@ drv_net_close = 53
 .service_driver_mode
  ldy #0
  lda (paramblok),y
- beq service_driver_mode_ok
+ beq service_driver_wifi_mode_query
  cmp #'1'
- beq service_driver_mode_ok
- jmp service_driver_net_error
-.service_driver_mode_ok
+ bne service_driver_wifi_mode_error
+ iny
+ lda (paramblok),y
+ cmp #&0D
+ bne service_driver_wifi_mode_error
+ ldx #<service_driver_ok_text
+ ldy #>service_driver_ok_text
+ jmp service_driver_rom_response
+.service_driver_wifi_mode_query
  ldx #<service_driver_mode_text
  ldy #>service_driver_mode_text
+ jmp service_driver_rom_response
+.service_driver_wifi_mode_error
+ ldx #<service_driver_error_text
+ ldy #>service_driver_error_text
+ jmp service_driver_rom_response
+
+\ Functions 10 (CWLIF) and 12 (CIPSTATUS) share the original cartridge's
+\ connection-status behaviour. Pi1MHz reports the raw handle state in byte
+\ one. Render the ESP-compatible status class without exposing Pi internals.
+.service_driver_connection_status
+ jsr net_command_address
+ lda #drv_net_status
+ jsr net_write_a
+ jsr net_dispatch_wait
+ cmp #0
+ beq service_driver_status_read
+ jmp service_driver_net_error
+.service_driver_status_read
+ jsr net_command_address
+ lda #1
+ jsr net_address_low
+ jsr net_read_a
+ cmp #4                      \ NET_ST_CONNECTED
+ beq service_driver_status_connected
+ cmp #7                      \ NET_ST_ERROR
+ beq service_driver_status_error
+ ldx #<service_driver_status_ip_text
+ ldy #>service_driver_status_ip_text
+ jmp service_driver_rom_response
+.service_driver_status_connected
+ ldx #<service_driver_status_connected_text
+ ldy #>service_driver_status_connected_text
+ jmp service_driver_rom_response
+.service_driver_status_error
+ ldx #<service_driver_status_error_text
+ ldy #>service_driver_status_error_text
+ jmp service_driver_rom_response
+
+\ Function 11 is the cartridge's local response-buffer finaliser. Preserve
+\ the caller's low-byte length exactly as ElkWiFi 0.23 does. The Pi/AP5 page
+\ selector is write-only, so the ROM's authoritative page shadow supplies
+\ the high byte.
+.service_driver_set_buffer
+ ldx driver_entry_x
+ jmp set_buffer
+
+\ The original 0.23 source routes functions 15, 16 and 17 through the same
+\ CIOBAUD query. There is no UART on Pi1MHz, so return its stable observable
+\ response rather than raising a MOS error.
+.service_driver_baud_compat
+ ldx #<service_driver_baud_text
+ ldy #>service_driver_baud_text
+ jmp service_driver_rom_response
+
+\ Watchdog and SSL-buffer controls have no Pi-side equivalent. They are safe
+\ compatibility no-ops: the Pi owns its watchdog and dynamically sizes secure
+\ service buffers.
+.service_driver_ok
+ ldx #<service_driver_ok_text
+ ldy #>service_driver_ok_text
+ jmp service_driver_rom_response
+
+\ Function 27 controls transparent transfer mode. Pi1MHz supports normal
+\ framed mode only, so query/set mode zero succeeds and mode one is rejected.
+.service_driver_mode_unsupported
+ ldy #0
+ lda (paramblok),y
+ beq service_driver_mode_query
+ cmp #'0'
+ bne service_driver_mode_error
+ iny
+ lda (paramblok),y
+ cmp #&0D
+ bne service_driver_mode_error
+ ldx #<service_driver_ok_text
+ ldy #>service_driver_ok_text
+ jmp service_driver_rom_response
+.service_driver_mode_query
+ ldx #<service_driver_cipmode_text
+ ldy #>service_driver_cipmode_text
+ jmp service_driver_rom_response
+.service_driver_mode_error
+ ldx #<service_driver_error_text
+ ldy #>service_driver_error_text
  jmp service_driver_rom_response
 
 \ Function 9 selects connection multiplexing. Pi1MHz exposes exactly one raw
@@ -145,6 +246,7 @@ drv_net_close = 53
 .service_driver_cpmux
  ldy #0
  lda (paramblok),y
+ beq service_driver_cpmux_query
  cmp #'0'
  bne service_driver_cpmux_bad
  iny
@@ -153,6 +255,10 @@ drv_net_close = 53
  bne service_driver_cpmux_bad
  ldx #<service_driver_ok_text
  ldy #>service_driver_ok_text
+ jmp service_driver_rom_response
+.service_driver_cpmux_query
+ ldx #<service_driver_cipmux_text
+ ldy #>service_driver_cipmux_text
  jmp service_driver_rom_response
 .service_driver_cpmux_bad
  jmp service_driver_error_parameter
@@ -167,7 +273,7 @@ drv_net_close = 53
  rts
 
 .service_driver_wifi_control
- ldx save_x
+ ldx driver_entry_x
  \ `*WIFI ON` is the quickest positive Pi-link diagnostic. Do not return a
  \ ROM-local OK: require command 91 to make a complete FCA6/FCA9 round trip.
  beq service_driver_wifi_off
@@ -217,53 +323,63 @@ drv_net_close = 53
  jsr service_driver_write_y
  jmp service_driver_dispatch
 
-\ Raw TCP compatibility used by OSWORD &65 and the stock DATE/TIME tools.
+\ Raw TCP/UDP compatibility used by OSWORD &65 and the stock DATE/TIME tools.
 .service_driver_cipstart
+ \ X/Y point at CR-separated protocol, hostname and port strings. Parse the
+ \ protocol before opening a Pi handle, so a rejected type leaves no live
+ \ transport behind. SSL is never downgraded to plaintext.
+ ldy #0
+ lda (paramblok),y
+ and #&DF
+ cmp #'T'
+ beq service_driver_protocol_tcp
+ cmp #'U'
+ beq service_driver_protocol_udp
+ jmp service_driver_protocol_unsupported
+.service_driver_protocol_tcp
+ lda #0
+ sta drv_net_type
+ lda #'C'
+ bne service_driver_protocol_second
+.service_driver_protocol_udp
+ lda #1
+ sta drv_net_type
+ lda #'D'
+.service_driver_protocol_second
+ sta drv_net_protocol_second
+ iny
+ lda (paramblok),y
+ and #&DF
+ cmp drv_net_protocol_second
+ bne service_driver_protocol_unsupported
+ iny
+ lda (paramblok),y
+ and #&DF
+ cmp #'P'
+ bne service_driver_protocol_unsupported
+ iny
+ lda (paramblok),y
+ cmp #&0D
+ bne service_driver_protocol_unsupported
+ iny
+ sty drv_net_index
+ jmp service_driver_protocol_valid
+.service_driver_protocol_unsupported
+ ldx #<service_driver_error_text
+ ldy #>service_driver_error_text
+ jmp service_driver_rom_response
+.service_driver_protocol_valid
  jsr service_driver_net_close_silent
  jsr net_command_address
  lda #drv_net_open
  jsr net_write_a
- lda #0                    \ TCP
+ lda drv_net_type
  jsr net_write_a
  jsr net_dispatch_wait
  cmp #0
  beq service_driver_open_ok
  jmp service_driver_net_error
 .service_driver_open_ok
-
- \ X/Y pointed at CR-separated protocol, hostname, port strings on entry.
- \ Never silently downgrade SSL/UDP to plaintext TCP.
- ldy #0
- lda (paramblok),y
- and #&DF
- cmp #'T'
- beq service_driver_protocol_t
- jmp service_driver_net_error
-.service_driver_protocol_t
- iny
- lda (paramblok),y
- and #&DF
- cmp #'C'
- beq service_driver_protocol_tc
- jmp service_driver_net_error
-.service_driver_protocol_tc
- iny
- lda (paramblok),y
- and #&DF
- cmp #'P'
- beq service_driver_protocol_ok
- jmp service_driver_net_error
-.service_driver_protocol_ok
- ldy #0
-.service_driver_skip_protocol
- lda (paramblok),y
- iny
- bne service_driver_protocol_index_ok
- jmp service_driver_error_parameter
-.service_driver_protocol_index_ok
- cmp #&0D
- bne service_driver_skip_protocol
- sty drv_net_index
  jsr net_command_address
  lda #drv_net_dns
  jsr net_write_a
@@ -375,7 +491,7 @@ drv_net_close = 53
  jmp service_driver_rom_response
 
 .service_driver_cipsend
- ldx save_x
+ ldx driver_entry_x
  lda &0000,x
  sta data_pointer
  lda &0001,x
@@ -508,7 +624,7 @@ drv_net_close = 53
  stx driver_page_shadow
  stx drv_net_buf_x
  stx net_empty_lo
- lda #10
+ lda #2                     \ up to 512 frames for the first response byte
  sta net_empty_hi
 .service_driver_receive_more
  jsr net_command_address
@@ -529,7 +645,9 @@ drv_net_close = 53
  jsr net_write_a
  jsr net_dispatch_wait
  cmp #&20
- beq service_driver_receive_done
+ bne service_driver_receive_not_done
+ jmp service_driver_receive_done
+.service_driver_receive_not_done
  cmp #0
  beq service_driver_receive_ok
  jmp service_driver_net_error
@@ -540,26 +658,61 @@ drv_net_close = 53
  jsr net_read_a
  sta drv_net_chunk
  beq service_driver_receive_empty
+ \ HTTP clients request Connection: close and normally receive explicit EOF.
+ \ Retain a bounded ten-second gap for fragmented generic TCP responses.
  ldx #0
  stx net_empty_lo
- lda #10
+ lda #2
  sta net_empty_hi
+ jsr net_command_address
+ lda #drv_net_copy_public
+ jsr net_write_a
+ lda drv_net_chunk
+ jsr net_write_a
+ lda drv_net_buf_x
+ jsr net_write_a
+ lda driver_page_shadow
+ jsr net_write_a
+ jsr net_dispatch_wait
+ cmp #0
+ beq service_driver_receive_bulk_ok
+ cmp #drv_net_unsupported
+ beq service_driver_receive_legacy_copy
+ jmp service_driver_net_error
+.service_driver_receive_bulk_ok
+ clc
+ lda drv_net_buf_x
+ adc drv_net_chunk
+ sta drv_net_buf_x
+ bcs service_driver_receive_bulk_page
+ jmp service_driver_receive_more
+.service_driver_receive_bulk_page
+ inc driver_page_shadow
+ beq service_driver_receive_overflow
+ jmp service_driver_receive_more
+.service_driver_receive_legacy_copy
+ \ Kernels predating command 58 still expose the received bytes through the
+ \ original private scratch window. Preserve mixed ROM/kernel deployment by
+ \ falling back to ElkWiFi's byte-at-a-time copy only for UNSUPPORTED.
  jsr net_scratch_address
-.service_driver_receive_copy
+.service_driver_receive_legacy_byte
  jsr net_read_a
  ldx drv_net_buf_x
  jsr service_driver_write_paged
  inx
  stx drv_net_buf_x
- bne service_driver_receive_copy_next
+ bne service_driver_receive_legacy_next
  inc driver_page_shadow
- bne service_driver_receive_copy_next
- jmp service_driver_net_error
-.service_driver_receive_copy_next
+ beq service_driver_receive_overflow
+.service_driver_receive_legacy_next
  dec drv_net_chunk
- bne service_driver_receive_copy
+ bne service_driver_receive_legacy_byte
  jmp service_driver_receive_more
+.service_driver_receive_overflow
+ jmp service_driver_net_error
 .service_driver_receive_empty
+ jsr check_esc
+ bcs service_driver_receive_done
  lda #19
  jsr osbyte
  dec net_empty_lo
@@ -634,6 +787,20 @@ drv_net_close = 53
  equs "+CWMODE:1",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
 .service_driver_ok_text
  equs "OK",&0D,&0A,0
+.service_driver_error_text
+ equs "ERROR",&0D,&0A,0
+.service_driver_status_ip_text
+ equs "STATUS:2",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
+.service_driver_status_connected_text
+ equs "STATUS:3",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
+.service_driver_status_error_text
+ equs "STATUS:4",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
+.service_driver_baud_text
+ equs "+CIOBAUD:115200",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
+.service_driver_cipmode_text
+ equs "+CIPMODE:0",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
+.service_driver_cipmux_text
+ equs "+CIPMUX:0",&0D,&0A,&0D,&0A,"OK",&0D,&0A,0
 
 .service_driver_join
  lda #drv_svc_join

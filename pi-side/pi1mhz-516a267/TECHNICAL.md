@@ -71,6 +71,19 @@ The existing Pi1MHz raw network service is corrected for HTTP status,
 Content-Length truncation, diagnostic errors and an ElkWiFi-compatible user
 agent. The ElkWiFi ROM uses it for WGET and OSWORD TCP operations.
 
+Raw command 58 is a Pi1MHz-private receive accelerator. It copies at most 240
+bytes from the fixed raw-network scratch page to a validated offset in the
+standard 64K public JIM window. The scratch source is relative to
+`DISC_RAM_BASE`, while the host-visible `&FCFF`/`&FDxx` window maps to
+`JIM_ram[0..65535]` and therefore takes an unbased destination. The ROM uses
+it only after raw receive command 51 succeeds,
+then maintains the public ElkWiFi page cursor, length and terminator exactly as
+before. Applications continue to call OSWORD `&65` function 13 and cannot see
+or invoke a new ElkWiFi function number. The ROM falls back to the original
+copy loop when an older kernel reports command 58 as unsupported. Raw paged
+WGET destinations use the same operation, while transformed text and
+host-memory destinations remain on the byte path.
+
 Commands 94 through 100 implement the managed NetTools secure ABI. Host calls
 are synchronous, and the FIQ wrapper always latches the newest command so a
 request arriving around reset cannot be stranded behind a stale BUSY result.
@@ -128,6 +141,13 @@ Command 93 accepts raw UEF, gzip, single-entry ZIP and gzip inside a
 single-entry ZIP. It validates headers, CRC, advertised size and the 65,534-byte
 expanded limit. Decompression runs outside FIQ and uses a caller-provided
 scratch buffer so source and destination cannot alias incorrectly.
+
+The compatibility path publishes the complete normalized UEF length. The
+original WiCFS implementation consumes the complete image, including terminal
+carrier and integer-gap chunks. Earlier 1MHzWifi candidates shortened the
+published length to the end of the last `&0100` chunk. That assumption is not
+part of the original cartridge contract and is now available only through the
+`elkwifi_uef_trim_tail=1` diagnostic switch. The default is full-stream mode.
 
 ## Validation status
 

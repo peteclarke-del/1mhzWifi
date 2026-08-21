@@ -1,0 +1,15 @@
+diff --git a/rom/wicfs.asm b/rom/wicfs.asm
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -1947,7 +1947,10 @@
+ 	STA	loadrun
+ 	JSR	upget		\get a byte
+ 	
+-.xbgetv	STA	temp		\recover X, preserving A
++.xbgetv	PHP			\preserve the BGET carry result
++	STA	temp		\recover X, preserving A
++	JSR	wicfs_finish_if_exhausted	\retire vectors after the final BGET byte
++	PLP
+ 	PLA
+ 	TAX
+ 	LDA	temp

@@ -510,6 +510,13 @@ static bool want_io(int result)
            error == WS_WANT_READ || error == WS_WANT_WRITE;
 }
 
+static bool channel_finished(int result)
+{
+    int error = client.ssh != NULL ? wolfSSH_get_error(client.ssh) : result;
+    return result == WS_EOF || result == WS_CHANNEL_CLOSED ||
+           error == WS_EOF || error == WS_CHANNEL_CLOSED;
+}
+
 static void clear_password(void)
 {
     volatile byte *p = client.password;
@@ -657,6 +664,9 @@ static int port_read(void *opaque, uint8_t *out, size_t maximum)
     if (client.stage != SSH_UP || maximum > UINT32_MAX) return -(int)NTS_ERR_CONN;
     result = wolfSSH_stream_read(client.ssh, out, (word32)maximum);
     if (result >= 0) return result;
+    /* A normal remote shell exit closes the SSH channel before the peer must
+       close its TCP connection. Report that as EOF, not protocol error &2B. */
+    if (channel_finished(result)) return -(int)NTS_EOF;
     if (want_io(result)) return 0;
     return client.eof && client.rx_count == 0u ? -(int)NTS_EOF :
                                                  -(int)NTS_ERR_PROTOCOL;

@@ -19,6 +19,7 @@ package_dir="$script_dir/pi1mhz-516a267"
 patch_dir="$package_dir/patches"
 overlay_dir="$package_dir/overlay"
 output_dir=${PI1MHZ_OUTPUT_DIR:-$root_dir/build}
+mkdir -p "$output_dir"
 # shellcheck source=upstream.env
 . "$script_dir/upstream.env"
 
@@ -114,22 +115,24 @@ if ! grep -q 'BBC/Electron display' \
         < "$patch_dir/wolfssh-pi1mhz.patch"
 fi
 
-# The host ROM is an input to a complete SD-card build, but not to the
-# source-only `apply` preset used to prepare an upstream review patch. A full
-# repository checkout uses build/pi1mhz-all/Pi1MHz/ElkWiFi.rom. A standalone patch kit
-# may supply ELKWIFI_ROM or place ElkWiFi.rom under pi-side/firmware.
+# The host ROM is required for a complete SD-card build. The source-only
+# `apply` preset accepts an explicit ELKWIFI_ROM so an exported maintainer patch
+# can include the exactly matched host image, but does not otherwise discover
+# or rebuild a ROM. A full repository build uses the canonical build output.
 rom_source=${ELKWIFI_ROM:-}
-if [ -z "$rom_source" ] && [ -f "$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom" ]; then
-    rom_source="$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
-    if [ -x "$root_dir/build.sh" ]; then
-        "$root_dir/build.sh" --rom-only
+if [ "$preset" != apply ]; then
+    if [ -z "$rom_source" ] && [ -f "$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom" ]; then
+        rom_source="$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
+        if [ -x "$root_dir/build.sh" ]; then
+            "$root_dir/build.sh" --rom-only
+        fi
+    elif [ -z "$rom_source" ] && [ -f "$script_dir/firmware/ElkWiFi.rom" ]; then
+        rom_source="$script_dir/firmware/ElkWiFi.rom"
     fi
-elif [ -z "$rom_source" ] && [ -f "$script_dir/firmware/ElkWiFi.rom" ]; then
-    rom_source="$script_dir/firmware/ElkWiFi.rom"
-fi
-if [ "$preset" != apply ] && [ -z "$rom_source" ]; then
-    echo "a built 16 KiB host ROM is required; set ELKWIFI_ROM" >&2
-    exit 1
+    if [ -z "$rom_source" ]; then
+        echo "a built 16 KiB host ROM is required; set ELKWIFI_ROM" >&2
+        exit 1
+    fi
 fi
 if [ -n "$rom_source" ] && [ "$(wc -c < "$rom_source")" -ne 16384 ]; then
     echo "$rom_source is not a 16 KiB ElkWiFi host ROM" >&2
@@ -158,7 +161,7 @@ install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/se
 install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
 install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
 
-for patch_name in bus-window-adjacent-preservation.patch integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-titles-transfer.patch net-rx-window.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch net-debug-stage.patch net-debug-test-window.patch secure-debug-stage.patch; do
+for patch_name in bus-window-adjacent-preservation.patch integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-titles-transfer.patch net-rx-window.patch net-copy-public.patch net-connected-udp.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch net-debug-stage.patch net-debug-test-window.patch secure-debug-stage.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -176,6 +179,32 @@ for patch_name in bus-window-adjacent-preservation.patch integration.patch servi
             grep -q 'SERVICE_CMD_ELKWIFI_LAST  *93u' "$upstream/src/services.h" &&
             grep -q '^    uef_normalize.c' "$upstream/src/CMakeLists.txt" &&
             grep -q '^    puff.c' "$upstream/src/CMakeLists.txt" &&
+            patch_present=true
+            ;;
+        net-copy-public.patch)
+            grep -q 'NET_CMD_COPY_PUBLIC' "$upstream/src/net_service.h" &&
+            grep -q 'memmove(&Pi1MHz->JIM_ram\[destination\],' \
+                "$upstream/src/net_service.c" &&
+            ! grep -q 'JIM_ram\[DISC_RAM_BASE + destination\]' \
+                "$upstream/src/net_service.c" &&
+            grep -q 'memcmp(&Pi1MHz->JIM_ram\[0x01f0u\]' \
+                "$upstream/src/tests/net/test_net.c" &&
+            grep -q 'DISC_RAM_BASE + 0x01f0u' \
+                "$upstream/src/tests/net/test_net.c" &&
+            grep -q 'COPY_PUBLIC_NONZERO_ONLY' \
+                "$upstream/src/tests/net/run_tests.sh" &&
+            grep -q '#define TEST_JIM_SIZE 0x1100000u' \
+                "$upstream/src/tests/net/stubs/Pi1MHz.h" &&
+            patch_present=true
+            ;;
+        net-connected-udp.patch)
+            grep -q 'connected UDP compatibility path' \
+                "$upstream/src/tests/net/test_net.c" &&
+            grep -q 'h->type == NET_TYPE_UDP' "$upstream/src/net_service.c" &&
+            grep -q 'udp_connect(h->upcb, &h->remote_ip, h->remote_port)' \
+                "$upstream/src/net_service.c" &&
+            grep -q 'connected UDP generic recv strips peer record header' \
+                "$upstream/src/tests/net/test_net.c" &&
             patch_present=true
             ;;
         services-capacity-test.patch)
@@ -407,6 +436,9 @@ fi
 if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_utc_offset_minutes[[:space:]]*=' "$config_file"; then
     printf '# elkwifi_utc_offset_minutes=0  # DATE/TIME offset east of UTC; e.g. 60 for BST\n' >> "$config_file"
 fi
+if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_uef_trim_tail[[:space:]]*=' "$config_file"; then
+    printf '# elkwifi_uef_trim_tail=0  # diagnostic A/B only; normal WiCFS receives the complete UEF\n' >> "$config_file"
+fi
 if ! grep -Eq '^[[:space:]]*#?[[:space:]]*wifi_security[[:space:]]*=' "$config_file"; then
     printf '# wifi_security=auto      # auto|open|wep|wpa|wpa2\n' >> "$config_file"
 fi
@@ -430,8 +462,10 @@ case "$preset" in
         ;;
 esac
 bundle="$output_dir/pi1mhz-$preset"
-mkdir -p "$bundle"
-cp -a "$upstream/firmware/." "$bundle/"
+bundle_stage_dir=$(mktemp -d "$output_dir/.pi1mhz-tree.XXXXXX")
+bundle_staged="$bundle_stage_dir/pi1mhz-$preset"
+mkdir -p "$bundle_staged"
+cp -a "$upstream/firmware/." "$bundle_staged/"
 
 # Keep the host programs paired with the firmware which implements their
 # mailbox ABI.  This is distribution material rather than Pi boot firmware,
@@ -443,8 +477,8 @@ if [ -d "$root_dir/host-tools" ]; then
     host_tools_ssd="$root_dir/host-tools/build/nettools.ssd"
 fi
 if [ -n "$host_tools_ssd" ]; then
-    mkdir -p "$bundle/host-tools"
-    install -m 0644 "$host_tools_ssd" "$bundle/host-tools/nettools.ssd"
+    mkdir -p "$bundle_staged/host-tools"
+    install -m 0644 "$host_tools_ssd" "$bundle_staged/host-tools/nettools.ssd"
 else
     echo "note: standalone Pi1MHz kit has no NetTools SSD; set HOST_TOOLS_SSD to include one" >&2
 fi
@@ -452,8 +486,14 @@ fi
 # an SD-card operator can distinguish a newly linked image from a stale copy.
 # Reproducible release jobs may still request normalized timestamps explicitly.
 if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
-    find "$bundle" -exec touch -d "@$SOURCE_DATE_EPOCH" -- {} +
+    find "$bundle_staged" -exec touch -d "@$SOURCE_DATE_EPOCH" -- {} +
 fi
+# Publish a complete fresh tree. Overlaying firmware onto an existing bundle
+# retains files removed or renamed upstream and can put stale host tools on
+# the SD card.
+rm -rf -- "$bundle"
+mv "$bundle_staged" "$bundle"
+rmdir "$bundle_stage_dir"
 archive="$output_dir/pi1mhz-$preset-hardware-test.zip"
 archive_tmp_dir=$(mktemp -d "$output_dir/.pi1mhz-bundle.XXXXXX")
 (cd "$output_dir" && TZ=UTC zip -Xqr "$archive_tmp_dir/bundle.zip" "pi1mhz-$preset")

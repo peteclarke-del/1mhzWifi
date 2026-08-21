@@ -1,0 +1,71 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -356,22 +356,8 @@
+ 	JSR	wicfs_bus_delay
+ 	CMP	#&A5
+ 	BNE	wicfs_apply_none
+-	LDX	#0
+-	JSR	wicfs_pending_address_x
+-	LDA	#0
+-	STA	&FCA9		\consume the snapshot before changing live state
+-	JSR	wicfs_bus_delay
+-	LDX	#1
+-.wicfs_apply_loop
+-	JSR	wicfs_pending_address_x
+-	LDA	&FCA9
+-	JSR	wicfs_bus_delay
+-	LDY	wicfs_snapshot_ram_offsets-1,X
+-	STA	wicfs_state_ram,Y
+-	INX
+-	CPX	#13
+-	BNE	wicfs_apply_loop
+-	JSR	wicfs_state_save
++	\ Keep the cassette predecessors live while WiCFS owns the stream. The
++	\ pre-*TAPE filing-system snapshot remains private until retirement.
+ .wicfs_apply_none
+ 	PLA
+ 	TAY
+@@ -1301,6 +1287,7 @@
+ 	BEQ	wicfs_reset_active
+ 	JMP	wicfs_reset_done
+ .wicfs_reset_active
++	JSR	wicfs_load_pre_tape
+ \Restore BYTEV before using OSBYTE. This keeps reset recovery independent of
+ \the RAM *TAPE trap and its cassette workspace remaining intact.
+ 	PHP
+@@ -1498,6 +1485,11 @@
+ 	LDA	bytev_rtn+1
+ 	STA	BYTEV+1
+ .wicfs_vectors_done
++	LDX	#0
++	JSR	wicfs_pending_address_x
++	LDA	#0
++	STA	&FCA9		\consume the pre-*TAPE snapshot after restoration
++	JSR	wicfs_bus_delay
+ 	LDA	#0
+ 	STA	wicfs_magic
+ 	STA	wicfs_magic+1
+@@ -1518,0 +1511,23 @@
++\ Replace the live cassette predecessors with the filing-system snapshot only
++\ at the ownership-checked retirement boundary. Until this point unclaimed
++\ operations must behave exactly as they do through the native cassette ROM.
++.wicfs_load_pre_tape
++	LDX	#0
++	JSR	wicfs_pending_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	CMP	#&A5
++	BNE	wicfs_load_pre_tape_done
++	LDX	#1
++.wicfs_load_pre_tape_loop
++	JSR	wicfs_pending_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	LDY	wicfs_snapshot_ram_offsets-1,X
++	STA	wicfs_state_ram,Y
++	INX
++	CPX	#13
++	BNE	wicfs_load_pre_tape_loop
++.wicfs_load_pre_tape_done
++	RTS
++

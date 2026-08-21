@@ -253,6 +253,14 @@ OSBGET = &FFD7
 \ continues to use QUPCFS and retains its original behaviour.
 .uef_run_cmd
  jsr wicfs_install
+ bcs uef_run_failed
+ jsr wicfs_apply_pre_tape
+ lda wicfs_magic
+ cmp #&A5
+ bne uef_run_failed
+ lda wicfs_magic+1
+ cmp #&5A
+ bne uef_run_failed
  ldx #0
 .uef_run_queue
  stx temp
@@ -265,6 +273,10 @@ OSBGET = &FFD7
  inx
  bne uef_run_queue
 .uef_run_started
+ jmp call_claimed
+.uef_run_failed
+ jsr printtext
+ equs "WiCFS state invalid; power cycle",&0D,&EA
  jmp call_claimed
 
 

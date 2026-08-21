@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a reviewed Pi1MHz command on a minimum 32K BBC Model B."""
+"""Run a reviewed Pi1MHz command on a supported BBC-family host."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import time
 
 ELKULATOR_TESTS = Path(__file__).resolve().parents[1] / "elkulator"
 sys.path.insert(0, str(ELKULATOR_TESTS))
-from provenance import snapshot, sorted_screens, source_revision
+from provenance import bus_trace_summary, snapshot, sorted_screens, source_revision
 from run_uef_gameplay import capture
 
 
@@ -33,7 +33,47 @@ def bem_paste(command: str) -> str:
     return f"*{command.upper()}|M"
 
 
-def config_text(wifi_rom: Path) -> str:
+MACHINE_PROFILES = {
+    "bbc-b-32k": {
+        "name": "BBC B 32K Pi1MHz minimum",
+        "os": "os12",
+        "basic": "basic2",
+        "fdc": "none",
+        "65c02": "false",
+        "b+": "false",
+        "master": "false",
+        "romsetup": "std",
+        "romslot": 14,
+    },
+    "bbc-b-plus": {
+        "name": "BBC B+ 64K Pi1MHz",
+        "os": "bpos",
+        "basic": "basic2",
+        "fdc": "acorn",
+        "65c02": "false",
+        "b+": "true",
+        "master": "false",
+        "romsetup": "std",
+        "romslot": 14,
+    },
+    "master-128": {
+        "name": "BBC Master 128 Pi1MHz",
+        "os": "mos320",
+        "basic": None,
+        "fdc": "master",
+        "65c02": "true",
+        "b+": "false",
+        "master": "true",
+        "romsetup": "master",
+        "romslot": 7,
+    },
+}
+
+
+def config_text(wifi_rom: Path, machine_profile: str) -> str:
+    profile = MACHINE_PROFILES[machine_profile]
+    basic = (f"rom15={profile['basic']}\n" if profile["basic"] else "")
+    cmos = "cmos=cmos\n" if profile["master"] == "true" else ""
     return f"""model=0
 tube=-1
 key_as=false
@@ -42,19 +82,18 @@ keypad=false
 mouse_amx=false
 
 [model_00]
-name=BBC B 32K Pi1MHz minimum
-fdc=none
-65c02=false
-b+=false
-master=false
+name={profile['name']}
+fdc={profile['fdc']}
+65c02={profile['65c02']}
+b+={profile['b+']}
+master={profile['master']}
 modela=false
 os01=false
 compact=false
-os=os12
-tube=none
-romsetup=std
-rom15=basic2
-rom14={wifi_rom.resolve()}
+os={profile['os']}
+{cmos}tube=none
+romsetup={profile['romsetup']}
+{basic}rom{profile['romslot']:02d}={wifi_rom.resolve()}
 
 [disc]
 defaultwriteprotect=true
@@ -80,6 +119,10 @@ def main() -> int:
     parser.add_argument("--bem", type=Path, required=True)
     parser.add_argument("--runtime-dir", type=Path, required=True)
     parser.add_argument("--wifi-rom", type=Path, required=True)
+    parser.add_argument(
+        "--machine-profile", choices=tuple(MACHINE_PROFILES),
+        default="bbc-b-32k",
+    )
     parser.add_argument("--command", default="version")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-screen", type=Path, action="append", default=[])
@@ -103,18 +146,26 @@ def main() -> int:
         parser.error(f"output directory is not empty: {args.output}")
     args.output.mkdir(parents=True, exist_ok=True)
     cfg = args.output / "b-em.cfg"
-    cfg.write_text(config_text(args.wifi_rom))
+    cfg.write_text(config_text(args.wifi_rom, args.machine_profile))
     trace = args.output / "mailbox.trace"
+    bus_trace = args.output / "bus.trace"
     log = args.output / "b-em.log"
     xdg = args.output / "xdg"
     xdg.mkdir(exist_ok=True)
     display = f":{args.display}"
-    immutable = snapshot({
+    selected_profile = MACHINE_PROFILES[args.machine_profile]
+    immutable_paths = {
         "bem": args.bem,
         "wifi_rom": args.wifi_rom,
-        "os_rom": args.runtime_dir / "roms/os/os12.rom",
-        "basic_rom": args.runtime_dir / "roms/general/basic2.rom",
-    })
+        "os_rom": args.runtime_dir / f"roms/os/{selected_profile['os']}.rom",
+    }
+    if selected_profile["basic"]:
+        immutable_paths["basic_rom"] = (
+            args.runtime_dir / f"roms/general/{selected_profile['basic']}.rom"
+        )
+    if selected_profile["master"] == "true":
+        immutable_paths["cmos"] = args.runtime_dir / "cmos.bin"
+    immutable = snapshot(immutable_paths)
     config_before = snapshot({"generated_cfg": cfg})
     environment = {
         "PATH": "/usr/local/bin:/usr/bin:/bin",
@@ -123,6 +174,7 @@ def main() -> int:
         "ALSOFT_DRIVERS": "null",
         "PI1MHZ_MAILBOX": "live",
         "PI1MHZ_TRACE": str(trace.resolve()),
+        "PI1MHZ_BUS_TRACE": str(bus_trace.resolve()),
     }
     if args.wifi_profile:
         environment["PI1MHZ_WIFI_PROFILE"] = str(args.wifi_profile.resolve())
@@ -151,7 +203,7 @@ def main() -> int:
         number = 0
         while time.monotonic() < deadline and process.poll() is None:
             time.sleep(min(5.0, max(0.0, deadline - time.monotonic())))
-            capture(display, args.output / f"screen-{number}.png")
+            capture(display, args.output / f"screen-{number}.png", "B-Em")
             number += 1
         screens = sorted_screens(args.output)
         scores = {
@@ -178,7 +230,7 @@ def main() -> int:
             not missing_events
         )
         report = {
-            "machine_profile": "bbc-model-b-32k-minimum",
+            "machine_profile": args.machine_profile,
             "tube": False,
             "command": args.command,
             "still_running_at_deadline": alive,
@@ -186,6 +238,7 @@ def main() -> int:
             "missing_required_screens": missing_screens,
             "required_trace_events": args.require_trace_event,
             "missing_trace_events": missing_events,
+            "bus_trace": bus_trace_summary(bus_trace),
             "provenance": {
                 "immutable_inputs": immutable,
                 "config_before": config_before,

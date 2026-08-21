@@ -1,8 +1,9 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.55` hardware-test ROM presents the applicable
-ElkWiFi 0.23 command and OSWORD interface. The Pi implementation runs inside
+Micro through Pi1MHz. The `1MHzWifi 0.1.58` candidate ROM presents the
+ElkWiFi 0.23 command and OSWORD interface. The same 16 KiB ROM is built for
+Electron, BBC B, BBC B+ and Master hosts. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
 
 The original ElkWiFi cartridge uses a 16C2552 UART at `&FC30`. An Electron Plus
@@ -20,7 +21,8 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-Version 0.1.55 is the current hardware-test build. Earlier 0.1.50 and
+Version 0.1.58 is the current compatibility candidate. Version 0.1.55 is the last
+physically exercised Tube-off baseline. Earlier 0.1.50 and
 0.1.51 timing and WiCFS cursor changes caused physical MENU and local UEF
 regressions, so they are not release baselines. Version 0.1.55 retains the
 0.1.54 WiCFS execution path and checkpoints its stream cursor at file and
@@ -36,9 +38,21 @@ iteration count which could permanently disable wolfSSH on a Pi 3. HWDTEST now
 fails unless both secure random and managed SSH are ready. WGET error `&30`
 also prints the parsed HTTP status before closing the handle.
 
-The canonical `build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` 0.1.55 image, SHA-256
-`ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb`, now
-has a confirmed physical Tube-off baseline. WiFi, HWDTEST, NetTools, `*MENU`
+Version 0.1.58 retains the 0.1.56 OPENUP and vector-lifecycle corrections,
+prevents reset-time restoration of stale filing-system vectors, and adds a
+private Pi-side scratch-to-public-JIM copy behind the unchanged public ABI.
+OSWORD receive and raw paged WGET use that copy to remove the host byte loop;
+older kernels receive an `Unsupported` result and use the compatible byte path.
+It also restores the observable pinned ElkWiFi 0.23 entries which do not need
+cartridge hardware, implements connected TCP and UDP through function 8, and
+rejects unsupported SSL without silently downgrading it. On the latest physical
+Tube-off run, Repton reached gameplay for the first time. Mr Wiz remains a
+failed launch gate. Neither title has, or will receive, a production
+title-specific path.
+
+The 0.1.55 image, SHA-256
+`ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb`, has a
+confirmed physical Tube-off baseline. WiFi, HWDTEST, NetTools, `*MENU`
 and local `*UEF LOAD` work on the Electron, AP5 and Pi Zero 2 installation.
 Data transfer is nevertheless too slow for normal use. Frak loads and plays.
 Thrust reaches playable gameplay, but ADFS then remains unavailable through
@@ -52,14 +66,23 @@ An experimental host-workspace snapshot made the exact staged BeebSCSI image
 pass a load, Break, ADFS remount and reload emulator sequence. Peer review
 rejected that design because restoring arbitrary filing-system workspace during
 reset is ROM-order dependent and can overwrite a newer filing-system owner.
-That experiment is not in the build. The canonical ROM remains 0.1.55 while an
-ownership-safe vector and BYTEV lifecycle change is tested. ADFS recovery after
-gameplay is still an open release gate.
+That rejected experiment is not in the build. The 0.1.58 candidate instead
+uses ownership-safe vector and BYTEV lifecycle handling. ADFS recovery after
+gameplay remains a physical release gate.
+
+The 21 August Tube-off milestone confirms that MENU launches Frak and Arcadians
+to gameplay, and local `*UEF LOAD REPTON` reaches gameplay after a long startup.
+It also identifies a repeatable generic lifecycle fault: after Frak, another
+`*MENU` hangs until a cold start, and after Plan B, ADFS remains unavailable
+until a cold start. `*UEF LOAD MRWIZ` normalizes the gzip image to `&3077` bytes
+in JIM and then hangs before cassette playback begins. SSH works, but entering
+its password from MODE 0 incorrectly changes the display to MODE 4. These
+results are the current physical baseline; Tube-on validation remains
+outstanding.
 
 The NetTools applications load at `&1D00` and validate OSHWM and HIMEM at every
-entry. Their current bootstrap selects MODE 4 before entering the application;
-SSH therefore changes mode even when the caller's current screen provides
-enough memory. Preserving a suitable caller mode is open work. Machine
+entry. Their bootstrap preserves a suitable caller mode and selects MODE 4
+only when the available host memory is insufficient. Machine
 detection is refreshed at driver entry because the ROM heap is volatile
 application workspace and cannot hold a reset-time cache. The bundle retains
 the BCM43455 7.45.241 firmware used before the Pi 3A+ DHCP regression. Version
@@ -75,7 +98,7 @@ Tube itself:
 | Area | Implemented behavior |
 | --- | --- |
 | WiFi | `*WIFI ON`, `*WIFI OFF`, `*LAP`, `*JOIN`, `*JOIN ?`, `*LEAVE`, `*ONLINE`, `*IFCFG`, `*LAPOPT` |
-| Network | `*PING`, HTTP `*WGET`, OSWORD `&65` TCP open/send/receive/close |
+| Network | `*PING`, HTTP `*WGET`, OSWORD `&65` TCP/UDP open, send, receive and close |
 | Time | NTP-backed `*DATE` and `*TIME` |
 | Menu | Persistent `*MENUSRC`; `*MENU` downloads, validates, adapts, and runs the published payload on the I/O processor |
 | Storage | `*WGET -U`, `*UEF LOAD`, `*WICFS`, `*REWIND`, `*PRD`, and `*WGET -S` through Pi1MHz JIM windows |
@@ -89,9 +112,11 @@ OSBYTE `&81` machine query before the driver touches the high JIM selectors.
 The result is transient and is not assumed to survive application execution.
 
 `*PRINTER`, `*UPDATE`, update `*CRC`, and `*SETSERIAL` are not present. They
-depend on cartridge hardware that Pi1MHz does not expose. Unknown OSWORD
-functions and the direct flash function return `Not implemented` before they
-can reach the inherited UART or flash code.
+depend on cartridge hardware that Pi1MHz does not expose. Driver function 19
+and reserved functions 29 to 31 return `Not implemented`, matching the pinned
+0.23 table. Watchdog and SSL-buffer controls return bounded success because
+those resources are owned by Pi1MHz. The direct flash function cannot reach
+the inherited UART or flash code.
 
 The ElkWiFi-compatible ROM does not add HTTPS or TLS to `*WGET`; unsupported
 secure URLs fail closed and are never downgraded to plaintext. The separate
@@ -224,11 +249,11 @@ retaining the current Pi1MHz source revision.
 Release hashes:
 
 ```text
-1MHzWifi ROM ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb
-kernel.img   0a9beedc77d7828a6f5a1a1126f40f47ef601f2a2534840f70d416089d85534a
-kernel7.img  ea7273028a547ef314d2af70f27ed8f4392a7d15a6652df091f67062d5e1c1c9
-nettools.ssd a44d87062f5af4a84271816fa321d39f6c9220576f5d438affee98ae50630187
-bundle ZIP   bb6be65644ca70a5104c9d9c8a14d25129050d185ca2aa932a726fd78e9a349d
+1MHzWifi ROM 339609afa38bc3fed486fb78b7ba6be236d7419fc0d80f3653e692c3fb366877
+kernel.img   fad559ca1e3840e5487ac44c0753c78251ea208e95c9fd42edb1e66370dce39a
+kernel7.img  3c9a99898bb9c83ae113ddc4f6896b0187155854221d946d180e313d2b2aaec1
+nettools.ssd 7bca283a8ede47868576150a8db17cfb1943cd3dc14de4e06547683d1b084f2f
+bundle ZIP   2127a2a9cf9c5084ccdea4ca86e36152eb7fe0952010f5e21da1959c7b584956
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -278,7 +303,7 @@ upstream source trees are required:
 
 - ElkWiFi commit `7bf366c97bec18bd238963c95e6f2aa6893cdb3a`
 - Pi1MHz commit `d08242ee1b35cf1285b72c9ec1869e98081a8c3e`, the official
-  `master` tip verified on 15 August 2026
+  `master` tip verified on 19 August 2026
 
 Pi1MHz has no `main` branch. Run `./pi-side/check_upstream.sh` before a release;
 it fails if the official default branch or its tip has changed.

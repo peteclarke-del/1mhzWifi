@@ -4,6 +4,8 @@ from pathlib import Path
 import os
 import unittest
 
+import re
+
 from py65.devices.mpu6502 import MPU
 
 
@@ -17,7 +19,7 @@ class ElkWiFiMemory:
     """Host RAM, the sideways ROM, Pi1MHz byte mailbox and public JIM window."""
 
     def __init__(self, rom: bytes, delayed_increment_accesses=0,
-                 delayed_selector_accesses=0):
+                 delayed_selector_accesses=0, supports_copy_public=True):
         self.ram = bytearray(0x10000)
         self.rom = rom
         self.jim = bytearray(0x1000000)
@@ -26,6 +28,7 @@ class ElkWiFiMemory:
         self.page = 0
         self.result = 0
         self.connected = False
+        self.raw_type = None
         self.connected_address = None
         self.sent = bytearray()
         self.send_schedule = []
@@ -37,6 +40,9 @@ class ElkWiFiMemory:
         self.delayed_selector_accesses = delayed_selector_accesses
         self.pending_selector = None
         self.pending_selector_count = 0
+        self.supports_copy_public = supports_copy_public
+        self.public_selector_writes = []
+        self.lapopt = None
 
     def _tick_selector(self, cycles):
         if self.pending_selector is None:
@@ -122,7 +128,11 @@ class ElkWiFiMemory:
             self._dispatch(value)
             return
         if address == 0xFCFF:
+            self.public_selector_writes.append((address, value))
             self.page = value
+            return
+        if address in (0xFCFD, 0xFCFE):
+            self.public_selector_writes.append((address, value))
             return
         if 0xFD00 <= address <= 0xFDFF:
             self.jim[(self.page << 8) | (address & 0xFF)] = value
@@ -159,6 +169,9 @@ class ElkWiFiMemory:
             else:
                 self.connected = False
                 response = b"WIFI DISCONNECTED\r\nOK\r\n"
+        elif command == 87:
+            self.lapopt = self.jim[0xFFFF01]
+            response = f"+CWLAPOPT:{self.lapopt}\r\n\r\nOK\r\n".encode()
         else:
             response = responses.get(command, b"ERROR\r\n")
         start = 0xFFFF01
@@ -172,7 +185,8 @@ class ElkWiFiMemory:
     def _dispatch_raw_network(self):
         base = 0xFFF000
         command = self.jim[base]
-        if command == 45:  # allocate raw TCP handle
+        if command == 45:  # allocate raw TCP/UDP handle
+            self.raw_type = self.jim[base + 1]
             self.result = 0
         elif command == 46:  # DNS
             self.jim[base + 4:base + 8] = bytes((93, 184, 216, 34))
@@ -211,6 +225,24 @@ class ElkWiFiMemory:
             del self.receive[:count]
             self.jim[base + 1:base + 4] = count.to_bytes(3, "little")
             self.result = 0 if count else 0x20
+        elif command == 54:  # status
+            self.jim[base + 1] = 4 if self.connected else 1
+            self.jim[base + 2] = 1 if self.connected else 0
+            self.result = 0
+        elif command == 58:  # private scratch-to-public JIM accelerator
+            if not self.supports_copy_public:
+                self.result = 0x27
+                return
+            count = self.jim[base + 1]
+            destination = int.from_bytes(self.jim[base + 2:base + 4], "little")
+            if not count or count > 240 or destination + count > 0x10000:
+                self.result = 0x23
+                return
+            scratch = 0xFFF100
+            self.jim[destination:destination + count] = self.jim[
+                scratch:scratch + count
+            ]
+            self.result = 0
         elif command == 53:  # close
             self.connected = False
             self.result = 0
@@ -228,12 +260,15 @@ class ElkWiFiOSWORDMachine:
     """Enter the ROM exactly as MOS service reason 8 enters OSWORD &65."""
 
     def __init__(self, rom, delayed_increment_accesses=0,
-                 delayed_selector_accesses=0):
+                 delayed_selector_accesses=0, supports_copy_public=True,
+                 machine_type=1):
         self.memory = ElkWiFiMemory(
             rom, delayed_increment_accesses, delayed_selector_accesses,
+            supports_copy_public,
         )
         self.last_x = None
         self.last_y = None
+        self.machine_type = machine_type
 
     def call(self, function, x=0, y=0, *, limit=2_000_000,
              stack_pointer=0xFF, service_rom=5, expected_error=None):
@@ -268,9 +303,9 @@ class ElkWiFiOSWORDMachine:
                 self.last_y = mpu.y
                 return
             if mpu.pc == OSBYTE:
-                # OSBYTE &81, X=0, Y=&FF identifies an Electron with X=1.
+                # OSBYTE &81, X=0, Y=&FF returns the MOS machine type.
                 if mpu.a == 0x81 and mpu.x == 0 and mpu.y == 0xFF:
-                    mpu.x = 1
+                    mpu.x = self.machine_type
                 mpu.pc = (mpu.stPopWord() + 1) & 0xFFFF
                 self.memory.tick(16)
             else:
@@ -289,13 +324,88 @@ class ElkWiFiOSWORDMachine:
             )
 
 
+class ElkChatJIMMemory:
+    """Execute ElkChat's JIM helpers against a banked &FD00 aperture."""
+
+    def __init__(self, image: bytes):
+        self.ram = bytearray(0x10000)
+        self.ram[0x1F00:0x1F00 + len(image)] = image
+        self.jim = bytearray(0x1000000)
+        self.high = 0
+        self.mid = 0
+        self.page = 0
+
+    def __len__(self):
+        return 0x10000
+
+    @property
+    def selected(self):
+        return (self.high << 16) | (self.mid << 8) | self.page
+
+    def __getitem__(self, address):
+        address &= 0xFFFF
+        if 0xFD00 <= address <= 0xFDFF:
+            return self.jim[(self.selected << 8) | (address & 0xFF)]
+        return self.ram[address]
+
+    def __setitem__(self, address, value):
+        address &= 0xFFFF
+        value &= 0xFF
+        if address == 0xFCFD:
+            self.high = value
+        elif address == 0xFCFE:
+            self.mid = value
+        elif address == 0xFCFF:
+            self.page = value
+        elif 0xFD00 <= address <= 0xFDFF:
+            self.jim[(self.selected << 8) | (address & 0xFF)] = value
+        else:
+            self.ram[address] = value
+
+
+class ElkChatJIMMachine:
+    def __init__(self, image: bytes, labels: dict[str, int]):
+        self.memory = ElkChatJIMMemory(image)
+        self.labels = labels
+
+    def call(self, label, *, a=0, x=0, y=0, limit=20_000):
+        mpu = MPU(memory=self.memory, pc=self.labels[label])
+        mpu.a, mpu.x, mpu.y = a, x, y
+        mpu.sp = 0xF0
+        mpu.stPushWord(RETURN_SENTINEL - 1)
+        for _ in range(limit):
+            if mpu.pc == RETURN_SENTINEL:
+                return mpu
+            mpu.step()
+        raise AssertionError(f"ElkChat helper {label} did not return")
+
+
 class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.rom = (ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom").read_bytes()
-        source_root = Path(os.environ.get("ELKCHAT_SOURCE", ROOT.parent / "elkChat"))
+        rom_path = Path(os.environ.get(
+            "ELKWIFI_TEST_ROM",
+            ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom",
+        ))
+        cls.rom = rom_path.read_bytes()
+        default_source = (
+            ROOT.parents[2] / "8bit-net/services/bit-chat/clients/elkChat"
+        )
+        source_root = Path(os.environ.get("ELKCHAT_SOURCE", default_source))
+        cls.elkchat_source_root = source_root
         driver = source_root / "src/elkwifi.asm"
         cls.elkchat_driver = driver.read_text() if driver.is_file() else None
+        image = source_root / "build/ELKMAIN"
+        labels = source_root / "build/elkmain.labels"
+        cls.elkchat_image = image.read_bytes() if image.is_file() else None
+        cls.elkchat_labels = {}
+        if labels.is_file():
+            cls.elkchat_labels = {
+                name: int(value)
+                for name, value in re.findall(
+                    r"'(\.elkwifi_[a-z_]+)':([0-9]+)L", labels.read_text()
+                )
+            }
 
     def setUp(self):
         self.machine = ElkWiFiOSWORDMachine(self.rom)
@@ -310,6 +420,60 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         self.assertNotIn("Pi1MHz", source)
         self.assertNotIn("FCA6", source)
         self.assertNotIn("FCAA", source)
+
+    def test_elkchat_jim_access_is_atomic(self):
+        if self.elkchat_driver is None:
+            self.skipTest("set ELKCHAT_SOURCE to audit an ElkChat checkout")
+        source = self.elkchat_driver
+        for label, instruction in (
+            (".elkwifi_read_x", "LDA ELKWIFI_RAM,X"),
+            (".elkwifi_write_x", "STA ELKWIFI_RAM,X"),
+        ):
+            body = source.split(label, 1)[1].split("\n.", 1)[0]
+            self.assertIn("PHP", body)
+            self.assertIn("SEI", body)
+            self.assertIn("JSR elkwifi_select_physical", body)
+            self.assertIn(instruction, body)
+            self.assertIn("PLP", body)
+            self.assertLess(body.index("SEI"), body.index(instruction))
+            self.assertLess(body.index(instruction), body.index("PLP"))
+        self.assertEqual(source.count("LDA ELKWIFI_RAM"), 1)
+        self.assertEqual(source.count("STA ELKWIFI_RAM"), 1)
+        for path in (self.elkchat_source_root / "src").glob("*.asm"):
+            if path.name == "elkwifi.asm":
+                continue
+            application_source = path.read_text()
+            self.assertNotIn("LDA ELKWIFI_RAM", application_source, path.name)
+            self.assertNotIn("STA ELKWIFI_RAM", application_source, path.name)
+            self.assertNotIn("STA ELKWIFI_PAGE", application_source, path.name)
+
+    def test_elkchat_jim_helpers_preserve_every_index_on_real_6502_code(self):
+        if self.elkchat_driver is None:
+            self.skipTest("set ELKCHAT_SOURCE to audit an ElkChat checkout")
+        if self.elkchat_image is None or not self.elkchat_labels:
+            self.fail("rebuild ElkChat ELKMAIN with build/elkmain.labels")
+        required = {
+            ".elkwifi_select_page", ".elkwifi_read_x", ".elkwifi_write_x",
+            ".elkwifi_machine",
+        }
+        self.assertTrue(required.issubset(self.elkchat_labels))
+        for machine_id in (0, 1):
+            helper = ElkChatJIMMachine(
+                self.elkchat_image, self.elkchat_labels,
+            )
+            helper.memory.ram[self.elkchat_labels[".elkwifi_machine"]] = machine_id
+            helper.call(".elkwifi_select_page", a=0x5A)
+            for offset, value in ((0, 0x31), (1, 0x42), (2, 0x53),
+                                  (127, 0x64), (255, 0x75)):
+                result = helper.call(".elkwifi_write_x", a=value, x=offset)
+                self.assertEqual(result.x, offset)
+            for offset, value in ((0, 0x31), (1, 0x42), (2, 0x53),
+                                  (127, 0x64), (255, 0x75)):
+                result = helper.call(".elkwifi_read_x", x=offset)
+                self.assertEqual(result.x, offset)
+                self.assertEqual(result.a, value)
+            self.assertEqual(helper.memory.page, 0x5A)
+            self.assertEqual((helper.memory.high, helper.memory.mid), (0, 0))
 
     def test_public_driver_detects_machine_before_touching_jim_bank(self):
         # Machine type controls whether the BBC-family high JIM selectors are
@@ -327,11 +491,119 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         self.assertLess(cache, select)
         self.assertIn("not valid as a reset-time cache", entry)
 
+    def test_one_rom_selects_public_jim_for_electron_and_bbc_family(self):
+        # AP5 on the Electron exposes only FCFF. BBC-family 1 MHz hardware
+        # exposes the complete selector, so the same ROM must establish bank
+        # 00:00 before selecting the response page.
+        for machine_type in (0, 2, 3):
+            with self.subTest(machine_type=machine_type):
+                machine = ElkWiFiOSWORDMachine(
+                    self.rom, machine_type=machine_type
+                )
+                machine.call(2)
+                writes = machine.memory.public_selector_writes
+                self.assertIn((0xFCFD, 0), writes)
+                self.assertIn((0xFCFE, 0), writes)
+                self.assertIn((0xFCFF, 0), writes)
+                self.assertEqual(
+                    machine.memory.public_response(),
+                    b"Pi1MHz ElkWiFi test\r\nOK\r\n",
+                )
+
+        electron = ElkWiFiOSWORDMachine(self.rom, machine_type=1)
+        electron.call(2)
+        addresses = [address for address, _ in
+                     electron.memory.public_selector_writes]
+        self.assertIn(0xFCFF, addresses)
+        self.assertNotIn(0xFCFD, addresses)
+        self.assertNotIn(0xFCFE, addresses)
+
     def test_function_9_single_connection_returns_local_ok(self):
         self.machine.memory.ram[0x2000:0x2002] = b"0\r"
         self.machine.call(9, 0x20, 0x00)
         self.assertEqual(self.machine.memory.public_response(), b"OK\r\n")
         self.assertEqual(self.machine.memory.page, 0)
+
+        self.machine.memory.ram[0x2000] = 0
+        self.machine.call(9, 0x20, 0x00)
+        self.assertEqual(
+            self.machine.memory.public_response(),
+            b"+CIPMUX:0\r\n\r\nOK\r\n",
+        )
+
+    def test_reserved_and_high_function_numbers_match_original_dispatch(self):
+        # ElkWiFi 0.23 reserves function 29 and masks other public driver
+        # numbers to five bits. Private star commands must bypass this table.
+        self.machine.call(29, 37, 0, expected_error=b"Not implemented")
+
+        driver = (ROOT / "rom-side" / "elkwifi-0.23" / "overlay" /
+                  "driver.asm").read_text()
+        self.assertIn("cmp #29", driver)
+        self.assertIn("and #&1F", driver)
+        self.assertNotIn("service_driver_timeout_setting", driver)
+        for public_alias in (32, 33, 34):
+            self.machine.call(public_alias)
+        self.assertIn(b"Pi1MHz ElkWiFi test", self.machine.memory.public_response())
+
+    def test_original_local_and_status_compatibility_entries_are_bounded(self):
+        self.machine.call(6)
+        self.assertIn(b"+CIFSR:STAIP", self.machine.memory.public_response())
+        for function in (10, 12):
+            self.machine.call(function)
+            self.assertEqual(
+                self.machine.memory.public_response(), b"STATUS:2\r\n\r\nOK\r\n"
+            )
+        previous = self.machine.memory.public_response()
+        self.machine.call(11, x=0x37)
+        self.assertEqual(self.machine.memory.public_response(), previous)
+        self.assertEqual(self.machine.memory.ram[0xBD], 0x37)
+        self.assertEqual(self.machine.memory.ram[0xBE], 0)
+        for function in (15, 16, 17):
+            self.machine.call(function)
+            self.assertEqual(
+                self.machine.memory.public_response(),
+                b"+CIOBAUD:115200\r\n\r\nOK\r\n",
+            )
+        for function in (21, 22, 26):
+            self.machine.call(function)
+            self.assertEqual(self.machine.memory.public_response(), b"OK\r\n")
+        self.machine.call(27)
+        self.assertEqual(
+            self.machine.memory.public_response(),
+            b"+CIPMODE:0\r\n\r\nOK\r\n",
+        )
+        self.machine.memory.ram[0x2000:0x2002] = b"0\r"
+        self.machine.call(27, 0x20, 0x00)
+        self.assertEqual(self.machine.memory.public_response(), b"OK\r\n")
+
+    def test_function_25_reads_the_osword_parameter_block(self):
+        # LAPOPT's public ABI uses the same X-high/Y-low pointer convention as
+        # the original send_param routine. Star commands happen to stage their
+        # argument in `heap`, but applications are free to place it anywhere.
+        self.machine.memory.ram[0x2340:0x2344] = b"127\r"
+        self.machine.call(25, 0x23, 0x40)
+        self.assertEqual(self.machine.memory.lapopt, 127)
+        self.assertEqual(
+            self.machine.memory.public_response(),
+            b"+CWLAPOPT:127\r\n\r\nOK\r\n",
+        )
+        self.machine.memory.ram[0x2340:0x2342] = b"7\r"
+        self.machine.call(25, 0x23, 0x40)
+        self.assertEqual(self.machine.memory.lapopt, 7)
+
+    def test_function_7_reports_and_sets_station_mode(self):
+        self.machine.memory.ram[0x2340] = 0
+        self.machine.call(7, 0x23, 0x40)
+        self.assertEqual(
+            self.machine.memory.public_response(),
+            b"+CWMODE:1\r\n\r\nOK\r\n",
+        )
+        self.machine.memory.ram[0x2340:0x2342] = b"1\r"
+        self.machine.call(7, 0x23, 0x40)
+        self.assertEqual(self.machine.memory.public_response(), b"OK\r\n")
+        self.machine.memory.ram[0x2340:0x2342] = b"2\r"
+        self.machine.call(7, 0x23, 0x40)
+        self.assertEqual(self.machine.memory.public_response(), b"ERROR\r\n")
 
     def test_osword_entry_is_independent_of_sideways_rom_slot(self):
         self.machine.memory.ram[0x2000:0x2002] = b"0\r"
@@ -382,7 +654,7 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         self.machine.memory.ram[0x0103:0x0112] = stack_canary
 
         message = self.machine.call(
-            11, stack_pointer=0x40, expected_error=b"Not implemented"
+            29, stack_pointer=0x40, expected_error=b"Not implemented"
         )
 
         self.assertEqual(message, b"Not implemented")
@@ -436,6 +708,23 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         self.assertIn(b"CLOSED", self.machine.memory.public_response())
         self.assertFalse(self.machine.memory.connected)
 
+    def test_function_8_opens_connected_udp_without_plaintext_fallback(self):
+        connect = b"UDP\rpool.ntp.org\r123\r"
+        self.machine.memory.ram[0x2200:0x2200 + len(connect)] = connect
+        self.machine.call(8, 0x22, 0x00)
+        self.assertEqual(self.machine.memory.raw_type, 1)
+        self.assertIn(b"CONNECT", self.machine.memory.public_response())
+        self.assertEqual(
+            self.machine.memory.connected_address,
+            bytes((93, 184, 216, 34, 123, 0)),
+        )
+
+        unsupported = b"SSL\rexample.com\r443\r"
+        self.machine.memory.ram[0x2200:0x2200 + len(unsupported)] = unsupported
+        self.machine.call(8, 0x22, 0x00)
+        self.assertEqual(self.machine.memory.public_response(), b"ERROR\r\n")
+        self.assertEqual(self.machine.memory.raw_type, 1)
+
     def test_send_receive_waits_across_inter_packet_gaps(self):
         request = b"GET / HTTP/1.0\r\n\r\n"
         self.machine.memory.ram[0x3000:0x3000 + len(request)] = request
@@ -444,7 +733,12 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         )
         reply = b"HTTP/1.0 200 OK\r\n\r\n" + (b"X" * 300) + b"tail"
         self.machine.memory.receive[:] = reply
-        self.machine.memory.receive_schedule[:] = [0, 120, 0, 240, 0, None]
+        # Model actual empty polls, not numeric values that the fixture treats
+        # as immediately available byte counts. The driver must survive a
+        # fragmented response across repeated zero-byte receives.
+        self.machine.memory.receive_schedule[:] = (
+            [0] * 20 + [120] + [0] * 20 + [240] + [0] * 20 + [None]
+        )
         self.machine.call(13, 0x70, 0)
         self.assertEqual(self.machine.memory.public_response(), reply)
 
@@ -472,6 +766,18 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         self.assertEqual(self.machine.memory.public_response(), body)
         self.assertGreater(self.machine.memory.page, 0)
 
+    def test_function_20_falls_back_when_kernel_lacks_copy_public(self):
+        self.machine = ElkWiFiOSWORDMachine(
+            self.rom, supports_copy_public=False,
+        )
+        body = b"HTTP/1.0 200 OK\r\n\r\n" + bytes(
+            (index % 251) + 1 for index in range(700)
+        )
+        self.machine.memory.receive[:] = body
+        self.machine.call(20)
+        self.assertEqual(self.machine.memory.public_response(), body)
+        self.assertEqual(self.machine.memory.jim[len(body)], 0)
+
     def test_send_retries_zero_and_partial_queue_results(self):
         request = bytes(range(256)) + bytes(range(67))
         self.machine.memory.ram[0x3000:0x3000 + len(request)] = request
@@ -482,6 +788,23 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         self.machine.memory.receive_schedule[:] = [None]
         self.machine.call(13, 0x70, 0)
         self.assertEqual(self.machine.memory.sent, request)
+
+    def test_function_13_preserves_boundary_lengths_and_exact_jim_bytes(self):
+        for length in (255, 256, 257, 511):
+            with self.subTest(length=length):
+                self.machine = ElkWiFiOSWORDMachine(self.rom)
+                request = bytes((index * 37 + 11) & 0xFF
+                                for index in range(length))
+                self.machine.memory.ram[0x3000:0x3000 + length] = request
+                self.machine.memory.ram[0x70:0x75] = bytes(
+                    (0x00, 0x30, length & 0xFF, length >> 8, 0)
+                )
+                reply = bytes((index % 251) + 1 for index in range(4095))
+                self.machine.memory.receive[:] = reply
+                self.machine.call(13, 0x70, 0)
+                self.assertEqual(self.machine.memory.sent, request)
+                self.assertEqual(self.machine.memory.public_response(), reply)
+                self.assertEqual(self.machine.memory.jim[len(reply)], 0)
 
 
 if __name__ == "__main__":

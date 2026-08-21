@@ -108,6 +108,7 @@ class Pi1MHzMemory:
         self.ping_count = 0
         self.secure_features = secure_features
         self.secure_ready = secure_ready
+        self.extended_vector_table = 0x0400
 
     def _select_address(self):
         if self.delayed_selector_accesses:
@@ -227,7 +228,7 @@ class Pi1MHzMemory:
         if command == 90:  # cancel asynchronous ElkWiFi operation
             return NET_OK
         if command == 80:  # ElkWiFi status/version
-            response = b"Pi1MHz ElkWiFi 0.1.55, kernel fixture\r\n\r\nOK\r\n\0"
+            response = b"Pi1MHz ElkWiFi 0.1.57, kernel fixture\r\n\r\nOK\r\n\0"
             self.jim[block + 1:block + 1 + len(response)] = response
             return NET_OK
         if command == 60:  # URL_OPEN
@@ -474,6 +475,9 @@ class ClientMachine:
             elif reason == 0x84:
                 self.mpu.x = self.himem & 0xFF
                 self.mpu.y = self.himem >> 8
+            elif reason == 0xA8:
+                self.mpu.x = self.memory.extended_vector_table & 0xFF
+                self.mpu.y = self.memory.extended_vector_table >> 8
             elif reason == 0xEA:
                 self.mpu.x = 0xFF if self.tube else 0
                 self.mpu.y = 0
@@ -611,12 +615,34 @@ class EmulatedClientTests(unittest.TestCase):
     def test_hardware_diagnostic_matches_emulated_services_contract(self):
         machine = ClientMachine(self.hwdtest, "")
         machine.memory.ram[0x21F0:0x21F6] = b"NT\x00\x08\x00\x1d"
+        machine.memory.ram[0x020A:0x020C] = b"\x34\x12"
+        machine.memory.ram[0x0212:0x0214] = b"\x78\x56"
+        machine.memory.ram[0x0216:0x0218] = b"\xBC\x9A"
+        machine.memory.ram[0x021C:0x0220] = b"\xF0\xDE\x57\x13"
+        extended = machine.memory.extended_vector_table
+        for offset, entry in (
+            (27, b"\x11\x22\x03"),
+            (33, b"\x44\x55\x06"),
+            (42, b"\x77\x88\x09"),
+            (45, b"\xAA\xBB\x0C"),
+        ):
+            machine.memory.ram[extended + offset:extended + offset + 3] = entry
+        wicfs_state = bytes(range(26))
+        machine.memory.jim[0xFFEF00:0xFFEF1A] = wicfs_state
         machine.run()
         visible = "\n".join(machine.screen_captures + [machine.screen.text()])
         self.assertIn("Loader OSHWM=&0800 HIMEM=&1D00", visible)
         self.assertIn("Entry/opcode: &2200 20", visible)
         self.assertIn("Before OSBYTE &82", visible)
         self.assertIn("After OSBYTE &81 X=&00", visible)
+        self.assertIn("V BYTE FILE BGET: 1234 5678 9ABC", visible)
+        self.assertIn("V FIND FSC: DEF0 1357", visible)
+        self.assertIn("E FILE BGET (addr/rom): 2211/03 5544/06", visible)
+        self.assertIn("E FIND FSC (addr/rom): 8877/09 BBAA/0C", visible)
+        self.assertIn("Capture machine/vectors. Press a key.", visible)
+        self.assertIn("WSTATE 00-03: 00 01 02 03", visible)
+        self.assertIn("WSTATE 17-21: 11 12 13 14 15", visible)
+        self.assertIn("WSTATE 22-25: 16 17 18 19", visible)
         self.assertIn("FCA9 req 00 F0 FF <= 5E", visible)
         self.assertIn("FCA6-9 after: 01 F0 FF 5E PASS", visible)
         self.assertIn("Addressed JIM block: PASS", visible)
@@ -624,8 +650,14 @@ class EmulatedClientTests(unittest.TestCase):
         self.assertIn("CAPS 1-5: 01 01 07 B8 88", visible)
         self.assertIn("CAPS 6-10: 01 01 4E 54 53", visible)
         self.assertIn("HWDTEST RESULT PASS", visible)
+        self.assertEqual(machine.memory.jim[0xFFEF00:0xFFEF1A], wicfs_state)
+        self.assertEqual(
+            machine.memory.jim[0xFFEE00:0xFFEE10],
+            bytes((0x00, 0xFF, 0x55, 0xAA, 0x01, 0xFE, 0x10, 0xEF,
+                   0x5A, 0xA5, 0x33, 0xCC, 0x0F, 0xF0, 0x69, 0x96)),
+        )
         self.assertEqual(machine.oscli_commands, ["ROMS"])
-        self.assertIn("Pi1MHz ElkWiFi 0.1.55", visible)
+        self.assertIn("Pi1MHz ElkWiFi 0.1.57", visible)
 
     def test_hardware_diagnostic_fails_when_managed_ssh_is_not_ready(self):
         machine = ClientMachine(

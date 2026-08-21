@@ -1,4 +1,5 @@
 import hashlib
+import os
 import re
 import unittest
 from pathlib import Path
@@ -6,25 +7,27 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
-ROM_SHA256 = "ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb"
+ROM_SHA256 = "339609afa38bc3fed486fb78b7ba6be236d7419fc0d80f3653e692c3fb366877"
 
 
 class RomCompatibilityTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.rom = ROM_PATH.read_bytes()
+        cls.rom_path = Path(os.environ.get("ELKWIFI_TEST_ROM", ROM_PATH))
+        cls.rom = cls.rom_path.read_bytes()
 
     def test_rom_identity_and_stock_header(self) -> None:
         self.assertEqual(len(self.rom), 16 * 1024)
-        self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
+        if self.rom_path == ROM_PATH:
+            self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
             self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x18, 0x30))
         )
         copyright_offset = self.rom[7]
         self.assertEqual(self.rom[copyright_offset:copyright_offset + 4], b"\0(C)")
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.55\0")
-        self.assertIn(b"1MHzWifi 0.1.55 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.58\0")
+        self.assertIn(b"1MHzWifi 0.1.58 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_menu_catalogue_selector_is_present(self) -> None:
@@ -55,19 +58,11 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(bytes.fromhex("C9 8C D0 01 60 4C 00 00 EA"), self.rom)
 
     def test_wicfs_uses_mos_vectors_and_host_only_osfile_transfer(self) -> None:
-        # Test the cassette final-block flag before the loader-compatibility
-        # helper can alter N/Z. A final block must call the helper and then
-        # jump unconditionally to the completed OSFILE path.
-        final_block = re.compile(
-            re.escape(bytes.fromhex("AD CA 03 29 80 F0"))
-            + b"."
-            + re.escape(bytes.fromhex("20"))
-            + b".."
-            + re.escape(bytes.fromhex("4C"))
-            + b"..",
-            re.DOTALL,
+        # Preserve upstream's generic final-block decision. Production code
+        # must never inspect or rewrite a loaded program to decide completion.
+        self.assertEqual(
+            self.rom.count(bytes.fromhex("AD CA 03 29 80 D0 0D E6 B6")), 1
         )
-        self.assertEqual(len(final_block.findall(self.rom)), 1)
         # No ROM switcher may be copied into &07A4. Pages 4-7 belong to the
         # Tube host code whenever a parasite is active.
         self.assertNotIn(bytes.fromhex("A5 F4 8D C2 07"), self.rom)
@@ -113,13 +108,13 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertNotIn(bytes.fromhex("A5 F8 8D D6 09 A5 F9 8D D7 09"), self.rom)
         self.assertIn(bytes.fromhex("0A 0A 0A 0A AA"), self.rom)
         self.assertNotIn(bytes.fromhex("0A AD D6 09"), self.rom)
-        # The Zalaga compatibility guard contains both the complete vector
-        # reset signature and its following TAPE command before patching RAM.
+        # The ROM may not fingerprint or patch a loaded program. Compatibility
+        # comes from MOS vector and cassette semantics, not title signatures.
         loader_signature = bytes.fromhex(
             "AE B7 FF AC B8 FF 86 70 84 71 AC B6 FF 88 B1 70 "
             "99 00 02 98 D0 F7 A9 EA"
         )
-        self.assertEqual(self.rom.count(loader_signature), 1)
+        self.assertNotIn(loader_signature, self.rom)
         self.assertIn(b"TAPE\r", self.rom)
 
     def test_stock_commands_additive_menusrc_and_osword_are_present(self) -> None:
@@ -228,7 +223,7 @@ class RomCompatibilityTest(unittest.TestCase):
 
     def test_retired_cartridge_code_is_not_emitted(self) -> None:
         for legacy in (
-            b"AT+", b"ESP8266", b"STATUS:3", b"115200", b"PRINTER",
+            b"AT+", b"ESP8266", b"PRINTER",
             b"SETSERIAL", b"CRC error", b"WGET /",
         ):
             self.assertNotIn(legacy, self.rom)

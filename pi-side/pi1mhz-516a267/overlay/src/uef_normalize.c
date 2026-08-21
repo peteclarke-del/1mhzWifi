@@ -35,7 +35,7 @@ static bool raw_uef(const uint8_t *data, size_t length)
        && memcmp(data, uef_magic, sizeof uef_magic) == 0;
 }
 
-size_t uef_wicfs_stream_length(const uint8_t *window, size_t length)
+size_t uef_legacy_trim_length(const uint8_t *window, size_t length)
 {
    size_t position = 12u;
    size_t effective = length;

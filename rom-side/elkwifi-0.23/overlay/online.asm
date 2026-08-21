@@ -2,5 +2,5 @@
 \ Syntax: *ONLINE
 
 .online_cmd
- lda #31
- jmp generic_cmd
+ jsr service_driver_online
+ jmp generic_response

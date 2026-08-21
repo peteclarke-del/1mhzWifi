@@ -2,9 +2,9 @@
 \ no external HTTP endpoint or downloadable parser is involved.
 
 .time_cmd
- lda #30
- jmp generic_cmd
+ jsr service_driver_time
+ jmp generic_response
 
 .date_cmd
- lda #29
- jmp generic_cmd
+ jsr service_driver_date
+ jmp generic_response

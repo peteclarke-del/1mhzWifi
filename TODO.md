@@ -47,6 +47,16 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 - [x] Pi1MHz FCAA selector-echo handling and partial TCP-send retry in the
   public OSWORD function 13 path, including zero-byte backpressure and
   fragmented receive tests.
+- [x] Function 13 receive acceleration behind private Pi command 58. The Pi
+  copies from `DISC_RAM_BASE`-relative raw-network scratch into the unbased
+  `JIM_ram[0..65535]` public window while the ROM preserves the original
+  page-zero start, two-byte length, page progression and trailing zero. An
+  older kernel returns `Unsupported`, causing the ROM to use the established
+  byte-at-a-time path.
+- [x] Apply the same command 58 transport to untransformed paged WGET output,
+  including MENU title data and UEF images. Text and host-memory WGET modes
+  retain their byte-at-a-time transformations. Unsupported kernels fall back
+  without changing the public command behavior.
 - [x] Original-compatible OSWORD function 18 response limited to station IP,
   real station MAC, and `OK`; Pi-only status fields moved to `*ONLINE`.
 - [x] Removal of emitted UART, AT-command, flash updater, printer, baud-rate,
@@ -55,7 +65,8 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   has no safe Pi1MHz meaning. No unsupported entry falls through to legacy
   cartridge code.
 - [x] Clean ROM builds from independent ElkWiFi checkouts produce the same
-  16 KiB image.
+  16 KiB image. The installer is repeatable after updating its final WiCFS
+  patch detectors and retaining the install-failure guard in `uef.asm`.
 - [x] Both Pi kernels compile and link from a clean current Pi1MHz checkout.
 - [x] ROM contract tests and upstream Pi1MHz services, net and web parser tests
   pass. The Pi host tests run under ASan and UBSan.
@@ -132,6 +143,9 @@ ElkWiFi 0.23 cartridge and on 1MHzWifi.
   routines.asm) always restores the caller's own X/Y and reports only claim
   status through A=0, so function 23's internal `Y=&FF` write is never
   observable to any caller on either the original cartridge or 1MHzWifi.
+- [x] Preserve pinned ElkWiFi 0.23 functions 29 to 31 as reserved. DATE,
+  TIME and ONLINE use private ROM selectors 32-34 rather than occupying an
+  original ElkWiFi function number.
 - [ ] Run that harness against both the unmodified ElkWiFi 0.23 ROM and the
   current 1MHzWifi ROM. Record byte-level response differences and either
   remove them or document why an exact match is impossible on Pi1MHz.
@@ -188,7 +202,10 @@ tracked elsewhere.
   Master Compact and Electron. Verify OSBYTE `&81` selects `&FE05` only on
   Electron and `&FE30` on the BBC family. On non-Electron hosts, verify the
   compiled default `*MENU` is rejected and a target-specific custom
-  `*MENUSRC` remains usable.
+  `*MENUSRC` remains usable. Every result must use the same 16 KiB ROM hash.
+  Create a separate BBC-family image only if a documented machine contract
+  cannot be selected safely at runtime; convenience or untested assumptions
+  are not sufficient reasons to split the image.
 - [x] Remove sideways-bank assumptions from the ROM and emulator gate. The
   OSWORD service entry passes with MOS-supplied ROM numbers 0 through 15, the
   Elkulator runner accepts `--wifi-rom-slot 0..15`, and its report records the
@@ -257,6 +274,28 @@ tracked elsewhere.
 
 ## Release gate
 
+### Physical Tube-off milestone, 21 August 2026
+
+The matched 0.1.58 ROM and Pi Zero 2 kernel make further measurable progress on
+the physical Electron, Plus 1, Plus 2, AP5, Pi1MHz, RAM expansion and
+ADFS/BeebSCSI system with the Tube disabled:
+
+- MENU launches Frak and Arcadians to playable gameplay.
+- Plan B launches and runs.
+- Local `*UEF LOAD REPTON` reaches gameplay, although startup remains very slow.
+- After Frak, a subsequent `*MENU` hangs until a cold start.
+- After Plan B, ADFS remains unavailable until a cold start.
+- `*UEF LOAD MRWIZ` reports `UEF GZIP OK &3077 bytes in JIM` and then hangs
+  before the cassette-loading sequence begins.
+- SSH works, but a session started in MODE 0 switches to MODE 4 when the
+  password prompt is displayed.
+
+Treat the Frak and Plan B aftermath as one generic WiCFS ownership or filing
+system teardown investigation. Do not add title-specific production paths.
+The Mr Wiz stop is at the normalization-to-launch boundary and is distinct from
+the earlier final-file hypothesis. Repton is now a successful gameplay gate;
+retain its startup latency as a performance issue.
+
 ### Physical Tube-off milestone, 18 August 2026
 
 `build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` version 0.1.55, SHA-256
@@ -266,12 +305,15 @@ WiFi association, WGET, `*MENU`, local `*UEF LOAD`, PING, TELNET, NSLOOK, SSH
 and HWDTEST work. Preserve this exact artifact set before performance, loader
 or Tube changes.
 
-The milestone does not prove stable UEF application execution or filing-system
-recovery. Frak loads and plays. Thrust reaches playable gameplay, but ADFS is
-lost afterwards and cannot be reclaimed by Break or reset; only a power cycle
-restores it. Repton 2 hangs as gameplay begins, Plan B remains unstable, and
-Arcadians hangs after its final `4C 4C49` cassette block. Record entry into
-gameplay separately from a stable application run and filing-system recovery.
+The full-stream candidate kernel has now extended that milestone. Frak and
+Arcadians load through MENU and play, local `*UEF LOAD THRUST` plays, and ADFS
+returns after every tested Break. A subsequent local Repton 2 load therefore
+also proves that recovery survives more than one WiCFS session. Repton 2 still
+stalls after reaching gameplay. Bumble Bee completes. Plan B 2 reaches its
+application but Break then loses ADFS. Mr Wiz stops while loading the valid
+final `MRWIZ4` file. Repton reaches its title screen, then reports `End of
+UEF`, `Searching`, `Loading` and `Cannot write!`. Record entry into gameplay
+separately from a stable application run.
 
 - [x] Trace the filing-system vectors and workspace before `*UEF LOAD THRUST`,
   at the WiCFS completion boundary, and after Break in the integrated emulator.
@@ -279,20 +321,57 @@ gameplay separately from a stable application run and filing-system recovery.
   as normal tape RAM. A snapshot experiment proved that restoring those bytes
   can recover ADFS in the emulator, but peer review rejected the implementation
   because reset-service ordering makes arbitrary workspace restoration unsafe.
-- [ ] Implement an ownership-safe ADFS recovery path without restoring arbitrary
+- [x] Implement an ownership-safe ADFS recovery path without restoring arbitrary
   host workspace. Invalid or inactive state must be passive; each extended and
   standard vector must be restored only while WiCFS still owns that component;
-  BYTEV must be restored only when it still equals the WiCFS trap. Do not call
-  OSBYTE `&8C` from reset.
-- [ ] Repeat load, gameplay, Break, `*ADFS`, catalogue/read and a second UEF load
+  BYTEV is restored only when it still equals the WiCFS trap. The ROM does not
+  call OSBYTE `&8C` from reset. The full-stream physical run recovered ADFS
+  after every tested Break.
+- [x] Repeat load, gameplay, Break, `*ADFS` and a second UEF load
   in the exact emulator profile and on the physical Tube-off Electron. A power
-  cycle must not be required. Keep the canonical ROM at 0.1.55 until this gate
-  and final peer review pass.
-- [ ] Trace Arcadians at the completed `4C 4C49` file boundary on the physical
-  Tube-off baseline. Compare the final UEF chunk, cassette status and queued
-  execution transition with Frak. Do not add a title-specific workaround.
-- [ ] Trace Repton 2 from its final cassette block into its first gameplay
-  frame and identify the first non-returning call or corrupted vector.
+  cycle must not be required. The physical run loaded Thrust, recovered ADFS,
+  then opened Repton 2 from ADFS without a power cycle. A known-file read was
+  not separately recorded, so retain that narrower check in the general
+  filing-system matrix.
+- [x] Trace Arcadians at the completed `4C 4C49` file boundary on the physical
+  Tube-off baseline. The full-stream candidate now passes the boundary and
+  reaches playable Arcadians without a title-specific workaround.
+- [x] Add `scripts/uef_map.py` to decode raw, gzip, ZIP and ZIP-wrapped gzip
+  images, validate exact chunk boundaries, decode CFS file and block metadata,
+  verify cassette header/data CRCs, and report both the full length and the
+  former last-`&0100` effective length. The exact staged BeebSCSI Arcadians,
+  Bumble Bee, Mr Wiz, Plan B, Plan B 2, Repton family and Thrust files have
+  continuous block sequences, valid final flags and valid CRCs. Desk Diary's
+  valid zero-byte `V1` marker has a header CRC but no data CRC. These files all
+  end in a carrier chunk followed by an integer-gap chunk, totalling 16 bytes
+  which the earlier Pi path removed.
+- [ ] Run the strict physical A/B/C UEF comparison. A is the untouched 0.1.55
+  ROM and kernels. B is the candidate kernel with the full normalized stream
+  and `elkwifi_uef_trim_tail=0`. C uses the same candidate kernel with
+  `elkwifi_uef_trim_tail=1`. Record the final live page, offset, remaining
+  length, CFS block status, OSFILE execution address and vector ownership.
+- [x] Reconcile the clean-source ROM with the maintained patch series. A clean
+  build reproduces the 0.1.58 candidate ROM at SHA-256
+  `339609afa38bc3fed486fb78b7ba6be236d7419fc0d80f3653e692c3fb366877`.
+  Physical compatibility gates remain required before promotion.
+- [x] Move HWDTEST's JIM write/read probe from reserved WiCFS state at
+  `&FFEF00` to `&FFEE00`. D4 verifies the 26-byte state record is unchanged and
+  reports standard vectors, extended handler/owner tuples and the persisted
+  state bytes for reset-lifecycle comparison.
+- [ ] Trace Repton and Repton 2 from their final cassette blocks into the first
+  failing filing-system or gameplay operation. Native Elkulator cassette
+  loading of the exact BeebSCSI Repton image reaches the title, accepts Space
+  and enters the game. WiCFS corrupts the lower title area before input and
+  physical hardware prints `End of UEF`, `Searching`, `Loading`, then `Cannot
+  write!`. The 0.1.58 candidate retains original ElkWiFi OSFIND `&C0`
+  OPENUP handling, which the host-only patch had incorrectly routed to the
+  output-error path. It also prevents Service 1 from restoring stale extended
+  vectors after final-byte handling has already released BYTEV. The candidate
+  assembles and passes its contract tests, and now reaches the Repton title
+  instead of the earlier `Cannot write!` path. The exact Repton emulator run
+  still stops at a corrupted title instead of gameplay. Capture the physical
+  OSFIND request and the first divergent FILEV/FSCV transition before accepting
+  the UEF path as complete. Do not add a title-specific path.
 
 - [x] Stop the NetTools loader from unconditionally selecting MODE 4. It now
   preserves a caller mode whose host HIMEM covers the exact tool image and uses
@@ -300,20 +379,32 @@ gameplay separately from a stable application run and filing-system recovery.
   6502 tests cover both paths. Physical Tube-off confirmation remains required.
   Any future 80-column or enhanced terminal mode must be an explicit user
   option and must restore the previous mode on exit where the MOS permits it.
-- [ ] Measure and optimise the physical mailbox/JIM transfer path. `*MENU`
+- [ ] Measure the accelerated physical mailbox/JIM transfer path. `*MENU`
   title-data loading, WGET and UEF streaming are currently functional but
-  unacceptably slow. Record byte counts and elapsed times before changing bus
-  settling or polling. Do not remove delays merely because a synchronous
-  emulator passes.
-- [x] Fix ElkChat in the relocated `8bit-net` workspace. The client now restores
-  JIM address `00:00:page` before every response access. The full Elkulator
+  unacceptably slow. The current physical run took about two minutes to WGET
+  each of Frak and Arcadians, followed by slow cassette playback. Record exact
+  byte counts and elapsed times before changing bus settling or polling. Do
+  not remove delays merely because a synchronous emulator passes. The 0.1.58
+  bundle removes the host byte loop for raw paged WGET and OSWORD receive, but
+  its improvement still requires elapsed-time measurements on hardware.
+- [ ] Complete physical ElkChat validation in the relocated `8bit-net`
+  workspace. The client now performs every selector-plus-data JIM access as an
+  interrupt-masked transaction using the proven settling interval, sends all
+  HTTP requests with a 16-bit length, and identifies itself so the local server
+  returns bounded, pageable responses below its 4K parser window. The full Elkulator
   journey passes through both Pi1MHz and the original ElkWiFi ROM, and its
   OSWRCH trace proves Public Chat emits no Settings labels and Private Chat does
-  not exit through `Bad program`. The ignored live SSD was rebuilt from the
-  existing 94-byte local `ELKCFG` without exposing or changing its contents.
-- [ ] Repeat the Public Chat, Private Chat and User List journey on the physical
-  Tube-off Electron using that rebuilt live SSD. Emulator evidence is not a
-  substitute for this hardware result.
+  not exit through `Bad program`. Physical hardware contradicts that result:
+  latest hardware report has Public Chat working, while Private Chat opens but
+  reports zero chats and the User List reports zero online users. Repeat those
+  outcomes with the rebuilt live SSD. The current loader is itself at `&1900`, stages the SWR image at
+  `&1B00-&5AFF`, and keeps runtime workspace from `&1B00`; all overlap an ADFS
+  host whose OSHWM is `&1D00`. Replace it with an OSHWM-safe launcher which
+  streams directly into SWR, relocate or allocate all main-RAM workspace above
+  OSHWM, and refuse cleanly when no safe conventional layout exists. The staged BeebSCSI files match
+  `elkchat-live-base.ssd`, not the current live build. Reproduce the exact ADFS,
+  AP5, SWR and ROM order, embed a build ID, then fix the shared client without
+  adding a Pi-only network path.
 - [ ] Repeat this complete baseline with the Tube enabled only after the
   Tube-off screen-mode, performance and ElkChat defects are characterised.
 

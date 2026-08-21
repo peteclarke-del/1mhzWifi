@@ -27,6 +27,7 @@
 #define NET_CMD_SEND      50u
 #define NET_CMD_RECV      51u
 #define NET_CMD_CLOSE     53u
+#define NET_CMD_COPY_PUBLIC 58u
 #define ELKWIFI_CMD_STATUS       80u
 #define ELKWIFI_CMD_SCAN         81u
 #define ELKWIFI_CMD_JOIN         82u
@@ -82,6 +83,7 @@ typedef struct net_handle {
     uint8_t fixture_storage[1024];
     int http;
     int raw_allocated;
+    int raw_type;
     char request[512];
     size_t request_length;
     size_t request_sent;
@@ -94,6 +96,7 @@ typedef struct net_handle {
 struct pi1mhz_net_backend {
     int live;
     int exit_on_close;
+    int uef_trim_tail;
     FILE *trace;
     char menu_url[MENU_MAX + 1u];
     char wifi_ssid[33];
@@ -301,7 +304,7 @@ static uint8_t do_elkwifi_control(pi1mhz_net_backend *backend,
         }
         if (!backend->wifi_enabled)
             backend->wifi_enabled = 1;
-        elkwifi_response(command, "Pi1MHz ElkWiFi 0.1.55\r\n\r\nOK\r\n");
+        elkwifi_response(command, "Pi1MHz ElkWiFi 0.1.57\r\n\r\nOK\r\n");
         trace_line(backend, "WIFI_STATUS", 0, "ready");
         return PI1MHZ_NET_OK;
     case ELKWIFI_CMD_RADIO:
@@ -568,7 +571,8 @@ static int inflate_bytes(uint8_t *destination, size_t capacity,
     return result == Z_STREAM_END ? 0 : -1;
 }
 
-static uint8_t normalize_uef_control(uint8_t *command, uint8_t *jim,
+static uint8_t normalize_uef_control(pi1mhz_net_backend *backend,
+                                     uint8_t *command, uint8_t *jim,
                                      size_t jim_size)
 {
     uint8_t *window;
@@ -668,7 +672,8 @@ static uint8_t normalize_uef_control(uint8_t *command, uint8_t *jim,
     }
 
 normalized:
-    output_length = wicfs_stream_length(window, output_length);
+    if (backend->uef_trim_tail)
+        output_length = wicfs_stream_length(window, output_length);
     window[UEF_CAPACITY] = (uint8_t)output_length;
     window[UEF_CAPACITY + 1u] = (uint8_t)(output_length >> 8);
     memcpy(command + 1, format, strlen(format) + 1u);
@@ -782,7 +787,7 @@ static uint8_t do_raw_dns(pi1mhz_net_backend *backend, net_handle *handle,
     snprintf(traced_hostname, sizeof(traced_hostname), "%s", hostname);
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_socktype = handle->raw_type ? SOCK_DGRAM : SOCK_STREAM;
     if (getaddrinfo(hostname, NULL, &hints, &addresses))
         return NET_ERR_DNS;
     for (address = addresses; address; address = address->ai_next) {
@@ -811,7 +816,8 @@ static uint8_t do_raw_connect(pi1mhz_net_backend *backend,
     if (!port)
         return NET_ERR_PARAM;
     if (!handle->opening && !handle->opened && handle->fd < 0) {
-        snprintf(handle->url, sizeof(handle->url), "TCP://%u.%u.%u.%u:%u/",
+        snprintf(handle->url, sizeof(handle->url), "%s://%u.%u.%u.%u:%u/",
+                 handle->raw_type ? "UDP" : "TCP",
                  (unsigned)command[1], (unsigned)command[2],
                  (unsigned)command[3], (unsigned)command[4], port);
         trace_line(backend, "CONNECT", index, handle->url);
@@ -1026,7 +1032,8 @@ static int parse_url(const char *url, char *host, size_t host_size,
         authority = url + 7;
         default_port = "80";
         *http = 1;
-    } else if (!strncasecmp(url, "TCP://", 6)) {
+    } else if (!strncasecmp(url, "TCP://", 6) ||
+               !strncasecmp(url, "UDP://", 6)) {
         authority = url + 6;
         default_port = "22";
     } else if (!strncasecmp(url, "TELNET://", 9)) {
@@ -1133,7 +1140,7 @@ static uint8_t live_open(net_handle *handle)
         return live_finish_open(handle, host, path);
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_socktype = handle->raw_type ? SOCK_DGRAM : SOCK_STREAM;
     if (getaddrinfo(host, port, &hints, &addresses))
         return NET_ERR_DNS;
     for (address = addresses; address; address = address->ai_next) {
@@ -1175,6 +1182,12 @@ pi1mhz_net_backend *pi1mhz_net_backend_create(const char *mode,
         return NULL;
     backend->live = mode && !strcasecmp(mode, "live");
     backend->exit_on_close = exit_on_close;
+    {
+        const char *trim = getenv("PI1MHZ_UEF_TRIM_TAIL");
+        backend->uef_trim_tail = trim &&
+            (!strcmp(trim, "1") || !strcasecmp(trim, "yes") ||
+             !strcasecmp(trim, "true") || !strcasecmp(trim, "on"));
+    }
     strcpy(backend->menu_url, MENU_DEFAULT);
     strcpy(backend->wifi_security, "AUTO");
     backend->wifi_present = 1;
@@ -1431,6 +1444,7 @@ static uint8_t do_close(pi1mhz_net_backend *backend, net_handle *handle,
     handle->response_pos = 0;
     handle->headers_done = 0;
     handle->raw_allocated = 0;
+    handle->raw_type = 0;
     trace_line(backend, "CLOSE", index, handle->url);
     if (backend->exit_on_close) {
         if (backend->trace)
@@ -1468,7 +1482,7 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
         command[0] == FAT_CMD_WRITE_SECTORS)
         return do_fat_sectors(backend, command, service_jim, service_size);
     if (selector == 0xFFu && command[0] == ELKWIFI_CMD_UEF_NORMALIZE)
-        return normalize_uef_control(command, jim, jim_size);
+        return normalize_uef_control(backend, command, jim, jim_size);
     switch (command[0]) {
     case ELKWIFI_CMD_STATUS:
     case ELKWIFI_CMD_SCAN:
@@ -1503,11 +1517,12 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     handle = &backend->handles[index];
     switch (command[0]) {
     case NET_CMD_OPEN:
-        if (command[1] != 0u)
+        if (command[1] > 1u)
             return PI1MHZ_NET_UNSUPPORTED;
         if (handle->raw_allocated || handle->opened || handle->opening)
             return NET_ERR_INUSE;
         handle->raw_allocated = 1;
+        handle->raw_type = command[1];
         handle->http = 0;
         return PI1MHZ_NET_OK;
     case NET_CMD_DNS:
@@ -1518,6 +1533,16 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
         return do_write(backend, handle, index, command, service_jim, service_size);
     case NET_CMD_RECV:
         return do_read(backend, handle, index, command, service_jim, service_size);
+    case NET_CMD_COPY_PUBLIC: {
+        size_t count = command[1];
+        size_t destination = (size_t)command[2] | ((size_t)command[3] << 8);
+        const size_t scratch = 0xfff100u;
+        if (!count || count > 240u || destination + count > 0x10000u ||
+            scratch + count > service_size)
+            return NET_ERR_PARAM;
+        memmove(jim + destination, service_jim + scratch, count);
+        return PI1MHZ_NET_OK;
+    }
     case NET_CMD_CLOSE:
         return do_close(backend, handle, index);
     case NET_CMD_URL_OPEN:

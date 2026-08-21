@@ -1,6 +1,7 @@
 import ctypes
 import gzip
 import io
+import os
 import struct
 import subprocess
 import tempfile
@@ -34,7 +35,7 @@ class UefNormalizeTest(unittest.TestCase):
             ctypes.c_size_t, ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t,
         ]
         cls.normalize.restype = ctypes.c_int
-        cls.wicfs_length = ctypes.CDLL(str(library)).uef_wicfs_stream_length
+        cls.wicfs_length = ctypes.CDLL(str(library)).uef_legacy_trim_length
         cls.wicfs_length.argtypes = [
             ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t,
         ]
@@ -73,13 +74,24 @@ class UefNormalizeTest(unittest.TestCase):
                                 scratch, capacity)
         return result, bytes(window[:length.value])
 
-    def run_fixture_normalize(self, encoded: bytes) -> tuple[str, bytes]:
+    def run_fixture_normalize(
+        self, encoded: bytes, *, trim_tail: bool = False,
+    ) -> tuple[str, bytes]:
         jim = (ctypes.c_uint8 * JIM_SIZE)()
         jim[:len(encoded)] = encoded
         jim[0xFFFE] = len(encoded) & 0xFF
         jim[0xFFFF] = len(encoded) >> 8
         jim[CONTROL] = 93
+        previous = os.environ.get("PI1MHZ_UEF_TRIM_TAIL")
+        if trim_tail:
+            os.environ["PI1MHZ_UEF_TRIM_TAIL"] = "1"
+        else:
+            os.environ.pop("PI1MHZ_UEF_TRIM_TAIL", None)
         backend = self.fixture.pi1mhz_net_backend_create(b"fixture", None, 0)
+        if previous is None:
+            os.environ.pop("PI1MHZ_UEF_TRIM_TAIL", None)
+        else:
+            os.environ["PI1MHZ_UEF_TRIM_TAIL"] = previous
         self.assertTrue(backend)
         try:
             result = self.fixture.pi1mhz_net_backend_dispatch(
@@ -109,7 +121,12 @@ class UefNormalizeTest(unittest.TestCase):
         self.assertEqual(self.effective_length(raw), expected)
         fixture_format, fixture = self.run_fixture_normalize(raw)
         self.assertEqual(fixture_format, "RAW")
-        self.assertEqual(fixture, raw[:expected])
+        self.assertEqual(fixture, raw)
+        trimmed_format, trimmed = self.run_fixture_normalize(
+            raw, trim_tail=True,
+        )
+        self.assertEqual(trimmed_format, "RAW")
+        self.assertEqual(trimmed, raw[:expected])
 
     def test_wicfs_length_keeps_later_data_and_malformed_streams(self) -> None:
         header = b"UEF File!\0\x05\0"
@@ -175,7 +192,7 @@ class UefNormalizeTest(unittest.TestCase):
             with self.subTest(sample=sample.name):
                 pi_result, pi_bytes = self.run_normalize(sample.read_bytes())
                 fixture_result, fixture_bytes = self.run_fixture_normalize(
-                    sample.read_bytes()
+                    sample.read_bytes(), trim_tail=True,
                 )
                 self.assertEqual(fixture_result, result_names[pi_result])
                 self.assertEqual(

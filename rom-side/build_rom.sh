@@ -31,7 +31,7 @@ install -m 0644 "$overlay_dir/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$overlay_dir/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$overlay_dir/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$overlay_dir/uef.asm" "$upstream/rom/uef.asm"
-for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-final-block.patch wicfs-loader-compat.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-reset-passive.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch wicfs-stream-finish.patch rom-prune.patch routines-prune.patch; do
+for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-reset-passive.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch wicfs-stream-finish.patch wicfs-pre-tape-predecessor.patch wicfs-bget-exhaustion.patch wicfs-run-return.patch wicfs-run-owner.patch wicfs-dual-predecessor.patch wicfs-native-predecessor.patch wicfs-opt-forward.patch wicfs-chain-target.patch wicfs-vector-flags.patch wicfs-message-preserve.patch wicfs-page-select-fast.patch rom-prune.patch routines-prune.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -42,7 +42,7 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.55"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.58"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)
@@ -52,8 +52,6 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         command-surface.patch)
             ! grep -q 'include "printer.asm"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q 'jmp service_driver_lapopt' "$upstream/rom/driver.asm" &&
-            grep -q 'jmp service_driver_date' "$upstream/rom/driver.asm" &&
             grep -q 'Usage: \*MODE <1|?>' "$upstream/rom/mode.asm" &&
             ! grep -q 'CRC error, aborted' "$upstream/rom/errors.asm" &&
             patch_present=true
@@ -107,16 +105,6 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             grep -q '^\.upv_rewind_space' "$upstream/rom/wicfs.asm" &&
             grep -q '^\.run_code' "$upstream/rom/wicfs.asm" &&
             grep -q '^\.osb_s' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-loader-compat.patch)
-            grep -q '^\.protect_loader_vectors' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.plv_signature' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-final-block.patch)
-            grep -q 'BEQ.*stl_a2.*continue before any helper changes flags' "$upstream/rom/wicfs.asm" &&
-            grep -q 'JMP.*stl_end.*yes, load complete' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         wicfs-callable-init.patch)
@@ -178,7 +166,8 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
         wicfs-private-workspace.patch)
             grep -q '^wicfs_state_ram = &0380' "$upstream/rom/wicfs.asm" &&
             { { grep -q '^wicfs_state_size = 22' "$upstream/rom/wicfs.asm" &&
-                grep -q 'persist cursor and lifecycle changes' "$upstream/rom/wicfs.asm"; } ||
+                grep -q '^filev_x =   &0396' "$upstream/rom/wicfs.asm" &&
+                grep -q '^bget_y  =   &03B1' "$upstream/rom/wicfs.asm"; } ||
               { grep -q '^wicfs_state_size = 17' "$upstream/rom/wicfs.asm" &&
                 grep -q '^wicfs_state_generation = wicfs_state_ram+17' "$upstream/rom/wicfs.asm" &&
                 grep -q '^filev_x =   &0396' "$upstream/rom/wicfs.asm" &&
@@ -204,9 +193,9 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         wicfs-transactional-state.patch)
             grep -q '^wicfs_record_valid_value = &A5' "$upstream/rom/wicfs.asm" &&
-            grep -q '^wicfs_state_generation = wicfs_state_ram+17' "$upstream/rom/wicfs.asm" &&
+            grep -Eq '^wicfs_state_generation = (wicfs_state_ram\+17|&C5)' "$upstream/rom/wicfs.asm" &&
             grep -q '^\.wicfs_state_save_payload' "$upstream/rom/wicfs.asm" &&
-            grep -q 'commit immutable vector ownership record' "$upstream/rom/wicfs.asm" &&
+            grep -q '^wicfs_record_payload = 4' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         wicfs-stream-checkpoint.patch)
@@ -233,6 +222,40 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             grep -q '^\.error_wicfs_state' "$upstream/rom/errors.asm" &&
             patch_present=true
             ;;
+        wicfs-pre-tape-predecessor.patch)
+            grep -q '^\.wicfs_snapshot_pre_tape' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.wicfs_apply_pre_tape' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-bget-exhaustion.patch)
+            grep -q 'retire vectors after the final BGET byte' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-run-return.patch)
+            grep -q '^\.run_call' "$upstream/rom/wicfs.asm" &&
+            grep -q 'return through the intact MOS extended-vector frame' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-run-owner.patch)
+            grep -q '^wicfs_pending_run_rom = 13' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.run_owner_ready' "$upstream/rom/wicfs.asm" &&
+            grep -q 'Preserve the displaced cassette FSCV owner separately' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-dual-predecessor.patch)
+            grep -q '^\.wicfs_load_pre_tape' "$upstream/rom/wicfs.asm" &&
+            grep -q 'Keep the cassette predecessors live while WiCFS owns the stream' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-native-predecessor.patch)
+            grep -q 'Do not issue filing-system shutdown here' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-opt-forward.patch)
+            ! grep -q '^\.upv_opt_default' "$upstream/rom/wicfs.asm" &&
+            grep -q '^\.upv_not_about_to_process' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
         wicfs-invalid-state.patch)
             grep -q '^\.upfilev_state_valid' "$upstream/rom/wicfs.asm" &&
             grep -q 'bounded OSFILE failure; no predecessor is trusted' "$upstream/rom/wicfs.asm" &&
@@ -249,6 +272,15 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             ;;
         wicfs-oscli-prefix.patch)
             grep -q '^\.upv_about_to_process' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-message-preserve.patch)
+            grep -q 'OSASCI may alter A; retain the byte used as terminator' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-page-select-fast.patch)
+            grep -q '^\.wicfs_select_public_page_a' "$upstream/rom/wicfs.asm" &&
+            grep -q $'^\tLDA\t#64$' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         rom-prune.patch)

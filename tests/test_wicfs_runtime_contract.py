@@ -15,6 +15,11 @@ PATCH = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-private-workspace.patch"
 TRANSACTIONAL = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-transactional-state.patch"
 STREAM_CHECKPOINT = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-stream-checkpoint.patch"
 STREAM_FINISH = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-stream-finish.patch"
+RUN_RETURN = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-run-return.patch"
+CHAIN_TARGET = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-chain-target.patch"
+VECTOR_FLAGS = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-vector-flags.patch"
+MESSAGE_PRESERVE = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-message-preserve.patch"
+PAGE_SELECT_FAST = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-page-select-fast.patch"
 ROM_START = 0x8000
 
 
@@ -106,6 +111,51 @@ def run_to(mpu: MPU, address: int, limit: int = 200000) -> None:
 
 
 class WicfsRuntimeContractTest(unittest.TestCase):
+    def test_message_terminator_survives_osasci_register_clobber(self) -> None:
+        text = MESSAGE_PRESERVE.read_text()
+        loop = text.split(" .xmess_a1", 1)[1]
+        self.assertIn(" \tLDA\ttxt0,X", loop)
+        self.assertIn(" \tCMP\t#cr", loop)
+        self.assertLess(loop.index("+\tPHA"), loop.index(" \tJSR\tOSASCI"))
+        self.assertLess(loop.index(" \tJSR\tOSASCI"), loop.index("+\tPLA"))
+
+        # Execute the emitted loop as well as checking its maintainable source.
+        # OSASCI is a MOS call and does not promise to preserve A. Model the
+        # hostile but valid case which made the old loop miss its CR and print
+        # adjacent messages and ROM bytes.
+        match = re.search(
+            rb"\xBD(..)\x48\x20\xE3\xFF\x68\xE8\xC9\x0D\xD0\xF3\x60",
+            self.rom,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(match, "assembled xmess loop not found")
+        offset = match.start()
+
+        mpu = MPU()
+        mpu.memory[ROM_START:ROM_START + len(self.rom)] = self.rom
+        mpu.pc = ROM_START + offset
+        mpu.x = 0
+        return_address = mpu.pc + len(match.group(0)) - 1
+        printed = []
+        for _ in range(256):
+            if mpu.pc == return_address:
+                break
+            if mpu.pc == 0xFFE3:
+                printed.append(mpu.a)
+                low = mpu.memory[0x0100 + ((mpu.sp + 1) & 0xFF)]
+                high = mpu.memory[0x0100 + ((mpu.sp + 2) & 0xFF)]
+                mpu.sp = (mpu.sp + 2) & 0xFF
+                mpu.pc = ((high << 8) | low) + 1
+                mpu.a = 0x00
+            else:
+                mpu.step()
+        else:
+            self.fail("xmess did not stop at its first CR")
+
+        self.assertEqual(bytes(printed), b"WiFi UEF FS    \r")
+        self.assertEqual(mpu.x, 16)
+        self.assertEqual(mpu.a, 0x0D)
+
     def test_menu_page_select_settles_after_fcff_write(self):
         source = (ROOT / "rom-side/elkwifi-0.23/overlay/menusrc.asm").read_text()
         helper = source.split(".menusrc_catalogue_select\n", 1)[1].split(
@@ -197,6 +247,11 @@ host_basic_pending = &03BD
         for instruction in ("+\tPHP", "+\tPHA", "+\tPLA", "+\tPLP"):
             self.assertIn(instruction, delay)
         self.assertNotRegex(delay, r"&FC(?:A[0-9A-F]|D[0-9A-F]|E[0-9A-F]|F[0-9A-F])")
+
+    def test_page_selector_retains_proven_physical_settle_budget(self) -> None:
+        text = PAGE_SELECT_FAST.read_text()
+        self.assertNotIn("+\tLDA\t#16", text)
+        self.assertIn("+.wicfs_select_public_page_a", text)
 
     def test_jim_page_is_settled_before_data_access(self) -> None:
         atomic = (
@@ -499,16 +554,22 @@ host_basic_pending = &03BD
         self.assertGreaterEqual(text.count("wicfs_prepare_byte_trap"), 3)
         self.assertGreaterEqual(text.count("wicfs_publish_byte_trap"), 3)
         self.assertIn("+.wicfs_any_vector_owned", text)
-        self.assertIn("+                    jsr wicfs_any_vector_owned", text)
+        reset_service = text.split("@@ -138,7 +138,8 @@", 1)[1].split(
+            "@@", 1
+        )[0]
+        self.assertNotIn("wicfs_any_vector_owned", reset_service)
+        self.assertIn("bne autorun_wicfs_released", reset_service)
+        self.assertIn("jsr release_owned_wicfs", reset_service)
         self.assertIn("cannot execute a partially rewritten handler", text)
         self.assertEqual(text.count("+\tJSR\tinstall_extended_vector"), 0)
         self.assertNotIn("+\tLDA\t#&8C", text)
         finish = text.split("+.wicfs_finish_if_exhausted", 1)[1].split(
             "+.wicfs_any_vector_owned", 1
         )[0]
-        self.assertLess(finish.index("+\tSEI"), finish.index("+\tLDA\tBYTEV"))
+        self.assertIn("+\tJMP\twicfs_reset", finish)
         self.assertIn("+.wicfs_install_invalid", text)
-        self.assertIn("WiCFS state invalid; power cycle", text)
+        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        self.assertIn("WiCFS state invalid; power cycle", uef)
         for vector, dispatcher in (
             ("OSFILEV", "&FF1B"),
             ("OSBGETV", "&FF21"),
@@ -518,7 +579,20 @@ host_basic_pending = &03BD
             self.assertIn(f"+\tLDA\t{vector}", text)
             self.assertIn(f"+\tCMP\t#<{dispatcher}", text)
             self.assertIn(f"+\tCMP\t#>{dispatcher}", text)
-        self.assertNotIn("JSR\twicfs_reset", text)
+
+    def test_final_bget_retires_the_complete_wicfs_installation(self) -> None:
+        patch = (
+            ROOT
+            / "rom-side/elkwifi-0.23/patches/wicfs-bget-exhaustion.patch"
+        ).read_text()
+        self.assertIn("+.xbgetv\tPHP", patch)
+        self.assertIn("+\tSTA\ttemp", patch)
+        self.assertIn("+\tJSR\twicfs_finish_if_exhausted", patch)
+        self.assertIn("+\tPLP", patch)
+        self.assertLess(
+            patch.index("JSR\twicfs_finish_if_exhausted"),
+            patch.index("\n \tPLA\n"),
+        )
 
     def test_stream_install_and_reset_are_transactional(self) -> None:
         text = STREAM_FINISH.read_text()
@@ -527,13 +601,14 @@ host_basic_pending = &03BD
         self.assertIn("+.wicfs_release_invalid_byte_trap", text)
         self.assertIn("+                    bcs autorun_wicfs_abort", text)
         self.assertIn("+.autorun_wicfs_abort", text)
-        self.assertIn("+.uef_run_failed", text)
-        self.assertIn("+ bcs uef_run_failed", text)
+        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        self.assertIn(".uef_run_failed", uef)
+        self.assertIn("bcs uef_run_failed", uef)
         self.assertIn("+\tBCC\tbUPCFS_installed", text)
         self.assertIn("+\tLDX\t#(error_wicfs_state-error_table)", text)
         self.assertIn("+.bUPCFS_installed", text)
         self.assertIn(
-            '+ equs "WiCFS state invalid; power cycle",&0D,&EA', text
+            'equs "WiCFS state invalid; power cycle",&0D,&EA', uef
         )
 
         invalid = text.split("+.wicfs_install_invalid", 1)[1].split(
@@ -543,6 +618,7 @@ host_basic_pending = &03BD
             "+\tLDA\t#0\n+\tSTA\twicfs_magic\n+\tSTA\twicfs_magic+1",
             invalid,
         )
+
         self.assertIn(" .Bquit\t\n+\tCLC\n", text)
 
         prepared = text.index(
@@ -581,9 +657,12 @@ host_basic_pending = &03BD
             partial,
         )
 
-        self.assertIn("+                    beq autorun_wicfs_low_matches", text)
-        self.assertIn("+                    beq autorun_wicfs_abort", text)
-        self.assertIn("+                    bne autorun_wicfs_abort", text)
+        reset_service = text.split("@@ -138,7 +138,8 @@", 1)[1].split(
+            "@@", 1
+        )[0]
+        self.assertEqual(reset_service.count("bne autorun_wicfs_released"), 1)
+        self.assertIn("+                    bcs autorun_wicfs_abort", reset_service)
+        self.assertNotIn("wicfs_any_vector_owned", reset_service)
 
         ownership = text.split("+.wicfs_any_vector_owned", 1)[1].split(
             "+.wicfs_owned_no", 1
@@ -619,6 +698,30 @@ host_basic_pending = &03BD
             "bUPCFS_installed", "error_wicfs_state",
         ):
             self.assertIn(marker, build)
+
+    def test_tape_transition_preserves_the_real_filing_system_predecessor(self) -> None:
+        patch = (
+            ROOT
+            / "rom-side/elkwifi-0.23/patches/wicfs-pre-tape-predecessor.patch"
+        ).read_text()
+        menu = (ROOT / "rom-side/elkwifi-0.23/overlay/menu.asm").read_text()
+        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+
+        self.assertIn("+.wicfs_snapshot_pre_tape", patch)
+        self.assertIn("+.wicfs_apply_pre_tape", patch)
+        self.assertIn("private Pi JIM at &FFED00", patch)
+        self.assertIn("+\tLDA\t#&ED", patch)
+        self.assertNotIn("private Pi JIM at &FFEE00", patch)
+
+        release = menu.index("jsr release_owned_wicfs")
+        snapshot = menu.index("jsr wicfs_snapshot_pre_tape")
+        select_tape = menu.index("jsr oscli", snapshot)
+        self.assertLess(release, snapshot)
+        self.assertLess(snapshot, select_tape)
+        self.assertLess(
+            uef.index("jsr wicfs_install"),
+            uef.index("jsr wicfs_apply_pre_tape"),
+        )
 
     def test_reset_does_not_restore_arbitrary_host_workspace(self) -> None:
         workspace_patch = (
@@ -658,6 +761,45 @@ host_basic_pending = &03BD
         for machine in (0, 1, 2, 3):
             self.assertEqual(effective_pi_selectors(machine, (0xAB, 0xCD, 0xEF)),
                              (0, 0, 0))
+
+        fast = PAGE_SELECT_FAST.read_text()
+        helper = fast.split("+.wicfs_select_public_page_a", 1)[1].split(
+            " .wicfs_state_address_x", 1
+        )[0]
+        self.assertIn("+\tLDX\twicfs_machine", helper)
+        self.assertIn("+\tCPX\t#1", helper)
+        self.assertIn("+\tSTA\t&FCFD", helper)
+        self.assertIn("+\tSTA\t&FCFE", helper)
+        self.assertIn("+\tSTA\tpagereg", helper)
+        self.assertLess(helper.index("+\tSEI"), helper.index("+\tSTA\tpagereg"))
+        self.assertLess(helper.index("+\tSTA\tpagereg"), helper.index("+\tPLP"))
+
+    def test_assembled_fast_page_select_preserves_x_and_machine_decode(self) -> None:
+        match = self.find_rom_routine(
+            rb"\x08\x78\x48\x8A\x48\xA6.\xE0\x01\xF0."
+            rb"\xA9\x00\x8D\xFD\xFC\x20..\x8D\xFE\xFC\x20.."
+            rb"\x68\xAA\x68\x8D\xFF\xFC\x20..\x28\x60"
+        )
+        start = ROM_START + match.start()
+        final_rts = ROM_START + match.end() - 1
+        machine_address = self.rom[match.start() + 6]
+
+        for machine, upper_value in ((1, 0xA5), (0, 0x00), (2, 0x00)):
+            with self.subTest(machine=machine):
+                memory = bytearray(0x10000)
+                memory[ROM_START:ROM_START + len(self.rom)] = self.rom
+                memory[machine_address] = machine
+                memory[0xFCFD] = 0xA5
+                memory[0xFCFE] = 0xA5
+                mpu = MPU(memory=memory, pc=start)
+                mpu.a = 0x37
+                mpu.x = 0x91
+                mpu.sp = 0xF0
+                run_to(mpu, final_rts)
+                self.assertEqual(mpu.x, 0x91)
+                self.assertEqual(memory[0xFCFD], upper_value)
+                self.assertEqual(memory[0xFCFE], upper_value)
+                self.assertEqual(memory[0xFCFF], 0x37)
 
     def test_persisted_state_is_committed_transactionally(self) -> None:
         text = TRANSACTIONAL.read_text()
@@ -787,10 +929,11 @@ host_basic_pending = &03BD
             self.assertEqual(checkpoints, expected_checkpoints)
 
     def test_getbyte_does_not_select_then_discard_next_page(self) -> None:
-        text = TRANSACTIONAL.read_text()
-        getbyte = text.split("@@ -2346", 1)[1].split("@@ -2392", 1)[0]
+        text = PAGE_SELECT_FAST.read_text()
+        getbyte = text.split("@@ -3013", 1)[1].split("@@ -3053", 1)[0]
         self.assertNotRegex(getbyte, r"(?m)^\+.*select the next physical page")
-        self.assertIn("jsr wicfs_select_public_zero", getbyte)
+        self.assertIn("+    jsr wicfs_select_public_page_a", getbyte)
+        self.assertNotIn("+    jsr wicfs_select_public_zero", getbyte)
 
     def test_starrun_filename_is_bounded(self) -> None:
         text = TRANSACTIONAL.read_text()
@@ -857,10 +1000,10 @@ host_basic_pending = &03BD
         self.assertIn("bounded OSFIND failure", patch)
         self.assertIn("never jump through stale FSCVRTN", patch)
         self.assertIn("bounded EOF", patch)
-        private = (ROOT / "rom-side/elkwifi-0.23/patches/wicfs-private-workspace.patch").read_text()
-        tail = private.split("@@ -1150", 1)[1]
-        self.assertEqual(tail.count("+\tPLA"), 2)
-        self.assertIn("\tJMP\t(&03C2)", tail)
+        run_return = RUN_RETURN.read_text()
+        self.assertNotIn("+\tJMP\t(&03C2)", run_return)
+        self.assertIn("+\tJSR\t&FFFF", run_return)
+        self.assertIn("+\tRTS", run_return)
 
     def test_break_restores_only_owned_vectors_from_valid_state(self) -> None:
         text = TRANSACTIONAL.read_text()
@@ -899,18 +1042,31 @@ host_basic_pending = &03BD
         self.assertIn("CPX\t#10\t\t\\CFS filenames are at most ten characters", text)
         self.assertIn("CPX\t#11\t\t\\ten characters plus the terminating zero", text)
 
-    def test_extended_vector_tail_call_discards_five_dispatcher_bytes(self) -> None:
-        text = PATCH.read_text()
-        tail = text.split("@@ -1150", 1)[1]
-        # The base routine already contained three PLAs. This patch adds two,
-        # giving the five-byte Electron extended-vector dispatcher unwind and
-        # leaving the real caller return address on the stack.
-        self.assertEqual(tail.count("+\tPLA"), 2)
-        self.assertIn("\tJMP\t(&03C2)", tail)
-        stack = [0x34, 0x12, 0x78, 0x56, 0x0B, 0x9A, 0xBC]
-        for _ in range(5):
-            stack.pop(0)
-        self.assertEqual(stack, [0x9A, 0xBC])
+    def test_run_returns_through_the_intact_extended_vector_frame(self) -> None:
+        text = RUN_RETURN.read_text()
+        self.assertNotIn("+\tPLA", text)
+        self.assertIn("+\tJSR\t&FFFF", text)
+        self.assertIn("+\tRTS\t\t\t\\return through the intact MOS extended-vector frame", text)
+
+    def test_cross_rom_vector_trampoline_uses_saved_handler_values(self) -> None:
+        text = CHAIN_TARGET.read_text()
+        for pointer in ("FILVRTN", "findv_rtn", "FSCVRTN"):
+            self.assertIn(f"+\tLDA\t{pointer}", text)
+            self.assertIn(f"+\tLDA\t{pointer}+1", text)
+            self.assertNotIn(f"+\tLDA\t#<{pointer}", text)
+            self.assertNotIn(f"+\tLDA\t#>{pointer}", text)
+
+    def test_fscv_forwarding_preserves_entry_flags_and_stack(self) -> None:
+        text = VECTOR_FLAGS.read_text()
+        self.assertIn(".upfscv\n+\tPHP", text)
+        self.assertIn("+\tLDA\t&0104,X", text)
+        self.assertIn("+.chain_previous_rom_fscv", text)
+        self.assertIn("+\tLDA\t#&28\t\t\t\\FSCV saved entry flags: patch PLP", text)
+        self.assertIn("+\tLDA\t#&EA\t\t\t\\FILEV/FINDV have no saved entry flags: patch NOP", text)
+        self.assertIn("+\tSTA\tchain_exec+(chain_entry_flags-chain_code)", text)
+        self.assertIn("+\tJMP\tchain_previous_rom_fscv", text)
+        self.assertIn("+\tPLP\n \tJMP\t(FSCVRTN)", text)
+        self.assertIn("+\tPLP\t\t\t\\loaded code receives the native extended-vector stack", text)
 
 
 if __name__ == "__main__":

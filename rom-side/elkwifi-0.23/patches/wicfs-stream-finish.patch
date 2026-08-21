@@ -1,31 +1,15 @@
 --- a/rom/ElkWifi.asm
 +++ b/rom/ElkWifi.asm
-@@ -132,11 +132,22 @@
-                     \ still live. In that case release only entries WiCFS owns.
-                     lda BYTEV
-                     cmp #<notape
--                    bne autorun_wicfs_released
-+                    beq autorun_wicfs_low_matches
+@@ -138,7 +138,8 @@
                      lda BYTEV+1
                      cmp #>notape
--                    bne autorun_wicfs_released
-+                    beq autorun_wicfs_abort
-+                    bne autorun_check_wicfs_vectors
-+.autorun_wicfs_low_matches
-+                    lda BYTEV+1
-+                    cmp #>notape
-+                    bne autorun_wicfs_abort
-+                    beq autorun_release_wicfs
-+.autorun_check_wicfs_vectors
-+                    jsr wicfs_any_vector_owned
-+                    bcc autorun_wicfs_released
-+.autorun_release_wicfs
+                     bne autorun_wicfs_released
                      jsr release_owned_wicfs
 +                    bcs autorun_wicfs_abort
  .autorun_wicfs_released
                      lda #&D7                    \ Turn off default banner
                      ldx #0
-@@ -169,6 +180,13 @@
+@@ -169,6 +170,13 @@
                      tay
                      lda #1                      \ restore reason code
                      rts                         \ end of routine
@@ -239,7 +223,7 @@
  	LDA	#&A5
  	STA	wicfs_magic
  	LDA	#&5A
-@@ -702,7 +788,189 @@
+@@ -702,7 +788,178 @@
  	JSR	xmess
  
  .Bquit	
@@ -290,29 +274,18 @@
 +	PLP
 +	RTS
 +
-+\ Release only the cassette BYTEV trap after the final stream byte. Filing
-+\ vectors stay installed until reset because a multi-stage loader may CHAIN
-+\ another file before the stream is exhausted.
++\ Retire the complete WiCFS installation after the final stream byte. Leaving
++\ only FILEV/FINDV/BGETV/FSCV installed creates split ownership: later file
++\ output is incorrectly claimed by exhausted WiCFS and reset can lose ADFS.
++\ wicfs_reset restores only entries still owned by this ROM and persists an
++\ inactive record, so a later filing-system owner is never overwritten.
 +.wicfs_finish_if_exhausted
-+	PHP
-+	SEI
 +	LDA	sbufl
 +	ORA	sbufh
-+	BNE	wicfs_finish_unlock
-+	LDA	BYTEV
-+	CMP	#<notape
-+	BNE	wicfs_finish_unlock
-+	LDA	BYTEV+1
-+	CMP	#>notape
-+	BNE	wicfs_finish_unlock
-+	LDA	bytev_rtn
-+	STA	BYTEV
-+	LDA	bytev_rtn+1
-+	STA	BYTEV+1
-+.wicfs_finish_unlock
-+	PLP
-+.wicfs_finish_done
++	BEQ	wicfs_finish_retire
 +	RTS
++.wicfs_finish_retire
++	JMP	wicfs_reset
 +
 +\ Report live WiCFS extended-vector ownership without consulting persisted JIM
 +\ state. Reset can call this during ROM scan without requiring a Pi response.
@@ -655,30 +628,3 @@
  	JMP	actioned		\return command claimed
  
  .xfscv
---- a/rom/uef.asm
-+++ b/rom/uef.asm
-@@ -253,6 +253,13 @@
- \ continues to use QUPCFS and retains its original behaviour.
- .uef_run_cmd
-  jsr wicfs_install
-+ bcs uef_run_failed
-+ lda wicfs_magic
-+ cmp #&A5
-+ bne uef_run_failed
-+ lda wicfs_magic+1
-+ cmp #&5A
-+ bne uef_run_failed
-  ldx #0
- .uef_run_queue
-  stx temp
-@@ -266,6 +273,10 @@
-  bne uef_run_queue
- .uef_run_started
-  jmp call_claimed
-+.uef_run_failed
-+ jsr printtext
-+ equs "WiCFS state invalid; power cycle",&0D,&EA
-+ jmp call_claimed
- 
- 
- .uef_full

@@ -34,11 +34,13 @@ from redirecting FCA9 between the completion poll and the response copy.
 
 ## Public compatibility surface
 
-The retained driver implements reset, scan, association, leave, TCP open,
+The retained driver implements reset, scan, association, leave, TCP and UDP open,
 single-connection selection, send and receive, close, interface status, paged
 receive, channel query and WiFi control. Function 9 validates `0`, CR and
 returns an original-style `OK` locally because Pi1MHz exposes one TCP
-connection. Function 13 reads the original five-byte zero-page control block,
+connection. Function 8 accepts the original `TCP` and `UDP` protocol fields
+case-insensitively. Unsupported `SSL` fails closed and is never converted to
+plaintext TCP. Function 13 reads the original five-byte zero-page control block,
 sends the complete source buffer and gathers the response into sequential JIM
 pages. Pi1MHz may accept only part of a TCP write. The ROM advances the caller's
 pointer only by the returned queued-byte count and retries zero or partial
@@ -48,9 +50,16 @@ the bounded idle deadline.
 Function 24 uses a separate internal Pi command from version and status. An
 enable request starts radio setup and returns promptly, matching the original
 driver contract; later function 18 calls report whether addressing is ready.
+Functions 29 to 31 remain reserved in the pinned ElkWiFi 0.23 contract. The
+timeout setter sometimes associated with function 29 was added in ElkWiFi
+0.32 and is not part of this ROM's compatibility baseline.
+The DATE, TIME and ONLINE star-command extensions use private ROM selectors
+32-34 and therefore do not overwrite an original driver-table entry.
 
-Unsupported cartridge-only functions return a MOS `Not implemented` error.
-They do not call removed UART, flash, printer or baud-rate code.
+Functions 6, 10 to 12, 15 to 17, 21 to 23, 26 and 27 preserve the observable
+0.23 compatibility behavior without calling the removed UART. Function 19 and
+reserved functions 29 to 31 return a MOS `Not implemented` error. The removed
+flash, printer and baud-setting paths cannot be entered.
 The dynamic MOS BRK block is built in the retired network-printer workspace,
 not the `&0100` processor stack used by the original ROM.
 

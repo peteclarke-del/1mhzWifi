@@ -1,0 +1,34 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -2006,6 +2006,10 @@
+ 	LDA	#12
+ .run_preselect_ready
+ 	STA	chain_exec+(run_preselect_value-run_code)+1
++	LDA	&03C2
++	STA	chain_exec+(run_call-run_code)+1
++	LDA	&03C3
++	STA	chain_exec+(run_call-run_code)+2
+ ASSERT chain_exec+(run_code_end-run_code) <= host_basic_pending
+ 	JMP	chain_exec
+ .run_code
+@@ -2021,14 +2025,12 @@
+ .run_selector
+ 	STA	&FE30
+ 	PLP
+-	PLA
+-	PLA
+-	PLA
+-	PLA
+-	PLA
+-	PLA
+-	PLA
+-	JMP	(&03C2)
++	LDA	#0
++	TAX
++	TAY
++.run_call
++	JSR	&FFFF		\patched to the loaded execution address
++	RTS			\return through the intact MOS extended-vector frame
+ .run_code_end
+ .ret_fscv
+ 	RTS

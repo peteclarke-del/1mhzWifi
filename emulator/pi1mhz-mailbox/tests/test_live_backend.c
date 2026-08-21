@@ -207,6 +207,7 @@ int main(void)
     uint8_t sector_data[512];
     int sd_fd;
     int listener;
+    int udp_listener;
     struct sockaddr_in address;
     socklen_t address_size = sizeof(address);
     pid_t child;
@@ -239,6 +240,9 @@ int main(void)
     assert(!bind(listener, (struct sockaddr *)&address, sizeof(address)));
     assert(!getsockname(listener, (struct sockaddr *)&address, &address_size));
     assert(!listen(listener, 1));
+    udp_listener = socket(AF_INET, SOCK_DGRAM, 0);
+    assert(udp_listener >= 0);
+    assert(!bind(udp_listener, (struct sockaddr *)&address, sizeof(address)));
 
     child = fork();
     assert(child >= 0);
@@ -252,7 +256,19 @@ int main(void)
                 _exit(1);
             close(client);
         }
+        {
+            char received[5];
+            struct sockaddr_in peer;
+            socklen_t peer_size = sizeof(peer);
+            if (recvfrom(udp_listener, received, sizeof(received), 0,
+                         (struct sockaddr *)&peer, &peer_size) != 5 ||
+                memcmp(received, "hello", 5) ||
+                sendto(udp_listener, "world", 5, 0,
+                       (struct sockaddr *)&peer, peer_size) != 5)
+                _exit(1);
+        }
         close(listener);
+        close(udp_listener);
         _exit(0);
     }
 
@@ -390,6 +406,48 @@ int main(void)
     command[0] = 63;
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
 
+    /* The emulator must model the connected UDP route used by ElkWiFi
+       function 8, not accept only the TCP subset. */
+    command[0] = 45;
+    command[1] = 1;
+    assert(issue(&mailbox) == PI1MHZ_NET_OK);
+    command[0] = 46;
+    memcpy(command + 1, "127.0.0.1", 10);
+    assert(issue(&mailbox) == PI1MHZ_NET_OK);
+    command[0] = 47;
+    command[1] = 127;
+    command[2] = 0;
+    command[3] = 0;
+    command[4] = 1;
+    command[5] = (uint8_t)ntohs(address.sin_port);
+    command[6] = (uint8_t)(ntohs(address.sin_port) >> 8);
+    for (attempts = 0; attempts < 1000; attempts++) {
+        result = issue(&mailbox);
+        if (result != PI1MHZ_NET_PENDING)
+            break;
+        short_wait();
+    }
+    assert(result == PI1MHZ_NET_OK);
+    memcpy(mailbox.jim + mailbox.services_base + 0x020100u, "hello", 5);
+    command[0] = 50;
+    wr24(command + 1, 5);
+    wr32(command + 4, 0x020100u);
+    assert(issue(&mailbox) == PI1MHZ_NET_OK);
+    for (attempts = 0; attempts < 1000; attempts++) {
+        command[0] = 51;
+        wr24(command + 1, 5);
+        wr32(command + 4, 0x020000u);
+        result = issue(&mailbox);
+        if (result == PI1MHZ_NET_OK && command[1] == 5)
+            break;
+        assert(result == PI1MHZ_NET_OK);
+        short_wait();
+    }
+    assert(attempts < 1000);
+    assert(!memcmp(mailbox.jim + mailbox.services_base + 0x020000u, "world", 5));
+    command[0] = 53;
+    assert(issue(&mailbox) == PI1MHZ_NET_OK);
+
     command[0] = 94;
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
     assert(command[1] == 1 && command[3] & 1);
@@ -417,6 +475,7 @@ int main(void)
         assert(sector_data[i] == 0x3Cu);
     assert(!unlink(sd_path));
     close(listener);
+    close(udp_listener);
     assert(waitpid(child, &status, 0) == child);
     assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
     test_wifi_lifecycle();

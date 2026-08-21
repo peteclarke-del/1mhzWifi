@@ -26,9 +26,12 @@ directly. They do not require the 1MHzWifi/ElkWiFi service ROM.
   machine and Tube state, memory limits and key vectors, then checks the
   `&FCA6-&FCA9` cursor/data pair, a Services JIM block and secure capability
   command 94. It finally invokes `*ROMS` and `*VERSION` for a complete profile.
-  It does not access the Tube or write to a filing-system volume.
+  Its D4 JIM probe uses `&FFEE00`; `&FFEF00-&FFEF19` is reserved for WiCFS and
+  is never modified. D4 reports the standard and extended WiCFS vectors, their
+  ROM owners, and all 26 bytes of the persisted WiCFS record. It does not
+  access the Tube or write to a filing-system volume.
 
-The D2 hardware diagnostic brackets OSBYTE calls and prints the raw capability
+The D4 hardware diagnostic brackets OSBYTE calls and prints the raw capability
 bytes. The reference mailbox emulator produces these diagnostic lines:
 
 ```text
@@ -42,9 +45,12 @@ CAPS 1-5: 01 01 07 B8 88
 CAPS 6-10: 01 01 4E 54 53
 ```
 
-Run `*HWDTEST` unchanged in Elkulator and on physical hardware. It pauses so
-the diagnostic values, ROM list and version response can be captured as three
-screens. Any differing register byte or `FAIL` identifies the first
+Run `*HWDTEST` unchanged in Elkulator and on physical hardware. It pauses
+after the machine/vector report and again after the state/mailbox report so
+each capture fits the physical 40-column display without scrolling. It then
+allows the machine/vector values, state/mailbox values, ROM list and version
+response to be captured as four screens. Any differing register byte or
+`FAIL` identifies the first
 boundary where the emulator and live bus disagree. Machine, memory, vector and
 ROM-list values vary with the host configuration and must be compared as a
 complete profile.

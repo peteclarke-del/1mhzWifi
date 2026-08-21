@@ -1,0 +1,80 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -52,6 +52,7 @@
+ wicfs_bytes_lo = wicfs_state_ram+20
+ wicfs_bytes_hi = wicfs_state_ram+21
+ wicfs_state_size = 22
++wicfs_pending_run_rom = 13
+ 
+ \ Transaction scratch is zero-page and never part of the persisted payload.
+ \ These locations are already private, transient WiCFS workspace.
+@@ -830,7 +831,21 @@
+ 	LDA	(evptr),Y
+ 	STA	fscv_prev_rom
+ 
+ .b_previous_vectors_saved
++	\ Preserve the displaced cassette FSCV owner separately from the disk
++	\ predecessor which wicfs_apply_pre_tape installs for later forwarding.
++	\ Native cassette execution leaves this ROM selected when entering a RAM
++	\ program. A direct MOS vector has no owner and is recorded as &FF.
++	PHP
++	SEI
++	LDA	fscv_prev_rom
++	PHA
++	LDX	#wicfs_pending_run_rom
++	JSR	wicfs_pending_address_x
++	PLA
++	STA	&FCA9
++	JSR	wicfs_bus_delay
++	PLP
+ 	JSR	wicfs_prepare_byte_trap
+ 	LDA	#&A5
+ 	STA	wicfs_magic
+@@ -1978,6 +1993,22 @@
+ .actioned
+ 	LDY	loadrun
+ 	BPL	ret_fscv
++	\ Reproduce the native cassette execution context without assuming a ROM
++	\ slot. If the displaced cassette vector was a direct MOS vector, retain
++	\ the real caller context captured from the extended-vector frame.
++	PHP
++	SEI
++	LDX	#wicfs_pending_run_rom
++	JSR	wicfs_pending_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	STA	chain_rom
++	PLP
++	LDA	chain_rom
++	BPL	run_owner_ready
++	LDA	currom
++.run_owner_ready
++	STA	chain_rom
+ 	LDA	#1
+ 	STA	host_basic_pending	\arm host BASIC handoff only after a successful *RUN
+ 	LDA	#&81
+@@ -2001,7 +2032,7 @@
+ .run_patch_selector
+ 	STY	chain_exec+(run_preselect-run_code)+1
+ 	STY	chain_exec+(run_selector-run_code)+1
+-	LDA	currom
++	LDA	chain_rom
+ 	CPX	#1
+ 	BNE	run_preselect_ready
+ 	CMP	#8
+@@ -2015,13 +2046,13 @@
+ .run_code
+ 	PHP
+ 	SEI
+-	LDA	currom
++	LDA	chain_rom
+ 	STA	&F4
+ .run_preselect_value
+ 	LDX	#12
+ .run_preselect
+ 	STX	&FE30
+-	LDA	currom
++	LDA	chain_rom
+ .run_selector
+ 	STA	&FE30
+ 	PLP

@@ -18,6 +18,8 @@ net_cmd_url_status = 64
 net_result_pending = 1
 net_result_eof = &20
 net_result_http_status = &30
+net_result_unsupported = &27
+net_cmd_copy_public = 58
 
 net_count = heap+&E8
 net_cli_y = heap+&E9
@@ -235,6 +237,43 @@ net_cursor_hi = drv_svc_workspace+23
  sta net_empty_lo
  lda #10
  sta net_empty_hi
+ lda tflag
+ bne pi_wget_copy_legacy
+ lda uflag
+ ora sflag
+ beq pi_wget_copy_legacy
+ \ Raw paged transfers are already in the Pi service scratch page. Copy the
+ \ complete chunk to its final public JIM address in one Pi-side operation.
+ \ This avoids both a host byte loop and the unsafe page-&FF staging alias.
+ clc
+ lda net_paged_offset
+ adc net_count
+ lda net_paged_page
+ adc #0
+ bcc pi_wget_copy_paged_bulk
+ jsr pi_wget_close
+ ldx #(error_buffer_full-error_table)
+ jmp error
+.pi_wget_copy_paged_bulk
+ jsr net_command_address
+ lda #net_cmd_copy_public
+ jsr net_write_a
+ lda net_count
+ jsr net_write_a
+ lda net_paged_offset
+ jsr net_write_a
+ lda net_paged_page
+ jsr net_write_a
+ jsr net_dispatch_wait
+ cmp #0
+ bne pi_wget_copy_paged_not_ok
+ jmp pi_wget_copy_paged_advance
+.pi_wget_copy_paged_not_ok
+ cmp #net_result_unsupported
+ bne pi_wget_copy_paged_error
+ \ A previous Pi1MHz kernel has no command 58. Retain the original safe,
+ \ byte-at-a-time path so ROM and kernel updates need not be atomic.
+.pi_wget_copy_legacy
  jsr net_scratch_address
 
 .pi_wget_copy
@@ -290,6 +329,28 @@ net_cursor_hi = drv_svc_workspace+23
 .pi_wget_counted
  dec net_count
  bne pi_wget_copy
+ jsr check_esc
+ bcs pi_wget_copy_cancel
+ jmp pi_wget_read
+.pi_wget_copy_paged_error
+ jsr pi_wget_network_error
+.pi_wget_copy_paged_advance
+ lda #&FF
+ sta net_received
+ clc
+ lda net_paged_offset
+ adc net_count
+ sta net_paged_offset
+ lda net_paged_page
+ adc #0
+ sta net_paged_page
+ clc
+ lda net_bytes_lo
+ adc net_count
+ sta net_bytes_lo
+ lda net_bytes_hi
+ adc #0
+ sta net_bytes_hi
  jsr check_esc
  bcs pi_wget_copy_cancel
  jmp pi_wget_read

@@ -8,15 +8,16 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import signal
+import shutil
 import subprocess
 import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from provenance import snapshot, sorted_screens, source_revision
+from provenance import bus_trace_summary, snapshot, sorted_screens, source_revision
 from run_catalogue_differential import inject_x11_keys
+from runtime import prepare_runtime
 
 
 KEY_SHIFT_DOWN = 2000
@@ -71,19 +72,62 @@ def command_script(events: list[tuple[int, int]]) -> str:
     return ",".join(f"{delay}:{key}" for delay, key in events)
 
 
-def capture(display: str, path: Path) -> None:
+def native_tape_events() -> list[tuple[int, int]]:
+    """Select the untouched cassette filing system and CHAIN the tape."""
+    return [
+        (300, KEY_SHIFT_DOWN), (1, KEY_QUOTE), (1, KEY_SHIFT_UP),
+        *elkulator_text_events("TAPE"), (2, KEY_ENTER),
+        *elkulator_text_events("CHAIN"),
+        (2, KEY_SHIFT_DOWN), (1, KEY_DIGITS["2"]), (1, KEY_SHIFT_UP),
+        (2, KEY_SHIFT_DOWN), (1, KEY_DIGITS["2"]), (1, KEY_SHIFT_UP),
+        (2, KEY_ENTER),
+    ]
+
+
+def preloaded_wicfs_events() -> list[tuple[int, int]]:
+    """Launch an already-normalised public-JIM UEF through stock WiCFS."""
+    events = [
+        (300, KEY_SHIFT_DOWN), (1, KEY_QUOTE), (1, KEY_SHIFT_UP),
+        *elkulator_text_events("WICFS"), (2, KEY_ENTER),
+        (300, KEY_SHIFT_DOWN), (1, KEY_QUOTE), (1, KEY_SHIFT_UP),
+        *elkulator_text_events("REWIND"), (2, KEY_ENTER),
+        *elkulator_text_events("CHAIN"),
+        (2, KEY_SHIFT_DOWN), (1, KEY_DIGITS["2"]), (1, KEY_SHIFT_UP),
+        (2, KEY_SHIFT_DOWN), (1, KEY_DIGITS["2"]), (1, KEY_SHIFT_UP),
+        (2, KEY_ENTER),
+    ]
+    return events
+
+
+def largest_window(tree: str, window_title: str) -> str | None:
+    """Return the largest titled X11 window from an xwininfo tree."""
+    candidates = []
+    for line in tree.splitlines():
+        match = re.match(
+            rf'^\s+(0x[0-9a-f]+)\s+"{re.escape(window_title)}[^"\\]*".*?'
+            rf'(\d+)x(\d+)\+',
+            line, flags=re.IGNORECASE,
+        )
+        if match:
+            candidates.append((int(match[2]) * int(match[3]), match[1]))
+    return max(candidates)[1] if candidates else None
+
+
+def capture(display: str, path: Path, window_title: str = "Elkulator") -> None:
     tree = subprocess.run(
         ["xwininfo", "-display", display, "-root", "-tree"],
         check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
-    windows = re.findall(r'^\s+(0x[0-9a-f]+)\s+"Elkulator"',
-                         tree.stdout, flags=re.MULTILINE | re.IGNORECASE)
-    if len(windows) != 1:
+    window = largest_window(tree.stdout, window_title)
+    if window is None:
         raise RuntimeError(
-            f"expected one Elkulator window on {display}, found {len(windows)}"
+            f"expected a {window_title} window on {display}, found none"
         )
+    # B-Em creates a small companion window with the same title. Capturing the
+    # largest matching top-level window selects the emulated display without
+    # relying on creation order. Elkulator normally has one candidate.
     xwd = subprocess.run(
-        ["xwd", "-display", display, "-id", windows[0], "-silent"],
+        ["xwd", "-display", display, "-id", window, "-silent"],
         check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
     )
     subprocess.run(
@@ -133,49 +177,64 @@ def similarity(left: Path, right: Path) -> float:
     return 2.0 * intersection / foreground
 
 
-def prepare_runtime(
-    source: Path, destination: Path, pi1mhz_cfg: Path | None = None,
-) -> Path:
-    """Create a deterministic non-Turbo Electron profile for one test run."""
-    destination.mkdir()
-    (destination / "roms").symlink_to((source / "roms").resolve(),
-                                      target_is_directory=True)
-    for rom in (source / "roms").iterdir():
-        if rom.is_file():
-            (destination / rom.name).symlink_to(rom.resolve())
-    ddnoise = source / "ddnoise"
-    if ddnoise.is_dir():
-        (destination / "ddnoise").symlink_to(ddnoise.resolve(),
-                                              target_is_directory=True)
-    source_cfg = source / "elk.cfg"
-    if not source_cfg.is_file():
-        raise RuntimeError(f"Elkulator configuration not found: {source_cfg}")
-    overrides = {
-        "plus1": "1",
-        "plus3": "0",
-        "dfsena": "0",
-        "adfsena": "0",
-        "turbo": "0",
-        "enable_jim": "0",
-    }
-    seen = set()
-    configured = []
-    for line in source_cfg.read_text().splitlines():
-        key, separator, _ = line.partition("=")
-        name = key.strip()
-        if separator and name in overrides:
-            configured.append(f"{name} = {overrides[name]}")
-            seen.add(name)
-        else:
-            configured.append(line)
-    for name, value in overrides.items():
-        if name not in seen:
-            configured.append(f"{name} = {value}")
-    (destination / "elk.cfg").write_text("\n".join(configured) + "\n")
-    pi_cfg = pi1mhz_cfg if pi1mhz_cfg is not None else source / "Pi1MHz.cfg"
-    if pi_cfg.is_file():
-        shutil.copy2(pi_cfg, destination / "Pi1MHz.cfg")
-    return destination
+def binary_raster(path: Path) -> bytes:
+    """Return one thresholded Electron raster at its native pixel geometry."""
+    result = subprocess.run(
+        ["convert", str(path), "-resize", "320x256!", "-colorspace", "Gray",
+         "-threshold", "50%", "-depth", "8", "gray:-"],
+        check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    if len(result.stdout) != 320 * 256:
+        raise RuntimeError("ImageMagick returned an unexpected raster size")
+    return result.stdout
+
+
+def prompt_similarity(screen: Path, reference: Path) -> float:
+    """Find the reference's final left-margin glyph at any screen row.
+
+    MOS prompts move vertically as commands print output. Comparing a complete
+    screen therefore rejects a valid prompt whenever the preceding text has a
+    different height. The final occupied band in the reference's left margin
+    is the reviewed prompt glyph. Match that small shape at any vertical
+    position while retaining the real captured font and pixel geometry.
+    """
+    width = 320
+    height = 256
+    margin = 10
+    reference_pixels = binary_raster(reference)
+    screen_pixels = binary_raster(screen)
+    occupied_rows = [
+        y for y in range(height)
+        if any(reference_pixels[y * width + x] for x in range(margin))
+    ]
+    if not occupied_rows:
+        return 0.0
+    band_end = occupied_rows[-1]
+    band_start = band_end
+    occupied = set(occupied_rows)
+    while band_start - 1 in occupied:
+        band_start -= 1
+    template = [
+        bool(reference_pixels[y * width + x])
+        for y in range(band_start, band_end + 1)
+        for x in range(margin)
+    ]
+    template_foreground = sum(template)
+    if not template_foreground:
+        return 0.0
+    band_height = band_end - band_start + 1
+    best = 0.0
+    for top in range(height - band_height + 1):
+        candidate = [
+            bool(screen_pixels[y * width + x])
+            for y in range(top, top + band_height)
+            for x in range(margin)
+        ]
+        foreground = template_foreground + sum(candidate)
+        if foreground:
+            intersection = sum(a and b for a, b in zip(template, candidate))
+            best = max(best, 2.0 * intersection / foreground)
+    return best
 
 
 def inject_elkulator_command(display: str, command: str) -> None:
@@ -246,14 +305,34 @@ def main() -> int:
                         help="MMFS ROM loaded in writable sideways bank 7")
     parser.add_argument("--profile", choices=("dfs", "adfs-beebscsi"), default="dfs")
     parser.add_argument("--beebscsi-lun", type=Path)
+    parser.add_argument(
+        "--writable-beebscsi-copy", action="store_true",
+        help=("allow filing-system writes to a caller-provided disposable LUN "
+              "copy under /tmp; never use this with the staged hardware image"),
+    )
     parser.add_argument("--beebscsi-dsc", type=Path,
                         help="optional 22-to-33-byte BeebSCSI geometry sidecar")
     parser.add_argument(
         "--uef-file", default="THRUST",
         help="UEF filename in the selected filing-system directory",
     )
+    parser.add_argument(
+        "--native-tape", type=Path,
+        help=("load this UEF through Elkulator's untouched cassette path "
+              "instead of installing WiCFS; used as a differential control"),
+    )
+    parser.add_argument(
+        "--preloaded-jim", type=Path,
+        help=("diagnostic 64 KiB public-JIM image containing a normalised UEF "
+              "and its length trailer; bypasses only the local-file import"),
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--tube", action="store_true")
+    parser.add_argument(
+        "--no-bus-trace", action="store_true",
+        help=("disable high-volume bus logging for Tube-off performance and "
+              "gameplay runs; not permitted with --tube"),
+    )
     parser.add_argument(
         "--recovery-check", action="store_true",
         help=("after sustained gameplay, press Break, reselect ADFS and load "
@@ -316,6 +395,13 @@ def main() -> int:
         parser.error("--recovery-check requires --prompt-reference")
     if args.recovery_check and args.pi1mhz_cfg is None:
         parser.error("--recovery-check requires an explicit --pi1mhz-cfg")
+    if args.writable_beebscsi_copy:
+        if args.beebscsi_lun is None:
+            parser.error("--writable-beebscsi-copy requires --beebscsi-lun")
+        try:
+            args.beebscsi_lun.resolve().relative_to(Path("/tmp").resolve())
+        except ValueError:
+            parser.error("writable BeebSCSI media must be a disposable copy under /tmp")
     gameplay_input = [key.strip() for key in args.gameplay_input.split(",")
                       if key.strip()]
     if not gameplay_input:
@@ -340,14 +426,24 @@ def main() -> int:
         parser.error(f"BeebSCSI geometry not found: {args.beebscsi_dsc}")
     if args.pi1mhz_cfg is not None and not args.pi1mhz_cfg.is_file():
         parser.error(f"Pi1MHz configuration not found: {args.pi1mhz_cfg}")
+    if args.native_tape is not None and not args.native_tape.is_file():
+        parser.error(f"native tape not found: {args.native_tape}")
+    if args.preloaded_jim is not None and not args.preloaded_jim.is_file():
+        parser.error(f"preloaded JIM image not found: {args.preloaded_jim}")
     for path in (args.title_reference, args.gameplay_reference,
                  *([args.prompt_reference] if args.prompt_reference else []),
                  *args.failure_reference):
         if not path.is_file():
             parser.error(f"screen reference not found: {path}")
 
+    if args.native_tape and args.preloaded_jim:
+        parser.error("--native-tape and --preloaded-jim are mutually exclusive")
+    if args.no_bus_trace and args.tube:
+        parser.error("--no-bus-trace cannot be used with --tube")
+    if args.preloaded_jim and args.preloaded_jim.stat().st_size != 65536:
+        parser.error("--preloaded-jim must be exactly 65536 bytes")
     for attribute in ("sd_image", "mmfs_rom", "beebscsi_lun", "beebscsi_dsc",
-                      "pi1mhz_cfg"):
+                      "pi1mhz_cfg", "native_tape", "preloaded_jim"):
         path = getattr(args, attribute)
         if path is not None:
             setattr(args, attribute, path.resolve())
@@ -361,7 +457,9 @@ def main() -> int:
     )
     roms = test_runtime / "roms"
     try:
-        events = command_events(args.profile, args.uef_file)
+        events = (native_tape_events() if args.native_tape else
+                  preloaded_wicfs_events() if args.preloaded_jim else
+                  command_events(args.profile, args.uef_file))
     except ValueError as error:
         parser.error(str(error))
     command = [
@@ -379,6 +477,13 @@ def main() -> int:
         command.extend(["-disc", str(args.disc.resolve())])
     if args.mmfs_rom:
         command.extend(["-rom", "7", str(args.mmfs_rom)])
+    if args.native_tape:
+        # Elkulator's legacy command-line parser stores tape names in a short
+        # fixed buffer. Keep the emulator-facing path bounded while recording
+        # the original file as immutable provenance above.
+        runtime_tape = test_runtime / "tape.uef"
+        shutil.copyfile(args.native_tape, runtime_tape)
+        command.extend(["-tape", "tape.uef"])
     command.extend(["-autokeys", command_script(events)])
     if args.tube:
         command.extend(["-tube6502", str(roms / "6502tube_120.rom")])
@@ -392,18 +497,27 @@ def main() -> int:
         "PI1MHZ_MAILBOX": "fixture",
         "PI1MHZ_TRACE": str((args.output / "mailbox.trace").resolve()),
     })
+    if not args.no_bus_trace:
+        environment["PI1MHZ_BUS_TRACE"] = str(
+            (args.output / "bus.trace").resolve()
+        )
     if args.fiq_delay is not None:
         environment["PI1MHZ_FIQ_DELAY_ACCESSES"] = str(args.fiq_delay)
     if args.sd_image:
         environment["PI1MHZ_SD_IMAGE"] = str(args.sd_image)
     if args.beebscsi_lun:
         environment["PI1MHZ_BEEBSCSI_LUN"] = str(args.beebscsi_lun.resolve())
-        environment["PI1MHZ_BEEBSCSI_READ_ONLY"] = "1"
+        environment["PI1MHZ_BEEBSCSI_READ_ONLY"] = (
+            "0" if args.writable_beebscsi_copy else "1"
+        )
         environment["PI1MHZ_BEEBSCSI_DEBUG"] = "1"
         environment["PI1MHZ_AP5_PROFILE"] = "full"
         environment["PI1MHZ_NOE"] = "1"
     if args.beebscsi_dsc:
         environment["PI1MHZ_BEEBSCSI_DSC"] = str(args.beebscsi_dsc.resolve())
+    if args.preloaded_jim:
+        environment["PI1MHZ_JIM_IMAGE"] = str(args.preloaded_jim)
+        environment["PI1MHZ_JIM_IMAGE_ADDRESS"] = "0"
     immutable_inputs = {
         "acceptance_runner": Path(__file__).resolve(),
         "provenance_module": Path(__file__).resolve().parent / "provenance.py",
@@ -418,6 +532,8 @@ def main() -> int:
         **({"prompt_reference": args.prompt_reference}
            if args.prompt_reference else {}),
         **({"staged_pi1mhz_cfg": args.pi1mhz_cfg} if args.pi1mhz_cfg else {}),
+        **({"native_tape": args.native_tape} if args.native_tape else {}),
+        **({"preloaded_jim": args.preloaded_jim} if args.preloaded_jim else {}),
         **({"rom_7_mmfs": args.mmfs_rom} if args.mmfs_rom else {}),
         **{f"failure_reference_{number}": reference
            for number, reference in enumerate(args.failure_reference)},
@@ -467,8 +583,9 @@ def main() -> int:
         recovery_gameplay_seconds = None
         recovery_input_index = 0
         recovery_next_input_at = None
-        recovery_commands = ["*ADFS", "*MOUNT", "*DIR UEF",
-                             f"*UEF LOAD {args.uef_file}"]
+        recovery_commands = ["*ADFS", "*MOUNT", "*DIR UEF"]
+        if args.native_tape is None:
+            recovery_commands.append(f"*UEF LOAD {args.uef_file}")
         recovery_command_index = 0
         recovery_command_sent_at = None
         recovery_prompt_confirmations = 0
@@ -487,7 +604,7 @@ def main() -> int:
             number += 1
             title_score = similarity(screenshot, args.title_reference)
             gameplay_score = similarity(screenshot, args.gameplay_reference)
-            prompt_score = (similarity(screenshot, args.prompt_reference)
+            prompt_score = (prompt_similarity(screenshot, args.prompt_reference)
                             if args.prompt_reference else 0.0)
             captured_title_scores.append(title_score)
             captured_gameplay_scores.append(gameplay_score)
@@ -560,6 +677,10 @@ def main() -> int:
                   recovery_input_index == len(gameplay_input) and
                   elapsed >= recovery_gameplay_seconds + 8.0):
                 break
+            if (args.native_tape is not None and
+                    recovery_commands_seconds is not None and
+                    elapsed >= recovery_commands_seconds + 8.0):
+                break
         screenshots = sorted_screens(args.output)
         pre_indexes = [index for index, elapsed in enumerate(capture_times)
                        if (first_game_input_seconds is None or
@@ -630,26 +751,31 @@ def main() -> int:
             beebscsi_reads_after - beebscsi_reads_before_break
             if beebscsi_reads_before_break is not None else 0
         )
-        tube_started = bool(
-            not args.tube or
-            "AP5 Tube: external 3MHz 65C02 enabled" in log_text
+        tube_started = "AP5 Tube: external 3MHz 65C02 enabled" in log_text
+        tube_requirement_satisfied = not args.tube or tube_started
+        recovery_common = bool(
+            break_seconds is not None and recovery_commands_seconds is not None and
+            recovery_prompt_confirmations == len(recovery_commands) - 1 and
+            post_break_beebscsi_reads > 0
+        )
+        recovery_reloaded = bool(
+            recovery_title_seconds is not None and
+            recovery_gameplay_seconds is not None and
+            recovery_input_index == len(gameplay_input) and recovery_motion
         )
         recovery_passed = bool(
             not args.recovery_check or
-            (break_seconds is not None and recovery_commands_seconds is not None and
-             recovery_title_seconds is not None and
-             recovery_gameplay_seconds is not None and
-             recovery_input_index == len(gameplay_input) and recovery_motion and
-             recovery_prompt_confirmations == len(recovery_commands) - 1 and
-             post_break_beebscsi_reads > 0)
+            (recovery_common and
+             (args.native_tape is not None or recovery_reloaded))
         )
+        media_state_ok = media_unchanged or args.writable_beebscsi_copy
         passed = bool(
             alive_at_deadline and title_seen and gameplay_seen and
             gameplay_input_index == len(gameplay_input) and
             input_correlated_change and sustained_gameplay_motion and
             recovery_passed and
-            media_unchanged and config_unchanged and
-            tube_started and not failure_seen and not mos_errors and
+            media_state_ok and config_unchanged and
+            tube_requirement_satisfied and not failure_seen and not mos_errors and
             (args.profile != "adfs-beebscsi" or adfs_supported)
         )
         report = {
@@ -661,6 +787,7 @@ def main() -> int:
             },
             "profile": args.profile,
             "uef_file": args.uef_file,
+            "stream_source": "native-cassette" if args.native_tape else "wicfs",
             "adfs_beebscsi_supported": adfs_supported,
             "profile_note": (
                 "BeebSCSI LUN 0 mounted through the full-decode AP5 profile"
@@ -668,8 +795,10 @@ def main() -> int:
                 else "DFS approximation; BeebSCSI and MMFS are not present"
             ),
             "tube": args.tube,
+            "bus_trace_enabled": not args.no_bus_trace,
             "dfs_rom_present": not args.without_dfs_rom,
             "tube_started": tube_started,
+            "tube_requirement_satisfied": tube_requirement_satisfied,
             "timing_profile": (
                 "conservative-fault-injection" if args.fiq_delay is None
                 else f"capture-override-{args.fiq_delay}"
@@ -723,6 +852,7 @@ def main() -> int:
                 "lines": trace_lines,
                 "note": "Local OSFIND/OSBGET UEF input may not produce backend stream events",
             },
+            "bus_trace": bus_trace_summary(args.output / "bus.trace"),
             "provenance": {
                 "immutable_inputs": immutable_provenance,
                 "media_before": media_before,
@@ -730,6 +860,7 @@ def main() -> int:
                 "config_before": config_before,
                 "config_after": config_after,
                 "media_unchanged": media_unchanged,
+                "media_mutation_allowed": args.writable_beebscsi_copy,
                 "config_unchanged": config_unchanged,
                 "runtime_source": source_revision(args.runtime_dir),
                 "integration_source": source_revision(Path(__file__).resolve().parents[2]),

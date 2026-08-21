@@ -9,6 +9,9 @@
 \ `heap` at &0900 is ADFS/application workspace and is not safe during OSWORD.
 driver_page_shadow = drv_svc_workspace+19
 driver_machine = drv_svc_workspace+20
+driver_function = drv_svc_workspace+21
+driver_entry_x = drv_svc_workspace+22
+driver_entry_y = drv_svc_workspace+23
 
 \ Please note that some functions or routines are not quite logical
 \ but they are implemented to keep driver compatibility with the 
@@ -33,10 +36,14 @@ driver_machine = drv_svc_workspace+20
  \ 26 sslbufsize
  \ 27 cipmode
  \ 28 ping
+ \ 29-31 reserved
 
  sta save_a                 \ save registers
  stx save_x
  sty save_y
+ sta driver_function
+ stx driver_entry_x
+ sty driver_entry_y
  \ OSBYTE &81 with X=0,Y=&FF is the documented machine-type query. Run it
  \ before touching the JIM high selectors and retain the result only for this
  \ driver call; it is not valid as a reset-time cache.
@@ -48,7 +55,11 @@ driver_machine = drv_svc_workspace+20
  jsr set_bank_0             \ ElkWiFi buffers are in JIM address 00:00:page
  lda #0
  sta driver_page_shadow
- lda save_a
+ \ ElkWiFi 0.23 masks public function numbers to five bits after handling its
+ \ private flash entry. DATE, TIME and ONLINE call Pi routines directly and
+ \ therefore do not consume public driver numbers 32-34.
+ lda driver_function
+ and #&1F
  cmp #0
  bne service_driver_not_0
  jmp service_driver_init
@@ -73,6 +84,10 @@ driver_machine = drv_svc_workspace+20
  bne service_driver_not_5
  jmp service_driver_leave
 .service_driver_not_5
+ cmp #6
+ bne service_driver_not_6
+ jmp service_driver_ifcfg
+.service_driver_not_6
  cmp #18
  bne service_driver_not_18
  jmp service_driver_ifcfg
@@ -101,25 +116,37 @@ driver_machine = drv_svc_workspace+20
  bne service_driver_not_9
  jmp service_driver_cpmux
 .service_driver_not_9
+ cmp #10
+ bne service_driver_not_10
+ jmp service_driver_connection_status
+.service_driver_not_10
  cmp #11
  bne service_driver_not_11
- jmp service_driver_unsupported
+ jmp service_driver_set_buffer
 .service_driver_not_11
  cmp #12
  bne service_driver_not_12
- jmp service_driver_unsupported
+ jmp service_driver_connection_status
 .service_driver_not_12
+ cmp #15
+ bne service_driver_not_15
+ jmp service_driver_baud_compat
+.service_driver_not_15
+ cmp #16
+ bne service_driver_not_16
+ jmp service_driver_baud_compat
+.service_driver_not_16
  cmp #17
  bne service_driver_not_17
- jmp service_driver_unsupported
+ jmp service_driver_baud_compat
 .service_driver_not_17
  cmp #21
  bne service_driver_not_21
- jmp service_driver_unsupported
+ jmp service_driver_ok
 .service_driver_not_21
  cmp #22
  bne service_driver_not_22
- jmp service_driver_unsupported
+ jmp service_driver_ok
 .service_driver_not_22
  cmp #23
  bne service_driver_not_23
@@ -135,11 +162,11 @@ driver_machine = drv_svc_workspace+20
 .service_driver_not_25
  cmp #26
  bne service_driver_not_26
- jmp service_driver_unsupported
+ jmp service_driver_ok
 .service_driver_not_26
  cmp #27
  bne service_driver_not_27
- jmp service_driver_unsupported
+ jmp service_driver_mode_unsupported
 .service_driver_not_27
  cmp #28
  bne service_driver_not_28
@@ -147,16 +174,8 @@ driver_machine = drv_svc_workspace+20
 .service_driver_not_28
  cmp #29
  bne service_driver_not_29
- jmp service_driver_date
+ jmp service_driver_unsupported
 .service_driver_not_29
- cmp #30
- bne service_driver_not_30
- jmp service_driver_time
-.service_driver_not_30
- cmp #31
- bne service_driver_not_31
- jmp service_driver_online
-.service_driver_not_31
  jmp service_driver_unsupported
 \ Initialize the data buffer, by resetting the paged ram register to 0. This
 \ call does not clear the buffer and will mostly be called after a command

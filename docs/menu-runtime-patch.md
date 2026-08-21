@@ -119,10 +119,12 @@ WiCFS claims `*REWIND` directly when it is the active filing system. It leaves
 `*TAPE` functional, allowing every `*MENU` invocation to return to cassette
 state before reusing filing workspace. The successful `CHAIN` execution path
 copies its final ROM selection and execution jump to filing-system RAM. The
-trampoline removes the five dispatcher bytes installed above the real caller
-return address by the Electron MOS extended-vector path: the cleanup address,
-saved ROM and dispatcher JSR return. It then jumps through the cassette
-execution address at `&03C2`, leaving the loaded stage's caller return intact.
+trampoline removes the complete seven-byte run frame installed above the
+pre-command stack by the Electron MOS extended-vector path: the cleanup
+address, saved ROM, dispatcher JSR return and OSCLI caller return. It then
+jumps through the cassette execution address at `&03C2`. This matches the
+original ElkWiFi direct-vector path, which removes its caller return before
+entering the loaded stage.
 
 The stock menu installs key 0 as `*REWIND|MCHAIN ""|M` and later inserts that
 key into the keyboard buffer after a selected UEF has downloaded. The ROM does

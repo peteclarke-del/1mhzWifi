@@ -1,182 +1,196 @@
 diff --git a/firmware/Pi1MHz/ElkWiFi.rom b/firmware/Pi1MHz/ElkWiFi.rom
 new file mode 100644
-index 0000000000000000000000000000000000000000..25570ff8e3db04d6902514ee8c6b04031f73c2f2
+index 0000000000000000000000000000000000000000..6cae9360d521423ace6083994c37261ac3a78fea
 GIT binary patch
 literal 16384
-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
+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
+S4*bA@A2{#>2mb%$!2bpT5VFMp
 
 literal 0
 HcmV?d00001
 
 diff --git a/firmware/Pi1MHz/Pi1MHz.cfg b/firmware/Pi1MHz/Pi1MHz.cfg
-index 49f2689..91bdd72 100644
+index 49f2689..f7c37da 100644
 --- a/firmware/Pi1MHz/Pi1MHz.cfg
 +++ b/firmware/Pi1MHz/Pi1MHz.cfg
 @@ -29,7 +29,7 @@
@@ -201,7 +215,7 @@ index 49f2689..91bdd72 100644
  
  # ---- audio ----------------------------------------------------------------
  # BeebAudio_Off=1          # mute the Beeb's own audio passthrough (the
-@@ -111,3 +111,15 @@
+@@ -111,3 +111,16 @@
  # teletext_server3=a.b.c.d:port   # channel 3
  # teletext_server4=a.b.c.d:port   # channel 4 (port optional, default 19761)
  # teletext_debug=1                # log teletext events
@@ -216,6 +230,7 @@ index 49f2689..91bdd72 100644
 +# Initial ElkWiFi menu source; an explicit *MENUSRC setting overrides it
 +# elkwifi_menu_url=http://acornelectron.nl/uefarchive/MENU
 +# elkwifi_utc_offset_minutes=0  # DATE/TIME offset east of UTC; e.g. 60 for BST
++# elkwifi_uef_trim_tail=0  # diagnostic A/B only; normal WiCFS receives the complete UEF
 +# wifi_security=auto      # auto|open|wep|wpa|wpa2
 diff --git a/firmware/Pi1MHz/wifi/brcmfmac43430-sdio.txt b/firmware/Pi1MHz/wifi/brcmfmac43430-sdio.txt
 index 25a4f9b..82faab9 100644
@@ -7701,10 +7716,10 @@ index 8a7a155..50fa0e4 100644
              }
 diff --git a/src/elkwifi_service.c b/src/elkwifi_service.c
 new file mode 100644
-index 0000000..a3fab6a
+index 0000000..853ff9f
 --- /dev/null
 +++ b/src/elkwifi_service.c
-@@ -0,0 +1,1013 @@
+@@ -0,0 +1,1027 @@
 +/* Pi1MHz-side service for the ElkWiFi-compatible ROM.
 + *
 + * The AP5 passes &FCA0-&FCAF, &FCFF and JIM to its 1 MHz connector. Pi1MHz's
@@ -7752,7 +7767,7 @@ index 0000000..a3fab6a
 + * first 64K so the host and Pi always refer to the same physical bytes. */
 +#define ELKWIFI_UEF_BASE 0u
 +#define ELKWIFI_VERSION_RESPONSE \
-+   "Pi1MHz ElkWiFi 0.1.55, kernel " GITVERSION "\r\n\r\nOK\r\n"
++   "Pi1MHz ElkWiFi 0.1.58, kernel " GITVERSION "\r\n\r\nOK\r\n"
 +
 +_Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
 +               "ElkWiFi service range start disagrees with services.h");
@@ -7768,6 +7783,7 @@ index 0000000..a3fab6a
 +static bool scan_waiting;
 +static uint8_t scan_fields = 127u;
 +static uint8_t uef_scratch[0xfffeu];
++static bool uef_trim_tail;
 +
 +typedef enum {
 +   NETOP_IDLE = 0,
@@ -8038,6 +8054,14 @@ index 0000000..a3fab6a
 +      if (parsed > 14 * 60) return 0;
 +   }
 +   return (int16_t)(negative ? -parsed : parsed);
++}
++
++static bool config_enabled(const char *value)
++{
++   return value != NULL
++       && (strcmp(value, "1") == 0 || strcasecmp(value, "yes") == 0
++           || strcasecmp(value, "true") == 0
++           || strcasecmp(value, "on") == 0);
 +}
 +
 +static void format_network_time(uint32_t cp, bool date)
@@ -8572,6 +8596,10 @@ index 0000000..a3fab6a
 +            response_string(cp, "INVALID\r\n");
 +            return ELKWIFI_OK;
 +         }
++         /* Original WiCFS receives the complete UEF. Tail trimming is an
++          * explicit diagnostic comparison only, not the compatibility path. */
++         if (uef_trim_tail)
++            length = uef_legacy_trim_length(&Pi1MHz->JIM_ram[base], length);
 +         Pi1MHz->JIM_ram[trailer] = (uint8_t)length;
 +         Pi1MHz->JIM_ram[trailer + 1u] = (uint8_t)(length >> 8);
 +         response_string(cp, normalized == UEF_NORMALIZE_RAW ? "RAW\r\n"
@@ -8699,6 +8727,7 @@ index 0000000..a3fab6a
 +      lapopt_load();
 +      time_utc_offset_minutes = utc_offset_parse(
 +         config_get("elkwifi_utc_offset_minutes"));
++      uef_trim_tail = config_enabled(config_get("elkwifi_uef_trim_tail"));
 +   }
 +   /* Re-read the saved profile on every host reset, but credentials_load
 +    * preserves an already-running association when the profile is unchanged. */
@@ -8766,7 +8795,7 @@ index 0000000..d160475
 +
 +#endif
 diff --git a/src/net_service.c b/src/net_service.c
-index 92fac86..1b7efcc 100644
+index 92fac86..40cb3f8 100644
 --- a/src/net_service.c
 +++ b/src/net_service.c
 @@ -59,6 +59,9 @@ typedef struct {
@@ -8902,7 +8931,13 @@ index 92fac86..1b7efcc 100644
     }
     h->state = NET_ST_CONNECTING;
     return NET_PENDING;
-@@ -746,7 +769,7 @@ static uint8_t do_connect(net_handle_t *h, uint32_t cp)
+@@ -741,12 +764,12 @@ static uint8_t net_start_connect(net_handle_t *h)
+ 
+ static uint8_t do_connect(net_handle_t *h, uint32_t cp)
+ {
+-   if (h->type != NET_TYPE_TCP || h->state == NET_ST_FREE)
++   if (h->state == NET_ST_FREE)
+       return NET_ERR_NOTOPEN;
     if (h->state == NET_ST_CONNECTED)
        return NET_OK;
     if (h->state == NET_ST_ERROR)
@@ -8911,7 +8946,120 @@ index 92fac86..1b7efcc 100644
     if (h->state == NET_ST_CONNECTING)
        return NET_PENDING;
     if (h->state != NET_ST_IDLE)
-@@ -886,9 +909,10 @@ static uint8_t do_status(net_handle_t *h, uint32_t cp)
+@@ -757,6 +780,15 @@ static uint8_t do_connect(net_handle_t *h, uint32_t cp)
+ 
+    net_ip_from_wire(&h->remote_ip, cp + 1u);
+    h->remote_port = (uint16_t)(jim_rd8(cp + 5u) | (jim_rd8(cp + 6u) << 8));
++   if (h->type == NET_TYPE_UDP) {
++      if (h->upcb == NULL || h->remote_port == 0u)
++         return NET_ERR_NOTOPEN;
++      if (udp_bind(h->upcb, IP_ANY_TYPE, 0u) != ERR_OK
++          || udp_connect(h->upcb, &h->remote_ip, h->remote_port) != ERR_OK)
++         return NET_ERR_CONN;
++      h->state = NET_ST_CONNECTED;
++      return NET_OK;
++   }
+    return net_start_connect(h);
+ }
+ 
+@@ -767,12 +799,31 @@ static uint8_t do_send(net_handle_t *h, uint32_t cp)
+    uint32_t want;
+    u16_t    avail;
+ 
+-   if (h->type != NET_TYPE_TCP || h->tpcb == NULL
+-       || h->state != NET_ST_CONNECTED)
++   if (h->state != NET_ST_CONNECTED)
+       return NET_ERR_NOTOPEN;
+    if (!net_buffer_ok(jimoff, len))
+       return NET_ERR_PARAM;
+ 
++   if (h->type == NET_TYPE_UDP) {
++      struct pbuf *p;
++      err_t e;
++      if (h->upcb == NULL || len > 0xFFFFu)
++         return NET_ERR_PARAM;
++      p = pbuf_alloc(PBUF_TRANSPORT, (u16_t)len, PBUF_RAM);
++      if (p == NULL)
++         return NET_ERR_NOMEM;
++      pbuf_take(p, &Pi1MHz->JIM_ram[jimoff + DISC_RAM_BASE], (u16_t)len);
++      e = udp_sendto(h->upcb, p, &h->remote_ip, h->remote_port);
++      pbuf_free(p);
++      if (e != ERR_OK)
++         return NET_ERR_CONN;
++      wifi_lwip_rx_kick();
++      jim_wr24(cp + 1u, len);
++      return NET_OK;
++   }
++   if (h->type != NET_TYPE_TCP || h->tpcb == NULL)
++      return NET_ERR_NOTOPEN;
++
+    avail = altcp_sndbuf(h->tpcb);
+    want  = len;
+    if (want > avail) want = avail;
+@@ -807,6 +858,31 @@ static uint8_t do_recv(net_handle_t *h, uint32_t cp)
+    if (!net_buffer_ok(jimoff, max))
+       return NET_ERR_PARAM;
+ 
++   if (h->type == NET_TYPE_UDP) {
++      uint8_t hdr[8];
++      uint16_t dglen;
++      uint32_t copy;
++      if (h->rx_count < sizeof hdr) {
++         jim_wr24(cp + 1u, 0u);
++         return NET_OK;
++      }
++      ring_get_mem(h, hdr, sizeof hdr);
++      dglen = (uint16_t)(hdr[6] | (hdr[7] << 8));
++      copy = (dglen < max) ? dglen : max;
++      ring_get(h, jimoff + DISC_RAM_BASE, copy);
++      if (dglen > copy) {
++         uint8_t junk[64];
++         uint32_t left = (uint32_t)dglen - copy;
++         while (left != 0u) {
++            uint16_t n = (uint16_t)((left < sizeof junk) ? left : sizeof junk);
++            ring_get_mem(h, junk, n);
++            left -= n;
++         }
++      }
++      jim_wr24(cp + 1u, copy);
++      return NET_OK;
++   }
++
+    got = ring_get(h, jimoff + DISC_RAM_BASE, max);
+    jim_wr24(cp + 1u, got);
+    /* Once the ring is fully drained, surface the stream end so the Beeb's
+@@ -819,6 +895,30 @@ static uint8_t do_recv(net_handle_t *h, uint32_t cp)
+    return NET_OK;
+ }
+ 
++/* Pi1MHz-private transport accelerator used behind ElkWiFi OSWORD function
++ * 13. Bytes already received into the fixed service scratch page are copied
++ * into the public AP5-visible 64K JIM window without making the host transfer
++ * every byte back through FCA9 and FDxx. The public ElkWiFi ABI is unchanged.
++ * The source belongs to service RAM and is DISC_RAM_BASE-relative. Physical
++ * page RAM maps FCFF/FDxx page zero to JIM_ram[0], so the destination must not
++ * include DISC_RAM_BASE.
++ * Request: [1] count (1..240), [2..3] public destination offset. */
++static uint8_t do_copy_public(uint32_t cp)
++{
++   const uint32_t scratch_offset = 0xfff100u;
++   const uint32_t scratch = DISC_RAM_BASE + scratch_offset;
++   uint32_t count = jim_rd8(cp + 1u);
++   uint32_t destination = (uint32_t)jim_rd8(cp + 2u)
++                        | ((uint32_t)jim_rd8(cp + 3u) << 8);
++   if (count == 0u || count > 240u
++       || destination + count > 0x10000u
++       || scratch_offset + count > DISC_RAM_SIZE)
++      return NET_ERR_PARAM;
++   memmove(&Pi1MHz->JIM_ram[destination],
++           &Pi1MHz->JIM_ram[scratch], count);
++   return NET_OK;
++}
++
+ static uint8_t do_recv_avail(net_handle_t *h, uint32_t cp)
+ {
+    if (h->state == NET_ST_FREE)
+@@ -886,9 +986,10 @@ static uint8_t do_status(net_handle_t *h, uint32_t cp)
  static uint8_t net_http_send_request(net_handle_t *h, const char *host,
                                       const char *path)
  {
@@ -8924,7 +9072,7 @@ index 92fac86..1b7efcc 100644
                      path, host);
     if (n < 0 || (size_t)n >= sizeof req)
        return NET_ERR_PARAM;
-@@ -921,13 +945,36 @@ static uint16_t net_http_find_headers(const net_handle_t *h)
+@@ -921,13 +1022,36 @@ static uint16_t net_http_find_headers(const net_handle_t *h)
  }
  
  /* Parse the status code from the ring's first line ("HTTP/1.x NNN ..."). */
@@ -8964,7 +9112,7 @@ index 92fac86..1b7efcc 100644
        if (!after_space) {
           if (c == ' ') after_space = true;
        } else if (c >= '0' && c <= '9') {
-@@ -937,6 +984,37 @@ static void net_http_parse_status(net_handle_t *h)
+@@ -937,6 +1061,37 @@ static void net_http_parse_status(net_handle_t *h)
        }
     }
     h->http_code = code;
@@ -9002,7 +9150,7 @@ index 92fac86..1b7efcc 100644
  }
  
  /* ---- N: device commands -------------------------------------------------- */
-@@ -1232,7 +1310,10 @@ static uint8_t do_url_open(net_handle_t *h, uint32_t cp)
+@@ -1232,7 +1387,10 @@ static uint8_t do_url_open(net_handle_t *h, uint32_t cp)
              return NET_OK;
           }
           if (h->state == NET_ST_CONNECTING) return NET_PENDING;
@@ -9014,7 +9162,7 @@ index 92fac86..1b7efcc 100644
           if (h->state == NET_ST_CONNECTED) {
              if (h->url_adapter == NET_URL_HTTP) {
                 uint8_t r = net_http_send_request(h, host, path);
-@@ -1255,6 +1336,12 @@ static uint8_t do_url_read(net_handle_t *h, uint32_t cp)
+@@ -1255,6 +1413,12 @@ static uint8_t do_url_read(net_handle_t *h, uint32_t cp)
  
     if (h->state == NET_ST_FREE) return NET_ERR_NOTOPEN;
     if (!net_buffer_ok(jimoff, max)) return NET_ERR_PARAM;
@@ -9027,7 +9175,7 @@ index 92fac86..1b7efcc 100644
  
     if (h->url_adapter == NET_URL_TNFS) {
        uint8_t      pkt[TNFS_PKT_MAX];
-@@ -1351,16 +1438,41 @@ static uint8_t do_url_read(net_handle_t *h, uint32_t cp)
+@@ -1351,16 +1515,41 @@ static uint8_t do_url_read(net_handle_t *h, uint32_t cp)
              return h->last_err ? h->last_err : NET_ERR_CONN;
           return NET_OK;                       /* wait for more header bytes */
        }
@@ -9071,7 +9219,15 @@ index 92fac86..1b7efcc 100644
        if (h->state == NET_ST_ERROR)  return h->last_err ? h->last_err : NET_ERR_CONN;
     }
     return NET_OK;
-@@ -1546,8 +1658,19 @@ static void net_update_irq(void)
+@@ -1513,6 +1702,7 @@ static uint8_t net_dispatch(uint32_t cp, uint8_t data)
+       case NET_CMD_UDP_RECVFROM: return do_udp_recvfrom(h, cp);
+       case NET_CMD_IRQ:          net_irq_armed = (jim_rd8(cp + 1u) != 0u);
+                                  return NET_OK;
++      case NET_CMD_COPY_PUBLIC:  return do_copy_public(cp);
+       case NET_CMD_URL_OPEN:     return do_url_open(h, cp);
+       case NET_CMD_URL_READ:     return do_url_read(h, cp);
+       case NET_CMD_URL_WRITE:    return do_url_write(h, cp);
+@@ -1546,8 +1736,19 @@ static void net_update_irq(void)
  
  /* ---- FIQ latch + main-loop poll ----------------------------------------- */
  
@@ -9093,7 +9249,7 @@ index 92fac86..1b7efcc 100644
  {
     /* FIQ context: latch only.  Publish NET_BUSY (bit 7) so a Beeb that reads
        the result register before the poll runs spins rather than seeing a
-@@ -1557,21 +1680,25 @@ static void net_service_command(uint32_t command_pointer, uint32_t addr,
+@@ -1557,21 +1758,25 @@ static void net_service_command(uint32_t command_pointer, uint32_t addr,
     net_pending_data = data;
     net_pending      = true;
     Pi1MHz_MemoryWrite(addr, NET_BUSY);
@@ -9119,7 +9275,7 @@ index 92fac86..1b7efcc 100644
        /* Deliberately do NOT clear net_pending here.  A command the FIQ latches
           *during* this teardown loop would otherwise be dropped, stranding the
           NET_BUSY byte the FIQ wrote to the result register forever - the Beeb
-@@ -1585,7 +1712,9 @@ static void net_service_poll(void)
+@@ -1585,7 +1790,9 @@ static void net_service_poll(void)
        uint32_t addr = net_pending_addr;
        uint8_t  data = net_pending_data;
        net_pending = false;
@@ -9130,7 +9286,7 @@ index 92fac86..1b7efcc 100644
  
     net_update_irq();
 diff --git a/src/net_service.h b/src/net_service.h
-index 7cfd975..dac9f45 100644
+index 7cfd975..5e1d981 100644
 --- a/src/net_service.h
 +++ b/src/net_service.h
 @@ -66,6 +66,8 @@
@@ -9142,7 +9298,15 @@ index 7cfd975..dac9f45 100644
  
  /* ---- ABI constants (shared with the Beeb-side client and the tests) ----- */
  
-@@ -119,6 +121,13 @@ void net_service_init(uint8_t instance, uint8_t address);
+@@ -83,6 +85,7 @@ void net_service_init(uint8_t instance, uint8_t address);
+ #define NET_CMD_UDP_SENDTO   55u
+ #define NET_CMD_UDP_RECVFROM 56u
+ #define NET_CMD_IRQ          57u   /* [1] 0=disarm (default) / 1=arm nIRQ     */
++#define NET_CMD_COPY_PUBLIC  58u   /* internal: scratch -> public 64K JIM    */
+ /* Layer 2 - the N: device: open a URL like a file (Stage 2). */
+ #define NET_CMD_URL_OPEN     60u   /* in [2..] URL (0-term); scheme picks adapter */
+ #define NET_CMD_URL_READ     61u   /* like recv, on the URL's stream              */
+@@ -119,6 +122,13 @@ void net_service_init(uint8_t instance, uint8_t address);
  #define NET_ERR_NOMEM        0x26u /* out of pcbs / heap                     */
  #define NET_ERR_UNSUPPORTED  0x27u /* command not implemented (yet)          */
  #define NET_ERR_DISABLED     0x28u /* net_enable=0 in Pi1MHz.cfg             */
@@ -9156,7 +9320,7 @@ index 7cfd975..dac9f45 100644
  /* NET_PENDING is bit-7-CLEAR on purpose.  Bit 7 set means "the command was
     latched in FIQ but the main-loop poll has not produced a result yet" - the
     Beeb spins on it (the FAT-service "BMI wait" idiom) and it clears within one
-@@ -148,6 +157,6 @@ typedef enum {
+@@ -148,6 +158,6 @@ typedef enum {
  #define NET_FLAG_RX_READY    0x08u /* bytes waiting in the RX ring           */
  
  #define NET_MAX_HANDLES      8u    /* hard cap < MEMP_NUM_TCP_PCB (16)       */
@@ -10052,10 +10216,10 @@ index 0000000..e23a245
 +         const unsigned char *source,   /* pointer to source data pointer */
 +         unsigned long *sourcelen);     /* amount of input available */
 diff --git a/src/scripts/gitversion.cmake b/src/scripts/gitversion.cmake
-index d0b2ea8..450b204 100644
+index d0b2ea8..7831f50 100644
 --- a/src/scripts/gitversion.cmake
 +++ b/src/scripts/gitversion.cmake
-@@ -50,18 +50,40 @@ if(GIT_VERSION MATCHES "-dirty$")
+@@ -50,18 +50,41 @@ if(GIT_VERSION MATCHES "-dirty$")
     # forced another LTO relink. Limit it to the source tree, and exclude the
     # generated header itself (its BUILD_DATE would otherwise feed back in).
     execute_process(
@@ -10087,7 +10251,8 @@ index d0b2ea8..450b204 100644
 +   if(UNTRACKED_RESULT EQUAL 0 AND NOT GIT_UNTRACKED_FILES STREQUAL "")
 +      string(REPLACE "\n" ";" GIT_UNTRACKED_LIST "${GIT_UNTRACKED_FILES}")
 +      foreach(UNTRACKED_FILE IN LISTS GIT_UNTRACKED_LIST)
-+         if(EXISTS "${SRC_DIR}/${UNTRACKED_FILE}")
++         if(EXISTS "${SRC_DIR}/${UNTRACKED_FILE}" AND
++            NOT IS_DIRECTORY "${SRC_DIR}/${UNTRACKED_FILE}")
 +            file(SHA256 "${SRC_DIR}/${UNTRACKED_FILE}" UNTRACKED_HASH)
 +            string(APPEND GIT_UNTRACKED_CONTENT
 +               "${UNTRACKED_FILE}:${UNTRACKED_HASH}\n")
@@ -10475,10 +10640,10 @@ index 0000000..7184364
 +#endif
 diff --git a/src/secure_service_wolfssh.c b/src/secure_service_wolfssh.c
 new file mode 100644
-index 0000000..efe3012
+index 0000000..46de836
 --- /dev/null
 +++ b/src/secure_service_wolfssh.c
-@@ -0,0 +1,720 @@
+@@ -0,0 +1,730 @@
 +/* Bare-metal Pi1MHz wolfSSH provider.
 + *
 + * This file is copied into the Pi1MHz source tree by install.sh.  It keeps
@@ -10991,6 +11156,13 @@ index 0000000..efe3012
 +           error == WS_WANT_READ || error == WS_WANT_WRITE;
 +}
 +
++static bool channel_finished(int result)
++{
++    int error = client.ssh != NULL ? wolfSSH_get_error(client.ssh) : result;
++    return result == WS_EOF || result == WS_CHANNEL_CLOSED ||
++           error == WS_EOF || error == WS_CHANNEL_CLOSED;
++}
++
 +static void clear_password(void)
 +{
 +    volatile byte *p = client.password;
@@ -11138,6 +11310,9 @@ index 0000000..efe3012
 +    if (client.stage != SSH_UP || maximum > UINT32_MAX) return -(int)NTS_ERR_CONN;
 +    result = wolfSSH_stream_read(client.ssh, out, (word32)maximum);
 +    if (result >= 0) return result;
++    /* A normal remote shell exit closes the SSH channel before the peer must
++       close its TCP connection. Report that as EOF, not protocol error &2B. */
++    if (channel_finished(result)) return -(int)NTS_EOF;
 +    if (want_io(result)) return 0;
 +    return client.eof && client.rx_count == 0u ? -(int)NTS_EOF :
 +                                                 -(int)NTS_ERR_PROTOCOL;
@@ -11307,20 +11482,38 @@ index 7656f41..83844bd 100644
     for (unsigned int i = 0; i < s_service_count; i++) {
        if (command >= s_services[i].first && command <= s_services[i].last) {
           s_services[i].handler(command_pointer, addr, data);
+diff --git a/src/tests/net/run_tests.sh b/src/tests/net/run_tests.sh
+index 1f7c538..078289a 100644
+--- a/src/tests/net/run_tests.sh
++++ b/src/tests/net/run_tests.sh
+@@ -20,6 +20,13 @@ gcc -std=gnu2x -Wall -Wextra -Wconversion -g $SAN \
+     "$B/test_net.c" "$B/net_service.c" "$B/net_tnfs.c" "$B/net_telnet.c"
+ "$B/t"
+ 
++echo "== private public-JIM copy: nonzero physical service base =="
++gcc -std=gnu2x -Wall -Wextra -Wconversion -g $SAN \
++    -DDISC_RAM_BASE=0x10000u -DCOPY_PUBLIC_NONZERO_ONLY \
++    -I"$B" -o "$B/copy-public" \
++    "$B/test_net.c" "$B/net_service.c" "$B/net_tnfs.c" "$B/net_telnet.c"
++"$B/copy-public"
++
+ echo "== TNFS wire codec =="
+ gcc -std=gnu2x -Wall -Wextra -Wconversion -g $SAN \
+     -I"$B" -o "$B/tnfs" \
 diff --git a/src/tests/net/stubs/Pi1MHz.h b/src/tests/net/stubs/Pi1MHz.h
-index f730d52..6ff29dd 100644
+index f730d52..84565f4 100644
 --- a/src/tests/net/stubs/Pi1MHz.h
 +++ b/src/tests/net/stubs/Pi1MHz.h
-@@ -8,9 +8,9 @@
- #define NOINIT_SECTION
- typedef void (*func_ptr)(void);
+@@ -10,7 +10,11 @@ typedef void (*func_ptr)(void);
  
--/* Small JIM window for tests: DISC_RAM_BASE 0, DISC_RAM_SIZE 64 KB (see
--   ram_emulator.h), plus room for command blocks below the region. */
+ /* Small JIM window for tests: DISC_RAM_BASE 0, DISC_RAM_SIZE 64 KB (see
+    ram_emulator.h), plus room for command blocks below the region. */
 -#define TEST_JIM_SIZE 0x11000u
-+/* Include the services-page address used by net_debug_mark as well as the
-+   public test buffers. ASan can then detect a genuinely invalid access. */
++#ifdef COPY_PUBLIC_NONZERO_ONLY
++#define TEST_JIM_SIZE 0x1100000u
++#else
 +#define TEST_JIM_SIZE 0x1000000u
++#endif
  typedef struct { uint8_t JIM_ram[TEST_JIM_SIZE]; } Pi1MHz_t;
  extern Pi1MHz_t *Pi1MHz;
  
@@ -11341,11 +11534,79 @@ index 89d2481..429c6b8 100644
 +#define ERR_RST        (-14)
 +#define ERR_CLSD       (-15)
  #endif
+diff --git a/src/tests/net/stubs/ram_emulator.h b/src/tests/net/stubs/ram_emulator.h
+index 6be134a..0f404a3 100644
+--- a/src/tests/net/stubs/ram_emulator.h
++++ b/src/tests/net/stubs/ram_emulator.h
+@@ -1,7 +1,9 @@
+ #ifndef RAM_EMULATOR_H
+ #define RAM_EMULATOR_H
+ /* Test geometry: base 0 so a JIM data offset indexes JIM_ram directly; a
+-   64 KB region keeps command blocks (placed below it) and buffers in range. */
++   16 MB region includes the real service scratch offset and public buffers. */
++#ifndef DISC_RAM_BASE
+ #define DISC_RAM_BASE 0u
+-#define DISC_RAM_SIZE 0x10000u
++#endif
++#define DISC_RAM_SIZE 0x1000000u
+ #endif
 diff --git a/src/tests/net/test_net.c b/src/tests/net/test_net.c
-index cdcac69..00efe13 100644
+index cdcac69..2964782 100644
 --- a/src/tests/net/test_net.c
 +++ b/src/tests/net/test_net.c
-@@ -315,7 +315,8 @@ int main(void)
+@@ -10,6 +10,7 @@
+ #include <string.h>
+ 
+ #include "Pi1MHz.h"
++#include "ram_emulator.h"
+ #include "services.h"
+ #include "net_service.h"
+ #include "net_tnfs.h"
+@@ -219,7 +220,7 @@ static int checks, fails;
+    else printf("  ok: %s\n", (msg)); } while (0)
+ 
+ #define RES 0xA6u
+-static uint32_t CP(unsigned h) { return 0x100u + h * 0x100u; }
++static uint32_t CP(unsigned h) { return DISC_RAM_BASE + 0x100u + h * 0x100u; }
+ 
+ static void jwr8 (uint32_t o, uint8_t v)  { Pi1MHz->JIM_ram[o] = v; }
+ static void jwr24(uint32_t o, uint32_t v) { uint8_t *p=&Pi1MHz->JIM_ram[o]; p[0]=v; p[1]=v>>8; p[2]=v>>16; }
+@@ -263,6 +264,34 @@ static void connect_handle(unsigned h)
+    issue(NET_CMD_CONNECT, h);             /* poll -> CONNECTED */
+ }
+ 
++#ifdef COPY_PUBLIC_NONZERO_ONLY
++int main(void)
++{
++   uint8_t expected[240];
++   uint8_t canary[240];
++   for (unsigned i = 0; i < sizeof expected; i++) {
++      expected[i] = (uint8_t)(i * 37u + 11u);
++      canary[i] = (uint8_t)(i ^ 0xa5u);
++   }
++   world_reset();
++   memcpy(&Pi1MHz->JIM_ram[DISC_RAM_BASE + 0xfff100u], expected,
++          sizeof expected);
++   memcpy(&Pi1MHz->JIM_ram[DISC_RAM_BASE + 0x01f0u], canary,
++          sizeof canary);
++   jwr8(CP(0)+1, (uint8_t)sizeof expected);
++   jwr8(CP(0)+2, 0xf0u);
++   jwr8(CP(0)+3, 0x01u);
++   CHECK(issue(NET_CMD_COPY_PUBLIC, 0) == NET_OK,
++         "nonzero-base scratch-to-public copy -> OK");
++   CHECK(memcmp(&Pi1MHz->JIM_ram[0x01f0u], expected, sizeof expected) == 0,
++         "destination is the unbased public JIM window");
++   CHECK(memcmp(&Pi1MHz->JIM_ram[DISC_RAM_BASE + 0x01f0u], canary,
++                sizeof canary) == 0,
++         "service-base-relative destination remains untouched");
++   printf("\n%d checks, %d failures\n", checks, fails);
++   return fails ? 1 : 0;
++}
++#else
+ int main(void)
+ {
+    printf("== net service: open / status / gate ==\n");
+@@ -315,7 +344,8 @@ int main(void)
     jwr8(CP(0)+1,1); jwr8(CP(0)+5,0x50);
     issue(NET_CMD_CONNECT, 0);
     g_last_pcb->connected(g_last_pcb->arg, g_last_pcb, ERR_ABRT);  /* refused */
@@ -11355,7 +11616,32 @@ index cdcac69..00efe13 100644
  
     printf("== send ==\n");
     world_reset();
-@@ -360,18 +361,20 @@ int main(void)
+@@ -356,22 +386,45 @@ int main(void)
+       CHECK(jrd24(CP(0)+1) == 0, "second recv returns 0 (ring drained)");
+    }
+ 
++   printf("== private scratch-to-public JIM copy ==\n");
++   world_reset();
++   {
++      uint8_t expected[240];
++      for (unsigned i = 0; i < sizeof expected; i++)
++         expected[i] = (uint8_t)(i * 37u + 11u);
++      memcpy(&Pi1MHz->JIM_ram[DISC_RAM_BASE + 0xfff100u],
++             expected, sizeof expected);
++      jwr8(CP(0)+1, (uint8_t)sizeof expected);
++      jwr8(CP(0)+2, 0xf0u);
++      jwr8(CP(0)+3, 0x01u);
++      CHECK(issue(NET_CMD_COPY_PUBLIC, 0) == NET_OK,
++            "scratch-to-public copy -> OK");
++      CHECK(memcmp(&Pi1MHz->JIM_ram[0x01f0u], expected,
++                   sizeof expected) == 0,
++            "copy is exact across a public JIM page boundary");
++      jwr8(CP(0)+1, 0u);
++      CHECK(issue(NET_CMD_COPY_PUBLIC, 0) == NET_ERR_PARAM,
++            "zero-length public copy is rejected");
++   }
++
+    printf("== back-pressure (ERR_MEM park, redeliver) ==\n");
     world_reset();
     connect_handle(0);
     {
@@ -11382,7 +11668,7 @@ index cdcac69..00efe13 100644
        CHECK(g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, p2, ERR_OK) == ERR_OK,
              "redelivered parked segment now fits");
        free(big);
-@@ -408,7 +411,8 @@ int main(void)
+@@ -408,7 +461,8 @@ int main(void)
        CHECK(issue(NET_CMD_RECV, 0) == NET_OK, "recv drains buffered bytes despite reset -> OK");
        CHECK(jrd24(CP(0)+1) == 4, "got the 4 buffered bytes before signalling the error");
        jwr24(CP(0)+1, 64); jwr32(CP(0)+4, 0x9000);
@@ -11392,7 +11678,41 @@ index cdcac69..00efe13 100644
     }
  
     printf("== DNS ==\n");
-@@ -986,6 +990,8 @@ int main(void)
+@@ -499,6 +553,33 @@ int main(void)
+       CHECK(jrd24(CP(2)+7) == 0, "second recvfrom -> length 0 (empty)");
+    }
+ 
++   printf("== connected UDP compatibility path ==\n");
++   world_reset();
++   jwr8(CP(2)+1, NET_TYPE_UDP); issue(NET_CMD_OPEN, 2);
++   jwr8(CP(2)+1,192); jwr8(CP(2)+2,0); jwr8(CP(2)+3,2); jwr8(CP(2)+4,1);
++   jwr8(CP(2)+5,0x39); jwr8(CP(2)+6,0x30);       /* :12345 */
++   CHECK(issue(NET_CMD_CONNECT, 2) == NET_OK, "connected UDP connect -> OK");
++   CHECK(g_last_upcb->connected_port == 12345, "connected UDP records peer port");
++   {
++      static const uint8_t request[] = "request";
++      static const uint8_t response[] = "response";
++      ip_addr_t peer; IP_ADDR4(&peer, 192, 0, 2, 1);
++      uint32_t len = (uint32_t)sizeof request - 1u;
++      memcpy(&Pi1MHz->JIM_ram[0x8000], request, len);
++      jwr24(CP(2)+1, len); jwr32(CP(2)+4, 0x8000);
++      CHECK(issue(NET_CMD_SEND, 2) == NET_OK, "connected UDP generic send -> OK");
++      CHECK(g_udp_tx_len == len && memcmp(g_udp_tx, request, len) == 0,
++            "connected UDP generic send payload exact");
++      g_last_upcb->recv(g_last_upcb->arg, g_last_upcb,
++                        make_pbuf(response, sizeof response - 1u), &peer, 12345);
++      jwr24(CP(2)+1, 64); jwr32(CP(2)+4, 0x9000);
++      CHECK(issue(NET_CMD_RECV, 2) == NET_OK, "connected UDP generic recv -> OK");
++      CHECK(jrd24(CP(2)+1) == sizeof response - 1u,
++            "connected UDP generic recv reports payload length");
++      CHECK(memcmp(&Pi1MHz->JIM_ram[0x9000], response, sizeof response - 1u) == 0,
++            "connected UDP generic recv strips peer record header");
++   }
++
+    printf("== nIRQ is opt-in (disarmed by default) ==\n");
+    world_reset();
+    connect_handle(0);
+@@ -986,6 +1067,8 @@ int main(void)
     g_tx[g_tx_len] = 0;
     CHECK(strstr((char *)g_tx, "GET /index.html HTTP/1.0") != NULL, "HTTP GET line sent");
     CHECK(strstr((char *)g_tx, "Host: 1.2.3.4") != NULL, "Host header sent");
@@ -11401,7 +11721,7 @@ index cdcac69..00efe13 100644
     {
        static const char resp[] =
           "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n<html>hi</html>";
-@@ -1003,6 +1009,175 @@ int main(void)
+@@ -1003,6 +1086,175 @@ int main(void)
     CHECK((jrd8(CP(0)+7) | (jrd8(CP(0)+8)<<8)) == 200u, "url status reports HTTP 200 (+7..8)");
     CHECK(jrd8(CP(0)+3) == 1u, "DVSTAT connected byte set");
  
@@ -11577,6 +11897,24 @@ index cdcac69..00efe13 100644
     printf("== N: device - malformed URL ==\n");
     world_reset();
     strcpy((char *)&Pi1MHz->JIM_ram[CP(0) + 2u], "notaurl");
+@@ -1023,8 +1275,10 @@ int main(void)
+    issue(NET_CMD_URL_OPEN, 0);
+    g_last_pcb->connected(g_last_pcb->arg, g_last_pcb, ERR_OK);
+    issue(NET_CMD_URL_OPEN, 0);
+-   { uint8_t *big = malloc(NET_RX_RING_SIZE); memset(big, 'A', NET_RX_RING_SIZE);
+-     struct pbuf *p = make_pbuf(big, (u16_t)NET_RX_RING_SIZE);
++   /* A pbuf length is 16-bit, so a 65536-byte ring cannot be represented by
++      one pbuf. Filling its usable 65535 bytes exercises the same deadlock. */
++   { uint8_t *big = malloc(NET_RX_RING_SIZE - 1u); memset(big, 'A', NET_RX_RING_SIZE - 1u);
++     struct pbuf *p = make_pbuf(big, (u16_t)(NET_RX_RING_SIZE - 1u));
+      if (g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, p, ERR_OK) == ERR_MEM) pbuf_free(p);
+      free(big); }
+    jwr24(CP(0)+1, 200); jwr32(CP(0)+4, 0x9000);
+@@ -1147,3 +1401,4 @@ int main(void)
+    printf(fails ? "NET SERVICE TESTS FAILED\n" : "NET SERVICE TESTS PASSED\n");
+    return fails ? 1 : 0;
+ }
++#endif
 diff --git a/src/tests/services/fuzz_fat.c b/src/tests/services/fuzz_fat.c
 index 53a165d..6410550 100644
 --- a/src/tests/services/fuzz_fat.c
@@ -11666,10 +12004,10 @@ index 8d58e8b..a9c510b 100644
     puts("== open-file interlock ==");
 diff --git a/src/uef_normalize.c b/src/uef_normalize.c
 new file mode 100644
-index 0000000..22268b4
+index 0000000..e2c89c6
 --- /dev/null
 +++ b/src/uef_normalize.c
-@@ -0,0 +1,192 @@
+@@ -0,0 +1,219 @@
 +#include "uef_normalize.h"
 +
 +#include <stdbool.h>
@@ -11705,6 +12043,33 @@ index 0000000..22268b4
 +{
 +   return length >= sizeof uef_magic
 +       && memcmp(data, uef_magic, sizeof uef_magic) == 0;
++}
++
++size_t uef_legacy_trim_length(const uint8_t *window, size_t length)
++{
++   size_t position = 12u;
++   size_t effective = length;
++   bool saw_data = false;
++
++   if (!raw_uef(window, length) || length < position)
++      return length;
++   while (position < length) {
++      size_t chunk_length;
++      uint16_t chunk_type;
++      if (length - position < 6u)
++         return length;
++      chunk_type = le16(window + position);
++      chunk_length = (size_t)le32(window + position + 2u);
++      position += 6u;
++      if (chunk_length > length - position)
++         return length;
++      position += chunk_length;
++      if (chunk_type == 0x0100u) {
++         effective = position;
++         saw_data = true;
++      }
++   }
++   return saw_data ? effective : length;
 +}
 +
 +static bool skip_zero_string(const uint8_t *source, size_t limit, size_t *pos)
@@ -11864,10 +12229,10 @@ index 0000000..22268b4
 +}
 diff --git a/src/uef_normalize.h b/src/uef_normalize.h
 new file mode 100644
-index 0000000..c6fd77b
+index 0000000..e4d77bd
 --- /dev/null
 +++ b/src/uef_normalize.h
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,23 @@
 +#ifndef UEF_NORMALIZE_H
 +#define UEF_NORMALIZE_H
 +
@@ -11885,6 +12250,10 @@ index 0000000..c6fd77b
 +uef_normalize_result_t uef_normalize(uint8_t *window, size_t *length,
 +                                     size_t capacity, uint8_t *scratch,
 +                                     size_t scratch_size);
++
++/* Reproduce the pre-candidate experiment which stopped after the last
++ * complete &0100 chunk. Normal compatibility mode does not call this helper. */
++size_t uef_legacy_trim_length(const uint8_t *window, size_t length);
 +
 +#endif
 diff --git a/src/user_settings.h b/src/user_settings.h

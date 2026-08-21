@@ -1,7 +1,7 @@
 diff --git a/src/tests/net/stubs/Pi1MHz.h b/src/tests/net/stubs/Pi1MHz.h
 --- a/src/tests/net/stubs/Pi1MHz.h
 +++ b/src/tests/net/stubs/Pi1MHz.h
-@@ -8,9 +8,9 @@
+@@ -8,9 +8,13 @@
  #define NOINIT_SECTION
  typedef void (*func_ptr)(void);
  
@@ -10,7 +10,11 @@ diff --git a/src/tests/net/stubs/Pi1MHz.h b/src/tests/net/stubs/Pi1MHz.h
 -#define TEST_JIM_SIZE 0x11000u
 +/* Include the services-page address used by net_debug_mark as well as the
 +   public test buffers. ASan can then detect a genuinely invalid access. */
++#ifdef COPY_PUBLIC_NONZERO_ONLY
++#define TEST_JIM_SIZE 0x1100000u
++#else
 +#define TEST_JIM_SIZE 0x1000000u
++#endif
  typedef struct { uint8_t JIM_ram[TEST_JIM_SIZE]; } Pi1MHz_t;
  extern Pi1MHz_t *Pi1MHz;
  

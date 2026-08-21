@@ -270,9 +270,9 @@ index f5cc88c..df95368 100644
 +	CMP	#64
 +	BEQ	upf_a3		\open for input
 +	CMP	#128
-+	BEQ	upf_a2		\output is unsupported
++	BEQ	upf_a6		\output belongs to the displaced filing system
 +	CMP	#192
-+	BEQ	upf_a2		\random access is unsupported
++	BEQ	upf_a3		\open for update includes the input path
 +	JMP	upf_a6
  
  .upf_a7	TYA			\A=0, test Y
@@ -287,7 +287,7 @@ index f5cc88c..df95368 100644
 -.upf_a2	CMP	#128		\exclusive output request?
 -	BNE	upf_a3		\no, includes input sp process
 -	LDA	#12		\else output only requested..
-+.upf_a2	LDA	#12		\output or random access requested
++.upf_a2	LDA	#12		\exclusive output requested
  	JSR	xmess		\report error..
  	BEQ	upf_a5		\and exit
  
@@ -422,9 +422,9 @@ index f5cc88c..df95368 100644
 +
 +\===============================================================================
 +\Claimed FSCV return and *RUN execution. The MOS extended-vector dispatcher
-+\leaves its cleanup return, saved ROM and caller return beneath this handler. A
-+\normal return lets MOS unwind them. A successful *RUN restores ROMSEL, removes
-+\the cleanup return and saved ROM, and retains the caller return for the loader.
++\leaves its extended-vector dispatch frame beneath this handler. A normal return
++\lets MOS unwind it. A successful *RUN restores ROMSEL, removes the complete
++\seven-byte dispatch frame, and transfers directly to the loaded program.
 +.actioned
 +	LDY	loadrun
 +	BPL	ret_fscv

@@ -119,6 +119,14 @@ The installer upgrades ElkChat's older raw-key injector to this behaviour.
 `PI1MHZ_TRACE` records backend operations and
 `PI1MHZ_EXIT_ON_CLOSE` terminates deterministic network tests after close.
 
+`PI1MHZ_BUS_TRACE=/path/to/bus.trace` enables a lower-level evidence stream.
+It records host-cycle timestamps for `&FCA6-&FCAA`, `&FCFD-&FDFF`, and
+`&FEE0-&FEFF`. JIM data lines include the selected page and mapped JIM byte
+address. Tube reads carry an unknown value marker because the Tube device
+supplies the value after the Pi1MHz snoop hook. This proves which addresses
+the emulated host code touched under the configured callback schedule. It
+does not establish the electrical latency of a physical AP5 or Raspberry Pi.
+
 The `adfs-beebscsi` profile proves only the ADFS and BeebSCSI subset. A full
 photographed-hardware run must separately supply the same ROM order, RAM
 banks, AP5/RH Plus ROM, MMFS media, 1MHzWifi ROM and optional Tube boot ROM.

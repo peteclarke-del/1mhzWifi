@@ -24,7 +24,7 @@ needed by the retained ElkWiFi commands.
 ## Upstream requirements
 
 Use Pi1MHz commit `d08242ee1b35cf1285b72c9ec1869e98081a8c3e`.
-This was the tip of the official `master` branch when checked on 13 August
+This was the tip of the official `master` branch when checked on 19 August
 2026. Pi1MHz does not have a `main` branch. The commit is 84 commits after the
 V1.30 tag and includes the later net service required by WGET and OSWORD TCP.
 The installer rejects any other revision and performs a live upstream check by
@@ -156,12 +156,19 @@ wifi_password=secret
 wifi_security=auto
 elkwifi_menu_url=http://acornelectron.nl/uefarchive/MENU
 elkwifi_utc_offset_minutes=0
+# elkwifi_uef_trim_tail=0
 ```
 
 `wifi_security` accepts `auto`, `open`, `wep`, `wpa`, and `wpa2`. A valid
 saved profile takes precedence over the initial WiFi settings. A valid saved
 menu URL takes precedence over `elkwifi_menu_url`; the compiled default is used
 when neither value is valid.
+
+`elkwifi_uef_trim_tail` is a diagnostic A/B switch, not a normal deployment
+setting. Leave it absent or set to `0` to pass the complete normalized UEF to
+WiCFS, matching the original ElkWiFi path. Set it to `1` only for a controlled
+comparison with the earlier candidate behaviour which stopped after the last
+`&0100` data chunk.
 
 The installer preserves an active `Pi1MHz.cfg` value in its source checkout,
 except that it rejects a `Rampage_addr` other than `0xFD`. The ROM uses the

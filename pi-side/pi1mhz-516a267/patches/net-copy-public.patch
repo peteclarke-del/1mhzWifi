@@ -1,0 +1,176 @@
+diff --git a/src/net_service.h b/src/net_service.h
+--- a/src/net_service.h
++++ b/src/net_service.h
+@@ -82,5 +82,6 @@ void net_service_command(uint32_t command_pointer, uint32_t address,
+ #define NET_CMD_UDP_SENDTO   55u
+ #define NET_CMD_UDP_RECVFROM 56u
+ #define NET_CMD_IRQ          57u   /* [1] 0=disarm (default) / 1=arm nIRQ     */
++#define NET_CMD_COPY_PUBLIC  58u   /* internal: scratch -> public 64K JIM    */
+ /* Layer 2 - the N: device: open a URL like a file (Stage 2). */
+ #define NET_CMD_URL_OPEN     60u   /* in [2..] URL (0-term); scheme picks adapter */
+diff --git a/src/net_service.c b/src/net_service.c
+--- a/src/net_service.c
++++ b/src/net_service.c
+@@ -842,5 +842,29 @@ static uint8_t do_recv(net_handle_t *h, uint32_t cp)
+    return NET_OK;
+ }
+ 
++/* Pi1MHz-private transport accelerator used behind ElkWiFi OSWORD function
++ * 13. Bytes already received into the fixed service scratch page are copied
++ * into the public AP5-visible 64K JIM window without making the host transfer
++ * every byte back through FCA9 and FDxx. The public ElkWiFi ABI is unchanged.
++ * The source belongs to service RAM and is DISC_RAM_BASE-relative. Physical
++ * page RAM maps FCFF/FDxx page zero to JIM_ram[0], so the destination must not
++ * include DISC_RAM_BASE.
++ * Request: [1] count (1..240), [2..3] public destination offset. */
++static uint8_t do_copy_public(uint32_t cp)
++{
++   const uint32_t scratch_offset = 0xfff100u;
++   const uint32_t scratch = DISC_RAM_BASE + scratch_offset;
++   uint32_t count = jim_rd8(cp + 1u);
++   uint32_t destination = (uint32_t)jim_rd8(cp + 2u)
++                        | ((uint32_t)jim_rd8(cp + 3u) << 8);
++   if (count == 0u || count > 240u
++       || destination + count > 0x10000u
++       || scratch_offset + count > DISC_RAM_SIZE)
++      return NET_ERR_PARAM;
++   memmove(&Pi1MHz->JIM_ram[destination],
++           &Pi1MHz->JIM_ram[scratch], count);
++   return NET_OK;
++}
++
+ static uint8_t do_recv_avail(net_handle_t *h, uint32_t cp)
+ {
+@@ -1624,4 +1648,5 @@ static uint8_t net_dispatch(uint32_t cp, uint8_t data)
+       case NET_CMD_UDP_RECVFROM: return do_udp_recvfrom(h, cp);
+       case NET_CMD_IRQ:          net_irq_armed = (jim_rd8(cp + 1u) != 0u);
+                                  return NET_OK;
++      case NET_CMD_COPY_PUBLIC:  return do_copy_public(cp);
+       case NET_CMD_URL_OPEN:     return do_url_open(h, cp);
+diff --git a/src/tests/net/test_net.c b/src/tests/net/test_net.c
+--- a/src/tests/net/test_net.c
++++ b/src/tests/net/test_net.c
+@@ -11,5 +11,6 @@
+ 
+ #include "Pi1MHz.h"
++#include "ram_emulator.h"
+ #include "services.h"
+ #include "net_service.h"
+ #include "net_tnfs.h"
+@@ -359,4 +359,25 @@ int main(void)
+       CHECK(jrd24(CP(0)+1) == 0, "second recv returns 0 (ring drained)");
+    }
+ 
++   printf("== private scratch-to-public JIM copy ==\n");
++   world_reset();
++   {
++      uint8_t expected[240];
++      for (unsigned i = 0; i < sizeof expected; i++)
++         expected[i] = (uint8_t)(i * 37u + 11u);
++      memcpy(&Pi1MHz->JIM_ram[DISC_RAM_BASE + 0xfff100u],
++             expected, sizeof expected);
++      jwr8(CP(0)+1, (uint8_t)sizeof expected);
++      jwr8(CP(0)+2, 0xf0u);
++      jwr8(CP(0)+3, 0x01u);
++      CHECK(issue(NET_CMD_COPY_PUBLIC, 0) == NET_OK,
++            "scratch-to-public copy -> OK");
++      CHECK(memcmp(&Pi1MHz->JIM_ram[0x01f0u], expected,
++                   sizeof expected) == 0,
++            "copy is exact across a public JIM page boundary");
++      jwr8(CP(0)+1, 0u);
++      CHECK(issue(NET_CMD_COPY_PUBLIC, 0) == NET_ERR_PARAM,
++            "zero-length public copy is rejected");
++   }
++
+    printf("== back-pressure (ERR_MEM park, redeliver) ==\n");
+diff --git a/src/tests/net/stubs/ram_emulator.h b/src/tests/net/stubs/ram_emulator.h
+--- a/src/tests/net/stubs/ram_emulator.h
++++ b/src/tests/net/stubs/ram_emulator.h
+@@ -2,6 +2,8 @@
+ #define RAM_EMULATOR_H
+ /* Test geometry: base 0 so a JIM data offset indexes JIM_ram directly; a
+-   64 KB region keeps command blocks (placed below it) and buffers in range. */
++   16 MB region includes the real service scratch offset and public buffers. */
+-#define DISC_RAM_BASE 0u
++#ifndef DISC_RAM_BASE
++#define DISC_RAM_BASE 0u
++#endif
+-#define DISC_RAM_SIZE 0x10000u
++#define DISC_RAM_SIZE 0x1000000u
+ #endif
+diff --git a/src/tests/net/stubs/Pi1MHz.h b/src/tests/net/stubs/Pi1MHz.h
+--- a/src/tests/net/stubs/Pi1MHz.h
++++ b/src/tests/net/stubs/Pi1MHz.h
+@@ -9,5 +9,9 @@
+ 
+ /* Small JIM window for tests: DISC_RAM_BASE 0, DISC_RAM_SIZE 64 KB (see
+    ram_emulator.h), plus room for command blocks below the region. */
+-#define TEST_JIM_SIZE 0x11000u
++#ifdef COPY_PUBLIC_NONZERO_ONLY
++#define TEST_JIM_SIZE 0x1100000u
++#else
++#define TEST_JIM_SIZE 0x1000000u
++#endif
+ typedef struct { uint8_t JIM_ram[TEST_JIM_SIZE]; } Pi1MHz_t;
+diff --git a/src/tests/net/test_net.c b/src/tests/net/test_net.c
+--- a/src/tests/net/test_net.c
++++ b/src/tests/net/test_net.c
+@@ -220,5 +220,5 @@ static int checks, fails;
+ 
+ #define RES 0xA6u
+-static uint32_t CP(unsigned h) { return 0x100u + h * 0x100u; }
++static uint32_t CP(unsigned h) { return DISC_RAM_BASE + 0x100u + h * 0x100u; }
+ 
+ static void jwr8 (uint32_t o, uint8_t v)  { Pi1MHz->JIM_ram[o] = v; }
+@@ -263,5 +263,33 @@ static void connect_handle(unsigned h)
+    issue(NET_CMD_CONNECT, h);             /* poll -> CONNECTED */
+ }
+ 
++#ifdef COPY_PUBLIC_NONZERO_ONLY
++int main(void)
++{
++   uint8_t expected[240];
++   uint8_t canary[240];
++   for (unsigned i = 0; i < sizeof expected; i++) {
++      expected[i] = (uint8_t)(i * 37u + 11u);
++      canary[i] = (uint8_t)(i ^ 0xa5u);
++   }
++   world_reset();
++   memcpy(&Pi1MHz->JIM_ram[DISC_RAM_BASE + 0xfff100u], expected,
++          sizeof expected);
++   memcpy(&Pi1MHz->JIM_ram[DISC_RAM_BASE + 0x01f0u], canary,
++          sizeof canary);
++   jwr8(CP(0)+1, (uint8_t)sizeof expected);
++   jwr8(CP(0)+2, 0xf0u);
++   jwr8(CP(0)+3, 0x01u);
++   CHECK(issue(NET_CMD_COPY_PUBLIC, 0) == NET_OK,
++         "nonzero-base scratch-to-public copy -> OK");
++   CHECK(memcmp(&Pi1MHz->JIM_ram[0x01f0u], expected, sizeof expected) == 0,
++         "destination is the unbased public JIM window");
++   CHECK(memcmp(&Pi1MHz->JIM_ram[DISC_RAM_BASE + 0x01f0u], canary,
++                sizeof canary) == 0,
++         "service-base-relative destination remains untouched");
++   printf("\n%d checks, %d failures\n", checks, fails);
++   return fails ? 1 : 0;
++}
++#else
+ int main(void)
+ {
+@@ -1347,2 +1375,3 @@ int main(void)
+    return fails ? 1 : 0;
+ }
++#endif
+diff --git a/src/tests/net/run_tests.sh b/src/tests/net/run_tests.sh
+--- a/src/tests/net/run_tests.sh
++++ b/src/tests/net/run_tests.sh
+@@ -20,3 +20,10 @@ gcc -std=gnu2x -Wall -Wextra -Wconversion -g $SAN \
+ "$B/t"
+ 
++echo "== private public-JIM copy: nonzero physical service base =="
++gcc -std=gnu2x -Wall -Wextra -Wconversion -g $SAN \
++    -DDISC_RAM_BASE=0x10000u -DCOPY_PUBLIC_NONZERO_ONLY \
++    -I"$B" -o "$B/copy-public" \
++    "$B/test_net.c" "$B/net_service.c" "$B/net_tnfs.c" "$B/net_telnet.c"
++"$B/copy-public"
++
+ echo "== TNFS wire codec =="

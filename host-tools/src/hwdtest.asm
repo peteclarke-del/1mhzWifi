@@ -129,23 +129,102 @@ GUARD APP_LIMIT
     LDX #LO(vectors_text)
     LDY #HI(vectors_text)
     JSR tool_print_string
-    LDA &0213                \ FILEV high then low for normal hex notation
-    JSR tool_print_hex
-    LDA &0212
-    JSR tool_print_hex
-    LDA #' '
-    JSR OSWRCH
-    LDA &021F                \ FSCV
-    JSR tool_print_hex
-    LDA &021E
-    JSR tool_print_hex
-    LDA #' '
-    JSR OSWRCH
-    LDA &020D                \ WORDV
-    JSR tool_print_hex
-    LDA &020C
-    JSR tool_print_hex
+    LDY #&0A                 \ BYTEV
+    JSR print_standard_vector
+    LDY #&12                 \ FILEV
+    JSR print_standard_vector
+    LDY #&16                 \ BGETV
+    JSR print_standard_vector
     JSR OSNEWL
+    LDX #LO(vectors_2_text)
+    LDY #HI(vectors_2_text)
+    JSR tool_print_string
+    LDY #&1C                 \ FINDV
+    JSR print_standard_vector
+    LDY #&1E                 \ FSCV
+    JSR print_standard_vector
+    JSR OSNEWL
+
+    \ OSBYTE &A8 returns the MOS extended-vector table pointer in YX. The
+    \ relevant entries are handler-low, handler-high, ROM-owner tuples.
+    LDA #&A8
+    LDX #0
+    LDY #&FF
+    JSR OSBYTE
+    STX command_line
+    STY command_line + 1
+    LDX #LO(extended_vectors_text)
+    LDY #HI(extended_vectors_text)
+    JSR tool_print_string
+    LDY #27                  \ FILEV
+    JSR print_extended_vector
+    LDY #33                  \ BGETV
+    JSR print_extended_vector
+    JSR OSNEWL
+    LDX #LO(extended_vectors_2_text)
+    LDY #HI(extended_vectors_2_text)
+    JSR tool_print_string
+    LDY #42                  \ FINDV
+    JSR print_extended_vector
+    LDY #45                  \ FSCV
+    JSR print_extended_vector
+    JSR OSNEWL
+
+    \ Keep each capture page within the physical 40-column display. The
+    \ machine and vector report is complete at this boundary; clear before
+    \ the persistent-state and mailbox tests so neither page scrolls.
+    LDX #LO(continue_state_text)
+    LDY #HI(continue_state_text)
+    JSR tool_print_string
+    JSR OSRDCH
+    LDA #12
+    JSR OSWRCH
+
+    \ Capture the complete persistent WiCFS record without modifying it.
+    PHP
+    SEI
+    LDA #0
+    LDX #&EF
+    LDY #&FF
+    JSR net_select_address
+    LDX #0
+.state_capture
+    JSR net_data_read
+    STA diag_wicfs_state,X
+    INX
+    CPX #26
+    BNE state_capture
+    PLP
+    LDX #LO(state_header_text)
+    LDY #HI(state_header_text)
+    JSR tool_print_string
+    LDX #0
+    LDY #4
+    JSR print_hex_bytes
+    LDX #LO(state_04_text)
+    LDY #HI(state_04_text)
+    JSR tool_print_string
+    LDX #4
+    LDY #7
+    JSR print_hex_bytes
+    LDX #LO(state_11_text)
+    LDY #HI(state_11_text)
+    JSR tool_print_string
+    LDX #11
+    LDY #6
+    JSR print_hex_bytes
+    LDX #LO(state_17_text)
+    LDY #HI(state_17_text)
+    JSR tool_print_string
+    LDX #17
+    LDY #5
+    JSR print_hex_bytes
+    LDX #LO(state_22_text)
+    LDY #HI(state_22_text)
+    JSR tool_print_string
+    LDX #22
+    LDY #4
+    JSR print_hex_bytes
 
     \ Reproduce the live adjacent-register case without dispatching a command.
     LDX #LO(selector_request_text)
@@ -213,12 +292,14 @@ GUARD APP_LIMIT
 
     \ Round-trip sixteen bytes through a non-command Services JIM page using
     \ the explicitly addressed pattern used by the working ROM transport.
+    \ &FFEF00 is reserved for the WiCFS lifecycle record, so this probe uses
+    \ &FFEE00 and must never modify the adjacent persistent state page.
     \ This remains correct when the FIQ auto-increment read-back is not visible
     \ before the Electron begins its next bus access.
     PHP
     SEI
     LDA #0
-    LDX #&EF
+    LDX #&EE
     LDY #&FF
     JSR net_select_address
     LDX #0
@@ -231,7 +312,7 @@ GUARD APP_LIMIT
     LDX #0
     STX diag_block_bad
     LDA #0
-    LDX #&EF
+    LDX #&EE
     LDY #&FF
     JSR net_select_address
     LDX #0
@@ -518,8 +599,47 @@ GUARD APP_LIMIT
 .print_five_done
     JMP OSNEWL
 
+\ Y is the low-byte offset within page two. Print high byte then low byte.
+.print_standard_vector
+    LDA &0201,Y
+    JSR tool_print_hex
+    LDA &0200,Y
+    JSR tool_print_hex
+    LDA #' '
+    JMP OSWRCH
+
+\ Y is an extended-vector table offset. Print address then ROM owner.
+.print_extended_vector
+    INY
+    LDA (command_line),Y
+    JSR tool_print_hex
+    DEY
+    LDA (command_line),Y
+    JSR tool_print_hex
+    LDA #'/'
+    JSR OSWRCH
+    INY
+    INY
+    LDA (command_line),Y
+    JSR tool_print_hex
+    LDA #' '
+    JMP OSWRCH
+
+\ X is the first byte in diag_wicfs_state and Y is the byte count.
+.print_hex_bytes
+    LDA diag_wicfs_state,X
+    JSR tool_print_hex
+    INX
+    DEY
+    BEQ print_hex_bytes_done
+    LDA #' '
+    JSR OSWRCH
+    JMP print_hex_bytes
+.print_hex_bytes_done
+    JMP OSNEWL
+
 .title_text
-    EQUS "1MHzWifi HWDTEST D2",13,0
+    EQUS "1MHzWifi HWDTEST D4",13,0
 .entry_text
     EQUS "Entry/opcode: &",0
 .loader_envelope_text
@@ -543,7 +663,25 @@ GUARD APP_LIMIT
 .himem_text
     EQUS "MEMTOP=&",0
 .vectors_text
-    EQUS "FILEV FSCV WORDV: ",0
+    EQUS "V BYTE FILE BGET: ",0
+.vectors_2_text
+    EQUS "V FIND FSC: ",0
+.extended_vectors_text
+    EQUS "E FILE BGET (addr/rom): ",0
+.extended_vectors_2_text
+    EQUS "E FIND FSC (addr/rom): ",0
+.state_header_text
+    EQUS "WSTATE 00-03: ",0
+.continue_state_text
+    EQUS "Capture machine/vectors. Press a key.",13,0
+.state_04_text
+    EQUS "WSTATE 04-10: ",0
+.state_11_text
+    EQUS "WSTATE 11-16: ",0
+.state_17_text
+    EQUS "WSTATE 17-21: ",0
+.state_22_text
+    EQUS "WSTATE 22-25: ",0
 .adjacent_text
     EQUS "FCA6-9 after: ",0
 .selector_request_text
@@ -600,6 +738,8 @@ GUARD APP_LIMIT
     EQUB 0
 .diag_caps_bytes
     SKIP 10
+.diag_wicfs_state
+    SKIP 26
 .diag_wait_lo
     EQUB 0
 .diag_wait_hi

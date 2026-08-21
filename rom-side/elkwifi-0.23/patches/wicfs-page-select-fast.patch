@@ -1,0 +1,72 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -270,6 +270,28 @@
+ 	PLA
+ 	PLP
+ 	RTS
++.wicfs_select_public_page_a
++	PHP
++	SEI
++	PHA
++	TXA
++	PHA
++	LDX	wicfs_machine
++	CPX	#1
++	BEQ	wicfs_select_requested_page
++	LDA	#0
++	STA	&FCFD
++	JSR	wicfs_bus_delay
++	STA	&FCFE
++	JSR	wicfs_bus_delay
++.wicfs_select_requested_page
++	PLA
++	TAX
++	PLA
++	STA	pagereg
++	JSR	wicfs_bus_delay
++	PLP
++	RTS
+ .wicfs_state_address_x
+ 	TXA
+ 	STA	&FCA6
+@@ -3013,11 +3035,9 @@
+     beq nodata      \jump if &00, end-of-tape is reached
+     php             \the AP5 JIM selectors are shared with other services
+     sei             \keep bank, page and data read one atomic transaction
+-    jsr wicfs_select_public_zero
+-    ldy pr_y        \load pointer to paged ram
+-    lda pr_r
+-    sta pagereg
+-    jsr wicfs_bus_delay \wait for the Pi FIQ to publish the selected JIM page
++    ldy pr_y        \load pointer to paged ram
++    lda pr_r
++    jsr wicfs_select_public_page_a
+     lda pageram,y   \load data
+     pha             \save data
+     iny             \increment pointer
+@@ -3025,7 +3045,6 @@
+     inc pr_r        \advance the software shadow; FCFF is write-only through AP5/Pi1MHz
+ .getbyte1
+     sty pr_y        \save pointer
+-    jsr wicfs_select_public_zero \leave public JIM at 00:00:00
+     pla             \recover data before the older saved flags below it
+     plp
+     pha             \preserve data while updating the software byte count
+@@ -3053,14 +3072,11 @@
+     beq nodata      \jump if &00, end-of-tape is reached
+     php             \protect the shared selector for the non-forwarding peek too
+     sei
+-    jsr wicfs_select_public_zero
+-    ldy pr_y        \load pointer to paged ram
+-    lda pr_r
+-    sta pagereg
+-    jsr wicfs_bus_delay
++    ldy pr_y        \load pointer to paged ram
++    lda pr_r
++    jsr wicfs_select_public_page_a
+     lda pageram,y   \load data
+     pha             \save data
+-    jsr wicfs_select_public_zero
+     pla
+     plp             \the data byte was stacked above the saved flags
+ 	CLC 			\and return flagging byte ready (C=0)

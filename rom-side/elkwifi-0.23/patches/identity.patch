@@ -13,11 +13,11 @@ diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
 +.romtitle           equs "1MHzWifi"
                      equb 0
 -.romversion         equs "0.23"                 \ Rom version string
-+.romversion         equs "0.1.55"               \ project test version
++.romversion         equs "0.1.58"               \ project test version
  .copyright          equb 0                      \ Copyright message
 -                    equs "(C)2020 Roland Leurs"
 +                    equs "(C)2026 Peter Clarke"
                      equb 0
 @@ -137 +137 @@ include "electron.asm"
 -                    equs "Acorn Electron WiFi",&EA
-+                    equs "1MHzWifi 0.1.55",&EA
++                    equs "1MHzWifi 0.1.58",&EA

@@ -1,0 +1,23 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -1594,4 +1594,4 @@
+-	LDA	#<FILVRTN
++	LDA	FILVRTN
+ 	STA	chain_target
+-	LDA	#>FILVRTN
++	LDA	FILVRTN+1
+ 	STA	chain_target+1
+@@ -1606,4 +1606,4 @@
+-	LDA	#<findv_rtn
++	LDA	findv_rtn
+ 	STA	chain_target
+-	LDA	#>findv_rtn
++	LDA	findv_rtn+1
+ 	STA	chain_target+1
+@@ -1887,4 +1887,4 @@
+-	LDA	#<FSCVRTN
++	LDA	FSCVRTN
+ 	STA	chain_target
+-	LDA	#>FSCVRTN
++	LDA	FSCVRTN+1
+ 	STA	chain_target+1

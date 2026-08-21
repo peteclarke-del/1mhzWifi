@@ -155,3 +155,15 @@ index 87cd0b6..51e16ff 100644
           while (sent < wire_length) {
              u16_t length = (u16_t)(wire_length - sent);
              struct pbuf *p;
+@@ -1219,7 +1267,9 @@ int main(void)
+    g_last_pcb->connected(g_last_pcb->arg, g_last_pcb, ERR_OK);
+    issue(NET_CMD_URL_OPEN, 0);
+-   { uint8_t *big = malloc(NET_RX_RING_SIZE); memset(big, 'A', NET_RX_RING_SIZE);
+-     struct pbuf *p = make_pbuf(big, (u16_t)NET_RX_RING_SIZE);
++   /* A pbuf length is 16-bit, so a 65536-byte ring cannot be represented by
++      one pbuf. Filling its usable 65535 bytes exercises the same deadlock. */
++   { uint8_t *big = malloc(NET_RX_RING_SIZE - 1u); memset(big, 'A', NET_RX_RING_SIZE - 1u);
++     struct pbuf *p = make_pbuf(big, (u16_t)(NET_RX_RING_SIZE - 1u));
+      if (g_last_pcb->recv(g_last_pcb->arg, g_last_pcb, p, ERR_OK) == ERR_MEM) pbuf_free(p);
+      free(big); }
+    jwr24(CP(0)+1, 200); jwr32(CP(0)+4, 0x9000);
