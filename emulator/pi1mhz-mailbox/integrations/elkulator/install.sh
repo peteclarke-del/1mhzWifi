@@ -185,6 +185,11 @@ if ! grep -q 'PI1MHZ_PC_HISTORY_TRIGGER' "$target/src/6502.c"; then
         < "$integration_dir/elkulator-pc-history.patch"
 fi
 
+if ! grep -q 'PI1MHZ_TUPLE_TRACE' "$target/src/6502.c"; then
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 \
+        < "$integration_dir/elkulator-tuple-trace.patch"
+fi
+
 if [ -n "${PI1MHZ_WOLFSSH_PREFIX:-}" ]; then
     test -f "$PI1MHZ_WOLFSSH_PREFIX/lib/libwolfssh.a"
     test -f "$PI1MHZ_WOLFSSH_PREFIX/lib/libwolfssl.a"

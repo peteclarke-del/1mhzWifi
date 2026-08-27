@@ -32,6 +32,49 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Vector gateway location study, 27 August 2026
 
+### Measured repair window and the state cache constraint
+
+The proposed replacement makes the gateway advisory instead of load bearing:
+the filing vectors would always point at the MOS extended entries, so a loader
+which overwrites the gateway is harmless, and the extended-vector table would
+be repaired from the BYTEV `*TAPE` trap in the cassette page behind a signature
+check. That depends on a loader issuing OSBYTE between corrupting the table and
+its next filing call, which was measured rather than assumed.
+
+`PI1MHZ_TUPLE_TRACE` records every change to the four WiCFS tuples with the
+OSBYTE count since the previous change. Running Last of the Free with the
+gateway present shows the table being overwritten by the game's own file data,
+one byte at a time, by the WiCFS copy loop in ROM bank 3, and then repaired:
+
+```text
+PC=A3B8 RB=3 OSBYTE_SINCE=0 FILE=FEEC:FE BGET=F7F0:F7 FIND=FFFF:FF FSC=FFFF:FF
+PC=07B9 RB=B OSBYTE_SINCE=1 FILE=FEEC:FE BGET=F7F0:F7 FIND=FFFF:FF FSC=FF01:FF
+PC=07BF RB=B OSBYTE_SINCE=0 FILE=FEEC:FE BGET=F7F0:F7 FIND=FFFF:FF FSC=A101:FF
+PC=07C5 RB=B OSBYTE_SINCE=0 FILE=FEEC:FE BGET=F7F0:F7 FIND=FFFF:FF FSC=A101:03
+```
+
+Exactly one OSBYTE call falls between the last corrupting write and the
+gateway's first repair write. The premise therefore holds for this title, but
+with a margin of one call rather than a comfortable one, and a single title
+cannot establish it for the catalogue.
+
+Freeing space in the cassette page is the remaining obstacle. `&03D2-&03DF` is
+the CFS filename buffer and `&03E0` begins the keyboard buffer, so only about
+nine scattered bytes are free. The obvious eviction candidate is the 22-byte
+WiCFS state cache at `&0380`, which `wicfs_state_load` already restores on
+entry to `wicfs_install`, `upfilev`, `upfindv` and `upfscv` because
+applications overwrite it. `upbgetv` is the exception: OSBGET is the per-byte
+hot path, so it reads `wicfs_magic` and the stream cursor directly and treats a
+failed magic check as an invalid state rather than reloading. Moving the cache
+into a loader-exposed page would therefore corrupt the stream cursor mid-load
+with no recovery.
+
+The state cache can only move after `upbgetv` reloads on a failed magic check
+instead of failing. That touches the hot path, so it must be measured against
+the existing transfer-speed gate rather than assumed to be free.
+
+
+
 The WiCFS filing vectors must be reachable after a cassette loader has rewritten
 low memory. Two candidate mechanisms both fail, for opposite reasons, and this
 study fixes the requirement for a third.

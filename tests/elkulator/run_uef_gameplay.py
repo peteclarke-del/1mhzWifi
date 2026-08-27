@@ -394,6 +394,13 @@ def main() -> int:
               "per-instruction vector checks reduce emulator throughput"),
     )
     parser.add_argument(
+        "--tuple-trace", action="store_true",
+        help=("record every change to the four WiCFS extended-vector tuples "
+              "with the OSBYTE count since the previous change; diagnostic "
+              "only, and used to decide whether a BYTEV-driven table repair "
+              "can replace a resident gateway"),
+    )
+    parser.add_argument(
         "--pc-dump", type=lambda value: int(value, 16),
         help=("dump host RAM on the first execution of this hexadecimal PC; "
               "used for byte-exact native/WiCFS differential captures"),
@@ -594,6 +601,10 @@ def main() -> int:
     if args.vector_trace:
         environment["PI1MHZ_VECTOR_TRACE"] = str(
             (args.output / "vectors.trace").resolve()
+        )
+    if args.tuple_trace:
+        environment["PI1MHZ_TUPLE_TRACE"] = str(
+            (args.output / "tuples.trace").resolve()
         )
     if args.pc_dump is not None:
         environment["PI1MHZ_PC_DUMP_ADDRESS"] = f"{args.pc_dump:04X}"
