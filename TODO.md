@@ -299,11 +299,18 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
 - [x] Quantify every candidate location across the 727 parseable corpus images
   and record that load-address analysis understates the risk, because Repton
   reaches `&0700` through a run-time copy.
-- [ ] Free the cassette workspace. Only about 21 scattered bytes are available
-  below the keyboard buffer at `&03E0`, so the 22-byte WiCFS state cache at
-  `&0380` must move before a gateway can live in the least contended page.
-  Reading it from Pi-private JIM on every OSBGET is too slow, so it needs a new
-  home in host RAM or a smaller encoding.
+- [x] Measure whether a BYTEV-driven repair can replace the resident gateway.
+  `PI1MHZ_TUPLE_TRACE` shows exactly one OSBYTE call between the last write
+  that corrupts the table and the gateway's first repair write, so the premise
+  holds for Last of the Free, with a margin of one call.
+- [ ] Make `upbgetv` reload state on a failed magic check instead of reporting
+  an invalid state. OSBGET is the only vector entry which does not call
+  `wicfs_state_load`, so until it recovers, the 22-byte state cache cannot
+  leave `&0380` for a loader-exposed page. Measure the hot-path cost against
+  the existing transfer-speed gate.
+- [ ] Free the cassette workspace. Only about nine scattered bytes are free:
+  `&03D2-&03DF` is the CFS filename buffer and `&03E0` begins the keyboard
+  buffer. The state cache is the only eviction candidate of useful size.
 - [ ] Shrink the gateway. It is currently 103 bytes because it calls OSBYTE
   `&A8` on every entry; caching the extended-vector table pointer at install
   time removes about 13 bytes, and the four entry stubs can be tightened.
