@@ -1,0 +1,62 @@
+--- a/src/elk.h
++++ b/src/elk.h
+@@ -249,1 +249,2 @@
+ void dumpram();
++void dumpram_to(const char *path);
+--- a/src/mem.c
++++ b/src/mem.c
+@@ -148,8 +148,20 @@
+ }
+ 
+ void dumpram()
++{
++        dumpram_to("ram.dmp");
++}
++
++void dumpram_to(const char *path)
+ {
+-        FILE *f=fopen("ram.dmp","wb");
++        FILE *f;
++        if (!path || !*path) return;
++        f=fopen(path,"wb");
++        if (!f)
++        {
++                fprintf(stderr,"Unable to dump host RAM to %s\n",path);
++                return;
++        }
+         fwrite(ram,32768,1,f);
+         fclose(f);
+ }
+--- a/src/main.c
++++ b/src/main.c
+@@ -301,6 +301,7 @@
+ int oldbreak=0;
+ int resetit=0;
+ int runelkframe=0;
++int ramdumpframes=0;
+ 
+ void runelk()
+ {
+@@ -313,5 +314,12 @@
+                 if (runelkframe) exec6502();
+                 runelkframe=!runelkframe;
++                if (++ramdumpframes >= 50)
++                {
++                        const char *ram_dump = getenv("PI1MHZ_RAM_DUMP");
++                        ramdumpframes=0;
++                        if (ram_dump && *ram_dump)
++                                dumpram_to(ram_dump);
++                }
+                 if (resetit)
+                 {
+                         memset(ram,0,32768);
+@@ -371,6 +381,9 @@
+ 
+ void closeelk()
+ {
++        const char *ram_dump = getenv("PI1MHZ_RAM_DUMP");
++        if (ram_dump && *ram_dump)
++                dumpram_to(ram_dump);
+         ap5_tube_close();
+         stopmovie();
+         saveconfig();

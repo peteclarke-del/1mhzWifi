@@ -114,6 +114,11 @@ if ! grep -q 'BBC/Electron display' \
     patch -d "$third_party_dir/wolfssh" -p1 \
         < "$patch_dir/wolfssh-pi1mhz.patch"
 fi
+if ! grep -q '^#if defined(WOLFSSH_SFTP) || defined(WOLFSSH_SCP)$' \
+        "$third_party_dir/wolfssh/src/ssh.c"; then
+    patch -d "$third_party_dir/wolfssh" -p1 \
+        < "$patch_dir/wolfssh-sftp-client.patch"
+fi
 
 # The host ROM is required for a complete SD-card build. The source-only
 # `apply` preset accepts an explicit ELKWIFI_ROM so an exported maintainer patch
@@ -149,6 +154,8 @@ install_if_changed() {
 
 install_if_changed "$overlay_dir/src/elkwifi_service.c" "$upstream/src/elkwifi_service.c"
 install_if_changed "$overlay_dir/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
+install_if_changed "$overlay_dir/src/ftp_service.c" "$upstream/src/ftp_service.c"
+install_if_changed "$overlay_dir/src/ftp_service.h" "$upstream/src/ftp_service.h"
 install_if_changed "$overlay_dir/src/uef_normalize.c" "$upstream/src/uef_normalize.c"
 install_if_changed "$overlay_dir/src/uef_normalize.h" "$upstream/src/uef_normalize.h"
 install_if_changed "$overlay_dir/src/puff.c" "$upstream/src/puff.c"
@@ -161,7 +168,7 @@ install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/se
 install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
 install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
 
-for patch_name in bus-window-adjacent-preservation.patch integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-titles-transfer.patch net-rx-window.patch net-copy-public.patch net-connected-udp.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch net-debug-stage.patch net-debug-test-window.patch secure-debug-stage.patch; do
+for patch_name in bus-window-adjacent-preservation.patch integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch ftp-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-titles-transfer.patch net-rx-window.patch net-copy-public.patch net-connected-udp.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch net-debug-stage.patch net-debug-test-window.patch secure-debug-stage.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -219,9 +226,12 @@ for patch_name in bus-window-adjacent-preservation.patch integration.patch servi
             grep -q 'net_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
             grep -q 'elkwifi_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
             grep -q 'secure_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
+            grep -q 'ftp_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
             grep -q 'void net_service_command' "$upstream/src/net_service.c" &&
             grep -q 'void elkwifi_service_command' "$upstream/src/elkwifi_service.c" &&
             grep -q 'void secure_service_command' "$upstream/src/secure_service.c" &&
+            grep -q 'command 114 routed directly to FTP service' \
+                "$upstream/src/tests/services/test_services.c" &&
             grep -q 'command 94 routed directly to secure service' \
                 "$upstream/src/tests/services/test_services.c" &&
             grep -q 'fixed_services_child' "$upstream/src/Pi1MHz.c" &&
@@ -235,6 +245,7 @@ for patch_name in bus-window-adjacent-preservation.patch integration.patch servi
             ;;
         gitversion-third-party.patch)
             grep -q ':(exclude)third_party/\*\*' "$upstream/src/scripts/gitversion.cmake" &&
+            grep -q -- '--ignore-submodules=dirty' "$upstream/src/scripts/gitversion.cmake" &&
             patch_present=true
             ;;
         secure-service.patch)
@@ -242,6 +253,11 @@ for patch_name in bus-window-adjacent-preservation.patch integration.patch servi
             grep -q 'secure_service.c' "$upstream/src/CMakeLists.txt" &&
             grep -q 'nettools_wolfssh' "$upstream/src/CMakeLists.txt" &&
             grep -q 'secure_service_init' "$upstream/src/Pi1MHz.c" &&
+            patch_present=true
+            ;;
+        ftp-service.patch)
+            grep -q 'ftp_service.c' "$upstream/src/CMakeLists.txt" &&
+            grep -q 'SERVICE_CMD_FTP_FIRST' "$upstream/src/services.h" &&
             patch_present=true
             ;;
         wifi-security.patch)
@@ -357,7 +373,7 @@ for patch_name in bus-window-adjacent-preservation.patch integration.patch servi
     esac
     if "$patch_present"; then
         echo "Pi1MHz $patch_name is already applied"
-    elif [ "$patch_name" = http-status.patch ] || [ "$patch_name" = service-range-online.patch ] || [ "$patch_name" = uef-normalize.patch ]; then
+    elif [ "$patch_name" = http-status.patch ] || [ "$patch_name" = service-range-online.patch ] || [ "$patch_name" = uef-normalize.patch ] || [ "$patch_name" = ftp-service.patch ]; then
         # These small migration patches use zero-context hunks so they can
         # update an already-integrated checkout as well as a clean one.
         git -C "$upstream" apply --unidiff-zero --check "$patch_file"
@@ -430,9 +446,6 @@ fi
 if ! grep -Eq '^[[:space:]]*net_enable[[:space:]]*=' "$config_file"; then
     printf '\n# Required by the ElkWiFi ROM transport\nnet_enable=1\n' >> "$config_file"
 fi
-if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_menu_url[[:space:]]*=' "$config_file"; then
-    printf '\n# Initial ElkWiFi menu source; an explicit *MENUSRC setting overrides it\n# elkwifi_menu_url=http://acornelectron.nl/uefarchive/MENU\n' >> "$config_file"
-fi
 if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_utc_offset_minutes[[:space:]]*=' "$config_file"; then
     printf '# elkwifi_utc_offset_minutes=0  # DATE/TIME offset east of UTC; e.g. 60 for BST\n' >> "$config_file"
 fi
@@ -472,7 +485,7 @@ cp -a "$upstream/firmware/." "$bundle_staged/"
 # but putting it in the same release tree prevents an SD-card update from
 # silently leaving an older SSH/TELNET binary in use.
 host_tools_ssd=${HOST_TOOLS_SSD:-}
-if [ -d "$root_dir/host-tools" ]; then
+if [ -z "$host_tools_ssd" ] && [ -d "$root_dir/host-tools" ]; then
     make -C "$root_dir/host-tools" all
     host_tools_ssd="$root_dir/host-tools/build/nettools.ssd"
 fi

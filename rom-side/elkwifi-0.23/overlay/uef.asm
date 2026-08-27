@@ -51,10 +51,10 @@ OSBGET = &FFD7
 .uef_opened
  pha                         \ file handle below the two-byte length frame
 
- \ The last two bytes of the 64 KiB UEF window are its authoritative length
- \ trailer, so the largest accepted image is &FFFE bytes. Keep the live
- \ length in a two-byte stack frame. No fixed RAM address is safe across all
- \ filing systems, and the frame remains private across balanced MOS calls.
+ \ The last two bytes of each public JIM upload window are its length trailer.
+ \ A negotiated Pi streams full &FF00-byte windows into private storage; an
+ \ older Pi retains the legacy &FFFE-byte limit. Keep the live window length
+ \ in a private stack frame across balanced MOS calls.
  lda #0
  pha                         \ high byte at &0102,S
  pha                         \ low byte at &0101,S
@@ -65,11 +65,25 @@ OSBGET = &FFD7
  jsr uef_commit_length
  plp
 
+ \ Probe before any source byte is placed in JIM. An old Pi interprets command
+ \ 93 as an empty legacy normalize and returns INVALID; the guarded signature
+ \ check then selects the byte-for-byte 0.1.59 fallback without data loss.
+ lda #0
+ sta drv_uef_upload_active
+ jsr service_driver_uef_stream_probe
+ bcs uef_read
+ jsr service_driver_uef_stream_begin
+ bcs uef_read
+ lda #&FF
+ sta drv_uef_upload_active
+
 .uef_read
  tsx
  ldy &0103,x                 \ recover handle after TSX length operations
  jsr OSBGET
- bcs uef_read_end
+ bcc uef_read_byte
+ jmp uef_read_end
+.uef_read_byte
  sta temp
 
  \ Check the CPU-side length before entering the atomic JIM transaction.
@@ -100,6 +114,31 @@ OSBGET = &FFD7
  inc &0103,x
 .uef_byte_stored
  plp
+ lda drv_uef_upload_active
+ beq uef_checkpoint
+ tsx
+ lda &0101,x
+ bne uef_checkpoint
+ lda &0102,x
+ cmp #&FF
+ bne uef_checkpoint
+ \ Flush a full &FF00-byte source window to Pi-private storage. The AP5 still
+ \ exposes only the standard 64K JIM aperture; no extension selector is used.
+ php
+ sei
+ lda #0
+ ldy #&FF
+ jsr uef_commit_length
+ plp
+ jsr service_driver_uef_stream_append
+ bcc uef_stream_flushed
+ jmp uef_stream_read_failed
+.uef_stream_flushed
+ tsx
+ lda #0
+ sta &0101,x
+ sta &0102,x
+.uef_checkpoint
  tsx
  lda &0101,x
  bne uef_read
@@ -109,8 +148,16 @@ OSBGET = &FFD7
  jsr uef_commit_length
  plp
  jsr check_esc
- bcc uef_read
+ bcs uef_escape
+ jmp uef_read
+.uef_escape
  jsr uef_close
+ lda drv_uef_upload_active
+ beq uef_escape_closed
+ jsr service_driver_uef_stream_close
+ lda #0
+ sta drv_uef_upload_active
+.uef_escape_closed
  pla
  pla
  pla
@@ -132,7 +179,6 @@ OSBGET = &FFD7
  jmp call_claimed
 
 .uef_complete
- jsr uef_close
  php
  sei
  tsx
@@ -152,8 +198,32 @@ OSBGET = &FFD7
  lda &0102,x                \ high frame byte after saved flags are removed
  ora &0101,x                \ low frame byte
  bne uef_nonempty
+ lda drv_uef_upload_active
+ bne uef_stream_finalize
+ jsr uef_close
  jmp uef_empty
 .uef_nonempty
+ lda drv_uef_upload_active
+ beq uef_legacy_close
+ jsr service_driver_uef_stream_append
+ bcc uef_stream_final_chunk
+ jmp uef_stream_read_failed
+.uef_stream_final_chunk
+.uef_stream_finalize
+ \ The final source bytes must reach Pi-private storage before OSFIND closes
+ \ the source. A filing system is allowed to use the shared JIM aperture
+ \ while closing a file. Finalization then republishes window zero after the
+ \ filing system has finished with that aperture.
+ jsr uef_close
+ jsr service_driver_uef_stream_finalize
+ bcc uef_stream_finalized
+ jmp uef_stream_failed
+.uef_stream_finalized
+ lda drv_uef_format
+ jmp uef_normalized
+.uef_legacy_close
+ jsr uef_close
+.uef_legacy_normalize
  jsr service_driver_uef_normalize
  cmp #'I'
  bne uef_not_invalid
@@ -209,7 +279,7 @@ OSBGET = &FFD7
  \ Both Tube-active and Tube-off paths must first make the same host-side
  \ filing-system transition. This runs through host OSCLI only; it neither
  \ addresses nor transfers data to the Tube.
- jsr menu_select_tape
+ jsr host_select_tape
  bcc uef_tape_selected
  pla
  pla
@@ -228,7 +298,7 @@ OSBGET = &FFD7
  jsr osbyte
  cpx #&FF
  bne uef_queue_start
- jmp menu_host_cmd
+ jmp host_basic_cmd
 
  \ Match the stock *WICFS setup sequence. QUPRUN is an internal second-stage
  \ command: it installs WiCFS and then queues the shorter REWIND/CHAIN pair.
@@ -261,12 +331,17 @@ OSBGET = &FFD7
  lda wicfs_magic+1
  cmp #&5A
  bne uef_run_failed
+ jsr uef_select_launch
+ bcs uef_run_failed
  ldx #0
 .uef_run_queue
  stx temp
- lda #&99
- ldy uef_run_launch,x
+ txa
+ tay
+ lda (zp),y
  bmi uef_run_started
+ tay
+ lda #&99
  ldx #0
  jsr osbyte
  ldx temp
@@ -275,9 +350,91 @@ OSBGET = &FFD7
 .uef_run_started
  jmp call_claimed
 .uef_run_failed
- jsr printtext
- equs "WiCFS state invalid; power cycle",&0D,&EA
+ jsr print_wicfs_power_cycle
  jmp call_claimed
+
+\ Select the standard cassette launch from the first file's content. BBC
+\ BASIC tokenised programs begin with CR, a two-byte line number and a line
+\ length of at least five bytes, ending in CR at the declared boundary. Other
+\ first files are machine-code loaders and must be entered with *RUN. This is
+\ structural format detection, not a title list. The authoritative stream is
+\ rewound after the probe before returning the selected keyboard sequence.
+.uef_select_launch
+ jsr cfsinit
+ jsr wsinit
+ lda #0
+ sta optmask
+ sta &03D2                    \ empty name selects the first cassette file
+ jsr newuef
+ bcs uef_select_failed
+ jsr findf
+ bcs uef_select_failed
+ beq uef_select_failed
+ jsr getbyte
+ bcs uef_select_failed
+ cmp #&0D
+ bne uef_select_run
+ jsr getbyte                  \ BASIC line-number high byte
+ bcs uef_select_failed
+ jsr getbyte                  \ BASIC line-number low byte
+ bcs uef_select_failed
+ jsr getbyte                  \ complete line length, including header
+ bcs uef_select_failed
+ cmp #5
+ bcc uef_select_run
+ sec
+ sbc #3                      \ bytes through the declared trailing CR
+ pha
+.uef_select_basic_line
+ jsr getbyte
+ bcs uef_select_probe_failed
+ tsx
+ dec &0101,x                 \ counter stacked immediately above SP
+ bne uef_select_basic_line
+ cmp #&0D                    \ declared line boundary must be real
+ beq uef_select_chain
+ pla                          \ discard completed structural-probe counter
+ jmp uef_select_run
+.uef_select_chain
+ pla                          \ discard completed structural-probe counter
+ lda #<uef_run_launch_chain
+ ldx #>uef_run_launch_chain
+ bne uef_select_rewind
+.uef_select_run
+ lda #<uef_run_launch_run
+ ldx #>uef_run_launch_run
+ jmp uef_select_rewind
+.uef_select_probe_failed
+ pla                          \ discard the structural-probe counter
+ jmp uef_select_failed
+.uef_select_rewind
+ pha
+ txa
+ pha
+ jsr cfsinit                  \ restore byte zero for the real load
+ pla
+ sta zp+1
+ pla
+ sta zp
+ clc
+ rts
+.uef_select_failed
+ jsr cfsinit
+ sec
+ rts
+
+\ QAUTO is retained as an internal UEF transition. When a Tube language is
+\ active, re-enter host BASIC; QR then reaches the same content probe.
+.uef_auto_cmd
+ lda #&EA
+ ldx #0
+ ldy #&FF
+ jsr osbyte
+ cpx #&FF
+ beq uef_auto_host
+ jmp uef_run_cmd
+.uef_auto_host
+ jmp host_basic_cmd
 
 
 .uef_full
@@ -314,6 +471,24 @@ OSBGET = &FFD7
  equs "Expanded UEF exceeds &FFFE bytes",&0D,&EA
  jmp call_claimed
 
+.uef_stream_failed
+ lda drv_uef_upload_active
+ beq uef_stream_session_closed
+ jsr service_driver_uef_stream_close
+.uef_stream_session_closed
+ pla
+ pla
+ pla
+ lda #0
+ sta drv_uef_upload_active
+ jsr printtext
+ equs "UEF stream error",&0D,&EA
+ jmp call_claimed
+
+.uef_stream_read_failed
+ jsr uef_close
+ jmp uef_stream_failed
+
 .uef_open_failed
  jsr printtext
  equs "UEF file not found",&0D,&EA
@@ -333,6 +508,7 @@ OSBGET = &FFD7
  lda #0
  jsr OSFIND
  rts
+
 
 .uef_select_length
  jsr wicfs_select_public_zero
@@ -361,8 +537,13 @@ OSBGET = &FFD7
  equs "*QUPRUN",&0D
  equb &FF
 
-.uef_run_launch
+.uef_run_launch_chain
  equs "*REWIND",&0D
  equs "CHAIN "
+ equb &22,&22,&0D
+ equb &FF
+.uef_run_launch_run
+ equs "*REWIND",&0D
+ equs "*RUN "
  equb &22,&22,&0D
  equb &FF

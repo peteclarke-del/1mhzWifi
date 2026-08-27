@@ -44,7 +44,8 @@ class UefNormalizeTest(unittest.TestCase):
         subprocess.run(
             ["cc", "-std=c11", "-shared", "-fPIC", "-O2",
              "-D_POSIX_C_SOURCE=200809L", "-I", str(EMULATOR / "include"),
-             str(EMULATOR / "src/pi1mhz_net_backend.c"), "-lz",
+             str(EMULATOR / "src/pi1mhz_net_backend.c"),
+             str(EMULATOR / "src/pi1mhz_ftp.c"), "-lz",
              "-o", str(fixture_library)],
             check=True,
         )
@@ -66,6 +67,16 @@ class UefNormalizeTest(unittest.TestCase):
 
     def run_normalize(self, encoded: bytes) -> tuple[int, bytes]:
         capacity = 0xFFFE
+        window = (ctypes.c_uint8 * capacity)()
+        scratch = (ctypes.c_uint8 * capacity)()
+        window[:len(encoded)] = encoded
+        length = ctypes.c_size_t(len(encoded))
+        result = self.normalize(window, ctypes.byref(length), capacity,
+                                scratch, capacity)
+        return result, bytes(window[:length.value])
+
+    def run_normalize_large(self, encoded: bytes) -> tuple[int, bytes]:
+        capacity = 16 * 1024 * 1024
         window = (ctypes.c_uint8 * capacity)()
         scratch = (ctypes.c_uint8 * capacity)()
         window[:len(encoded)] = encoded
@@ -107,6 +118,203 @@ class UefNormalizeTest(unittest.TestCase):
     def effective_length(self, raw: bytes) -> int:
         window = (ctypes.c_uint8 * len(raw)).from_buffer_copy(raw)
         return self.wicfs_length(window, len(raw))
+
+    def run_incremental(self, encoded: bytes) -> tuple[bytes, list[int]]:
+        jim = (ctypes.c_uint8 * JIM_SIZE)()
+        backend = self.fixture.pi1mhz_net_backend_create(b"fixture", None, 0)
+        self.assertTrue(backend)
+
+        def request(operation: int, generation: int = 0) -> tuple[int, int, int]:
+            jim[CONTROL:CONTROL + 32] = bytes(32)
+            jim[CONTROL] = 93
+            jim[CONTROL + 1:CONTROL + 5] = b"IUEF"
+            jim[CONTROL + 5] = 1
+            jim[CONTROL + 6] = operation
+            jim[CONTROL + 11:CONTROL + 15] = generation.to_bytes(4, "little")
+            result = self.fixture.pi1mhz_net_backend_dispatch(
+                backend, 0xFF, CONTROL, jim, JIM_SIZE
+            )
+            self.assertEqual(result, 0)
+            self.assertEqual(bytes(jim[CONTROL + 1:CONTROL + 5]), b"IUEF")
+            return (
+                int.from_bytes(bytes(jim[CONTROL + 10:CONTROL + 14]), "little"),
+                int.from_bytes(bytes(jim[CONTROL + 14:CONTROL + 16]), "little"),
+                jim[CONTROL + 16],
+            )
+
+        try:
+            request(1)
+            upload_generation = 0
+            for offset in range(0, len(encoded), 0xFF00):
+                part = encoded[offset:offset + 0xFF00]
+                jim[:len(part)] = part
+                jim[0xFFFE] = len(part) & 0xFF
+                jim[0xFFFF] = len(part) >> 8
+                next_generation, retry_length, retry_final = request(
+                    2, upload_generation
+                )
+                retry = request(2, upload_generation)
+                self.assertEqual(
+                    retry, (next_generation, retry_length, retry_final)
+                )
+                upload_generation = next_generation
+            generation, length, final = request(3)
+            output = bytearray(jim[:length])
+            lengths = [length]
+            while not final:
+                previous_generation = generation
+                generation, length, final = request(5, generation)
+                window = bytes(jim[:length])
+                # A retry carrying the previous generation must republish the
+                # same window, never advance and silently skip UEF bytes.
+                retry_generation, retry_length, retry_final = request(
+                    5, previous_generation
+                )
+                self.assertEqual(
+                    (retry_generation, retry_length, retry_final),
+                    (generation, length, final),
+                )
+                self.assertEqual(bytes(jim[:retry_length]), window)
+                output.extend(window)
+                lengths.append(length)
+            return bytes(output), lengths
+        finally:
+            self.fixture.pi1mhz_net_backend_destroy(backend)
+
+    def test_incremental_exact_window_boundaries(self) -> None:
+        for size, expected_windows in (
+            (0xFF00, [0xFF00]),
+            (0x1FE00, [0xFF00, 0xFF00]),
+            (0x1FE01, [0xFF00, 0xFF00, 1]),
+        ):
+            raw = (b"UEF File!\0\x05\0" + bytes(range(256)) * 600)[:size]
+            with self.subTest(size=size):
+                output, windows = self.run_incremental(raw)
+                self.assertEqual(output, raw)
+                self.assertEqual(windows, expected_windows)
+
+    def test_incremental_final_append_retry_at_exact_capacity(self) -> None:
+        jim = (ctypes.c_uint8 * JIM_SIZE)()
+        backend = self.fixture.pi1mhz_net_backend_create(b"fixture", None, 0)
+        self.assertTrue(backend)
+
+        def request(operation: int, generation: int, length: int = 0) -> int:
+            jim[CONTROL:CONTROL + 32] = bytes(32)
+            jim[CONTROL] = 93
+            jim[CONTROL + 1:CONTROL + 5] = b"IUEF"
+            jim[CONTROL + 5] = 1
+            jim[CONTROL + 6] = operation
+            jim[CONTROL + 11:CONTROL + 15] = generation.to_bytes(4, "little")
+            jim[0xFFFE] = length & 0xFF
+            jim[0xFFFF] = length >> 8
+            result = self.fixture.pi1mhz_net_backend_dispatch(
+                backend, 0xFF, CONTROL, jim, JIM_SIZE
+            )
+            self.assertEqual(result, 0)
+            return int.from_bytes(
+                bytes(jim[CONTROL + 10:CONTROL + 14]), "little"
+            )
+
+        try:
+            generation = request(1, 0)
+            remaining = 16 * 1024 * 1024
+            last_generation = 0
+            last_length = 0
+            while remaining:
+                length = min(0xFF00, remaining)
+                jim[:length] = bytes((generation & 0xFF,)) * length
+                last_generation = generation
+                last_length = length
+                generation = request(2, generation, length)
+                remaining -= length
+            self.assertEqual(last_length, 256)
+            self.assertEqual(generation, 258)
+            # No capacity remains, but acknowledging the identical final
+            # sequence must not require capacity or append it twice.
+            self.assertEqual(
+                request(2, last_generation, last_length), generation
+            )
+        finally:
+            self.fixture.pi1mhz_net_backend_destroy(backend)
+
+    def test_incremental_raw_gzip_zip_and_zip_gzip_over_64k(self) -> None:
+        raw = b"UEF File!\0\x05\0" + bytes(range(256)) * 600
+        containers = [raw, gzip.compress(raw)]
+        for payload in (raw, gzip.compress(raw)):
+            archive = io.BytesIO()
+            with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
+                output.writestr("game.uef", payload)
+            containers.append(archive.getvalue())
+        for encoded in containers:
+            with self.subTest(signature=encoded[:4]):
+                pi_result, pi_output = self.run_normalize_large(encoded)
+                self.assertIn(pi_result, (0, 1, 2))
+                self.assertEqual(pi_output, raw)
+                output, windows = self.run_incremental(encoded)
+                self.assertEqual(output, raw)
+                self.assertEqual(windows, [0xFF00, 0xFF00, len(raw) - 0x1FE00])
+
+    def test_incremental_stream_survives_public_jim_reuse(self) -> None:
+        jim = (ctypes.c_uint8 * JIM_SIZE)()
+        backend = self.fixture.pi1mhz_net_backend_create(b"fixture", None, 0)
+        self.assertTrue(backend)
+
+        def request(operation: int, generation: int = 0) -> tuple[int, int, int]:
+            jim[CONTROL:CONTROL + 32] = bytes(32)
+            jim[CONTROL] = 93
+            jim[CONTROL + 1:CONTROL + 5] = b"IUEF"
+            jim[CONTROL + 5] = 1
+            jim[CONTROL + 6] = operation
+            jim[CONTROL + 11:CONTROL + 15] = generation.to_bytes(4, "little")
+            result = self.fixture.pi1mhz_net_backend_dispatch(
+                backend, 0xFF, CONTROL, jim, JIM_SIZE
+            )
+            self.assertEqual(result, 0)
+            self.assertEqual(bytes(jim[CONTROL + 1:CONTROL + 5]), b"IUEF")
+            generation = int.from_bytes(
+                bytes(jim[CONTROL + 10:CONTROL + 14]), "little"
+            )
+            length = int.from_bytes(
+                bytes(jim[CONTROL + 14:CONTROL + 16]), "little"
+            )
+            final = jim[CONTROL + 16]
+            return generation, length, final
+
+        raw = b"UEF File!\0\x05\0" + bytes(range(256)) * 600
+        try:
+            request(1)  # BEGIN
+            upload_generation = 0
+            for offset in range(0, len(raw), 0xFF00):
+                part = raw[offset:offset + 0xFF00]
+                jim[:len(part)] = part
+                jim[0xFFFE] = len(part) & 0xFF
+                jim[0xFFFF] = len(part) >> 8
+                upload_generation, _, _ = request(2, upload_generation)
+            _, first_length, first_final = request(3)  # FINALIZE
+            self.assertEqual(first_length, 0xFF00)
+            self.assertEqual(first_final, 0)
+            self.assertEqual(bytes(jim[:first_length]), raw[:first_length])
+
+            rewind_generation, first_length, first_final = request(4)  # REWIND
+            self.assertEqual((first_length, first_final), (0xFF00, 0))
+            self.assertEqual(bytes(jim[:first_length]), raw[:first_length])
+
+            jim[:0xFF00] = bytes([0xA5]) * 0xFF00
+            generation, second_length, second_final = request(
+                5, rewind_generation
+            )  # REFILL
+            self.assertEqual(second_length, 0xFF00)
+            self.assertEqual(second_final, 0)
+            self.assertEqual(
+                bytes(jim[:second_length]), raw[0xFF00:0x1FE00]
+            )
+            _, last_length, last_final = request(5, generation)
+            self.assertEqual(last_final, 1)
+            self.assertEqual(
+                bytes(jim[:last_length]), raw[0x1FE00:]
+            )
+        finally:
+            self.fixture.pi1mhz_net_backend_destroy(backend)
 
     @staticmethod
     def chunk(chunk_type: int, payload: bytes) -> bytes:

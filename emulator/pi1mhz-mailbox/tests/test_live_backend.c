@@ -201,9 +201,62 @@ static void test_wifi_lifecycle(void)
     assert(!unlink(profile_path));
 }
 
+static void test_ftp_fixture_roundtrip(void)
+{
+    pi1mhz_net_backend *backend =
+        pi1mhz_net_backend_create("fixture", NULL, 0);
+    pi1mhz_mailbox mailbox;
+    uint8_t *command;
+    uint8_t *scratch;
+    assert(backend);
+    assert(!pi1mhz_mailbox_init(&mailbox, pi1mhz_net_backend_dispatch, backend));
+    command = mailbox.jim + mailbox.services_base + COMMAND;
+    scratch = mailbox.jim + mailbox.services_base + 0xFFF100u;
+
+    memset(command, 0, 224u);
+    command[0] = 114;
+    strcpy((char *)command + 1, "ftp://fixture:21");
+    assert(issue(&mailbox) == PI1MHZ_NET_OK);
+    assert(strstr((char *)command + 2, "220 "));
+
+    memset(command, 0, 224u);
+    command[0] = 115;
+    strcpy((char *)command + 1, "PUT roundtrip.bin");
+    assert(issue(&mailbox) == PI1MHZ_NET_OK);
+    assert(command[1] == 2u);
+    memcpy(scratch, "roundtrip", 9u);
+    command[0] = 117;
+    command[1] = 9u;
+    assert(issue(&mailbox) == PI1MHZ_NET_OK);
+    command[0] = 117;
+    command[1] = 0u;
+    assert(issue(&mailbox) == 0x20u);
+    assert(strstr((char *)command + 2, "226 "));
+
+    memset(command, 0, 224u);
+    command[0] = 115;
+    strcpy((char *)command + 1, "GET roundtrip.bin");
+    assert(issue(&mailbox) == PI1MHZ_NET_OK);
+    command[0] = 116;
+    command[1] = 240u;
+    assert(issue(&mailbox) == PI1MHZ_NET_OK);
+    assert(command[1] == 9u);
+    assert(!memcmp(scratch, "roundtrip", 9u));
+    command[0] = 116;
+    command[1] = 240u;
+    assert(issue(&mailbox) == 0x20u);
+    assert(strstr((char *)command + 2, "226 "));
+
+    command[0] = 118;
+    assert(issue(&mailbox) == PI1MHZ_NET_OK);
+    pi1mhz_mailbox_destroy(&mailbox);
+    pi1mhz_net_backend_destroy(backend);
+}
+
 int main(void)
 {
     char sd_path[] = "/tmp/pi1mhz-sd-test-XXXXXX";
+    test_ftp_fixture_roundtrip();
     uint8_t sector_data[512];
     int sd_fd;
     int listener;
@@ -337,7 +390,7 @@ int main(void)
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
 
     /* Pi control services use selector &FF and page &FFFF00, not a socket
-       handle. This is the path used by 1MHzWifi *MENU/MENUSRC. */
+       handle. */
     command = mailbox.jim + mailbox.services_base + 0xFFFF00u;
     command[0] = 83;
     assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
@@ -349,11 +402,6 @@ int main(void)
     assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
     assert(!strcmp((const char *)command + 1,
                    "+CWJAP:\"Pi1MHz-Fixture\"\r\n\r\nOK\r\n"));
-
-    command[0] = 84;
-    assert(issue_control(&mailbox) == PI1MHZ_NET_OK);
-    assert(!strcmp((const char *)command + 1,
-                   "http://acornelectron.nl/uefarchive/MENU"));
 
     set_uef_input(&mailbox, gzip_uef, sizeof(gzip_uef));
     command[0] = 93;

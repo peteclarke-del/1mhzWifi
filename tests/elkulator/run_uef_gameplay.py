@@ -72,31 +72,71 @@ def command_script(events: list[tuple[int, int]]) -> str:
     return ",".join(f"{delay}:{key}" for delay, key in events)
 
 
-def native_tape_events() -> list[tuple[int, int]]:
-    """Select the untouched cassette filing system and CHAIN the tape."""
-    return [
+def native_tape_events(launch: str = "chain") -> list[tuple[int, int]]:
+    """Select cassette, then use the requested native MOS/BASIC launch."""
+    events = [
         (300, KEY_SHIFT_DOWN), (1, KEY_QUOTE), (1, KEY_SHIFT_UP),
         *elkulator_text_events("TAPE"), (2, KEY_ENTER),
-        *elkulator_text_events("CHAIN"),
+    ]
+    if launch == "run":
+        events.extend([
+            (300, KEY_SHIFT_DOWN), (1, KEY_QUOTE), (1, KEY_SHIFT_UP),
+            *elkulator_text_events("RUN"),
+        ])
+    else:
+        events.extend(elkulator_text_events("CHAIN"))
+    events.extend([
         (2, KEY_SHIFT_DOWN), (1, KEY_DIGITS["2"]), (1, KEY_SHIFT_UP),
         (2, KEY_SHIFT_DOWN), (1, KEY_DIGITS["2"]), (1, KEY_SHIFT_UP),
         (2, KEY_ENTER),
-    ]
+    ])
+    return events
 
 
-def preloaded_wicfs_events() -> list[tuple[int, int]]:
+def preloaded_wicfs_events(
+    launch: str = "chain", enter_basic: bool = False,
+) -> list[tuple[int, int]]:
     """Launch an already-normalised public-JIM UEF through stock WiCFS."""
     events = [
         (300, KEY_SHIFT_DOWN), (1, KEY_QUOTE), (1, KEY_SHIFT_UP),
         *elkulator_text_events("WICFS"), (2, KEY_ENTER),
+    ]
+    if enter_basic:
+        # The unmodified ElkWiFi ROM can leave the machine at the MOS '*'
+        # prompt after its startup paged-RAM probe. Enter the installed host
+        # language explicitly before issuing the BASIC CHAIN statement.
+        basic_events = elkulator_text_events("BASIC")
+        basic_events[0] = (300, basic_events[0][1])
+        events.extend([*basic_events, (2, KEY_ENTER)])
+    events.extend([
         (300, KEY_SHIFT_DOWN), (1, KEY_QUOTE), (1, KEY_SHIFT_UP),
         *elkulator_text_events("REWIND"), (2, KEY_ENTER),
-        *elkulator_text_events("CHAIN"),
+        *elkulator_text_events("RUN" if launch == "run" else "CHAIN"),
         (2, KEY_SHIFT_DOWN), (1, KEY_DIGITS["2"]), (1, KEY_SHIFT_UP),
         (2, KEY_SHIFT_DOWN), (1, KEY_DIGITS["2"]), (1, KEY_SHIFT_UP),
         (2, KEY_ENTER),
-    ]
+    ])
     return events
+
+
+def require_live_bus_trace(process, path: Path, timeout: float = 10.0) -> None:
+    """Reject an Elkulator binary that lacks the required bus instrumentation."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if path.exists() and path.stat().st_size:
+            first_line = path.read_text(errors="replace").splitlines()[0]
+            if first_line.startswith("# cycle op address value"):
+                return
+            raise RuntimeError(f"invalid Pi1MHz bus trace header in {path}")
+        if process.poll() is not None:
+            raise RuntimeError(
+                "Elkulator exited before creating the required Pi1MHz bus trace"
+            )
+        time.sleep(0.05)
+    raise RuntimeError(
+        "Elkulator did not create the required Pi1MHz bus trace; "
+        "the binary is stale or was built without the Pi1MHz integration"
+    )
 
 
 def largest_window(tree: str, window_title: str) -> str | None:
@@ -322,9 +362,24 @@ def main() -> int:
               "instead of installing WiCFS; used as a differential control"),
     )
     parser.add_argument(
+        "--native-launch", choices=("chain", "run"), default="chain",
+        help=("native cassette control command; CHAIN tests BASIC files and "
+              "*RUN tests machine-code loaders"),
+    )
+    parser.add_argument(
         "--preloaded-jim", type=Path,
         help=("diagnostic 64 KiB public-JIM image containing a normalised UEF "
               "and its length trailer; bypasses only the local-file import"),
+    )
+    parser.add_argument(
+        "--preloaded-launch", choices=("chain", "run"), default="chain",
+        help=("MOS/BASIC launch used with --preloaded-jim; choose from the "
+              "first CFS file type rather than from a title name"),
+    )
+    parser.add_argument(
+        "--preloaded-enter-basic", action="store_true",
+        help=("enter the installed host BASIC before a preloaded WiCFS launch; "
+              "used when an unmodified control ROM leaves the MOS prompt active"),
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--tube", action="store_true")
@@ -334,9 +389,30 @@ def main() -> int:
               "gameplay runs; not permitted with --tube"),
     )
     parser.add_argument(
+        "--vector-trace", action="store_true",
+        help=("record OSCLI and filing-vector entries; diagnostic only because "
+              "per-instruction vector checks reduce emulator throughput"),
+    )
+    parser.add_argument(
+        "--pc-dump", type=lambda value: int(value, 16),
+        help=("dump host RAM on the first execution of this hexadecimal PC; "
+              "used for byte-exact native/WiCFS differential captures"),
+    )
+    parser.add_argument(
+        "--pc-history", type=lambda value: int(value, 16),
+        help=("write the instruction history preceding the first execution of "
+              "this hexadecimal PC; diagnostic only"),
+    )
+    parser.add_argument(
         "--recovery-check", action="store_true",
         help=("after sustained gameplay, press Break, reselect ADFS and load "
               "the same UEF a second time without restarting Elkulator"),
+    )
+    parser.add_argument(
+        "--recovery-no-reload", action="store_true",
+        help=("with --recovery-check, stop after Break has restored ADFS, "
+              "mounted the test disc and selected its UEF directory; this "
+              "isolates filing-system/vector recovery from second-load state"),
     )
     parser.add_argument(
         "--sustain-seconds", type=float, default=30.0,
@@ -364,6 +440,11 @@ def main() -> int:
         "--gameplay-input-delay", type=float, default=2.0,
         help="minimum emulated wall time between gameplay input keys",
     )
+    parser.add_argument(
+        "--title-stable-seconds", type=float, default=6.0,
+        help=("require the reviewed title frame and the 1MHz bus to remain "
+              "stable for this long before injecting gameplay input"),
+    )
     parser.add_argument("--title-reference", type=Path, required=True)
     parser.add_argument("--gameplay-reference", type=Path, required=True)
     parser.add_argument(
@@ -374,7 +455,12 @@ def main() -> int:
         "--failure-reference", type=Path, action="append", required=True,
         help="known prompt or MOS-error screen; repeatable",
     )
-    parser.add_argument("--title-similarity", type=float, default=0.90)
+    parser.add_argument(
+        "--title-similarity", type=float, default=0.99,
+        help=("require a near-exact reviewed title/instructions frame; a lower "
+              "threshold can mistake a partially drawn loader screen for a "
+              "completed title"),
+    )
     parser.add_argument(
         "--gameplay-similarity", type=float, default=0.80,
         help="lower bound for a dynamic frame against the reviewed gameplay frame",
@@ -387,6 +473,8 @@ def main() -> int:
         parser.error("--sample-interval must be positive")
     if args.gameplay_input_delay < 0:
         parser.error("--gameplay-input-delay must not be negative")
+    if args.title_stable_seconds < args.sample_interval:
+        parser.error("--title-stable-seconds must be at least --sample-interval")
     if args.sustain_seconds < 6:
         parser.error("--sustain-seconds must be at least 6")
     if args.recovery_check and args.profile != "adfs-beebscsi":
@@ -395,6 +483,8 @@ def main() -> int:
         parser.error("--recovery-check requires --prompt-reference")
     if args.recovery_check and args.pi1mhz_cfg is None:
         parser.error("--recovery-check requires an explicit --pi1mhz-cfg")
+    if args.recovery_no_reload and not args.recovery_check:
+        parser.error("--recovery-no-reload requires --recovery-check")
     if args.writable_beebscsi_copy:
         if args.beebscsi_lun is None:
             parser.error("--writable-beebscsi-copy requires --beebscsi-lun")
@@ -457,8 +547,10 @@ def main() -> int:
     )
     roms = test_runtime / "roms"
     try:
-        events = (native_tape_events() if args.native_tape else
-                  preloaded_wicfs_events() if args.preloaded_jim else
+        events = (native_tape_events(args.native_launch) if args.native_tape else
+                  preloaded_wicfs_events(
+                      args.preloaded_launch, args.preloaded_enter_basic,
+                  ) if args.preloaded_jim else
                   command_events(args.profile, args.uef_file))
     except ValueError as error:
         parser.error(str(error))
@@ -496,7 +588,26 @@ def main() -> int:
         "DISPLAY": display,
         "PI1MHZ_MAILBOX": "fixture",
         "PI1MHZ_TRACE": str((args.output / "mailbox.trace").resolve()),
+        "PI1MHZ_RAM_DUMP": str((args.output / "host-ram.bin").resolve()),
+        "PI1MHZ_CPU_DUMP": str((args.output / "cpu-state.txt").resolve()),
     })
+    if args.vector_trace:
+        environment["PI1MHZ_VECTOR_TRACE"] = str(
+            (args.output / "vectors.trace").resolve()
+        )
+    if args.pc_dump is not None:
+        environment["PI1MHZ_PC_DUMP_ADDRESS"] = f"{args.pc_dump:04X}"
+        environment["PI1MHZ_PC_DUMP"] = str(
+            (args.output / f"pc-{args.pc_dump:04X}-ram.bin").resolve()
+        )
+        environment["PI1MHZ_PC_DUMP_STATE"] = str(
+            (args.output / f"pc-{args.pc_dump:04X}-state.txt").resolve()
+        )
+    if args.pc_history is not None:
+        environment["PI1MHZ_PC_HISTORY_TRIGGER"] = f"{args.pc_history:04X}"
+        environment["PI1MHZ_PC_HISTORY"] = str(
+            (args.output / f"pc-{args.pc_history:04X}-history.txt").resolve()
+        )
     if not args.no_bus_trace:
         environment["PI1MHZ_BUS_TRACE"] = str(
             (args.output / "bus.trace").resolve()
@@ -569,22 +680,28 @@ def main() -> int:
             command, cwd=test_runtime, env=environment,
             stdout=elk_log, stderr=subprocess.STDOUT, start_new_session=True,
         )
+        if not args.no_bus_trace:
+            require_live_bus_trace(process, args.output / "bus.trace")
         deadline = time.monotonic() + args.wait
         started = time.monotonic()
         number = 0
         capture_times = []
         first_game_input_seconds = None
         first_gameplay_seconds = None
+        title_candidate_since = None
+        title_candidate_bus_size = None
         gameplay_input_index = 0
         next_game_input_at = None
         break_seconds = None
         recovery_commands_seconds = None
         recovery_title_seconds = None
         recovery_gameplay_seconds = None
+        recovery_title_candidate_since = None
+        recovery_title_candidate_bus_size = None
         recovery_input_index = 0
         recovery_next_input_at = None
         recovery_commands = ["*ADFS", "*MOUNT", "*DIR UEF"]
-        if args.native_tape is None:
+        if args.native_tape is None and not args.recovery_no_reload:
             recovery_commands.append(f"*UEF LOAD {args.uef_file}")
         recovery_command_index = 0
         recovery_command_sent_at = None
@@ -597,6 +714,11 @@ def main() -> int:
         while time.monotonic() < deadline and process.poll() is None:
             time.sleep(min(args.sample_interval,
                            max(0.0, deadline - time.monotonic())))
+            # The guest can exit during the sampling sleep. Do not turn that
+            # into a misleading xwd failure by trying to capture its vanished
+            # window. The report below records the actual process outcome.
+            if process.poll() is not None:
+                break
             screenshot = args.output / f"screen-{number}.png"
             capture(display, screenshot)
             elapsed = time.monotonic() - started
@@ -616,8 +738,20 @@ def main() -> int:
             # only after the reviewed native title/instructions frame is
             # visible, using the same focused X11 injection as the catalogue
             # runner.
+            bus_path = args.output / "bus.trace"
+            bus_size = bus_path.stat().st_size if bus_path.exists() else 0
+            if title_score < args.title_similarity:
+                title_candidate_since = None
+                title_candidate_bus_size = None
+            elif title_candidate_since is None:
+                title_candidate_since = elapsed
+                title_candidate_bus_size = bus_size
+            elif bus_size != title_candidate_bus_size:
+                title_candidate_since = elapsed
+                title_candidate_bus_size = bus_size
             if (first_game_input_seconds is None and
-                    title_score >= args.title_similarity):
+                    title_candidate_since is not None and
+                    elapsed - title_candidate_since >= args.title_stable_seconds):
                 first_game_input_seconds = elapsed
                 inject_x11_keys(display, [gameplay_input[0]])
                 gameplay_input_index = 1
@@ -630,6 +764,7 @@ def main() -> int:
                 next_game_input_at = time.monotonic() + args.gameplay_input_delay
             if (first_game_input_seconds is not None and
                     first_gameplay_seconds is None and
+                    elapsed > first_game_input_seconds + 1.0 and
                     gameplay_score >= args.gameplay_similarity):
                 first_gameplay_seconds = elapsed
             if (args.recovery_check and first_gameplay_seconds is not None and
@@ -657,12 +792,23 @@ def main() -> int:
                     recovery_command_index += 1
                     recovery_command_sent_at = None
             elif (recovery_commands_seconds is not None and
-                    recovery_title_seconds is None and
-                    title_score >= args.title_similarity):
-                recovery_title_seconds = elapsed
-                inject_x11_keys(display, [gameplay_input[0]])
-                recovery_input_index = 1
-                recovery_next_input_at = time.monotonic() + args.gameplay_input_delay
+                    recovery_title_seconds is None):
+                if title_score < args.title_similarity:
+                    recovery_title_candidate_since = None
+                    recovery_title_candidate_bus_size = None
+                elif recovery_title_candidate_since is None:
+                    recovery_title_candidate_since = elapsed
+                    recovery_title_candidate_bus_size = bus_size
+                elif bus_size != recovery_title_candidate_bus_size:
+                    recovery_title_candidate_since = elapsed
+                    recovery_title_candidate_bus_size = bus_size
+                elif (elapsed - recovery_title_candidate_since >=
+                      args.title_stable_seconds):
+                    recovery_title_seconds = elapsed
+                    inject_x11_keys(display, [gameplay_input[0]])
+                    recovery_input_index = 1
+                    recovery_next_input_at = (time.monotonic() +
+                                              args.gameplay_input_delay)
             elif (recovery_next_input_at is not None and
                     recovery_input_index < len(gameplay_input) and
                     time.monotonic() >= recovery_next_input_at):
@@ -671,13 +817,14 @@ def main() -> int:
                 recovery_next_input_at = time.monotonic() + args.gameplay_input_delay
             if (recovery_title_seconds is not None and
                     recovery_gameplay_seconds is None and
+                    elapsed > recovery_title_seconds + 1.0 and
                     gameplay_score >= args.gameplay_similarity):
                 recovery_gameplay_seconds = elapsed
             elif (recovery_gameplay_seconds is not None and
                   recovery_input_index == len(gameplay_input) and
                   elapsed >= recovery_gameplay_seconds + 8.0):
                 break
-            if (args.native_tape is not None and
+            if ((args.native_tape is not None or args.recovery_no_reload) and
                     recovery_commands_seconds is not None and
                     elapsed >= recovery_commands_seconds + 8.0):
                 break
@@ -701,9 +848,13 @@ def main() -> int:
                                   for left, right in zip(
                                       gameplay_screens, gameplay_screens[1:])]
         gameplay_motion = max(gameplay_motion_pixels, default=0) >= 100
+        motion_end = (
+            break_seconds if break_seconds is not None
+            else (capture_times[-1] if capture_times else None)
+        )
         epoch_motion_pixels, sustained_gameplay_motion = sustained_motion_by_epoch(
-            screenshots, capture_times, first_gameplay_seconds, break_seconds,
-        ) if args.recovery_check else ([], gameplay_motion)
+            screenshots, capture_times, first_gameplay_seconds, motion_end,
+        )
         # The last frame before input is the causal baseline. Comparing every
         # earlier loader frame with every later frame is both weaker evidence
         # and quadratic when a large ADFS directory takes time to scan.
@@ -766,16 +917,22 @@ def main() -> int:
         recovery_passed = bool(
             not args.recovery_check or
             (recovery_common and
-             (args.native_tape is not None or recovery_reloaded))
+             (args.native_tape is not None or args.recovery_no_reload or
+              recovery_reloaded))
         )
         media_state_ok = media_unchanged or args.writable_beebscsi_copy
+        bus_summary = bus_trace_summary(args.output / "bus.trace")
+        # --no-bus-trace remains useful for exploratory performance runs, but
+        # such a run is deliberately not release acceptance evidence.
+        bus_trace_ready = not args.no_bus_trace and bus_summary["available"]
         passed = bool(
             alive_at_deadline and title_seen and gameplay_seen and
             gameplay_input_index == len(gameplay_input) and
             input_correlated_change and sustained_gameplay_motion and
             recovery_passed and
             media_state_ok and config_unchanged and
-            tube_requirement_satisfied and not failure_seen and not mos_errors and
+            tube_requirement_satisfied and bus_trace_ready and
+            not failure_seen and not mos_errors and
             (args.profile != "adfs-beebscsi" or adfs_supported)
         )
         report = {
@@ -788,6 +945,8 @@ def main() -> int:
             "profile": args.profile,
             "uef_file": args.uef_file,
             "stream_source": "native-cassette" if args.native_tape else "wicfs",
+            "native_launch": args.native_launch if args.native_tape else None,
+            "preloaded_launch": args.preloaded_launch if args.preloaded_jim else None,
             "adfs_beebscsi_supported": adfs_supported,
             "profile_note": (
                 "BeebSCSI LUN 0 mounted through the full-decode AP5 profile"
@@ -809,6 +968,7 @@ def main() -> int:
             "first_gameplay_seconds": first_gameplay_seconds,
             "game_input_source": "reviewed-title-frame-triggered X11 sequence",
             "gameplay_input": gameplay_input,
+            "title_stable_seconds": args.title_stable_seconds,
             "gameplay_input_complete": gameplay_input_index == len(gameplay_input),
             "acceptance_thresholds": {
                 "title_similarity": args.title_similarity,
@@ -833,6 +993,9 @@ def main() -> int:
             "still_running_at_deadline": alive_at_deadline,
             "recovery": {
                 "required": args.recovery_check,
+                "reload_required": not (
+                    args.native_tape is not None or args.recovery_no_reload
+                ),
                 "break_seconds": break_seconds,
                 "commands_seconds": recovery_commands_seconds,
                 "commands": recovery_commands,
@@ -852,7 +1015,22 @@ def main() -> int:
                 "lines": trace_lines,
                 "note": "Local OSFIND/OSBGET UEF input may not produce backend stream events",
             },
-            "bus_trace": bus_trace_summary(args.output / "bus.trace"),
+            "bus_trace": bus_summary,
+            "bus_trace_ready": bus_trace_ready,
+            "terminal_host_ram": snapshot({
+                "host_ram": args.output / "host-ram.bin"
+            })["host_ram"],
+            "terminal_cpu_state": (
+                (args.output / "cpu-state.txt").read_text(errors="replace").strip()
+                if (args.output / "cpu-state.txt").exists() else None
+            ),
+            "vector_trace": {
+                "enabled": args.vector_trace,
+                "path": str(args.output / "vectors.trace"),
+                "lines": ((args.output / "vectors.trace").read_text(
+                    errors="replace").splitlines()
+                    if (args.output / "vectors.trace").exists() else []),
+            },
             "provenance": {
                 "immutable_inputs": immutable_provenance,
                 "media_before": media_before,

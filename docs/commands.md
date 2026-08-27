@@ -52,27 +52,30 @@ own service command 92 and returns `Not implemented`.
 | Command | Behavior | Status |
 | --- | --- | --- |
 | `*PING <host>` | DNS lookup and five ICMP echo requests | Implemented, including Escape cancellation |
-| `*WGET <url> <addr>` | Downloads HTTP data to host memory and reports the byte count, exclusive address range, and first four bytes | Implemented; advanced HTTP cases remain |
+| `*NSLOOK <host>` | Resolves a hostname and prints its IPv4 address | Implemented |
+| `*WGET <url> <filename>` | Streams HTTP data into a file on the active MOS filing system | Implemented for ADFS, DFS and MMFS-compatible filing systems |
 | `*WGET -T <url>` | Prints text with CR line endings | Implemented |
 | `*WGET -X <url>` | Prints text using LF input | Implemented |
 | `*WGET -U <url>` | Downloads a UEF image to JIM `&000000-&00FFFF` | Implemented; hardware validation pending |
 | `*WGET -S <url> <slot>` | Downloads to JIM and copies to sideways RAM | Implemented; hardware validation pending |
+| `*FTP <host>` | Opens an interactive plain FTP session | Implemented; hardware validation pending |
 | `*DATE` | Reads date from NTP | Implemented |
 | `*TIME` | Reads time from NTP | Implemented |
 | `*DISCONNECT` | Closes the current OSWORD-compatible raw socket and prints the close response | Implemented |
 
-For example, a successful menu-sized transfer to `&0E00` reports a line in
-this form:
+For example:
 
 ```text
-WGET OK &0B5B bytes at &0E00-&195B head &208A124C
+*WGET http://example.test/archive.uef ARCHIVE
+WGET OK &000B5B bytes saved
 ```
 
-The end address is exclusive. The byte count and address range prove how much
-host memory changed; `head` exposes the first four downloaded bytes so an HTTP
-error page cannot be confused with the expected program header. `*WGET -T`
-prints the downloaded text directly. Pi1MHz also rejects non-2xx HTTP status
-codes before returning payload bytes.
+The filename is interpreted by the active filing system, so directory and drive
+syntax follow ADFS, DFS or MMFS rules. The ordinary command no longer writes an
+unlabelled block into host or JIM memory. `*WGET -T` prints downloaded text
+directly. `*WGET -U` remains an explicit JIM destination because WiCFS consumes
+that buffer, while `*WGET -S` remains the explicit sideways-RAM form. Pi1MHz
+rejects non-2xx HTTP status codes before returning payload bytes.
 When a server supplies `Content-Length`, Pi1MHz completes the download after
 that exact number of body bytes. A later TCP reset cannot turn an already
 complete response into error `&25`, while a short response still fails.
@@ -83,10 +86,39 @@ interface failure. `&30` means that an HTTP response arrived with a non-2xx
 status. The older generic `&25` remains for connection errors which lwIP does
 not classify more specifically.
 
-An `&2D` from `*MENU` can be a refused or aborted connection before HTTP
-headers arrive. Check the configured `*MENUSRC` endpoint from another machine
-before changing the ROM or SD-card image. On 6 August 2026 the compiled default
-host refused both ports 80 and 443, so that occurrence was an upstream outage.
+### Interactive FTP
+
+`*FTP <host>` and `*FTP ftp://host[:port]` open a standard, unencrypted FTP
+control session. The prompt accepts `USER`, `PASS`, `PWD`, `CD`, `DIR`, `LS`,
+`GET`, `PUT`, `DELETE`, `MKDIR`, `RMDIR`, `ASCII`, `BINARY`, and `QUIT`.
+Server commands not named in that list are passed through unchanged.
+
+`GET remote [local]` writes through MOS OSFIND and OSBPUT. `PUT local
+[remote]` reads through OSFIND and OSBGET. Local names are therefore resolved
+by the filing system which was active when FTP was entered. Passive data
+connections use EPSV first and PASV as a compatibility fallback. The Pi uses
+the control peer address for PASV, not an untrusted address embedded in the
+server reply.
+
+FTP sends credentials and data without encryption. Use the NetTools `SFTP`
+application when the server supports SSH file transfer. Passwords entered as
+`PASS` are visible on the Acorn display, so plain FTP should be restricted to
+trusted networks and non-sensitive accounts.
+
+### Interactive SFTP
+
+NetTools supplies `*SFTP user@host [port]`. It uses the Pi-side wolfSSH client
+and enters an interactive prompt without changing a usable display mode. The
+commands are `PWD`, `CD`, `DIR`, `LS`, `GET`, `PUT`, `DELETE`, `MKDIR`,
+`RMDIR`, and `QUIT`.
+
+`GET remote [local]` and `PUT local [remote]` use the active MOS filing
+system. Remote paths are case-sensitive. The first connection to an unknown
+host displays its fingerprint and asks whether the key should be trusted and
+stored on the Pi SD card. Password input is hidden and the host and JIM copies
+are wiped after authentication. SFTP command responses and directory listings
+are currently limited to 240 bytes. File contents are transferred in repeated
+chunks and are not subject to that listing limit.
 
 ### OSWORD `&65` application interface
 
@@ -155,9 +187,8 @@ Function numbers are masked to five bits as they are by the original driver.
 The DATE, TIME and ONLINE star commands use private ROM entries and do not
 replace functions 29 to 31.
 
-HTTP requests identify themselves as `ElkWiFi/0.23`. The default MENU server
-rejects anonymous HTTP clients with status 403, so this compatibility header
-is required for both `*MENU` and direct `*WGET` requests.
+HTTP requests identify themselves as `ElkWiFi/0.23` for compatibility with
+servers which inspect the original cartridge's user-agent header.
 
 WGET supports plain HTTP only. HTTPS is rejected. Redirects are rejected rather
 than followed. Chunked bodies and large transfers remain hardware test cases.
@@ -168,36 +199,8 @@ For a response with `Content-Length`, an early TCP close is a network error,
 not successful EOF. This prevents a partial UEF download from being reported
 as `WGET OK` and failing later inside WiCFS with `Unexpected EOF`.
 
-## Menu
-
-| Command | Behavior |
-| --- | --- |
-| `*MENUSRC` | Prints the active menu URL |
-| `*MENUSRC http://host/path` | Validates and saves a menu URL |
-| `*MENUSRC DEFAULT` | Restores and saves the compiled default URL |
-| `*MENU` | Downloads the active URL to host `&E00`, adapts it, then runs it on the I/O processor |
-
-The compiled default menu is an Electron program. On BBC B, B+, Master and
-Compact systems, `*MENU` reports `Default MENU is Electron only` while that
-source is active. Set a menu written for the target machine with
-`*MENUSRC http://host/path`; custom sources remain available on every host.
-
-Only `http://` menu URLs are accepted. `*MENU` does not enter `&E00` after a
-failed, cancelled, empty, shorter-than-16-byte, or invalid-entry download. An
-accepted payload must start with a 6502 `JSR` or absolute `JMP` opcode.
-
-`*MENU` does not queue BASIC `CALL &E00`. That command would execute parasite
-memory when a Tube processor is active, although WGET populated I/O processor
-memory. The ROM instead enters host `&E00` with a return trampoline in main
-RAM. This also remains valid if the downloaded program changes ROMSEL.
-
-The published ElkWiFi menu contains an inlined `&FC34` cartridge bank-select
-sequence. Before entering host `&E00`, this ROM replaces that sequence with an
-equal-length call to a Pi1MHz JIM address helper. Custom menu payloads that do
-not contain the stock sequence are left unchanged.
-
-See [MENU runtime adaptation](menu-runtime-patch.md) for the exact byte
-replacement, scan range, execution order, and failure policy.
+See [MENU retirement](menu-retirement.md) for the removed command surface and
+the generic facilities which remain.
 
 ## WiCFS and paged RAM
 
@@ -214,13 +217,18 @@ table. It does not copy code into `&0400-&07FF`, which belongs to the Tube host
 code. Each successful `*WGET -U` publishes the new UEF length directly to
 WiCFS. `*REWIND` reloads the authoritative length trailer from Pi1MHz JIM and
 resets the read pointer. The length is not cached in volatile host heap.
-`*PRD` inspects paged RAM. These
-commands use the Pi1MHz JIM window selector rather than the cartridge UART
-bank bit.
+`*PRD [address] [bank]` inspects paged RAM without reading the write-only JIM
+selectors. On a direct BBC-family connection, bank 0 or 1 selects the matching
+64 KiB Pi1MHz window. Electron AP5 exposes only bank 0, so requesting bank 1
+returns `Unknown option` instead of silently displaying the wrong data. PRD
+reasserts the complete address before each byte and restores bank `00:00` when
+it finishes.
 
-The published ElkWiFi menu's selected-title sequence remains `*REWIND`, then
-`CHAIN ""`. The ROM does not rewrite that key expansion or substitute `*RUN`,
-`*/`, or another game command.
+The private `*QAUTO` entry validates the first file as tokenised BASIC,
+including the CR at the line's declared boundary, before choosing `CHAIN ""`;
+otherwise it chooses `*RUN ""`. The stream is rewound after classification.
+This is a generic format decision, not a catalogue or title-specific
+exception. The retired `*MENU` command is not required by this path.
 
 Pi1MHz supplies the UEF over the 1MHz bus in every configuration. WiCFS writes
 the file to Electron I/O-processor memory and never probes or accesses the
@@ -236,21 +244,22 @@ still require full regression on real hardware.
 | `*HELP WIFI` | Lists the retained command surface |
 | `*VERSION` | Prints the `1MHzWifi` ROM revision, original ElkWiFi credit and Pi service response |
 
-The current ROM reports `1MHzWifi 0.1.58 (C) 2026 Peter Clarke`, followed
+The current ROM reports `1MHzWifi 0.1.66 (C) 2026 Peter Clarke`, followed
 by `Original elkWifi (C) 2020 Roland Leurs`. These lines are generated by the
 ROM and confirm the exact host image before a hardware result is reported. The
 following line identifies the matched Pi-side service and generated Pi1MHz
-kernel revision. The packaged kernels report `Pi1MHz ElkWiFi 0.1.58, kernel
-V1.30-84-gd08242e-dirty.4ab8cb05`. Use the SHA-256 values in `SHA256SUMS` to identify
-the exact integrated binaries.
+kernel revision. The packaged kernels report `Pi1MHz ElkWiFi 0.1.66, kernel
+<revision>`. Use the SHA-256 values in `SHA256SUMS` to
+identify the exact integrated binaries.
 
 ### `*UEF LOAD <filename>`
 
 Opens a UEF image through the currently selected MOS filing system, streams it
-into the AP5-visible Pi1MHz JIM window, writes the same length trailer as
-`*WGET -U`, selects the tape filing system, installs WiCFS, rewinds, and
-executes `CHAIN ""`. The
-ROM queues setup and launch separately to stay within the Electron keyboard
+through the AP5-visible Pi1MHz JIM window, selects the tape filing system,
+installs WiCFS, and classifies the first cassette file. Structurally valid
+tokenised BASIC is executed with `CHAIN ""`; machine-code loaders use
+`*RUN ""`. The ROM rewinds after classification and queues setup and launch
+separately to stay within the Electron keyboard
 buffer, but no further command is required. ADFS, DFS, MMFS, and other filing
 systems work through their normal OSFIND and OSBGET implementations. The
 importer reselects its JIM page after every OSBGET because the source
@@ -259,9 +268,9 @@ filing system may use the same aperture.
 The Pi recognizes raw UEF data, gzip by its `1F 8B` signature, and a
 single-entry ZIP by its local-file signature. ZIP entries may contain either
 raw or gzip-compressed UEF data. Deflate errors, CRC mismatches, invalid UEF
-headers and expanded images larger than the JIM window are rejected before
-WiCFS is installed. This normalization applies both to `*UEF LOAD` and
-`*WGET -U`, including MENU title downloads. A successful import reports
+headers and expanded images larger than the 16 MiB private-stream limit are
+rejected before WiCFS is installed. This normalization applies both to `*UEF LOAD` and
+`*WGET -U`. A successful import reports
 `UEF RAW OK`, `UEF GZIP OK`, or `UEF ZIP OK` and the expanded byte count.
 The corresponding WGET forms report `WGET RAW OK`, `WGET GZIP OK`, or
 `WGET ZIP OK`.
@@ -272,9 +281,14 @@ before fetching data, so a final zero-byte file such as Desk Diary's
 `V1` marker completes normally instead of consuming the following UEF chunk
 header and eventually reporting `Unexpected EOF`.
 
-The maximum expanded length is `&FFFE` bytes. Escape is checked at each 256-byte
-boundary, and the source file is closed on completion, cancellation, read
-failure, or overflow. Import and JIM transfer remain on the I/O processor.
+Matched ROM and kernel builds negotiate stream ABI 1. The ROM uploads
+`&FF00`-byte source windows, the Pi retains and normalizes up to 16 MiB, and
+WiCFS requests subsequent public windows without resetting its parser. Each
+request carries the previous window generation, so a retried request
+republishes the same bytes rather than advancing twice. Older kernels use the
+unchanged legacy path with a maximum expanded length of `&FFFE` bytes. Escape
+is checked at each 256-byte boundary, and the source file and partial Pi
+session are closed on cancellation, read failure, or overflow.
 The OSFIND handle is stored below the private two-byte length frame. Inline
 OSBGET calls recover it at stack offset three; the close subroutine accounts
 for its JSR return address and recovers it at offset five. This prevents TSX

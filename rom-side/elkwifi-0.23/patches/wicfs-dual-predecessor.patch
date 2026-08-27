@@ -45,7 +45,11 @@
  	LDA	#0
  	STA	wicfs_magic
  	STA	wicfs_magic+1
-@@ -1518,0 +1511,23 @@
+@@ -1516,6 +1509,39 @@
+ 	LDA	wicfs_state_result
+ 	CMP	#1
+ 	RTS
++
 +\ Replace the live cassette predecessors with the filing-system snapshot only
 +\ at the ownership-checked retirement boundary. Until this point unclaimed
 +\ operations must behave exactly as they do through the native cassette ROM.
@@ -66,6 +70,18 @@
 +	INX
 +	CPX	#13
 +	BNE	wicfs_load_pre_tape_loop
++	LDX	#14
++	JSR	wicfs_pending_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	STA	bytev_rtn
++	INX
++	JSR	wicfs_pending_address_x
++	LDA	&FCA9
++	JSR	wicfs_bus_delay
++	STA	bytev_rtn+1
 +.wicfs_load_pre_tape_done
 +	RTS
-+
+ 
+ \ An invalid persisted record cannot supply BYTEV's predecessor. Accept only
+ \ an intact RAM trap and recover the JMP target embedded when it was installed.

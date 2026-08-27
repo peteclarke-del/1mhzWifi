@@ -70,15 +70,41 @@ def main() -> int:
     if not isinstance(labels, dict):
         print("assembled label export has an unknown format", file=sys.stderr)
         return 1
-    required_labels = {".uef_cmd", ".wicfs_state_load", ".menu_cmd", ".pi_wget_cmd"}
+    required_labels = {
+        ".uef_cmd", ".wicfs_state_load", ".host_select_tape", ".pi_wget_cmd",
+        ".wicfs_reset_done", ".wicfs_load_pre_tape",
+        ".wicfs_release_invalid_byte_trap", ".s_guard", ".e_guard",
+    }
     missing = sorted(required_labels - labels.keys())
     if missing:
         print("assembled label export is incomplete: " + ", ".join(missing), file=sys.stderr)
         return 1
 
+    # wicfs_reset_done is an eleven-byte register/flags restore epilogue ending
+    # in RTS. A zero-context patch once placed wicfs_load_pre_tape at the same
+    # address, so an inactive release fell into the helper with the reset frame
+    # still on the stack. Keep this an assembled-symbol invariant: source patch
+    # applicability alone cannot detect label aliasing after cumulative edits.
+    if labels[".wicfs_load_pre_tape"] != labels[".wicfs_reset_done"] + 11:
+        print(
+            "WiCFS pre-TAPE helper does not follow the complete reset epilogue: "
+            f"reset_done=&{labels['.wicfs_reset_done']:04X}, "
+            f"helper=&{labels['.wicfs_load_pre_tape']:04X}",
+            file=sys.stderr,
+        )
+        return 1
+    if labels[".wicfs_load_pre_tape"] >= labels[".wicfs_release_invalid_byte_trap"]:
+        print("WiCFS pre-TAPE helper overlaps the invalid-state handler", file=sys.stderr)
+        return 1
+
+    guard_size = labels[".e_guard"] - labels[".s_guard"]
+    if not 0 < guard_size <= 0x80:
+        print(f"WiCFS low-loader guard has invalid size: {guard_size}", file=sys.stderr)
+        return 1
+
     symbols = source_symbols(source_dir)
     required_symbols = {"wicfs_state_ram", "wicfs_machine", "filev_x", "filev_y",
-                        "notape", "chain_exec", "host_basic_pending"}
+                        "notape", "romsel", "chain_exec", "host_basic_pending"}
     missing = sorted(required_symbols - symbols.keys())
     if missing:
         print("combined RAM symbols are incomplete: " + ", ".join(missing), file=sys.stderr)
@@ -97,6 +123,7 @@ def main() -> int:
         "filev_x": 0x0396,
         "filev_y": 0x0397,
         "notape": 0x0398,
+        "romsel": 0x0780,
         "chain_exec": 0x03A0,
         "host_basic_pending": 0x03BD,
     }
@@ -104,6 +131,9 @@ def main() -> int:
            for name, address in expected.items() if symbols[name] != address]
     if bad:
         print("combined RAM layout changed without review: " + "; ".join(bad), file=sys.stderr)
+        return 1
+    if symbols["romsel"] + guard_size > 0x0800:
+        print("WiCFS low-loader guard crosses &0800", file=sys.stderr)
         return 1
 
     print(f"Combined assembled RAM-symbol audit: OK ({source_dir})")

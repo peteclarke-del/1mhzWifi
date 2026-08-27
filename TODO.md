@@ -7,22 +7,24 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 ## Complete in this build
 
 - [x] Bare-metal Pi1MHz service integration on reviewed upstream commit
-  `d08242ee1b35cf1285b72c9ec1869e98081a8c3e`.
+  `e949f2d2714b15f314df375e52db5febb6c40e6d`.
 - [x] Both Raspberry Pi kernel families and the complete SD-card bundle.
 - [x] AP5-safe FRED/JIM transport with no dependency on cartridge `&FC30` UART
   registers.
 - [x] `*WIFI ON`, `*WIFI OFF`, `*LAP`, `*LAPOPT`, `*JOIN`, `*JOIN ?`,
-  `*LEAVE`, `*ONLINE`, `*IFCFG`, station `*MODE`, `*PING`, `*DATE`, `*TIME`,
-  `*WGET`, `*UEF LOAD`, `*MENU`, `*MENUSRC`, `*PRD`, `*WICFS` and `*REWIND`.
-- [x] Persistent WiFi profile, menu source and LAPOPT settings.
+  `*LEAVE`, `*ONLINE`, `*IFCFG`, station `*MODE`, `*PING`, `*NSLOOK`, `*DATE`,
+  `*TIME`, `*WGET`, `*UEF LOAD`, `*PRD`, `*WICFS` and `*REWIND`.
+- [x] Persistent WiFi profile and LAPOPT settings.
 - [x] Open, WEP, WPA and WPA2 association modes, with automatic reconnect from
   a saved profile.
-- [x] MENU download validation, transfer reporting and runtime conversion of
-  the published cartridge bank-select sequence.
+- [x] Retire MENU, MENUSRC, their downloaded-code patcher and Pi cache while
+  retaining generic WGET and UEF transport.
 - [x] Escape-aware scan, DNS, ICMP, NTP, HTTP and raw socket waits. Pi-side
   cancellation releases PCBs, clears scan state and invalidates late callback
   generations.
 - [x] WiCFS MOS extended-vector installation without occupying Tube workspace.
+  Tube-off hosts also receive an interrupt-safe standard-vector gateway at
+  `&0780`, below the observed `&0900-&10FF` cassette-loader overwrite range.
 - [x] Reset-safe WiCFS teardown. MOS rebuilds its vectors before ROM reset
   service calls, so 1MHzWifi clears its saved ownership record without
   restoring stale cassette predecessors over ADFS, DFS or MMFS.
@@ -31,7 +33,9 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   Tube channel or use a parasite as a Pi, JIM or title-load destination.
 - [x] Filing-system-neutral local UEF import through OSFIND/OSBGET, with JIM
   selector restoration, bounded storage, Escape handling, and a two-stage
-  automatic queue for the stock WiCFS `*REWIND`, `CHAIN ""` launch sequence.
+  automatic queue. The first cassette file is structurally classified through
+  the CR at its declared BASIC line boundary for `CHAIN ""`; all other loaders
+  use `*RUN ""`.
 - [x] DFS-neutral source import and ownership-checked DFS vector restoration.
   The ROM does not inspect DFS structures or retain state in DFS workspace.
 - [x] Content-based raw, gzip and single-entry ZIP UEF normalization in the
@@ -54,8 +58,8 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   older kernel returns `Unsupported`, causing the ROM to use the established
   byte-at-a-time path.
 - [x] Apply the same command 58 transport to untransformed paged WGET output,
-  including MENU title data and UEF images. Text and host-memory WGET modes
-  retain their byte-at-a-time transformations. Unsupported kernels fall back
+  including UEF images. Text and MOS-file WGET modes retain their byte-at-a-time
+  transformations. Unsupported kernels fall back
   without changing the public command behavior.
 - [x] Original-compatible OSWORD function 18 response limited to station IP,
   real station MAC, and `OK`; Pi-only status fields moved to `*ONLINE`.
@@ -68,6 +72,9 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   16 KiB image. The installer is repeatable after updating its final WiCFS
   patch detectors and retaining the install-failure guard in `uef.asm`.
 - [x] Both Pi kernels compile and link from a clean current Pi1MHz checkout.
+- [x] Incremental UEF window generation survives a complete overwrite of
+  `&0900-&10FF`; the authoritative generation is stored in Pi-private JIM and
+  restored before REFILL or APPEND requests.
 - [x] ROM contract tests and upstream Pi1MHz services, net and web parser tests
   pass. The Pi host tests run under ASan and UBSan.
 
@@ -92,11 +99,11 @@ The following work would expand the declared product rather than complete a
 half-written path in this release:
 
 - [ ] Add a maintained bare-metal TLS stack, certificate store, hostname and
-  time validation, then enable HTTPS for WGET and MENU.
+  time validation, then enable HTTPS for WGET.
 - [x] Provide a separate Pi1MHz secure-service ABI and native SSH client with
   verified host keys, known-host persistence, authentication and cancellation.
-- [x] Rebase the imported secure service to commands 94-100, with 94-113
-  reserved. Commands 92 and 93 remain `*ONLINE` and UEF normalisation.
+- [x] Use secure-service commands 94-100 for SSH and 101-113 for SFTP.
+  Commands 92 and 93 remain `*ONLINE` and UEF normalisation.
 - [ ] Add AP/APSTA support only with a DHCP server, client-list contract and
   complete teardown semantics.
 - [ ] Add a paged scan-result ABI if more than four BSS records must be exposed
@@ -168,8 +175,10 @@ ElkWiFi 0.23 cartridge and on 1MHzWifi.
 The former 1mhzNetTools backlog is part of this repository and must not be
 tracked elsewhere.
 
-- [x] Ship completed PING and NSLOOK clients with functional tests. Keep FTP,
-  HGET and Viewdata out of NETMENU and the released SSD until implemented.
+- [x] Move PING and NSLOOK into the ROM and remove their duplicate NetTools
+  programs.
+- [x] Add ROM-resident passive FTP and a separate NetTools SFTP application.
+  Both use the active MOS filing system for local GET and PUT files.
 - [ ] Complete VT100 insert, delete and erase character operations, line
   insert/delete, scroll margins, terminal modes, tab clearing, DA/DSR replies,
   cursor-position replies, Home/Delete/function-key mappings and reply-queue
@@ -195,7 +204,7 @@ tracked elsewhere.
 - [x] Implement native PING and NSLOOK clients and service calls, with build
   and emulated-mailbox coverage.
 - [ ] Implement HGET HTTPS with certificate and hostname validation plus
-  power-failure-safe output replacement. Implement FTP passive transfers.
+  power-failure-safe output replacement.
 - [ ] Qualify TELNET and SSH on physical BBC Micro, Master and Electron systems,
   including DFS, ADFS, MMFS and Tube coexistence where applicable.
 - [ ] Run the common ROM command and OSWORD matrix on BBC B, B+, Master,
@@ -296,6 +305,15 @@ The Mr Wiz stop is at the normalization-to-launch boundary and is distinct from
 the earlier final-file hypothesis. Repton is now a successful gameplay gate;
 retain its startup latency as a performance issue.
 
+The 0.1.59 baseline passes the exact Tube-off Thrust emulator journey to
+input-responsive, sustained gameplay with a live bus trace and zero Tube
+register accesses. The complete extracted BeebSCSI UEF corpus passes structural
+chunk, block-sequence and CRC validation. Repton 3, Repton Around the World and
+Repton Infinity exceed the legacy 64 KiB stream. The current candidate now
+implements the generic command-93 incremental protocol and passes raw, gzip,
+ZIP, exact-window, public-JIM-reuse and retry tests. Physical validation of
+these multi-window titles remains outstanding.
+
 ### Physical Tube-off milestone, 18 August 2026
 
 `build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` version 0.1.55, SHA-256
@@ -351,8 +369,8 @@ separately from a stable application run.
   `elkwifi_uef_trim_tail=1`. Record the final live page, offset, remaining
   length, CFS block status, OSFILE execution address and vector ownership.
 - [x] Reconcile the clean-source ROM with the maintained patch series. A clean
-  build reproduces the 0.1.58 candidate ROM at SHA-256
-  `339609afa38bc3fed486fb78b7ba6be236d7419fc0d80f3653e692c3fb366877`.
+  build reproduces the 0.1.62 candidate ROM at SHA-256
+  `d74863484c6e52bc6a2c497d7c83210232c19844af2c6d729e87db4f49d346fa`.
   Physical compatibility gates remain required before promotion.
 - [x] Move HWDTEST's JIM write/read probe from reserved WiCFS state at
   `&FFEF00` to `&FFEE00`. D4 verifies the 26-byte state record is unchanged and
@@ -375,8 +393,11 @@ separately from a stable application run.
 
 - [x] Stop the NetTools loader from unconditionally selecting MODE 4. It now
   preserves a caller mode whose host HIMEM covers the exact tool image and uses
-  MODE 4 only for an insufficient boundary or active Tube fallback. Assembled
-  6502 tests cover both paths. Physical Tube-off confirmation remains required.
+  MODE 4 only for an insufficient boundary. The terminal renderer reads the
+  active MOS text window and supports 20 through 80 columns. Assembled 6502
+  tests prove a suitable 80-column mode survives password authentication and
+  an insufficient stock MODE 0 falls back exactly once at entry. Physical
+  Tube-off confirmation remains required.
   Any future 80-column or enhanced terminal mode must be an explicit user
   option and must restore the previous mode on exit where the MOS permits it.
 - [ ] Measure the accelerated physical mailbox/JIM transfer path. `*MENU`
@@ -384,7 +405,7 @@ separately from a stable application run.
   unacceptably slow. The current physical run took about two minutes to WGET
   each of Frak and Arcadians, followed by slow cassette playback. Record exact
   byte counts and elapsed times before changing bus settling or polling. Do
-  not remove delays merely because a synchronous emulator passes. The 0.1.58
+  not remove delays merely because a synchronous emulator passes. The 0.1.59
   bundle removes the host byte loop for raw paged WGET and OSWORD receive, but
   its improvement still requires elapsed-time measurements on hardware.
 - [ ] Complete physical ElkChat validation in the relocated `8bit-net`

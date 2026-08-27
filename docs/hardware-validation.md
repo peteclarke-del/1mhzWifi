@@ -11,15 +11,15 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-Pi1MHz       d08242ee1b35cf1285b72c9ec1869e98081a8c3e
-1MHzWifi ROM 339609afa38bc3fed486fb78b7ba6be236d7419fc0d80f3653e692c3fb366877
-kernel.img   fad559ca1e3840e5487ac44c0753c78251ea208e95c9fd42edb1e66370dce39a
-kernel7.img  3c9a99898bb9c83ae113ddc4f6896b0187155854221d946d180e313d2b2aaec1
-nettools.ssd 7bca283a8ede47868576150a8db17cfb1943cd3dc14de4e06547683d1b084f2f
-bundle ZIP   2127a2a9cf9c5084ccdea4ca86e36152eb7fe0952010f5e21da1959c7b584956
+Pi1MHz       e949f2d2714b15f314df375e52db5febb6c40e6d
+1MHzWifi ROM afc0734188cb6b1b5b7068efe9ca6c937f0802773b2a2753e13942049491831a
+kernel.img   fca669d1bb6714877de7ceccc1c85967c79701b21e6801e381e9e7e5d67f1145
+kernel7.img  f18ecb8b374db812bbb88dfc6c500abb164f4c11c71ae0f3ffe82c6a7ad83426
+nettools.ssd 7bfe26b2c8f3212466bd3bdbc7f40e6f1d72722a3dbcc7a9f25fd3858dc8d883
+bundle ZIP   1b7684f494f4a97d92319b9e562305670c74e32c0139a7f6885f0b4370885047
 ```
 
-The Pi1MHz commit was the official `master` tip verified on 19 August 2026. Run
+The Pi1MHz commit was the official `master` tip verified on 23 August 2026. Run
 `./pi-side/check_upstream.sh` before producing another hardware-test bundle.
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
@@ -29,6 +29,55 @@ for a clean card and may contain a fresh configuration template.
 
 Also preserve `/BeebSCSI0` and its `scsi*.dat` images. The bundle supplies the
 ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
+
+## 0.1.61 emulator evidence, 24 August 2026
+
+The final ROM is version 0.1.61 with SHA-256
+`239222cc53e973cf19e801b8bcfaab14ba0bf7196de79be5a8dce5d7e2967ee8`.
+It was run in the Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS and read-only
+BeebSCSI profile with the photographed ROM order and Tube disabled. The live
+MENU downloaded Last of the Free as 30,997 bytes with SHA-256
+`c0fa7b26c8cf9d79adc82ed0f330ff5831562ab91609381219d1084eca7bab5b`.
+The first machine-code file launched with `*RUN ""` and every subsequent
+cassette file loaded. The strict runner then used the documented Space, X and
+Return controls. It observed the reviewed title state, an input-correlated
+transition into gameplay, subsequent movement, a live emulator process,
+preserved BeebSCSI access, and no MOS error or known failure screen. The exact
+final artifact therefore passed the complete Tube-off acceptance gate. Evidence
+is retained in `/tmp/lotf-0161-final2/report.json` on the validation host.
+
+The same final ROM also passed local `*UEF LOAD THRUST` from the staged ADFS
+BeebSCSI image. This exercises the complementary tokenised-BASIC path: the
+declared line boundary selected `CHAIN ""`, both reviewed gameplay inputs were
+accepted, motion continued to the observation deadline, and the 6.6 MiB 1MHz
+bus trace was valid. No MOS error or known failure screen appeared. Evidence is
+retained in `/tmp/thrust-0161-classifier-final4/report.json` on the validation
+host.
+
+Physical Tube-off testing must still confirm that the earlier
+`FREE 06 06FF Bad Program` failure and subsequent MENU hang are gone. Tube-on
+behavior is not covered by the low-memory gateway and remains a separate gate.
+
+## 0.1.62 repeated MENU candidate evidence, 24 August 2026
+
+This section is historical evidence. Version 0.1.63 removes the MENU command
+and its cache; none of these steps apply to the current ROM.
+
+The 0.1.62 ROM and matched kernels add an explicit two-entry Pi RAM cache for
+the MENU executable and TITLES catalogue. The default lifetime is one hour and
+can be changed with `elkwifi_menu_cache_seconds` in `Pi1MHz.cfg`; zero disables
+it. Only a complete successful HTTP body replaces a cached entry. Ordinary
+`*WGET` and game UEF downloads bypass the cache.
+
+The exact Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS and read-only BeebSCSI
+profile completed this sequence in one Elkulator process: `*MENU`, Arcadians
+download, reviewed runnable state, gameplay input, Break, second `*MENU`,
+second Arcadians download, reviewed runnable state and changing gameplay
+frames. The mailbox trace recorded cache hits for both `/MENU` and `/TITLES`;
+the game was downloaded normally. Evidence is retained in
+`/tmp/arcadians-0162-repeat-menu/report.json` on the validation host. This is
+emulator evidence only. The physical post-game MENU and ADFS recovery gates
+remain open.
 
 ## Confirmed physical Tube-off milestone, 18 August 2026
 
@@ -87,6 +136,34 @@ visible cassette-loading sequence, rather than at the final `MRWIZ4` block.
 SSH works, but entering its password from MODE 0 incorrectly changes the
 display to MODE 4. Tube-on behavior is not inferred from this milestone.
 
+The 0.1.59 candidate captures the omitted pre-TAPE BYTEV pair alongside the
+extended filing vectors and refuses a new MENU installation if the previous
+WiCFS owner cannot be released cleanly. Its assembled launch gate passes with
+delayed mailbox publication from 1 through 255 accesses and with a balanced
+6502 stack. This is candidate evidence, not a replacement for repeating the
+MENU, Break, ADFS read, second MENU and local UEF sequences on hardware.
+
+The exact 0.1.59 ROM also reaches input-responsive Thrust gameplay in the
+instrumented Electron, Plus 1, Plus 2, AP5, RH Plus and ADFS/BeebSCSI profile.
+The run recorded 184,780 bus events, no Tube-register access, unchanged media
+and configuration, and sustained gameplay motion after reviewed title-screen
+input. This proves the emulated Tube-off path, not the pending physical or
+Tube-enabled gates.
+
+The extracted BeebSCSI corpus contains 11 structurally valid images:
+Arcadians, Bumble Bee, Mr Wiz, Plan B, Plan B 2, Repton, Repton 2, Repton 3,
+Repton Around the World, Repton Infinity and Thrust. Every image has complete
+UEF chunks, continuous CFS block sequences and valid CRCs. Repton 3, Around
+the World and Infinity exceed the legacy 64 KiB JIM capacity. The current
+candidate supplies them through the generic incremental stream protocol.
+Structural and emulator boundary tests pass; physical gameplay remains a
+required acceptance result.
+
+The SSH renderer now reads the active MOS text window and preserves a suitable
+80-column mode through password authentication. Stock non-shadow MODE 0 cannot
+contain the current SSH image because its `HIMEM=&3000`; the one entry-time
+MODE 4 fallback is therefore expected on that memory layout.
+
 ## Pi target matrix
 
 | Board | Image | Required result |
@@ -111,12 +188,6 @@ CYW43455 firmware at runtime.
   contain the exact `AP5 Tube: external 3MHz 65C02 enabled` startup marker.
 - [x] Boot ROM 0.1.55 with Electron OS, BASIC and ADFS in Elkulator. Confirm
   both ROM banners and a BASIC prompt.
-- [ ] Repeat current-ROM MENU acceptance with reviewed, title-specific gameplay
-  references, input-correlated state changes, complete stream hashes and close
-  events. The 0.1.54 Tube-off and Tube-on FrakV2 runs met every gate and used the
-  same 30,070-byte payload with SHA-256
-  `d1062885c830fad654a1c22075b2024d1973364134f8f4d23b4c38677ea2c3bf`,
-  but they do not sign off 0.1.55.
 - [x] Run `*UEF LOAD THRUST` with ROM 0.1.55, Tube disabled, the photographed
   ROM order and the real read-only BeebSCSI LUN. The complete three-file load
   reaches the instruction screen. Two separate Space inputs advance through
@@ -124,22 +195,12 @@ CYW43455 firmware at runtime.
   the full two-key sequence and uses a longer conservative timing window.
 - [ ] Repeat the same 0.1.55 Thrust test with the Tube enabled. Earlier Tube-on
   results used 0.1.54 and must not sign off this binary.
-- [ ] Repeat the complete MENU title matrix with the 0.1.55 hardware-test ROM. The
-  THRUST and live FrakV2 gameplay evidence is retained, but the complete
-  catalogue requires its own run.
-  The full catalogue remains a physical and batch-emulator gate. The earlier
-  Tube-active return to the parasite prompt remains a regression fixture.
 - [ ] Run `*VERSION` in Elkulator and verify both copyright lines.
 - [ ] Run `*WICFS`, then literal `*REWIND`, and verify an immediate prompt
   return. Elkulator's expansion ROM becomes unavailable after `*TAPE`, so this
   transition must be proved on AP5 hardware.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
   `1MHzWifi 0.1.55` before recording any further hardware test result.
-- [x] Boot the photographed ROM layout in Elkulator: RH Plus 1 1.33
-  in C, BASIC in B, writable sideways RAM in 7 and 6, AFM 1.09 in 5,
-  1MHzWifi 0.1.55 in 3, and Acorn ADFS 1.00 in 1. Run the live `*MENU` and
-  satisfy the strengthened FrakV2 gameplay gate with the AP5 Tube disabled and
-  enabled. The complete catalogue remains a separate unchecked gate.
 - [ ] Boot the minimum supported layout in Elkulator: 32K Electron, Plus 1,
   AP5-constrained Pi1MHz mailbox, 1MHzWifi 0.1.55 and a user-supplied MMFS ROM.
   No Plus 2, sideways RAM, ADFS or Tube is present.
@@ -147,7 +208,6 @@ CYW43455 firmware at runtime.
   507, catalogue `DESK`, run `*UEF LOAD DESK`, and satisfy an application-state
   reference rather than generic screen motion.
 - [x] Run `*IFCFG` with no services-mailbox device. Confirm a bounded error and no rows of spaces.
-- [x] Run `*MENUSRC` with no services-mailbox device. Confirm a bounded error and return to BASIC.
 - [x] Add a Pi1MHz services-mailbox and JIM bridge to Elkulator and run live
   Internet command tests.
 
@@ -261,25 +321,32 @@ Expected error meanings:
 - [ ] Test SSIDs and passwords containing spaces, commas, quotes, and boundary lengths.
 - [ ] Confirm configuration and profile precedence matches the documented order.
 
-## Menu and HTTP gate
+## HTTP gate
 
-- [ ] Run `*MENUSRC`; confirm it prints the active URL and does not dispatch `*MENU`.
-- [ ] Save a temporary HTTP URL with `*MENUSRC <url>` and read it back.
-- [ ] Run `*MENUSRC DEFAULT` and confirm the default persists after power cycle.
-- [ ] Run `*MENU` against the published ElkWiFi payload. Confirm
-  `Downloading menu`, the counted `WGET RAW OK`, `WGET GZIP OK`, or
-  `WGET ZIP OK` line with expanded length, and
-  `Starting menu` appear, the cartridge
-  `&FC34` bank-select sequence becomes an AP5-compatible no-bank helper, and host `&E00` starts
-  the menu without a BASIC `CALL`.
-- [ ] Confirm the first screen renders all 21 catalogue entries.
-- [ ] With ADFS current, run `*MENU` without entering `*TAPE` first. Confirm
-  the complete catalogue renders and a selected title runs.
-- [ ] Run `*MENU` against DNS failure, refused connection, HTTP error, empty body, and timeout cases. Confirm none calls stale `&E00` memory.
+- [ ] Confirm `*MENU` and `*MENUSRC` are absent from `*HELP WIFI` and return
+  `Bad command` rather than entering downloaded code.
+- [ ] Run `*NSLOOK` against a hostname and confirm the printed IPv4 address.
 - [ ] Cancel WGET with Escape during DNS, connect, empty wait, and body transfer.
-- [ ] Test binary WGET across a main-memory page boundary.
+- [ ] Run `*WGET <url> <filename>` under ADFS, DFS and MMFS. Verify the file's
+  exact byte count and hash, and confirm the filing system remains selected.
 - [ ] Test text modes, maximum transfer size, and a 30-minute repeated-transfer loop.
 - [ ] Test redirects, chunked bodies, content length, and connection-close bodies; record unsupported cases.
+
+## FTP and SFTP gate
+
+- [ ] Run `*FTP ftp://host[:port]` against a controlled FTP server. Exercise
+  USER, PASS, PWD, CD, DIR, LS, ASCII, BINARY, GET, PUT, DELETE, MKDIR,
+  RMDIR and QUIT.
+- [ ] Compare uploaded and downloaded binary files byte for byte under ADFS,
+  DFS and MMFS. Confirm failed remote opens do not truncate local files.
+- [ ] Press Escape during DNS, control connect, passive data connect, download
+  and upload. Every cancellation must return to the MOS prompt and leave the
+  next FTP session usable.
+- [ ] Run `*SFTP user@host [port]` from the released NetTools SSD. Exercise
+  host-key acceptance, key authentication, password fallback, PWD, CD, DIR,
+  LS, GET, PUT, DELETE, MKDIR, RMDIR and QUIT.
+- [ ] Repeat FTP and SFTP with the Tube absent, fitted but unused, and active.
+  Trace `&FEE0-&FEFF`; neither client may address or claim the Tube.
 
 ## WiCFS and JIM gate
 
@@ -440,8 +507,8 @@ a Tube register.
   game reaches its title screen through the two-stage queued WiCFS launch with
   no additional keystrokes.
 - [ ] Repeat `*UEF LOAD` from hardware DFS, the ADFS hard disc and MMFS, including
-  a path-qualified filename, Escape, missing file, empty file, and an image
-  larger than `&FFFE` bytes.
+  a path-qualified filename, Escape, missing file, empty file, an exact
+  `&FF00` boundary, and a multi-window image larger than `&FFFE` bytes.
 - [x] Differentially test the exact staged Thrust image through WiCFS and
   Elkulator's untouched native cassette path under the same AP5, ADFS and
   BeebSCSI profile. Both paths reach input-responsive gameplay. After a soft
@@ -457,17 +524,18 @@ a Tube register.
 - [ ] Repeat the local import with raw UEF, gzip UEF, a single-entry ZIP
   containing raw UEF, and a ZIP containing gzip UEF. Verify the reported
   format and expanded byte count, then test bad CRC, truncated deflate data,
-  multiple-entry ZIP, and an expanded image larger than `&FFFE` bytes.
-- [ ] Select a MENU title with the Tube off and then on. In both cases confirm
-  a format-qualified `WGET ... OK`, WiCFS activation, and execution of the
-  downloaded program.
+  multiple-entry ZIP, an image above the 16 MiB stream limit, and expanded
+  images spanning one, two and three public windows.
 - [x] Run the first ten published catalogue entries through the automated
   Tube-on/off differential. Confirm identical UEF byte counts and SHA-256
   values for all pairs. Retain strict screen mismatches for visual review.
 - [ ] Test sequential open/read, EOF, rewind, Escape, malformed UEF, and recovery.
 - [ ] While associated, press BREAK and time `*ONLINE`. Confirm the preserved
   Pi-side association is available within seconds and no full rejoin starts.
-- [ ] Confirm `*PRD` can inspect both defined JIM windows and restores the selector.
+- [ ] On a direct BBC-family connection, confirm `*PRD 0 0` and `*PRD 0 1`
+  inspect the two defined JIM windows and restore selector `00:00`.
+- [ ] On Electron AP5, confirm `*PRD 0 0` works and `*PRD 0 1` reports
+  `Unknown option`; AP5 does not forward the high JIM selectors.
 - [ ] Test `*WGET -S` with valid sideways RAM and with no writable sideways RAM.
 - [ ] Run WiCFS and another Pi1MHz JIM-using service concurrently; check for scratch-page collision.
 
@@ -482,27 +550,22 @@ a Tube register.
 
 ## Tube coexistence gate
 
-- [ ] Run `*HELP WIFI`, `*MENUSRC`, `*MENU`, `*WGET`, and `*WICFS` from the I/O processor.
+- [ ] Run `*HELP WIFI`, `*PING`, `*NSLOOK`, `*WGET`, and `*WICFS` from the I/O processor.
 - [ ] Repeat applicable commands while each supported Tube is fitted and active.
   Any Pi, network or JIM traffic must remain on the 1MHz bus. Tube traffic is
   permitted only for application activity outside 1MHzWifi.
-- [ ] Run `*MENU` with the Tube enabled. Confirm the menu UI executes on the
-  I/O processor, title data uses the AP5-visible JIM window, and no parasite `&0E00`
-  execution or BASIC `CALL` occurs.
 - [ ] Trace calls and confirm only the I/O processor accesses `&FCxx` and `&FDxx`.
 - [ ] Exercise every pointer-bearing OSWORD `&65` call with buffers in parasite memory.
-- [ ] Trace a complete title load. Confirm 1MHzWifi never accesses Tube
+- [ ] Trace a complete UEF load. Confirm 1MHzWifi never accesses Tube
   registers, claims a Tube channel or disables the Tube. Confirm the loader
   executes in Electron host memory and a Tube-aware game can still use the
   fitted processor itself.
-- [ ] Select `Aardvark/Zalaga_E.uef` from `*MENU` with the Tube enabled. Confirm
-  each stage reaches the destination requested by MOS and the game reaches its
-  title screen without token text or an unexpected BASIC prompt.
 - [ ] Confirm no WiCFS vector code occupies Tube workspace `&0400-&07FF` and no
   parasite pointer is passed to JIM or the 1MHz-bus Pi service.
-- [x] Run `*UEF LOAD THRUST` with Tube disabled and enabled. Confirm both reach
-  live gameplay and the Tube-enabled path does not use Tube registers or a
-  parasite destination.
+- [ ] Run the current 0.1.59 `*UEF LOAD THRUST` candidate with Tube disabled
+  and enabled. Confirm both reach live gameplay and the Tube-enabled path does
+  not use Tube registers or a parasite destination. Earlier candidates reached
+  gameplay in both profiles, but that evidence does not promote 0.1.59.
 
 ## OSWORD application compatibility gate
 

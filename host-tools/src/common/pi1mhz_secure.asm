@@ -7,6 +7,19 @@ SEC_CMD_SSH_READ = 97
 SEC_CMD_SSH_WRITE = 98
 SEC_CMD_SSH_CLOSE = 99
 SEC_CMD_SSH_PASSWORD = 100
+SEC_CMD_SFTP_OPEN = 101
+SEC_CMD_SFTP_PWD = 102
+SEC_CMD_SFTP_CD = 103
+SEC_CMD_SFTP_LS = 104
+SEC_CMD_SFTP_DELETE = 105
+SEC_CMD_SFTP_MKDIR = 106
+SEC_CMD_SFTP_RMDIR = 107
+SEC_CMD_SFTP_GET_OPEN = 108
+SEC_CMD_SFTP_GET_READ = 109
+SEC_CMD_SFTP_PUT_OPEN = 110
+SEC_CMD_SFTP_PUT_WRITE = 111
+SEC_CMD_SFTP_TRANSFER_CLOSE = 112
+SEC_CMD_SFTP_CLOSE = 113
 SEC_ABI_MAJOR = 1
 SEC_RANDOM_JIM_LO = &00
 SEC_RANDOM_JIM_MI = &02
@@ -20,6 +33,9 @@ SEC_USER_JIM_HI = &02
 SEC_PASSWORD_JIM_LO = &00
 SEC_PASSWORD_JIM_MI = &06
 SEC_PASSWORD_JIM_HI = &02
+SEC_PATH_JIM_LO = &00
+SEC_PATH_JIM_MI = &07
+SEC_PATH_JIM_HI = &02
 
 .secure_probe
     LDA #SEC_CMD_CAPS
@@ -284,6 +300,152 @@ SEC_PASSWORD_JIM_HI = &02
     PLP
     LDA secure_password_result
     RTS
+
+\ Copy a NUL-terminated remote path at X/Y into the fixed SFTP path buffer.
+.secure_copy_path
+    PHP
+    SEI
+    STX net_ptr
+    STY net_ptr + 1
+    LDA #SEC_PATH_JIM_LO
+    LDX #SEC_PATH_JIM_MI
+    LDY #SEC_PATH_JIM_HI
+    JSR net_select_address
+    JMP secure_copy_string
+
+.secure_sftp_open
+    STA secure_open_flags
+    LDA #SEC_CMD_SFTP_OPEN
+    JSR net_begin
+    LDA secure_open_flags
+    JSR net_data_write
+    LDA #SEC_URL_JIM_LO
+    JSR net_data_write
+    LDA #SEC_URL_JIM_MI
+    JSR net_data_write
+    LDA #SEC_URL_JIM_HI
+    JSR net_data_write
+    LDA #0
+    JSR net_data_write
+    LDA #SEC_USER_JIM_LO
+    JSR net_data_write
+    LDA #SEC_USER_JIM_MI
+    JSR net_data_write
+    LDA #SEC_USER_JIM_HI
+    JSR net_data_write
+    LDA #0
+    JSR net_data_write
+    JMP net_dispatch_wait
+
+\ A contains the path-operation command. The fixed path buffer is input and
+\ the normal receive buffer is output. Returns length in net_length.
+.secure_sftp_path
+    JSR net_begin
+    LDA #NET_IO_MAX
+    JSR net_data_write
+    LDA #0
+    JSR net_data_write
+    JSR net_data_write
+    LDA #SEC_PATH_JIM_LO
+    JSR net_data_write
+    LDA #SEC_PATH_JIM_MI
+    JSR net_data_write
+    LDA #SEC_PATH_JIM_HI
+    JSR net_data_write
+    LDA #0
+    JSR net_data_write
+    LDA #NET_RX_LO
+    JSR net_data_write
+    LDA #NET_RX_MI
+    JSR net_data_write
+    LDA #NET_RX_HI
+    JSR net_data_write
+    LDA #0
+    JSR net_data_write
+    JSR net_dispatch_wait
+    JMP secure_ssh_result_length
+
+\ A is GET_OPEN or PUT_OPEN; the fixed path buffer is input.
+.secure_sftp_transfer_open
+    JSR net_begin
+    LDA #0
+    JSR net_data_write
+    JSR net_data_write
+    JSR net_data_write
+    LDA #SEC_PATH_JIM_LO
+    JSR net_data_write
+    LDA #SEC_PATH_JIM_MI
+    JSR net_data_write
+    LDA #SEC_PATH_JIM_HI
+    JSR net_data_write
+    LDA #0
+    JSR net_data_write
+    JMP net_dispatch_wait
+
+.secure_sftp_get_read
+    LDA #SEC_CMD_SFTP_GET_READ
+    JSR net_begin
+    LDA #NET_IO_MAX
+    JSR net_data_write
+    LDA #0
+    JSR net_data_write
+    JSR net_data_write
+    LDA #NET_RX_LO
+    JSR net_data_write
+    LDA #NET_RX_MI
+    JSR net_data_write
+    LDA #NET_RX_HI
+    JSR net_data_write
+    LDA #0
+    JSR net_data_write
+    JSR net_dispatch_wait
+    JMP secure_ssh_result_length
+
+\ A is length and X/Y point to data.
+.secure_sftp_put_write
+    STA net_write_length
+    STX net_ptr
+    STY net_ptr + 1
+    PHP
+    SEI
+    JSR net_select_tx
+    LDY #0
+.secure_sftp_put_copy
+    CPY net_write_length
+    BEQ secure_sftp_put_command
+    LDA (net_ptr),Y
+    JSR net_data_write
+    INY
+    BNE secure_sftp_put_copy
+.secure_sftp_put_command
+    PLP
+    LDA #SEC_CMD_SFTP_PUT_WRITE
+    JSR net_begin
+    LDA net_write_length
+    JSR net_data_write
+    LDA #0
+    JSR net_data_write
+    JSR net_data_write
+    LDA #NET_TX_LO
+    JSR net_data_write
+    LDA #NET_TX_MI
+    JSR net_data_write
+    LDA #NET_TX_HI
+    JSR net_data_write
+    LDA #0
+    JSR net_data_write
+    JSR net_dispatch_wait
+    JMP secure_ssh_result_length
+
+.secure_sftp_transfer_close
+    LDA #SEC_CMD_SFTP_TRANSFER_CLOSE
+    JSR net_begin
+    JMP net_dispatch_wait
+
+.secure_sftp_close
+    LDA #SEC_CMD_SFTP_CLOSE
+    JSR net_begin
+    JMP net_dispatch_wait
 
 .secure_features
     EQUB 0

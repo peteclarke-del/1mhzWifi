@@ -61,7 +61,7 @@ git clone https://github.com/hoglet67/ElkWiFi.git "$build_root/ElkWiFi"
 git -C "$build_root/ElkWiFi" checkout 7bf366c97bec18bd238963c95e6f2aa6893cdb3a
 
 git clone https://github.com/dp111/Pi1MHz.git "$build_root/Pi1MHz"
-git -C "$build_root/Pi1MHz" checkout d08242ee1b35cf1285b72c9ec1869e98081a8c3e
+git -C "$build_root/Pi1MHz" checkout e949f2d2714b15f314df375e52db5febb6c40e6d
 git -C "$build_root/Pi1MHz" submodule update --init --recursive
 ./pi-side/check_upstream.sh "$build_root/Pi1MHz"
 ```

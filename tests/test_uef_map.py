@@ -103,6 +103,15 @@ class UefMapTest(unittest.TestCase):
         self.assertIsNone(report["cfs_blocks"][0]["data_crc"])
         self.assertEqual(report["cfs_issues"], [])
 
+    def test_accepts_residual_bytes_after_cfs_data_crc(self):
+        header = b"UEF File!\0\x05\0"
+        block = self.cfs_block(b"GAME", 0, b"abc", flags=0x80) + b"\x00\xff"
+        report = self.inspect_bytes(header + self.chunk(0x0100, block))
+        parsed = report["cfs_blocks"][0]
+        self.assertEqual(parsed["trailing_length"], 2)
+        self.assertEqual(parsed["trailing_hex"], "00ff")
+        self.assertEqual(report["cfs_issues"], [])
+
     def test_rejects_truncated_chunks_and_multi_entry_zip(self):
         raw = b"UEF File!\0\x05\0" + struct.pack("<HI", 0x0100, 99) + b"x"
         with self.assertRaisesRegex(MODULE.UefError, "declares 99 bytes"):
@@ -123,6 +132,20 @@ class UefMapTest(unittest.TestCase):
                 report = MODULE.inspect_uef(sample)
                 self.assertEqual(report["chunks"][-1]["end"],
                                  report["decoded_length"])
+
+    def test_installed_corpus_contains_the_workspace_overwrite_boundary(self):
+        sample = (ROOT / "samples/(2022-06-08)" /
+                  "Shark (1988)(Audiogenic).uef")
+        if not sample.is_file():
+            self.skipTest("local third-party UEF corpus is not installed")
+        report = MODULE.inspect_uef(sample)
+        overlaps = []
+        for block in report["cfs_blocks"]:
+            start = block["load_address"] & 0xFFFF
+            end = start + block["data_length"]
+            if start < 0x0398 and end > 0x0380:
+                overlaps.append((block["name"], start, end))
+        self.assertEqual(overlaps, [("PATCH", 0x0380, 0x03B2)])
 
 
 if __name__ == "__main__":

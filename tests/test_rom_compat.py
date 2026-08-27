@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
-ROM_SHA256 = "339609afa38bc3fed486fb78b7ba6be236d7419fc0d80f3653e692c3fb366877"
+ROM_SHA256 = "afc0734188cb6b1b5b7068efe9ca6c937f0802773b2a2753e13942049491831a"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -26,21 +26,20 @@ class RomCompatibilityTest(unittest.TestCase):
         copyright_offset = self.rom[7]
         self.assertEqual(self.rom[copyright_offset:copyright_offset + 4], b"\0(C)")
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.58\0")
-        self.assertIn(b"1MHzWifi 0.1.58 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.66\0")
+        self.assertIn(b"1MHzWifi 0.1.66 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
-    def test_menu_catalogue_selector_is_present(self) -> None:
-        helper = bytes.fromhex("EA EA EA EA EA EA EA EA EA B9 00 FD 60")
-        self.assertEqual(self.rom.count(helper), 1)
-        self.assertIn(bytes.fromhex("20 C5 1F EA EA EA EA EA"), self.rom)
-        self.assertRegex(
-            self.rom,
-            re.compile(bytes.fromhex("E0 01 F0") + b"."
-                       + bytes.fromhex("8D FD FC 20") + b".."
-                       + bytes.fromhex("8D FE FC 20"), re.S),
-        )
+    def test_uef_host_transition_is_present(self) -> None:
         self.assertIn(b"TAPE\r", self.rom)
+        source = (
+            ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm"
+        ).read_text()
+        self.assertIn(".host_select_tape", source)
+        self.assertIn("jsr wicfs_snapshot_pre_tape", source)
+        self.assertIn("jsr wicfs_release_tape_trap", source)
+        self.assertIn(".host_enter_basic", source)
+        self.assertNotIn("MENU", source)
 
     def test_uef_file_handle_is_recovered_from_each_stack_context(self) -> None:
         # Inline read: TSX; LDY &0103,X; JSR OSBGET.
@@ -86,7 +85,7 @@ class RomCompatibilityTest(unittest.TestCase):
         # compatibility requirement.
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FE FD")), 1)
         self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FF FD")), 1)
-        # &03E0-&03FF is the MOS keyboard input buffer containing MENU/UEF's
+        # &03E0-&03FF is the MOS keyboard input buffer containing UEF's
         # queued REWIND and CHAIN commands. The ROM must never mutate it. The
         # literal operand bytes may occur as data or instructions crossing a
         # ROM byte boundary, so inspect decoded absolute stores from a listing
@@ -117,19 +116,20 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertNotIn(loader_signature, self.rom)
         self.assertIn(b"TAPE\r", self.rom)
 
-    def test_stock_commands_additive_menusrc_and_osword_are_present(self) -> None:
+    def test_supported_commands_and_osword_are_present(self) -> None:
         for command in (
-            b"WGET", b"MENU", b"MENUSRC", b"WIFI", b"VERSION", b"LAPOPT",
+            b"WGET", b"FTP", b"WIFI", b"VERSION", b"LAPOPT",
             b"LAP", b"IFCFG", b"DATE", b"TIME", b"PRD", b"JOIN", b"LEAVE",
-            b"PING", b"MODE", b"ONLINE", b"DISCONNECT", b"UEF", b"WICFS",
+            b"PING", b"NSLOOK", b"MODE", b"ONLINE", b"DISCONNECT", b"UEF", b"WICFS",
             b"REWIND", b"QUPCFS", b"QUPRUN", b"PAGE=&E00\r*QR\r",
         ):
             self.assertIn(command, self.rom)
-        for removed in (b"PRINTER", b"UPDATE", b"SETSERIAL", b"CRC error"):
+        for removed in (
+            b"MENU", b"MENUSRC", b"PRINTER", b"UPDATE", b"SETSERIAL",
+            b"CRC error", b"acornelectron.nl",
+        ):
             self.assertNotIn(removed, self.rom)
         self.assertIn(bytes((0xA5, 0xEF, 0xC9, 0x65)), self.rom)
-        self.assertIn(b'*REWIND|MCHAIN ""|M\r', self.rom)
-        self.assertNotIn(b'*RUN ""|M\r', self.rom)
         self.assertIn(b"Usage: *UEF LOAD <filename>", self.rom)
         self.assertIn(b"UEF ", self.rom)
         self.assertIn(b"RAW ", self.rom)
@@ -139,6 +139,7 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(b"*QUPRUN\r", self.rom)
         self.assertIn(b"*REWIND\rCHAIN \"\"\r", self.rom)
         self.assertNotIn(b"*QUPRUN\r*REWIND", self.rom)
+        self.assertIn(b"USER PASS PWD CD DIR LS GET PUT", self.rom)
 
     def test_public_osword_driver_abi_reaches_single_socket_transport(self) -> None:
         # The emitted OSWORD &65 handler must unpack driver A/X/Y from the
@@ -151,9 +152,17 @@ class RomCompatibilityTest(unittest.TestCase):
         driver = (ROOT / "rom-side/elkwifi-0.23/overlay/driver.asm").read_text()
         service = (ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm").read_text()
         serial = (ROOT / "rom-side/elkwifi-0.23/overlay/serial.asm").read_text()
-        self.assertIn("cmp #9\n bne service_driver_not_9\n jmp service_driver_cpmux", driver)
-        self.assertIn("cmp #0\n bne service_driver_not_0\n jmp service_driver_init", driver)
-        self.assertIn("cmp #1\n bne service_driver_not_1\n jmp service_driver_reset", driver)
+        table = driver.split(".public_driver_dispatch", 1)[1].split(
+            "\\ Initialize the data buffer", 1
+        )[0]
+        entries = re.findall(r"equw (service_driver_[a-z0-9_]+)-1", table)
+        self.assertEqual(len(entries), 32)
+        self.assertEqual(entries[0], "service_driver_init")
+        self.assertEqual(entries[1], "service_driver_reset")
+        self.assertEqual(entries[9], "service_driver_cpmux")
+        self.assertEqual(entries[18], "service_driver_ifcfg")
+        self.assertEqual(entries[29:32], ["service_driver_unsupported"] * 3)
+        self.assertIn("ldx driver_entry_x\n ldy driver_entry_y", driver)
         reset = service.split(".service_driver_init", 1)[1].split(
             ".service_driver_version", 1
         )[0]
@@ -184,11 +193,11 @@ class RomCompatibilityTest(unittest.TestCase):
         # Error construction and driver state must remain in the retired
         # netprt block.
         ping = (ROOT / "rom-side/elkwifi-0.23/overlay/ping.asm").read_text()
-        menusrc = (ROOT / "rom-side/elkwifi-0.23/overlay/menusrc.asm").read_text()
+        nslook = (ROOT / "rom-side/elkwifi-0.23/overlay/nslook.asm").read_text()
         errors = (ROOT / "rom-side/elkwifi-0.23/overlay/errors.asm").read_text()
         self.assertNotIn("errorspace+", service)
         self.assertNotIn("errorspace+", ping)
-        self.assertNotIn("errorspace+", menusrc)
+        self.assertNotIn("errorspace+", nslook)
         self.assertNotIn("errorspace", errors)
         self.assertIn("error_workspace = netprt", errors)
         self.assertIn("drv_svc_workspace = netprt", service)
@@ -201,6 +210,8 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn("net_empty_lo = drv_svc_workspace+24", transport)
         self.assertIn(".net_wait_cursor", transport)
         self.assertGreaterEqual(transport.count("jsr net_wait_cursor"), 2)
+        self.assertIn("lda #46", nslook)
+        self.assertIn('equs "Address: "', nslook)
 
         join = service.split(".service_driver_join", 1)[1].split(
             ".service_driver_leave", 1
@@ -231,7 +242,7 @@ class RomCompatibilityTest(unittest.TestCase):
     def test_services_use_ap5_fred_window_from_io_processor(self) -> None:
         self.assertIn(bytes((0x8D, 0xA6, 0xFC)), self.rom)  # STA &FCA6
         self.assertIn(bytes((0xAD, 0xAA, 0xFC)), self.rom)  # LDA &FCAA
-        self.assertIn(b"Pi1MHz ElkWiFi service not responding", self.rom)
+        self.assertIn(b"No response from device", self.rom)
         self.assertNotIn(b"ACORNELECTRON.NL/uefarchive/MENU", self.rom)
 
     def test_join_uses_the_long_async_service_timeout(self) -> None:
@@ -242,9 +253,9 @@ class RomCompatibilityTest(unittest.TestCase):
         # The original power-on path loaded reset function 1 from X and called
         # wifidriver.  The Pi1MHz build must start even when no kernel responds.
         self.assertNotIn(bytes((0x8A, 0x20, 0x5C, 0x82)), self.rom)
-        # Pi1MHz reports WiFi enabled locally; startup must not read UART MCR
-        # (&FC34), which AP5/PiTubeDirect does not forward as an ElkWiFi UART.
-        self.assertIn(bytes((0xA9, 0x00, 0x29, 0x01, 0x60)), self.rom)
+        # Pi1MHz reports WiFi availability through the mailbox. Startup must
+        # neither read UART MCR (&FC34) nor retain the old constant stub.
+        self.assertNotIn(bytes((0xA9, 0x00, 0x29, 0x01, 0x60)), self.rom)
 
     def test_native_tcp_and_url_transports_are_present(self) -> None:
         self.assertIn(b"CONNECT\r\n\r\nOK", self.rom)

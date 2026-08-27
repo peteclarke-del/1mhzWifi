@@ -15,8 +15,10 @@ test -f "$target/src/Makefile.am"
 
 cp "$component_dir/include/pi1mhz_mailbox.h" "$target/src/"
 cp "$component_dir/include/pi1mhz_net_backend.h" "$target/src/"
+cp "$component_dir/include/pi1mhz_ftp.h" "$target/src/"
 cp "$component_dir/src/pi1mhz_mailbox.c" "$target/src/"
 cp "$component_dir/src/pi1mhz_net_backend.c" "$target/src/"
+cp "$component_dir/src/pi1mhz_ftp.c" "$target/src/"
 cp "$component_dir/include/pi1mhz_wolfssh.h" "$target/src/"
 cp "$component_dir/src/pi1mhz_wolfssh.c" "$target/src/"
 cp "$integration_dir/pi1mhz_elkulator.h" "$target/src/"
@@ -81,8 +83,12 @@ fi
 # emulator's source list. This composes with other independently installed
 # devices and with Elkulator variants that have different final source files.
 if ! grep -q 'pi1mhz_mailbox.c' "$target/src/Makefile.am"; then
-    printf '\nelkulator_SOURCES += pi1mhz_mailbox.c pi1mhz_net_backend.c pi1mhz_elkulator.c\n' \
+    printf '\nelkulator_SOURCES += pi1mhz_mailbox.c pi1mhz_net_backend.c pi1mhz_ftp.c pi1mhz_elkulator.c\n' \
         >> "$target/src/Makefile.am"
+fi
+if ! grep -q 'pi1mhz_ftp.c' "$target/src/Makefile.am"; then
+    sed -i 's/pi1mhz_net_backend.c/pi1mhz_net_backend.c pi1mhz_ftp.c/' \
+        "$target/src/Makefile.am"
 fi
 if ! grep -q '^elkulator_LDADD += -lz$' "$target/src/Makefile.am"; then
     printf '%s\n' 'elkulator_LDADD += -lz' >> "$target/src/Makefile.am"
@@ -108,7 +114,8 @@ elif ! grep -q 'ap5_tube_rebase_host_clock' "$target/src/6502.c"; then
         < "$integration_dir/elkulator-clock-rebase-upgrade.patch"
 fi
 if ! grep -q 'ap5_tube.c' "$target/src/Makefile.am"; then
-    apply_tube_section src/Makefile.am
+    printf '%s\n' 'elkulator_SOURCES += ap5_tube.c vrEmu6502.c' \
+        >> "$target/src/Makefile.am"
 fi
 if ! grep -q 'void updateulaints(void);' "$target/src/elk.h"; then
     apply_tube_section src/elk.h
@@ -151,6 +158,31 @@ if ! grep -q 'beebscsi_elkulator.h' "$target/src/mem.c"; then
 fi
 if ! grep -q 'beebscsi_elkulator.h' "$target/src/ula.c"; then
     apply_beebscsi_section src/ula.c
+fi
+
+if ! grep -q 'PI1MHZ_RAM_DUMP' "$target/src/main.c"; then
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 \
+        < "$integration_dir/elkulator-ram-dump.patch"
+fi
+
+if ! grep -q 'PI1MHZ_CPU_DUMP' "$target/src/main.c"; then
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 \
+        < "$integration_dir/elkulator-cpu-dump.patch"
+fi
+
+if ! grep -q 'PI1MHZ_VECTOR_TRACE' "$target/src/6502.c"; then
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 \
+        < "$integration_dir/elkulator-vector-trace.patch"
+fi
+
+if ! grep -q 'PI1MHZ_PC_DUMP_ADDRESS' "$target/src/6502.c"; then
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 \
+        < "$integration_dir/elkulator-pc-dump.patch"
+fi
+
+if ! grep -q 'PI1MHZ_PC_HISTORY_TRIGGER' "$target/src/6502.c"; then
+    patch --batch --no-backup-if-mismatch -d "$target" -p1 \
+        < "$integration_dir/elkulator-pc-history.patch"
 fi
 
 if [ -n "${PI1MHZ_WOLFSSH_PREFIX:-}" ]; then

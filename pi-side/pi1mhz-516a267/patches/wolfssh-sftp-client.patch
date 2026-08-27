@@ -1,0 +1,7 @@
+diff --git a/src/ssh.c b/src/ssh.c
+--- a/src/ssh.c
++++ b/src/ssh.c
+@@ -4605,2 +4605 @@
+-#if (defined(WOLFSSH_SFTP) || defined(WOLFSSH_SCP)) && \
+-    !defined(NO_WOLFSSH_SERVER)
++#if defined(WOLFSSH_SFTP) || defined(WOLFSSH_SCP)

@@ -3,16 +3,6 @@
 \ Direct BBC-family Pi1MHz systems expose those selectors and must explicitly
 \ return them to bank 00:00 after another JIM client has changed them.
 
-.save_bank_nr
- rts
-
-.restore_bank_nr
- rts
-
-.set_bank_nr
- and #&01
- rts
-
 .detect_jim_machine
  pha
  txa
@@ -60,13 +50,4 @@
  jsr wicfs_bus_delay
  rts
 
-.set_bank_1
- jmp set_bank_0
-
-.set_bank_a
- jmp set_bank_0
-
-.test_wifi_ena
- lda #0
- and #&01
- rts
+set_bank_1 = set_bank_0

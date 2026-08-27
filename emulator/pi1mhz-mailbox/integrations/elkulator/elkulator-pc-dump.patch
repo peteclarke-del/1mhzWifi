@@ -1,0 +1,46 @@
+--- a/src/6502.c
++++ b/src/6502.c
+@@ -178,4 +178,9 @@
+ static FILE *vector_trace;
+ static const char *vector_trace_path;
++static const char *pc_dump_path;
++static const char *pc_dump_state_path;
++static uint16_t pc_dump_address;
++static int pc_dump_initialised;
++static int pc_dump_complete;
+ void exec6502()
+ {
+@@ -189,4 +194,33 @@
+                 oldpc=pc;
+                 oldcycs=cycles;
++                if (!pc_dump_initialised)
++                {
++                        const char *address=getenv("PI1MHZ_PC_DUMP_ADDRESS");
++                        pc_dump_path=getenv("PI1MHZ_PC_DUMP");
++                        pc_dump_state_path=getenv("PI1MHZ_PC_DUMP_STATE");
++                        if (address && *address && pc_dump_path && *pc_dump_path)
++                                pc_dump_address=(uint16_t)strtoul(address,NULL,16);
++                        else
++                                pc_dump_path=NULL;
++                        pc_dump_initialised=1;
++                }
++                if (!pc_dump_complete && pc_dump_path && pc == pc_dump_address)
++                {
++                        dumpram_to(pc_dump_path);
++                        if (pc_dump_state_path && *pc_dump_state_path)
++                        {
++                                FILE *state=fopen(pc_dump_state_path,"w");
++                                if (state)
++                                {
++                                        fprintf(state,
++                                                "PC=%04X A=%02X X=%02X Y=%02X S=%02X "
++                                                "P=%d%d%d%d%d%d ROM=%X EXT=%X CYC=%d\n",
++                                                pc,a,x,y,s,p.n,p.v,p.d,p.i,p.z,p.c,
++                                                rombank,extrom,cycles);
++                                        fclose(state);
++                                }
++                        }
++                        pc_dump_complete=1;
++                }
+                 if (!vector_trace_path)
+                 {
