@@ -376,7 +376,27 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   it was taken for.
 - [x] Measure the `hchunk` exposure: 83 titles, 11.4%. Unlike the helper, whose
   loss the signature check detects, chunk header corruption misparses silently.
-- [ ] Decide whether to keep pursuing a BYTEV-driven repair. No such design can
+- [x] Measure what actually works today. Sixteen titles spanning the risk
+  groups were run on the shipped ROM: six of six clean titles load, none of
+  three `&07xx` titles, one of four `&0D9F` titles. About three quarters of the
+  corpus loads, and every failure is in one of the two identified groups.
+- [x] Establish that the 6502 can execute code the Pi serves at `&FD00`. A
+  temporary probe called into JIM and its routine wrote its marker into zero
+  page. `--probe-command` was added to the runner to measure it.
+- [ ] Prove the JIM selector discipline. `&FCFF` chooses the page at `&FD00`,
+  WiCFS moves it while streaming, and it is write only. A vector firing while it
+  points at a data page would execute UEF data. Establish that WiCFS can always
+  restore it before returning to a caller, and decide what happens when another
+  JIM user moves it.
+- [ ] Move the filing trampoline into Pi RAM once the selector discipline holds.
+  That removes the host footprint both failure groups attack, and should take
+  the working set well above the measured three quarters.
+- [ ] Add SSD streaming as the reliable path. Disc software cannot use
+  `&0D9F-&0DEF` because DFS lives there, so an extended-vector filing system in
+  the DFS style needs no trampoline at all. Structural argument only; confirm
+  against real disc images.
+- [ ] Superseded: decide whether to keep pursuing a BYTEV-driven repair. The
+  frequency tradeoff rules it out. No such design can
   improve on the frequency tradeoff, because BYTEV cannot know which vector is
   about to be used. The original cartridge shape avoids the problem entirely by
   consulting no table, and the ownership map now shows the cassette page is the

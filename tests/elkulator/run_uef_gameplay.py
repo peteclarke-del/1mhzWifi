@@ -394,6 +394,11 @@ def main() -> int:
               "per-instruction vector checks reduce emulator throughput"),
     )
     parser.add_argument(
+        "--probe-command", default=None,
+        help=("diagnostic only: type this instead of the UEF load command, so "
+              "a single ROM command can be exercised in the real boot profile"),
+    )
+    parser.add_argument(
         "--write-watch", type=lambda s: tuple(int(x, 16) for x in s.split(":")),
         default=None,
         help=("LO:HI hex range whose every byte change is logged with the "
@@ -590,6 +595,14 @@ def main() -> int:
         runtime_tape = test_runtime / "tape.uef"
         shutil.copyfile(args.native_tape, runtime_tape)
         command.extend(["-tape", "tape.uef"])
+    if args.probe_command:
+        # Diagnostic only: type just this command after boot, so a single ROM
+        # command can be exercised in the real boot profile without inventing a
+        # second harness. Built from scratch so it composes with --preloaded-jim.
+        events = [
+            (600, KEY_SHIFT_DOWN), (2, KEY_QUOTE), (2, KEY_SHIFT_UP),
+            *elkulator_text_events(args.probe_command), (2, KEY_ENTER),
+        ]
     command.extend(["-autokeys", command_script(events)])
     if args.tube:
         command.extend(["-tube6502", str(roms / "6502tube_120.rom")])
