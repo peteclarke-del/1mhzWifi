@@ -30,6 +30,71 @@ for a clean card and may contain a fresh configuration template.
 Also preserve `/BeebSCSI0` and its `scsi*.dat` images. The bundle supplies the
 ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
+## Vector gateway location study, 27 August 2026
+
+The WiCFS filing vectors must be reachable after a cassette loader has rewritten
+low memory. Two candidate mechanisms both fail, for opposite reasons, and this
+study fixes the requirement for a third.
+
+`*UEF LOAD REPTON` fails on 0.1.66. The instrumented Electron, Plus 1, Plus 2,
+AP5, RH Plus, ADFS and read-only BeebSCSI profile with the Tube disabled stalls
+on the title screen with `LEN=&56E7` of the stream unread. A dump of host RAM
+at the stall shows `&0780` holding Repton's decryption loop:
+
+```text
+0780  A9 00 85 70 A9 30 85 71   LDA #0 / STA &70 / LDA #&30 / STA &71
+0788  A0 00 B9 B4 43 49 43      LDY #0 / LDA &43B4,Y / EOR #&43
+078F  99 B4 43 C8 D0 F5         STA &43B4,Y / INY / BNE
+0795  B1 70 45 71 91 70         LDA (&70),Y / EOR &71 / STA (&70),Y
+07A6  4C 00 41                  JMP &4100
+```
+
+Repton's second stage executes at `&0700` and spans `&0700-&07A8`, so it
+replaces the 0.1.61 low-loader gateway while `FILEV=&0780`, `FINDV=&078E` and
+`FSCV=&0795` still point into it. Every later filing call enters the decryptor.
+That single defect produces both the stalled load and the filing system which
+only a power cycle restores.
+
+Removing the gateway fixes Repton and regresses Last of the Free. A candidate
+ROM without it reaches sustained Repton gameplay and passes every acceptance
+gate. On the same staged image and profile it returns Last of the Free to the
+BASIC prompt, while 0.1.66 with the gateway reaches `HIT A KEY TO START`. Last
+of the Free overwrites `&0D9F-&0DEF`, so it needs the extended-vector repair the
+gateway performs. This is the `WICFS-007` failure returning.
+
+Every other paired title was indifferent to the gateway. Thrust, Arcadians,
+Repton 2, Bumble Bee, Mr Wiz and Repton Infinity produced identical stream
+states and end screens in both builds; Repton 3 and Repton Around The World
+reach their title menus without it. Repton Infinity stops at `Searching` in both
+builds and is recorded separately as `WICFS-017`.
+
+Structural analysis of the 727 parseable corpus images counts the titles whose
+cassette blocks write each candidate location:
+
+| Region | Titles | Share |
+| --- | --- | --- |
+| `&0380-&03FF` cassette workspace | 26 | 3.6% |
+| `&0780-&07E6` current gateway | 86 | 11.8% |
+| `&0D9F-&0DEF` MOS extended vectors | 147 | 20.2% |
+
+Those counts are a lower bound because they follow direct block loads only.
+Repton is not among the 86: it reaches `&0700` through a run-time copy. A
+gateway location can therefore never be qualified by load addresses alone.
+
+The requirement this fixes for the replacement:
+
+- The repair mechanism must be kept. Last of the Free proves it is load
+  bearing, and 147 corpus titles are in its class.
+- It must not occupy `&0700-&07FF`. Repton proves that page is executed by real
+  loaders, and 86 titles write it directly.
+- The cassette workspace is the least contended location in low RAM, but the
+  present gateway needs 103 bytes and only about 21 scattered bytes are free
+  below the keyboard buffer at `&03E0`. The 22-byte WiCFS state cache at
+  `&0380` must move before a gateway can live there.
+
+No ROM change is promoted from this study. The gateway remains at `&0780` and
+Repton remains an open failure until the relocation is implemented.
+
 ## 0.1.61 emulator evidence, 24 August 2026
 
 The final ROM is version 0.1.61 with SHA-256
