@@ -93,6 +93,40 @@ static int configure_fiq_timing(void)
     return 0;
 }
 
+/* PI1MHZ_JIM_MIRROR=OFFSET:HEXBYTES publishes a region the Pi serves at the
+ * same offset in every JIM page, so a host trampoline placed there is reachable
+ * whatever the page selector holds. Diagnostic wiring for that design. */
+static int preload_mirror(void)
+{
+    const char *setting = getenv("PI1MHZ_JIM_MIRROR");
+    const char *colon;
+    unsigned long offset;
+    uint8_t bytes[64];
+    size_t count = 0;
+    char *end;
+
+    if (!setting || !*setting)
+        return 0;
+    offset = strtoul(setting, &end, 16);
+    if (*end != ':' || offset > 0xFFu)
+        return -1;
+    colon = end + 1;
+    while (colon[0] && colon[1] && count < sizeof(bytes)) {
+        char pair[3] = { colon[0], colon[1], 0 };
+        bytes[count++] = (uint8_t)strtoul(pair, &end, 16);
+        if (*end)
+            return -1;
+        colon += 2;
+    }
+    if (!count)
+        return -1;
+    pi1mhz_mailbox_set_mirror(&mailbox, (uint8_t)offset, bytes,
+                              (uint8_t)count);
+    fprintf(stderr, "Pi1MHz mailbox: mirrored %zu bytes at page offset &%02lX\n",
+            count, offset);
+    return 0;
+}
+
 static int preload_jim(void)
 {
     const char *path = getenv("PI1MHZ_JIM_IMAGE");
@@ -196,7 +230,7 @@ static void initialise_device(void)
         backend = NULL;
         return;
     }
-    if (configure_fiq_timing() || preload_jim()) {
+    if (configure_fiq_timing() || preload_jim() || preload_mirror()) {
         pi1mhz_mailbox_destroy(&mailbox);
         pi1mhz_net_backend_destroy(backend);
         backend = NULL;
@@ -293,4 +327,11 @@ void pi1mhz_elkulator_sync_host_clock(int host_cycle_counter)
 void pi1mhz_elkulator_rebase_host_clock(int host_cycle_counter)
 {
     pi1mhz_host_clock_rebase(&host_clock, host_cycle_counter);
+}
+
+/* The JIM page currently mapped at &FD00. Recorded by the vector trace, which
+ * is how the selector was shown to be whatever the last transfer left it. */
+uint32_t pi1mhz_elkulator_selected_page(void)
+{
+    return mailbox.page & 0xFFFFFFu;
 }

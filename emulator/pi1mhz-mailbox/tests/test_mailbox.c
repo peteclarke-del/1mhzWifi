@@ -390,6 +390,34 @@ int main(void)
     pi1mhz_mailbox_tick_fiq(&mailbox, 1);
     assert(mailbox.jim[0x0101] == 0);
     assert(mailbox.jim[0x0102] == 0x88);
+
+    /* A trampoline mirrored into every page must answer whatever the selector
+     * holds, and must not disturb the rest of the window. The host filing
+     * vectors can then point into JIM, where no game can overwrite them. */
+    {
+        static const uint8_t stub[4] = { 0xEE, 0x72, 0x00, 0x60 };
+        unsigned pages[3] = { 1u, 0x1Au, 0xFFu };
+        unsigned i;
+
+        pi1mhz_mailbox_set_mirror(&mailbox, 0xE0u, stub, sizeof(stub));
+        for (i = 0; i < 3; i++) {
+            mailbox.page = pages[i];
+            assert(pi1mhz_mailbox_read(&mailbox, PI1MHZ_PAGE_BASE + 0xE0u)
+                   == 0xEE);
+            assert(pi1mhz_mailbox_read(&mailbox, PI1MHZ_PAGE_BASE + 0xE3u)
+                   == 0x60);
+        }
+        /* Offsets below the mirror still read the selected page. */
+        mailbox.page_window[0x10] = 0x5A;
+        assert(pi1mhz_mailbox_read(&mailbox, PI1MHZ_PAGE_BASE + 0x10u) == 0x5A);
+        /* An empty or oversized publication disables the mirror. */
+        pi1mhz_mailbox_set_mirror(&mailbox, 0xE0u, stub, 0);
+        mailbox.page_window[0xE0] = 0x3C;
+        assert(pi1mhz_mailbox_read(&mailbox, PI1MHZ_PAGE_BASE + 0xE0u) == 0x3C);
+        pi1mhz_mailbox_set_mirror(&mailbox, 0xF0u, stub, 32);
+        assert(pi1mhz_mailbox_read(&mailbox, PI1MHZ_PAGE_BASE + 0xE0u) == 0x3C);
+    }
+
     pi1mhz_mailbox_destroy(&mailbox);
     puts("Pi1MHz mailbox register/JIM coherence: OK");
     return 0;
