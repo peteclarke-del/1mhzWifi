@@ -303,6 +303,28 @@
       ],
       "acceptance_runner": "tests/bem/run_bem_hardware.py",
       "required_profile": "BBC B 32K minimum, B+, Master, Master Compact, and Electron minimum configurations"
+    },
+    {
+      "id": "WICFS-016",
+      "symptom": "A cassette loader executing in &0700-&07FF replaces the WiCFS vector gateway at &0780, leaving FILEV, FINDV and FSCV pointing into game code. *UEF LOAD REPTON stalls on the title screen with 22247 stream bytes unread and the filing system is unrecoverable without a power cycle. Removing the gateway fixes Repton but regresses Last of the Free, which needs its extended-vector repair, so the gateway must be relocated rather than deleted.",
+      "status": "open-hardware",
+      "acceptance_runner": "tests/elkulator/run_uef_gameplay.py",
+      "required_profile": "Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS BeebSCSI, Tube disabled baseline. *UEF LOAD REPTON must reach sustained gameplay and *UEF LOAD of Last of the Free must still reach its start prompt with the same ROM.",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_tube_off_guard_survives_low_loader_vector_table_overwrite",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_assembled_low_loader_guard_repairs_filev_tuple_and_preserves_call"
+      ]
+    },
+    {
+      "id": "WICFS-017",
+      "symptom": "A UEF larger than one incremental window stops after the first window. Repton Infinity reaches its loader and prints Searching with 63886 of 65280 stream bytes unread, identically with and without the &0780 gateway. The Pi normaliser and its window protocol pass their own tests, so the defect is in the host request path or the window handover above them.",
+      "status": "open-hardware",
+      "acceptance_runner": "tests/elkulator/run_uef_gameplay.py",
+      "required_profile": "Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS BeebSCSI, Tube disabled, *UEF LOAD REPTONINF and any image above the 64 KiB window",
+      "tests": [
+        "tests/test_uef_normalize.py::UefNormalizeTest::test_incremental_raw_gzip_zip_and_zip_gzip_over_64k",
+        "tests/test_runner_acceptance_contract.py::RunnerAcceptanceContractTests::test_uef_runner_accepts_only_the_instrumented_trace_header"
+      ]
     }
   ]
 }

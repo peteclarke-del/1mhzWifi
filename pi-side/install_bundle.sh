@@ -156,6 +156,13 @@ install_if_changed "$overlay_dir/src/elkwifi_service.c" "$upstream/src/elkwifi_s
 install_if_changed "$overlay_dir/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
 install_if_changed "$overlay_dir/src/ftp_service.c" "$upstream/src/ftp_service.c"
 install_if_changed "$overlay_dir/src/ftp_service.h" "$upstream/src/ftp_service.h"
+# Container catalogue for the planned *UEF CAT, *UEF EXTRACT, *SSD CAT and
+# *SSD EXTRACT commands. The decoder is unit tested on the build host and is
+# staged into the Pi tree here, but it is not yet named in CMakeLists.txt and
+# so is not linked into the shipped kernels. It joins the build with the
+# mailbox service wrapper that calls it.
+install_if_changed "$overlay_dir/src/media_catalogue.c" "$upstream/src/media_catalogue.c"
+install_if_changed "$overlay_dir/src/media_catalogue.h" "$upstream/src/media_catalogue.h"
 install_if_changed "$overlay_dir/src/uef_normalize.c" "$upstream/src/uef_normalize.c"
 install_if_changed "$overlay_dir/src/uef_normalize.h" "$upstream/src/uef_normalize.h"
 install_if_changed "$overlay_dir/src/puff.c" "$upstream/src/puff.c"

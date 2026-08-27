@@ -283,6 +283,36 @@ tracked elsewhere.
 
 ## Release gate
 
+### Vector gateway relocation, 27 August 2026
+
+`*UEF LOAD REPTON` stalls because Repton's second stage executes at `&0700`
+and its decryption loop spans `&0700-&07A8`, replacing the 0.1.61 gateway while
+FILEV, FINDV and FSCV still point into it. See the gateway location study in
+[`docs/hardware-validation.md`](docs/hardware-validation.md).
+
+- [x] Reproduce the failure and identify the overwritten gateway from a host
+  RAM dump rather than from source reasoning.
+- [x] Test the obvious fix. Removing the gateway reaches sustained Repton
+  gameplay and leaves Thrust, Arcadians, Repton 2, Bumble Bee, Mr Wiz and
+  Repton Infinity unchanged, but returns Last of the Free to the BASIC prompt.
+  The extended-vector repair is load bearing, so the gateway must move, not go.
+- [x] Quantify every candidate location across the 727 parseable corpus images
+  and record that load-address analysis understates the risk, because Repton
+  reaches `&0700` through a run-time copy.
+- [ ] Free the cassette workspace. Only about 21 scattered bytes are available
+  below the keyboard buffer at `&03E0`, so the 22-byte WiCFS state cache at
+  `&0380` must move before a gateway can live in the least contended page.
+  Reading it from Pi-private JIM on every OSBGET is too slow, so it needs a new
+  home in host RAM or a smaller encoding.
+- [ ] Shrink the gateway. It is currently 103 bytes because it calls OSBYTE
+  `&A8` on every entry; caching the extended-vector table pointer at install
+  time removes about 13 bytes, and the four entry stubs can be tightened.
+- [ ] Re-run the differential with the relocated gateway. Repton must reach
+  sustained gameplay and Last of the Free must still reach its start prompt
+  from the same ROM. Both are required; either alone is not a fix.
+- [ ] Trace `WICFS-017`. Repton Infinity stops at `Searching` with 63,886 of
+  65,280 stream bytes unread, identically with and without the gateway.
+
 ### Physical Tube-off milestone, 21 August 2026
 
 The matched 0.1.58 ROM and Pi Zero 2 kernel make further measurable progress on
