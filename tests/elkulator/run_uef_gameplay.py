@@ -394,6 +394,13 @@ def main() -> int:
               "per-instruction vector checks reduce emulator throughput"),
     )
     parser.add_argument(
+        "--write-watch", type=lambda s: tuple(int(x, 16) for x in s.split(":")),
+        default=None,
+        help=("LO:HI hex range whose every byte change is logged with the "
+              "executing PC; diagnostic only, and used to map which code "
+              "actually owns a region of workspace"),
+    )
+    parser.add_argument(
         "--tuple-trace", action="store_true",
         help=("record every change to the four WiCFS extended-vector tuples "
               "with the OSBYTE count since the previous change; diagnostic "
@@ -602,6 +609,12 @@ def main() -> int:
         environment["PI1MHZ_VECTOR_TRACE"] = str(
             (args.output / "vectors.trace").resolve()
         )
+    if args.write_watch:
+        environment["PI1MHZ_WRITE_WATCH"] = str(
+            (args.output / "writes.trace").resolve()
+        )
+        environment["PI1MHZ_WRITE_WATCH_LO"] = f"{args.write_watch[0]:04X}"
+        environment["PI1MHZ_WRITE_WATCH_HI"] = f"{args.write_watch[1]:04X}"
     if args.tuple_trace:
         environment["PI1MHZ_TUPLE_TRACE"] = str(
             (args.output / "tuples.trace").resolve()

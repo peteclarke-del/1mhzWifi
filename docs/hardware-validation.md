@@ -32,6 +32,77 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Vector gateway location study, 27 August 2026
 
+### Measured ownership of the cassette workspace
+
+Three placements of the BYTEV trap failed for three different reasons, and each
+time the layout had been inferred by reading the ROM source. That method is not
+reliable here: the page is shared between the MOS, WiCFS and the loader, it is
+aliased across modules, and addresses appear in both `&03B2` and `&3B2` forms,
+so two of the failures were simply references that a search missed.
+
+`PI1MHZ_WRITE_WATCH` logs every byte change in a chosen RAM window with the
+program counter which caused it, and `run_uef_gameplay.py --write-watch LO:HI`
+drives it. Running Last of the Free over `&03A0-&03DF` gives the first real
+ownership map of the page:
+
+| Range | Owner |
+| --- | --- |
+| `&03A0-&03B8` | WiCFS, the `chain_exec` trampoline |
+| `&03A7-&03B1` | WiCFS, the BGET filename store, aliased over `chain_exec` |
+| `&03B2-&03BC` | WiCFS, the CFS block name |
+| `&03BE-&03CA` | WiCFS, the CFS block descriptors |
+| `&03D1` | **the MOS**, written from `PC=F091` |
+| `&03CB-&03D0`, `&03D2-&03DF` | available |
+
+`&03D1` is the only MOS-owned byte in the range, and it sat inside both earlier
+placements. That is why those failures looked title-dependent: they turned on
+when the MOS next touched the byte, not on what the game loaded.
+
+The map has one important limit. It records changes in value, not writes, so a
+byte written with the value it already held is reported as untouched. The
+apparently free bytes inside `&03BE-&03CA` are in the descriptor loop's range
+and are written every time; they are not free.
+
+### The signature must be compared in full
+
+With `&03D1` known, the trap was placed at `&03CB-&03DF` and the eight-bit
+signature compare was replaced by `BIT`, which tests bits 7 and 6 without
+disturbing A. That failed immediately. Repton's decryptor begins `A9 00 85 70`,
+and `A9` has bit 7 set and bit 6 clear, so it matched the signature and the trap
+called straight into game code. `A9`, `AD`, `A5`, `A2` and `A0` are among the
+most common 6502 opcodes, so against real code a two-bit test is not a weak
+check, it is close to no check at all.
+
+### One byte short
+
+The trap therefore needs the full compare, and the arrangement which tolerates
+the MOS byte costs two more bytes, because the hole has to be consumed as the
+operand of a discarded instruction rather than skipped by a branch:
+
+```text
+CMP #&8C / BEQ eat        4
+PHA                       1
+LDA #imm                  2   operand at &03D1, value discarded
+LDA guard_sig / CMP #&A5  5
+BNE restore               2
+JSR guard_entry           3
+restore PLA               1
+JMP OSBYTE                3
+eat RTS                   1
+                         22
+```
+
+`&03CB-&03DF` is twenty one bytes. The trap needs twenty two, and the page has
+no spare byte anywhere else once the descriptor and block-name ranges are
+counted as written. Splitting the trap so its entry sits in the eight bytes at
+`&0398-&039F` works arithmetically, but that space is currently the chunk header
+state, which is live throughout streaming and has no safe home elsewhere.
+
+The mechanism is not in doubt. Repton has reached sustained gameplay on three
+separate builds with its helper destroyed and the signature check correctly
+declining to call it. What is unresolved is finding a twenty second byte, and
+that is a decision about which workspace to expose rather than a measurement.
+
 ### The signature-checked design works; the deep stack does not hold it
 
 The design above was implemented and run against both halves of the

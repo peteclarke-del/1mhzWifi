@@ -343,7 +343,21 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
 - [x] Record that the repair must never call OSBYTE. BYTEV is the trap which
   reaches it, so `OSBYTE &A8` from inside the repair recurses without bound.
   The extended-vector table address is captured at install time instead.
-- [ ] Repack the cassette page to give the trap about twenty contiguous bytes.
+- [x] Measure the cassette workspace instead of inferring it. `--write-watch`
+  logs every byte change with the PC which caused it. `&03D1` is the only
+  MOS-owned byte in `&03A0-&03DF`, written from `PC=F091`, and it sat inside
+  two earlier trap placements. The map reports changes rather than writes, so
+  bytes rewritten with the same value look free and are not.
+- [x] Establish that the signature must be compared in full. A `BIT` test of
+  bits 7 and 6 saves the push and pull pair but matches `A9`, `AD`, `A5`, `A2`
+  and `A0`, which are among the commonest opcodes. Repton's decryptor starts
+  `A9 00`, so the trap called game code.
+- [ ] Find the twenty second byte. The trap needs twenty two bytes once the
+  MOS byte at `&03D1` is consumed as a discarded operand, and `&03CB-&03DF` is
+  twenty one. Splitting the entry into `&0398-&039F` works arithmetically but
+  that space holds the chunk header state, which is live during streaming and
+  has no safe home. This is a decision about which workspace to expose.
+- [ ] Superseded: repack the cassette page to give the trap twenty contiguous bytes.
   It is the only materially safer region at about 3.4% of the corpus, and has
   about nine free bytes scattered. The CFS filename buffer at `&03D2-&03DF` and
   the chunk header state at `&03CB-&03D0` are the relocation candidates, and
