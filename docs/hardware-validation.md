@@ -32,6 +32,35 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Vector gateway location study, 27 August 2026
 
+### Rejected candidate: repair once per OSBGET refill
+
+A candidate replaced the gateway with two changes and no new RAM. The filing
+vectors kept the MOS extended entries, so a loader overwriting `&0700-&07FF`
+became harmless, and `fillget` called the existing ROM routine
+`wicfs_publish_extended_vectors` once per 256-byte refill to undo a loader's
+damage to the table. The patch was 26 lines and cost nothing on the per-byte
+path.
+
+It fixes Repton and still fails Last of the Free. On the candidate ROM Repton
+drains its stream to `LEN=&0010`, reaches its high-score screen and accepts
+input, where 0.1.66 stalls at `LEN=&56E7`. Last of the Free returns to the
+BASIC prompt exactly as it does with the gateway removed altogether.
+
+Refill granularity is too coarse. The table is overwritten and the loader's next
+filing call follows inside the same 256-byte window, so the repair never runs
+between them. Any repair reached through the extended-vector table shares this
+flaw: once all four tuples are dead there is no ROM entry point left to run the
+repair from.
+
+This narrows the design to mechanisms reachable without the table. BYTEV is the
+only standard vector WiCFS owns that points directly at RAM it controls, at
+`notape`. A signature-checked call from that trap to a repair helper needs about
+twelve more bytes than the current eight-byte trap, and the cassette page has
+about nine free. The chain is therefore: make `upbgetv` recover on a failed
+magic check instead of reporting an invalid state, which allows the 22-byte
+state cache to leave `&0380` for a loader-exposed page, which frees the space
+the enlarged trap needs.
+
 ### Measured repair window and the state cache constraint
 
 The proposed replacement makes the gateway advisory instead of load bearing:

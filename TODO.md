@@ -303,6 +303,13 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   `PI1MHZ_TUPLE_TRACE` shows exactly one OSBYTE call between the last write
   that corrupts the table and the gateway's first repair write, so the premise
   holds for Last of the Free, with a margin of one call.
+- [x] Test repair at OSBGET refill granularity. A 26-line candidate kept the
+  MOS extended entries as the vector target and called
+  `wicfs_publish_extended_vectors` from `fillget`. It fixes Repton and still
+  returns Last of the Free to the BASIC prompt: the table is overwritten and
+  the next filing call follows inside the same 256-byte window. Any repair
+  reached through the extended-vector table has this flaw, because once all
+  four tuples are dead no ROM entry point remains.
 - [ ] Make `upbgetv` reload state on a failed magic check instead of reporting
   an invalid state. OSBGET is the only vector entry which does not call
   `wicfs_state_load`, so until it recovers, the 22-byte state cache cannot
