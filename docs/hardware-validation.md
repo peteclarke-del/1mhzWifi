@@ -32,6 +32,74 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Vector gateway location study, 27 August 2026
 
+### Measured UEF baseline on the shipped ROM
+
+Sixteen titles were run on the 0.1.66 ROM, chosen to span the risk groups the
+corpus analysis predicts. Each was staged into a disposable copy of the
+BeebSCSI image in turn, so every run used the same profile as the acceptance
+gates.
+
+| Group | Corpus share | Probed | Stream fully consumed |
+| --- | --- | --- | --- |
+| Touch neither region | 73.0% | 6 | 6 |
+| Write `&0700-&07FF` | 6.7% | 3 | 0 |
+| Write `&0D9F-&0DEF` | 14.3% | 4 | 1 |
+| Write both | 5.9% | 1 | 0 |
+
+The predictive model therefore holds: titles which avoid both regions load, and
+those which write either largely do not. Projected across the corpus, about
+three quarters of the collection loads on the shipped ROM, and every failure
+falls into one of the two identified groups.
+
+The figure measures whether the stream was consumed, spot checked against the
+screen. It is a load-completion rate, not a proof of sustained gameplay for all
+sixteen, and should be read as approximate.
+
+### Executing the trampoline from Pi RAM is possible
+
+Both failure groups exist only because WiCFS needs somewhere in host memory
+that games treat as spare. `&FD00-&FDFF` is the JIM window: permanently mapped,
+served by the Pi, and outside the address space a game writes. If the filing
+vectors pointed at a trampoline the Pi serves there, neither group could reach
+it.
+
+That rests on the 6502 being able to execute code fetched across the 1MHz bus,
+which was measured rather than assumed. A temporary `*JIMTEST` command selected
+a JIM page, waited for the selector to publish, and called `&FD00`, where the
+Pi served:
+
+```text
+A9 5A 85 70 A9 A5 85 71 60      LDA #&5A / STA &70 / LDA #&A5 / STA &71 / RTS
+```
+
+The host RAM dump afterwards holds `&0070=5A` and `&0071=A5`. Pi RAM ran as
+code. `run_uef_gameplay.py --probe-command` was added to drive a single ROM
+command in the real boot profile, and is how this was measured.
+
+One assumption remains untested. `&FCFF` selects which Pi page appears at
+`&FD00`, WiCFS moves it constantly while streaming, and it is write only, so it
+cannot be read back and verified. A filing vector firing while the selector
+points at a data page would execute UEF data. The rule would be that WiCFS
+restores the selector to the trampoline page before returning to any caller,
+since vectors fire from the loader and not from inside WiCFS, but that has to be
+demonstrated before the design is built on, and the behaviour of other JIM users
+has to be considered with it.
+
+### Disc images avoid the problem entirely
+
+Tape software was written for a machine whose filing system lives in the MOS
+ROM and has no RAM footprint at all, so `&0700-&07FF` and `&0D9F-&0DEF` are
+genuinely spare there and titles use them freely. 76% of the corpus loads
+something below `&1900`.
+
+A disc build of the same game could not do that. DFS occupies the workspace
+below `&1900`, including the extended-vector table at `&0D9F`, so disc software
+is by construction compatible with a sideways-ROM filing system which claims
+vectors the way DFS does. Streaming SSD images should therefore need no
+trampoline, no repair and no workspace juggling, and both failure groups
+disappear. That argument is structural and has not been measured against real
+disc images.
+
 ### Repair frequency trades directly against destroying the game
 
 The split trap reaches sustained Repton gameplay and carries Last of the Free
