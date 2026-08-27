@@ -317,15 +317,14 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   there because the table it overwrites is never consulted. This project rewired
   WiCFS onto the MOS extended vectors and then added the gateway to repair the
   table that rewiring had made load bearing.
-- [ ] Shrink the gateway to a paging trampoline and move the repair, offset
-  tables and dispatcher selection into ROM, where about 460 bytes are free.
-  About sixty RAM bytes should remain, against the present 103. Place them
-  flush against the top of the page so the largest contiguous region below stays
-  available to loaders.
-- [ ] Alternatively return to the original design, in which the trampoline jumps
-  straight to the handlers and no repair exists. This is the proven
-  architecture, but the handlers must stop reading the MOS extended-vector stack
-  frame first.
+- [x] Shrink the gateway to a paging trampoline and move the repair, offset
+  tables and dispatcher selection into ROM. This reached 63 RAM bytes against
+  the previous 103 and was placed flush against the top of the page at `&07C1`.
+  Last of the Free passes and Repton fails with `Bad program`: Repton's filler
+  runs to `&07FF`, so the whole page is consumed and no address in it is safe.
+  The corpus agrees, 82 titles write `&07C1-&07FF` against 86 for `&0780`.
+- [ ] Move the gateway out of `&07xx` altogether. The cassette page is the only
+  materially safer region, at about 3.4% of the corpus against 11%.
 - [ ] Whichever route is taken, gate it on Repton reaching sustained gameplay
   and Last of the Free reaching its start prompt from the same ROM, then re-run
   the full staged set before proposing it for hardware.
