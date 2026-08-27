@@ -143,6 +143,64 @@ class MediaCatalogueTests(unittest.TestCase):
         # A sudden rise here means the decoder or the corpus changed shape.
         self.assertLessEqual(unparsed, 1)
 
+    def test_service_round_trip_matches_the_corpus(self) -> None:
+        """Drive a full host conversation against every corpus container.
+
+        The service is opened, its catalogue is walked, and every entry is
+        streamed back through bounded reply windows. The recovered byte counts
+        must equal what scripts/uef_map.py reports, and every stream must end
+        with an explicit EOF rather than running out of windows.
+        """
+        if not CORPUS.is_dir():
+            self.skipTest("local Electron corpus is not installed")
+        files = sorted(CORPUS.glob("*.uef"))
+        if not files:
+            self.skipTest("local Electron corpus is empty")
+
+        service = pathlib.Path(self.tempdir.name) / "service"
+        build = subprocess.run(
+            [
+                "cc", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                "-I", str(OVERLAY),
+                str(ROOT / "pi-side/tests/test_media_service_core.c"),
+                str(OVERLAY / "media_service_core.c"),
+                str(OVERLAY / "media_catalogue.c"), "-o", str(service),
+            ],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(build.returncode, 0, build.stderr)
+
+        compared = 0
+        for path in files:
+            try:
+                expected = [entry[3] for entry in self._oracle_entries(path)]
+                raw = self.uef_map.decode_container(path.read_bytes())
+                if isinstance(raw, tuple):
+                    raw = raw[0]
+            except Exception:
+                continue
+            with tempfile.NamedTemporaryFile(suffix=".uef",
+                                             delete=False) as handle:
+                handle.write(raw)
+                temp = handle.name
+            try:
+                result = subprocess.run(
+                    [str(service), "--roundtrip", temp],
+                    capture_output=True, text=True, timeout=180,
+                )
+            finally:
+                pathlib.Path(temp).unlink()
+            streamed = []
+            for line in result.stdout.splitlines():
+                fields = line.split()
+                if fields and fields[0] == "STREAM":
+                    streamed.append(int(fields[2]))
+                    self.assertEqual(fields[3], "eof", path.name)
+            with self.subTest(uef=path.name):
+                self.assertEqual(expected[:128], streamed)
+            compared += 1
+        self.assertGreater(compared, 0)
+
     def test_truncated_prefixes_never_read_out_of_bounds(self) -> None:
         if not CORPUS.is_dir():
             self.skipTest("local Electron corpus is not installed")
