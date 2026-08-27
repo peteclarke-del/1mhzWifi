@@ -32,6 +32,69 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Vector gateway location study, 27 August 2026
 
+### Quantified design: a signature-checked repair helper
+
+The surviving design is measured rather than argued. The filing vectors point
+at the MOS extended entries, so nothing load bearing sits in `&07xx`. The
+extended-vector table is repaired by a helper which does live in `&07xx`, and
+the BYTEV `*TAPE` trap in the cassette page verifies a signature in that helper
+before calling it. A helper replaced by game code fails the check and is
+skipped, rather than being executed.
+
+Partitioning the 727 parseable corpus images by what they overwrite shows what
+that buys:
+
+| Group | Titles | Share | Outcome |
+| --- | --- | --- | --- |
+| Neither `&07xx` nor `&0D9F-&0DEF` | 531 | 73.0% | unaffected |
+| `&07xx` only, helper destroyed, no repair needed | 49 | 6.7% | signature check skips the helper, load continues |
+| `&0D9F-&0DEF` only, helper survives, repair runs | 104 | 14.3% | table repaired before the next filing call |
+| Both | 43 | 5.9% | helper destroyed while repair is needed, still fails |
+
+Repton is in the second group and Last of the Free in the third, so the design
+satisfies both halves of the `WICFS-016` gate. The failure set falls from the
+92 titles which can destroy today's gateway to the 43 which need both effects
+at once.
+
+This is an improvement rather than a cure. Five percent of the catalogue still
+has no answer, and closing that needs a repair helper somewhere no loader
+reaches, which low RAM does not offer.
+
+The remaining obstacle is space for the trap. A signature check costs about
+twelve bytes on top of the present eight, because the OSBYTE reason code in A
+must be preserved across the comparison:
+
+```text
+.osb_s   CMP #&8C / BEQ osb_eat        \ existing *TAPE swallow
+         PHA / LDA sig / CMP #&A5      \ verify the helper
+         BNE skip / PLA / JMP helper   \ repair then chain to OSBYTE
+.skip    PLA
+.osb_j   JMP OSBYTE
+.osb_eat RTS
+```
+
+Candidate homes for those twenty bytes, by how much of the corpus writes them:
+
+| Region | Titles | Share |
+| --- | --- | --- |
+| `&0398-&03AB` cassette trap area | 25 | 3.4% |
+| `&0100-&0113` deep stack | 30 | 4.1% |
+| `&0700-&07FF` | 92 | 12.7% |
+
+The cassette trap area is the best but `chain_exec` starts at `&03A0`, and the
+page has only about nine free bytes, scattered. Repacking it means relocating
+the CFS filename buffer at `&03D2-&03DF` and the chunk header state at
+`&03CB-&03D0`, which together need more room than the trap frees.
+
+The deep stack needs no repacking and only 4.1% of the corpus loads across it,
+but that figure counts tape block loads and not run-time stack depth. Twenty
+bytes at `&0100` are reached only by a stack around 236 bytes deep, which is
+already pathological, but it introduces a failure mode that does not exist
+today and would be hard to attribute.
+
+Neither placement is adopted here. The choice is a judgement about which risk
+to accept, not a measurement, and it should be made deliberately.
+
 ### The &07xx page cannot hold the gateway at any address
 
 A third candidate shrank the RAM resident to a pure ROM pager of 63 bytes,
