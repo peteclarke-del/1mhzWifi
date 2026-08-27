@@ -29,3 +29,6 @@ build/.pi1mhz-bundle.*/
 
 # Generated standalone source patch kits
 /dist/
+
+# Local experiment checkouts and scratch build trees
+.tmp-*/

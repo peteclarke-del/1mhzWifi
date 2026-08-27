@@ -7,6 +7,11 @@ drv_svc_addr_mid = &A7
 drv_svc_addr_hi = &A8
 drv_svc_data = &A9
 drv_svc_command = &AA
+drv_uef_sbuft = &F5
+drv_uef_sbufl = &F8
+drv_uef_sbufh = &F9
+drv_uef_pr_y = &C7
+drv_uef_pr_r = &C8
 
 drv_svc_status = 80
 drv_svc_scan = 81
@@ -19,6 +24,13 @@ drv_svc_cancel = 90
 drv_svc_radio = 91
 drv_svc_online = 92
 drv_svc_uef_normalize = 93
+drv_svc_uef_op_probe = 0
+drv_svc_uef_op_begin = 1
+drv_svc_uef_op_append = 2
+drv_svc_uef_op_finalize = 3
+drv_svc_uef_op_rewind = 4
+drv_svc_uef_op_refill = 5
+drv_svc_uef_op_close = 6
 drv_net_copy_public = 58
 drv_net_unsupported = &27
 
@@ -58,6 +70,14 @@ drv_svc_cancelled = drv_svc_workspace+14
 drv_net_ip = drv_svc_workspace+15
 drv_net_type = drv_svc_workspace+24
 drv_net_protocol_second = drv_svc_workspace+25
+drv_uef_op = drv_svc_workspace+26
+drv_uef_stream_pending = drv_svc_workspace+27
+drv_uef_upload_active = drv_svc_workspace+28
+drv_uef_format = drv_svc_workspace+29
+drv_uef_generation_lo = drv_svc_workspace+30
+drv_uef_generation_hi = drv_svc_workspace+31
+drv_uef_generation_record_lo = 26
+drv_uef_generation_record_hi = 27
 
 drv_net_open = 45
 drv_net_dns = 46
@@ -98,8 +118,212 @@ drv_net_status = 54
 .service_driver_uef_normalize
  lda #drv_svc_uef_normalize
  jsr service_driver_write_command
+ \ Old Pi firmware left the capability byte undefined. Clear it before the
+ \ legacy request so fallback cannot be enabled by stale mailbox contents.
+ lda #17
+ sta drv_svc_cursor
+ ldy #0
+ jsr service_driver_write_y
  jsr service_driver_dispatch
+ pha
+ lda #17
+ sta drv_svc_cursor
+ jsr service_driver_read_a
+ cmp #'1'
+ bne service_driver_uef_normalize_legacy
+ lda #&80
+ sta drv_uef_stream_pending
+ bne service_driver_uef_normalize_done
+.service_driver_uef_normalize_legacy
+ lda #0
+ sta drv_uef_stream_pending
+.service_driver_uef_normalize_done
+ pla
  rts
+
+\ Rewind or refill the Pi-private UEF stream. These calls deliberately use
+\ command 93 with an exact guarded request, preserving commands 94-113 for
+\ the secure NetTools service. On return sbuf is the published window length,
+\ sbuft bit 6 says it is the final window, and pr_r/pr_y select its first byte.
+.service_driver_uef_stream_rewind
+ lda #drv_svc_uef_op_rewind
+ bne service_driver_uef_stream
+.service_driver_uef_stream_refill
+ lda #drv_svc_uef_op_refill
+.service_driver_uef_stream
+ sta drv_uef_op
+ cmp #drv_svc_uef_op_refill
+ beq service_driver_uef_stream_restore_generation
+ cmp #drv_svc_uef_op_append
+ bne service_driver_uef_stream_generation_ready
+.service_driver_uef_stream_restore_generation
+ jsr service_driver_uef_generation_load
+.service_driver_uef_stream_generation_ready
+ lda #drv_svc_uef_normalize
+ jsr service_driver_write_command
+ ldx #0
+.service_driver_uef_stream_request
+ lda service_driver_uef_stream_template,x
+ cpx #5
+ beq service_driver_uef_stream_operation
+ cpx #10
+ beq service_driver_uef_stream_generation_lo
+ cpx #11
+ beq service_driver_uef_stream_generation_hi
+ bne service_driver_uef_stream_byte
+.service_driver_uef_stream_operation
+ lda drv_uef_op
+ jmp service_driver_uef_stream_byte
+.service_driver_uef_stream_generation_lo
+ lda drv_uef_op
+ cmp #drv_svc_uef_op_refill
+ beq service_driver_uef_stream_generation_lo_send
+ cmp #drv_svc_uef_op_append
+ bne service_driver_uef_stream_zero
+.service_driver_uef_stream_generation_lo_send
+ lda drv_uef_generation_lo
+ jmp service_driver_uef_stream_byte
+.service_driver_uef_stream_generation_hi
+ lda drv_uef_op
+ cmp #drv_svc_uef_op_refill
+ beq service_driver_uef_stream_generation_hi_send
+ cmp #drv_svc_uef_op_append
+ bne service_driver_uef_stream_zero
+.service_driver_uef_stream_generation_hi_send
+ lda drv_uef_generation_hi
+ jmp service_driver_uef_stream_byte
+.service_driver_uef_stream_zero
+ lda #0
+.service_driver_uef_stream_byte
+ tay
+ jsr service_driver_write_y
+ inx
+ cpx #20
+ bne service_driver_uef_stream_request
+ jsr service_driver_dispatch
+ cmp #'I'
+ bne service_driver_uef_stream_invalid
+ ldx #0
+.service_driver_uef_stream_signature
+ jsr service_driver_read_a
+ cmp service_driver_uef_stream_reply,x
+ bne service_driver_uef_stream_invalid
+ inx
+ cpx #4
+ bne service_driver_uef_stream_signature
+ ldx #4
+.service_driver_uef_stream_skip_token
+ jsr service_driver_read_a
+ dex
+ bne service_driver_uef_stream_skip_token
+ jsr service_driver_read_a
+ sta drv_uef_generation_lo
+ jsr service_driver_read_a
+ sta drv_uef_generation_hi
+ jsr service_driver_uef_generation_save
+ jsr service_driver_read_a
+ jsr service_driver_read_a
+ jsr service_driver_read_a
+ sta drv_uef_sbufl
+ jsr service_driver_read_a
+ sta drv_uef_sbufh
+ jsr service_driver_read_a
+ beq service_driver_uef_stream_not_final
+ lda drv_uef_sbuft
+ ora #&40
+ bne service_driver_uef_stream_store_flags
+.service_driver_uef_stream_not_final
+ lda drv_uef_sbuft
+ and #&BF
+.service_driver_uef_stream_store_flags
+ ora #&80
+ sta drv_uef_sbuft
+ lda #0
+ sta drv_uef_pr_y
+ sta drv_uef_pr_r
+ jsr service_driver_read_a
+ sta drv_uef_format
+ clc
+ rts
+.service_driver_uef_stream_invalid
+ sec
+ rts
+
+\ The active window generation must survive arbitrary cassette loaders. Some
+\ Electron loaders occupy &0900-&10FF, which includes the original netprt
+\ scratch allocation. Keep the authoritative copy next to the transactional
+\ WiCFS record in Pi-private JIM, outside host RAM. Every refill restores this
+\ copy before constructing its request, so overwriting netprt is harmless.
+.service_driver_uef_generation_load
+ php
+ sei
+ pha
+ txa
+ pha
+ ldx #drv_uef_generation_record_lo
+ jsr wicfs_state_address_x
+ lda &FCA9
+ jsr wicfs_bus_delay
+ sta drv_uef_generation_lo
+ ldx #drv_uef_generation_record_hi
+ jsr wicfs_state_address_x
+ lda &FCA9
+ jsr wicfs_bus_delay
+ sta drv_uef_generation_hi
+ pla
+ tax
+ pla
+ plp
+ rts
+
+.service_driver_uef_generation_save
+ php
+ sei
+ pha
+ txa
+ pha
+ ldx #drv_uef_generation_record_lo
+ jsr wicfs_state_address_x
+ lda drv_uef_generation_lo
+ sta &FCA9
+ jsr wicfs_bus_delay
+ ldx #drv_uef_generation_record_hi
+ jsr wicfs_state_address_x
+ lda drv_uef_generation_hi
+ sta &FCA9
+ jsr wicfs_bus_delay
+ pla
+ tax
+ pla
+ plp
+ rts
+
+.service_driver_uef_stream_template
+ equs "IUEF"
+ equb 1,0
+ equb 0,0,0,0               \ current session token: zero means active
+ equb 0,0,0,0               \ synchronous next-window request
+ equb 0,0                    \ no upload payload
+ equb 0,0,0,0               \ no upload CRC
+.service_driver_uef_stream_reply
+ equs "UEF"
+ equb 1
+
+.service_driver_uef_stream_probe
+ lda #drv_svc_uef_op_probe
+ jmp service_driver_uef_stream
+.service_driver_uef_stream_begin
+ lda #drv_svc_uef_op_begin
+ jmp service_driver_uef_stream
+.service_driver_uef_stream_append
+ lda #drv_svc_uef_op_append
+ jmp service_driver_uef_stream
+.service_driver_uef_stream_finalize
+ lda #drv_svc_uef_op_finalize
+ jmp service_driver_uef_stream
+.service_driver_uef_stream_close
+ lda #drv_svc_uef_op_close
+ jmp service_driver_uef_stream
 
 .service_driver_lapopt
  lda #drv_svc_lapopt

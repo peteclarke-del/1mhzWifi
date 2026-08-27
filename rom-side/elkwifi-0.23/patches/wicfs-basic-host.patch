@@ -82,7 +82,7 @@
 +.upv_basic_match
 +	LDA	(fscv_x),Y
 +	AND	#&DF
-+	CMP	menu_basic_name,X
++	CMP	host_basic_name,X
 +	BNE	upv_about_normal
 +	INY
 +	INX
@@ -97,11 +97,11 @@
 +.upv_basic_end
 +	CMP	#cr
 +	BNE	upv_about_normal
-+	JSR	menu_find_basic
++	JSR	host_find_basic
 +	BCS	upv_about_normal
 +	LDA	#0
 +	STA	host_basic_pending
-+	JMP	menu_enter_host_basic
++	JMP	host_enter_basic
 +
 +.upv_about_normal
 +	LDA	#0

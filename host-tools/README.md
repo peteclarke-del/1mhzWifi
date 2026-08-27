@@ -16,12 +16,13 @@ directly. They do not require the 1MHzWifi/ElkWiFi service ROM.
   tries a Pi-resident Ed25519 identity, falls back to a hidden password prompt
   when the key is rejected, and exchanges the decrypted shell byte stream
   without exposing private keys or session keys to the 6502.
+- `SFTP user@host [port]`: interactive SFTP client using the same key,
+  password and known-host policy. `PWD`, `CD`, `DIR`/`LS`, `GET`, `PUT`,
+  `DELETE`, `MKDIR`, `RMDIR` and `QUIT` are implemented. Local file data goes
+  through MOS `OSFIND`, `OSBGET` and `OSBPUT`; the client neither claims nor
+  transfers through an installed Tube.
 - `NETMENU`: concise on-disc launcher/help screen.
 
-- `PING host`: four ICMP echo requests using Pi1MHz's `*PING`-compatible
-  ElkWiFi command surface.
-- `NSLOOK host`: resolves and prints an IPv4 address using the raw TCP/DNS
-  command surface.
 - `HWDTEST`: hardware/emulator alignment diagnostic. It reports the MOS
   machine and Tube state, memory limits and key vectors, then checks the
   `&FCA6-&FCA9` cursor/data pair, a Services JIM block and secure capability
@@ -55,9 +56,14 @@ boundary where the emulator and live bus disagree. Machine, memory, vector and
 ROM-list values vary with the host configuration and must be compared as a
 complete profile.
 
-Unimplemented commands are not placed on the released SSD. Planned `FTP`,
-`HGET` and Viewdata clients remain in the engineering roadmap until they have
+Unimplemented commands are not placed on the released SSD. Planned `HGET`
+and Viewdata clients remain in the engineering roadmap until they have
 complete implementations and functional tests.
+
+`PING` and `NSLOOK` are ROM commands and are deliberately absent from the
+NetTools SSD. Plain interactive FTP is also ROM-resident. NetTools supplies
+SFTP because its larger client and authentication flow do not fit the ROM
+compatibility surface cleanly.
 
 Each public command is a small bootstrap at `&FFFF2000`. This is above the
 measured DFS OSHWM of `&1F00`. On the photographed MMFS/ADFS profile, where
@@ -85,7 +91,7 @@ and the
 ## Requirements
 
 - The combined 1MHzWifi Pi1MHz firmware, containing the native net service
-  and managed secure service commands 94-100.
+  and managed secure service commands 94-113.
 - `net_enable=1` in `Pi1MHz.cfg`.
 - Configured, associated WiFi.
 - Host OSHWM no higher than `&2000`. The bootstrap preserves a suitable current
@@ -119,7 +125,7 @@ Output: `build/nettools.ssd`.
 Use `make clean` to remove build outputs. Use `make distclean` to also remove
 the local py65 installation and Python bytecode caches.
 
-`make test` extracts `TELNET` and `SSH` from the finished DFS image and executes
+`make test` extracts the host tools from the finished DFS image and executes
 those exact payloads on py65 with emulated MOS entry points and a byte-accurate
 Pi1MHz services mailbox/JIM fixture. It tests fragmented network input, forced
 partial writes, keyboard sequences, VT100 rendering, managed SSH shell I/O,
@@ -260,8 +266,9 @@ the BCM hardware RNG and FatFs; Pi 1/Zero `kernel.img` and Pi 2/3
 next gate after the emulator tests, so retain the original firmware image for
 rollback during first-device testing.
 
-`PING` and `NSLOOK` are implemented and shipped on `nettools.ssd`. Planned
-later SSD tools include `FTP`, `HGET` HTTP/HTTPS and `VIEWDAT`. Viewdata
+`PING` and `NSLOOK` are ROM-resident commands and are not duplicated on
+`nettools.ssd`. SFTP is included on the SSD, while plain FTP is ROM-resident.
+Planned later SSD tools include `HGET` HTTP/HTTPS and `VIEWDAT`. Viewdata
 will reuse the stream transport but has its own MODE 7/Prestel renderer and
 key mapping rather than passing its data through the VT100 renderer.
 

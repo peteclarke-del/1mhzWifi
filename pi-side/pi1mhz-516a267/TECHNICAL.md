@@ -3,7 +3,7 @@
 ## Scope and base
 
 This package targets Pi1MHz commit
-`d08242ee1b35cf1285b72c9ec1869e98081a8c3e`, the reviewed official `master`
+`e949f2d2714b15f314df375e52db5febb6c40e6d`, the reviewed official `master`
 revision recorded in `../upstream.env`. It extends Pi1MHz's existing bare-metal
 CYW43, lwIP, services and network code. It does not install a Linux daemon.
 
@@ -31,6 +31,16 @@ Responses are limited to 240 bytes because the inherited host driver exposes a
 single bounded response page. IFCFG deliberately returns original-style
 station IP and station MAC records. Pi-specific progress is reported by
 `*ONLINE`.
+
+Command 93 retains its legacy raw, gzip and ZIP normalization response. An
+exact `IUEF`, version-1 request adds begin, append, finalize, rewind, refill and
+close operations without allocating another command number. Source windows are
+at most `&FF00` bytes in public JIM; normalized streams are retained in two
+16 MiB Pi-private buffers and republished on demand. The response includes a
+session token, 32-bit generation, window length and final flag. The ROM carries
+the low 16 generation bits, which covers every window in the 16 MiB limit, so
+a timed-out refill can be retried without advancing twice. Normalization and
+window publication execute in the cooperative poll loop, never in FIQ.
 
 ## WiFi startup and association
 

@@ -6,6 +6,8 @@
 
 typedef struct fixture {
     int opened;
+    int sftp_opened;
+    int transfer;
     char password[128];
     size_t password_length;
 } fixture;
@@ -58,6 +60,69 @@ static int ssh_password(void *opaque, const uint8_t *password, size_t length)
 
 static void ssh_close(void *opaque) { ((fixture *)opaque)->opened = 0; }
 
+static uint8_t sftp_open(void *opaque, const char *url, const char *username,
+                         int trust, char fingerprint[96])
+{
+    fixture *state = opaque;
+    (void)fingerprint;
+    assert(!strcmp(url, "TCP://host:22/") && !strcmp(username, "alice"));
+    assert(trust);
+    state->sftp_opened = 1;
+    return NTS_OK;
+}
+
+static int sftp_path(void *opaque, uint8_t operation, const char *path,
+                     uint8_t *out, size_t maximum)
+{
+    fixture *state = opaque;
+    assert(state->sftp_opened && maximum >= 4);
+    if (operation == NTS_SEC_SFTP_PWD) {
+        memcpy(out, "/x\n", 3);
+        return 3;
+    }
+    assert(!strcmp(path, "remote"));
+    return 0;
+}
+
+static int sftp_get_open(void *opaque, const char *path)
+{
+    fixture *state = opaque;
+    assert(state->sftp_opened && !strcmp(path, "remote"));
+    state->transfer = 1;
+    return 0;
+}
+
+static int sftp_get_read(void *opaque, uint8_t *out, size_t maximum)
+{
+    fixture *state = opaque;
+    assert(state->transfer == 1 && maximum >= 3);
+    memcpy(out, "abc", 3);
+    return 3;
+}
+
+static int sftp_put_open(void *opaque, const char *path)
+{
+    fixture *state = opaque;
+    assert(state->sftp_opened && !strcmp(path, "remote"));
+    state->transfer = 2;
+    return 0;
+}
+
+static int sftp_put_write(void *opaque, const uint8_t *data, size_t length)
+{
+    fixture *state = opaque;
+    assert(state->transfer == 2 && length == 3 && !memcmp(data, "abc", 3));
+    return 3;
+}
+
+static int sftp_transfer_close(void *opaque)
+{
+    ((fixture *)opaque)->transfer = 0;
+    return 0;
+}
+
+static void sftp_close(void *opaque) { ((fixture *)opaque)->sftp_opened = 0; }
+
 static void wr32(uint8_t *p, uint32_t value)
 {
     p[0] = (uint8_t)value; p[1] = (uint8_t)(value >> 8);
@@ -67,7 +132,9 @@ static void wr32(uint8_t *p, uint32_t value)
 int main(void)
 {
     static const nts_secure_port port = {
-        random_bytes, ssh_open, ssh_read, ssh_write, ssh_password, ssh_close
+        random_bytes, ssh_open, ssh_read, ssh_write, ssh_password, ssh_close,
+        sftp_open, sftp_path, sftp_get_open, sftp_get_read,
+        sftp_put_open, sftp_put_write, sftp_transfer_close, sftp_close
     };
     uint8_t jim[0x20600] = { 0 };
     uint8_t command[32] = { 0 };
@@ -76,7 +143,7 @@ int main(void)
 
     command[0] = NTS_SEC_CAPS;
     assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
-    assert(command[2] == 1 && command[3] == 7 &&
+    assert(command[2] == 1 && command[3] == 15 &&
            !memcmp(command + 8, "NTS", 3));
 
     memset(command, 0, sizeof(command));
@@ -117,6 +184,42 @@ int main(void)
     command[0] = NTS_SEC_SSH_CLOSE;
     assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
     assert(!state.opened);
+
+    memset(command, 0, sizeof(command)); command[0] = NTS_SEC_SFTP_OPEN;
+    command[1] = 1; wr32(command + 2, 0x20300); wr32(command + 6, 0x20400);
+    assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
+    assert(state.sftp_opened);
+
+    jim[0x20300] = 0;
+    memset(command, 0, sizeof(command)); command[0] = NTS_SEC_SFTP_PWD;
+    command[1] = 8; wr32(command + 4, 0x20300); wr32(command + 8, 0x20000);
+    assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
+    assert(command[1] == 3 && !memcmp(jim + 0x20000, "/x\n", 3));
+
+    strcpy((char *)jim + 0x20300, "remote");
+    memset(command, 0, sizeof(command)); command[0] = NTS_SEC_SFTP_GET_OPEN;
+    wr32(command + 4, 0x20300);
+    assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
+    memset(command, 0, sizeof(command)); command[0] = NTS_SEC_SFTP_GET_READ;
+    command[1] = 8; wr32(command + 4, 0x20000);
+    assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
+    assert(command[1] == 3 && !memcmp(jim + 0x20000, "abc", 3));
+    command[0] = NTS_SEC_SFTP_TRANSFER_CLOSE;
+    assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
+
+    memset(command, 0, sizeof(command)); command[0] = NTS_SEC_SFTP_PUT_OPEN;
+    wr32(command + 4, 0x20300);
+    assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
+    memcpy(jim + 0x20000, "abc", 3);
+    memset(command, 0, sizeof(command)); command[0] = NTS_SEC_SFTP_PUT_WRITE;
+    command[1] = 3; wr32(command + 4, 0x20000);
+    assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
+    assert(command[1] == 3);
+    command[0] = NTS_SEC_SFTP_TRANSFER_CLOSE;
+    assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
+    command[0] = NTS_SEC_SFTP_CLOSE;
+    assert(nts_secure_dispatch(&service, command, jim, sizeof(jim)) == NTS_OK);
+    assert(!state.sftp_opened);
     puts("Pi1MHz secure-service ABI core: OK");
     return 0;
 }

@@ -210,6 +210,10 @@ static void initialise_device(void)
             shutdown_device();
             return;
         }
+        /* The acceptance runner checks this header while Elkulator is still
+           running.  Line buffering also preserves the last completed bus
+           operation if a fault terminates the emulator. */
+        setvbuf(bus_trace, NULL, _IOLBF, 0);
         fputs("# cycle op address value selected-page mapped-jim\n", bus_trace);
     }
     enabled = 1;

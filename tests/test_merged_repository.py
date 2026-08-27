@@ -74,6 +74,19 @@ class MergedRepositoryTest(unittest.TestCase):
             "SSH_WRITE": 98,
             "SSH_CLOSE": 99,
             "SSH_PASSWORD": 100,
+            "SFTP_OPEN": 101,
+            "SFTP_PWD": 102,
+            "SFTP_CD": 103,
+            "SFTP_LS": 104,
+            "SFTP_DELETE": 105,
+            "SFTP_MKDIR": 106,
+            "SFTP_RMDIR": 107,
+            "SFTP_GET_OPEN": 108,
+            "SFTP_GET_READ": 109,
+            "SFTP_PUT_OPEN": 110,
+            "SFTP_PUT_WRITE": 111,
+            "SFTP_TRANSFER_CLOSE": 112,
+            "SFTP_CLOSE": 113,
         }
         for name, command in expected.items():
             self.assertIn(f"SEC_CMD_{name} = {command}", asm)
@@ -94,6 +107,34 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn("Always latch the newest command", command)
         self.assertIn("pending_cp = command_pointer", command)
         self.assertIn("Pi1MHz_MemoryWrite(addr, SEC_BUSY)", command)
+
+    def test_ftp_command_allocation_and_host_boundary_are_consistent(self) -> None:
+        header = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/ftp_service.h"
+        ).read_text()
+        service = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/ftp_service.c"
+        ).read_text()
+        rom = (ROOT / "rom-side/elkwifi-0.23/overlay/ftp.asm").read_text()
+        emulator = (
+            ROOT / "emulator/pi1mhz-mailbox/src/pi1mhz_ftp.c"
+        ).read_text()
+        for name, number in {
+            "OPEN": 114, "EXEC": 115, "READ": 116, "WRITE": 117,
+            "CLOSE": 118, "CANCEL": 119,
+        }.items():
+            self.assertIn(f"FTP_CMD_{name}", header)
+            self.assertRegex(
+                rom,
+                rf"ftp_cmd_{name.lower()}\s*=\s*{number}",
+            )
+        self.assertIn("FTP_SCRATCH_OFFSET 0xfff100u", service)
+        self.assertIn("FTP_SCRATCH 0xfff100u", emulator)
+        self.assertIn("ftp_OSFIND", rom)
+        self.assertNotIn("Tube", "\n".join(
+            line for line in rom.splitlines()
+            if not line.lstrip().startswith("\\")
+        ))
 
     def test_secure_capabilities_do_not_depend_on_poll_registration(self) -> None:
         wrapper = (
@@ -133,7 +174,6 @@ class MergedRepositoryTest(unittest.TestCase):
     def test_host_nettools_mask_irq_while_using_shared_jim_cursor(self) -> None:
         net = (ROOT / "host-tools/src/common/pi1mhz_net.asm").read_text()
         secure = (ROOT / "host-tools/src/common/pi1mhz_secure.asm").read_text()
-        ping = (ROOT / "host-tools/src/ping.asm").read_text()
         ssh = (ROOT / "host-tools/src/ssh.asm").read_text()
         begin = net.split(".net_begin", 1)[1].split(".net_dispatch", 1)[0]
         dispatch = net.split(".net_dispatch_start", 1)[1].split("RTS", 1)[0]
@@ -141,7 +181,6 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn("STA net_saved_p", begin)
         self.assertIn("LDA net_saved_p", dispatch)
         self.assertIn("PLP", dispatch)
-        self.assertEqual(ping.count("JSR net_dispatch_start"), 2)
         for label in (".net_copy_rx_to_host", ".net_copy_selected_string"):
             block = net.split(label, 1)[1].split("RTS", 1)[0]
             self.assertIn("SEI", block)
@@ -152,16 +191,12 @@ class MergedRepositoryTest(unittest.TestCase):
             block = secure.split(label, 1)[1]
             self.assertIn("SEI", block)
             self.assertIn("PLP", block)
-        ping_response = ping.split(".ping_result", 1)[1].split(
-            ".ping_print_response", 1
-        )[0]
         fingerprint = ssh.split(".ssh_confirm_host_key", 1)[1].split(
             ".ssh_print_fingerprint", 1
         )[0]
-        for block in (ping_response, fingerprint):
-            self.assertIn("SEI", block)
-            self.assertIn("JSR net_copy_selected_string", block)
-            self.assertIn("PLP", block)
+        self.assertIn("SEI", fingerprint)
+        self.assertIn("JSR net_copy_selected_string", fingerprint)
+        self.assertIn("PLP", fingerprint)
 
     def test_elkwifi_wrapper_discards_abandoned_request_on_reset(self) -> None:
         wrapper = (
@@ -234,8 +269,8 @@ class MergedRepositoryTest(unittest.TestCase):
 
     def test_packaged_kernels_have_matching_recovery_revisions(self) -> None:
         pattern = re.compile(
-            rb"Pi1MHz ElkWiFi 0\.1\.58, kernel "
-            rb"(V1\.30-84-gd08242e-dirty\.4ab8cb05)"
+            rb"Pi1MHz ElkWiFi 0\.1\.66, kernel "
+            rb"(V1\.30-91-ge949f2d-dirty\.[0-9a-f]{8})"
         )
         revisions = []
         for name in ("kernel.img", "kernel7.img"):
@@ -259,7 +294,7 @@ class MergedRepositoryTest(unittest.TestCase):
         )
         self.assertIn("firmware/Pi1MHz/ElkWiFi.rom", patch)
         self.assertIn("GIT binary patch", patch)
-        self.assertIn("Pi1MHz ElkWiFi 0.1.58, kernel", patch)
+        self.assertIn("Pi1MHz ElkWiFi 0.1.66, kernel", patch)
         self.assertNotIn("Pi1MHz ElkWiFi 0.1.52, kernel", patch)
         self.assertIn("RPI_GetSystemTime() - started_us >= 750000u", patch)
         self.assertIn("exact MENU TITLES transfer shape", patch)
@@ -377,6 +412,30 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn(write_case, backend)
         self.assertIn('setenv("PI1MHZ_SD_IMAGE"', tests)
         self.assertIn("Upstream MMFS uses commands 0/1", tests)
+
+    def test_emulator_has_no_retired_menu_cache(self) -> None:
+        backend = (
+            ROOT / "emulator/pi1mhz-mailbox/src/pi1mhz_net_backend.c"
+        ).read_text()
+        tests = (
+            ROOT / "emulator/pi1mhz-mailbox/tests/test_live_backend.c"
+        ).read_text()
+        self.assertNotIn("MENU_CACHE", backend)
+        self.assertNotIn("PI1MHZ_MENU_CACHE_SECONDS", backend)
+        self.assertNotIn('trace_line(backend, "CACHE_HIT"', backend)
+        self.assertNotIn("opt-in MENU cache", tests)
+
+    def test_release_artifacts_have_no_retired_menu_runtime(self) -> None:
+        bundle = ROOT / "build/pi1mhz-all"
+        rom = (bundle / "Pi1MHz/ElkWiFi.rom").read_bytes()
+        config = (bundle / "Pi1MHz/Pi1MHz.cfg").read_text().lower()
+        for kernel_name in ("kernel.img", "kernel7.img"):
+            kernel = (bundle / kernel_name).read_bytes().lower()
+            self.assertNotIn(b"elkwifi_menu", kernel, kernel_name)
+            self.assertNotIn(b"menu_cache", kernel, kernel_name)
+        self.assertNotIn(b"menusrc", rom.lower())
+        self.assertNotIn(b"acornelectron.nl/uefarchive/menu", rom.lower())
+        self.assertNotIn("elkwifi_menu", config)
 
     def test_elkulator_exposes_opt_in_bus_evidence_trace(self) -> None:
         source = (

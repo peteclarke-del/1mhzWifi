@@ -18,6 +18,7 @@
 #include "BeebSCSI/filesystem.h"
 #include "config.h"
 #include "elkwifi_service.h"
+#include "ftp_service.h"
 #include "ram_emulator.h"
 #include "services.h"
 #include "uef_normalize.h"
@@ -34,9 +35,7 @@
 #include "lwip/raw.h"
 #include "lwip/udp.h"
 
-#define MENU_FILE "/Pi1MHz/ElkWiFi.menu"
-#define MENU_DEFAULT "http://acornelectron.nl/uefarchive/MENU"
-#define MENU_MAX 240u
+#define ELKWIFI_TEXT_MAX 240u
 #define WIFI_FILE "/Pi1MHz/ElkWiFi.wifi"
 #define WIFI_PROFILE_HEADER "ELKWIFI1"
 #define LAPOPT_FILE "/Pi1MHz/ElkWiFi.lapopt"
@@ -44,15 +43,25 @@
  * forward Pi1MHz's extension selectors at &FCFD/&FCFE. Keep UEF data in the
  * first 64K so the host and Pi always refer to the same physical bytes. */
 #define ELKWIFI_UEF_BASE 0u
+#define ELKWIFI_UEF_LEGACY_CAPACITY 0xfffeu
+#define ELKWIFI_UEF_WINDOW_SIZE 0xff00u
+#define ELKWIFI_UEF_STREAM_CAPACITY (16u * 1024u * 1024u)
+#define ELKWIFI_UEF_STREAM_VERSION 1u
+#define ELKWIFI_UEF_OP_PROBE 0u
+#define ELKWIFI_UEF_OP_BEGIN 1u
+#define ELKWIFI_UEF_OP_APPEND 2u
+#define ELKWIFI_UEF_OP_FINALIZE 3u
+#define ELKWIFI_UEF_OP_REWIND 4u
+#define ELKWIFI_UEF_OP_REFILL 5u
+#define ELKWIFI_UEF_OP_CLOSE 6u
 #define ELKWIFI_VERSION_RESPONSE \
-   "Pi1MHz ElkWiFi 0.1.58, kernel " GITVERSION "\r\n\r\nOK\r\n"
+   "Pi1MHz ElkWiFi 0.1.66, kernel " GITVERSION "\r\n\r\nOK\r\n"
 
 _Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
                "ElkWiFi service range start disagrees with services.h");
 _Static_assert(ELKWIFI_CMD_LAST == SERVICE_CMD_ELKWIFI_LAST,
                "ElkWiFi service range end disagrees with services.h");
 
-static char menu_url[MENU_MAX + 1u];
 static volatile bool request_pending;
 static volatile bool request_cancel;
 static volatile uint32_t request_pointer;
@@ -60,7 +69,24 @@ static volatile uint32_t request_status_address;
 static bool service_initialised;
 static bool scan_waiting;
 static uint8_t scan_fields = 127u;
-static uint8_t uef_scratch[0xfffeu];
+/* The AP5 only exposes one 64K JIM aperture. Keep the authoritative stream on
+ * the Pi and publish bounded windows into that aperture. This also protects a
+ * loaded UEF from filing systems and other expansions which share JIM. */
+static uint8_t uef_stream_data[ELKWIFI_UEF_STREAM_CAPACITY];
+static uint8_t uef_stream_scratch[ELKWIFI_UEF_STREAM_CAPACITY];
+static size_t uef_stream_length;
+static size_t uef_stream_cursor;
+static size_t uef_published_offset;
+static uint16_t uef_published_length;
+static uint32_t uef_stream_token;
+static uint32_t uef_window_generation;
+static uint32_t uef_last_append_offset;
+static uint32_t uef_last_append_crc;
+static uint16_t uef_last_append_length;
+static uint8_t uef_stream_format;
+static bool uef_published_final;
+static bool uef_stream_ready;
+static bool uef_upload_active;
 static bool uef_trim_tail;
 
 typedef enum {
@@ -78,7 +104,7 @@ typedef enum {
 static netop_state_t ping_state;
 static struct raw_pcb *ping_pcb;
 static ip_addr_t ping_address;
-static char ping_host[MENU_MAX + 1u];
+static char ping_host[ELKWIFI_TEXT_MAX + 1u];
 static uint16_t ping_sequence;
 static uint32_t ping_started_us;
 static uint32_t ping_deadline_us;
@@ -97,6 +123,254 @@ static void response_string(uint32_t cp, const char *value);
 static void response_printf(uint32_t cp, const char *format, ...)
    __attribute__((format(printf, 2, 3)));
 static bool command_string(uint32_t cp, const char **value);
+
+static void uef_stream_clear(void)
+{
+   uef_stream_length = 0u;
+   uef_stream_cursor = 0u;
+   uef_stream_ready = false;
+   uef_upload_active = false;
+   uef_published_offset = 0u;
+   uef_published_length = 0u;
+   uef_window_generation = 0u;
+   uef_last_append_offset = UINT32_MAX;
+   uef_last_append_crc = 0u;
+   uef_last_append_length = 0u;
+   uef_stream_format = 0u;
+   uef_published_final = false;
+}
+
+static uint16_t uef_rd16(const uint8_t *p)
+{
+   return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
+}
+
+static uint32_t uef_rd32(const uint8_t *p)
+{
+   return (uint32_t)p[0] | ((uint32_t)p[1] << 8)
+        | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+static void uef_wr16(uint8_t *p, uint16_t value)
+{
+   p[0] = (uint8_t)value;
+   p[1] = (uint8_t)(value >> 8);
+}
+
+static void uef_wr32(uint8_t *p, uint32_t value)
+{
+   p[0] = (uint8_t)value;
+   p[1] = (uint8_t)(value >> 8);
+   p[2] = (uint8_t)(value >> 16);
+   p[3] = (uint8_t)(value >> 24);
+}
+
+static uint32_t uef_crc32(const uint8_t *data, size_t length)
+{
+   uint32_t crc = 0xffffffffu;
+   while (length-- != 0u) {
+      crc ^= *data++;
+      for (unsigned int bit = 0; bit < 8u; bit++)
+         crc = (crc >> 1) ^ (0xedb88320u & (uint32_t)-(int32_t)(crc & 1u));
+   }
+   return ~crc;
+}
+
+static bool uef_incremental_request(uint32_t cp)
+{
+   const uint8_t *p = &Pi1MHz->JIM_ram[cp + 1u];
+   return p[0] == 'I' && p[1] == 'U' && p[2] == 'E' && p[3] == 'F'
+       && p[4] == ELKWIFI_UEF_STREAM_VERSION;
+}
+
+static void uef_incremental_response(uint32_t cp)
+{
+   uint8_t *p = &Pi1MHz->JIM_ram[cp + 1u];
+   memcpy(p, "IUEF", 4u);
+   p[4] = ELKWIFI_UEF_STREAM_VERSION;
+   uef_wr32(p + 5u, uef_stream_token);
+   uef_wr32(p + 9u, uef_window_generation);
+   uef_wr16(p + 13u, uef_published_length);
+   p[15] = uef_published_final ? 1u : 0u;
+   p[16] = uef_stream_format;
+   p[17] = 0u;
+}
+
+static void uef_public_length_set(size_t length)
+{
+   const uint32_t trailer = ELKWIFI_UEF_BASE + 0xfffeu;
+   Pi1MHz->JIM_ram[trailer] = (uint8_t)length;
+   Pi1MHz->JIM_ram[trailer + 1u] = (uint8_t)(length >> 8);
+}
+
+static size_t uef_public_length_get(void)
+{
+   const uint32_t trailer = ELKWIFI_UEF_BASE + 0xfffeu;
+   return (size_t)Pi1MHz->JIM_ram[trailer]
+        | ((size_t)Pi1MHz->JIM_ram[trailer + 1u] << 8);
+}
+
+static void uef_stream_publish_window(void)
+{
+   size_t available = uef_stream_length - uef_stream_cursor;
+   size_t count = available < ELKWIFI_UEF_WINDOW_SIZE
+                ? available : ELKWIFI_UEF_WINDOW_SIZE;
+   uef_published_offset = uef_stream_cursor;
+   if (count != 0u)
+      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE],
+             uef_stream_data + uef_stream_cursor, count);
+   uef_stream_cursor += count;
+   uef_published_length = (uint16_t)count;
+   uef_published_final = uef_stream_cursor == uef_stream_length;
+   uef_public_length_set(count);
+}
+
+static void uef_stream_republish_window(void)
+{
+   if (uef_published_length != 0u)
+      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE],
+             uef_stream_data + uef_published_offset, uef_published_length);
+   uef_public_length_set(uef_published_length);
+}
+
+static void uef_normalize_response(uint32_t cp,
+                                   uef_normalize_result_t normalized)
+{
+   response_string(cp, normalized == UEF_NORMALIZE_RAW ? "RAW\r\n"
+                    : normalized == UEF_NORMALIZE_GZIP ? "GZIP\r\n"
+                                                       : "ZIP\r\n");
+   /* A fixed byte beyond every legacy text response advertises stream ABI 1.
+    * Old ROMs see the byte-for-byte response they already understand. */
+   Pi1MHz->JIM_ram[cp + 17u] = '1';
+}
+
+static uint8_t uef_incremental_command(uint32_t cp)
+{
+   const uint8_t *request = &Pi1MHz->JIM_ram[cp + 1u];
+   uint8_t operation = request[5];
+   uint32_t token = uef_rd32(request + 6u);
+   uint32_t value = uef_rd32(request + 10u);
+   uint16_t length = uef_rd16(request + 14u);
+   uint32_t crc = uef_rd32(request + 16u);
+
+   switch (operation) {
+      case ELKWIFI_UEF_OP_PROBE:
+         uef_incremental_response(cp);
+         return ELKWIFI_OK;
+
+      case ELKWIFI_UEF_OP_BEGIN:
+         uef_stream_clear();
+         if (++uef_stream_token == 0u) ++uef_stream_token;
+         uef_upload_active = true;
+         uef_incremental_response(cp);
+         return ELKWIFI_OK;
+
+      case ELKWIFI_UEF_OP_APPEND:
+      {
+         uint32_t actual_crc;
+         if (token == 0u) token = uef_stream_token;
+         if (length == 0u) length = (uint16_t)uef_public_length_get();
+         if (!uef_upload_active || token != uef_stream_token
+             || length == 0u || length > ELKWIFI_UEF_WINDOW_SIZE)
+            return ELKWIFI_ERR_PARAM;
+         actual_crc = uef_crc32(
+            &Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE], length);
+         if (value == uef_window_generation) {
+            if (length > ELKWIFI_UEF_STREAM_CAPACITY - uef_stream_length)
+               return ELKWIFI_ERR_PARAM;
+            if (crc != 0u && actual_crc != crc)
+               return ELKWIFI_ERR_PARAM;
+            memcpy(uef_stream_data + uef_stream_length,
+                   &Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE], length);
+            uef_stream_length += length;
+            uef_last_append_offset = value;
+            uef_last_append_length = length;
+            uef_last_append_crc = actual_crc;
+            uef_window_generation++;
+         } else if (value + 1u != uef_window_generation
+                    || value != uef_last_append_offset
+                    || length != uef_last_append_length
+                    || actual_crc != uef_last_append_crc
+                    || (crc != 0u && crc != actual_crc)) {
+            return ELKWIFI_ERR_PARAM;
+         }
+         uef_incremental_response(cp);
+         return ELKWIFI_OK;
+      }
+
+      case ELKWIFI_UEF_OP_FINALIZE:
+      {
+         size_t normalized_length = uef_stream_length;
+         uef_normalize_result_t normalized;
+         if (token == 0u) token = uef_stream_token;
+         if (!uef_upload_active || token != uef_stream_token
+             || normalized_length == 0u)
+            return ELKWIFI_ERR_PARAM;
+         normalized = uef_normalize(uef_stream_data, &normalized_length,
+                                    sizeof uef_stream_data,
+                                    uef_stream_scratch,
+                                    sizeof uef_stream_scratch);
+         if (normalized == UEF_NORMALIZE_TOO_LARGE) {
+            response_string(cp, "TOO LARGE\r\n");
+            return ELKWIFI_OK;
+         }
+         if (normalized == UEF_NORMALIZE_INVALID) {
+            response_string(cp, "INVALID\r\n");
+            return ELKWIFI_OK;
+         }
+         if (uef_trim_tail)
+            normalized_length = uef_legacy_trim_length(
+               uef_stream_data, normalized_length);
+         uef_stream_length = normalized_length;
+         uef_stream_cursor = 0u;
+         uef_stream_ready = true;
+         uef_upload_active = false;
+         uef_stream_format = normalized == UEF_NORMALIZE_RAW ? 'R'
+                           : normalized == UEF_NORMALIZE_GZIP ? 'G' : 'Z';
+         uef_window_generation++;
+         uef_stream_publish_window();
+         uef_incremental_response(cp);
+         return ELKWIFI_OK;
+      }
+
+      case ELKWIFI_UEF_OP_REWIND:
+         if (!uef_stream_ready
+             || (token != 0u && token != uef_stream_token))
+            return ELKWIFI_ERR_PARAM;
+         uef_stream_cursor = 0u;
+         uef_window_generation++;
+         uef_stream_publish_window();
+         uef_incremental_response(cp);
+         return ELKWIFI_OK;
+
+      case ELKWIFI_UEF_OP_REFILL:
+         if (!uef_stream_ready
+             || (token != 0u && token != uef_stream_token))
+            return ELKWIFI_ERR_PARAM;
+         if ((token == 0u && value == 0u) || value == 0xffffffffu
+             || value == uef_window_generation) {
+            uef_window_generation++;
+            uef_stream_publish_window();
+         } else if (value + 1u == uef_window_generation) {
+            uef_stream_republish_window();
+         } else {
+            return ELKWIFI_ERR_PARAM;
+         }
+         uef_incremental_response(cp);
+         return ELKWIFI_OK;
+
+      case ELKWIFI_UEF_OP_CLOSE:
+         if (token != 0u && token != uef_stream_token)
+            return ELKWIFI_ERR_PARAM;
+         uef_stream_clear();
+         uef_public_length_set(0u);
+         uef_incremental_response(cp);
+         return ELKWIFI_OK;
+
+      default:
+         return ELKWIFI_ERR_PARAM;
+   }
+}
 
 static bool deadline_expired(uint32_t deadline)
 {
@@ -539,14 +813,14 @@ static void lapopt_load(void)
 
 static void response_printf(uint32_t cp, const char *format, ...)
 {
-   char value[MENU_MAX + 1u];
+   char value[ELKWIFI_TEXT_MAX + 1u];
    va_list args;
    va_start(args, format);
    int length = vsnprintf(value, sizeof value, format, args);
    va_end(args);
    if (length < 0)
       value[0] = '\0';
-   value[MENU_MAX] = '\0';
+   value[ELKWIFI_TEXT_MAX] = '\0';
    response_string(cp, value);
 }
 
@@ -703,7 +977,7 @@ static uint8_t wifi_online(uint32_t cp)
 static uint8_t wifi_scan(uint32_t cp)
 {
    sdio_wifi_scan_result_t results[SDIO_WIFI_SCAN_MAX_RESULTS];
-   char response[MENU_MAX + 1u];
+   char response[ELKWIFI_TEXT_MAX + 1u];
    size_t used = 0u;
 
    if (!scan_waiting) {
@@ -750,57 +1024,13 @@ static uint8_t wifi_scan(uint32_t cp)
    return ELKWIFI_OK;
 }
 
-static bool valid_menu_url(const char *url)
-{
-   size_t length;
-   if (url == NULL || strncmp(url, "http://", 7u) != 0)
-      return false; /* HTTPS is enabled only when a verified TLS backend exists. */
-   length = strnlen(url, MENU_MAX + 1u);
-   if (length <= 7u || length > MENU_MAX)
-      return false;
-   for (size_t i = 0u; i < length; i++)
-      if ((unsigned char)url[i] < 0x20u || (unsigned char)url[i] == 0x7fu)
-         return false;
-   return true;
-}
-
-static void menu_load(void)
-{
-   uint8_t storage[MENU_MAX + 1u];
-   uint8_t *data = storage;
-   uint32_t length = filesystemReadFile(MENU_FILE, &data, MENU_MAX);
-   if (length != 0u) {
-      while (length != 0u && (data[length - 1u] == '\r' || data[length - 1u] == '\n'))
-         length--;
-      data[length] = '\0';
-      if (valid_menu_url((const char *)data)) {
-         strlcpy(menu_url, (const char *)data, sizeof(menu_url));
-         return;
-      }
-   }
-   {
-      const char *configured = config_get("elkwifi_menu_url");
-      if (valid_menu_url(configured)) {
-         strlcpy(menu_url, configured, sizeof(menu_url));
-         return;
-      }
-   }
-   strlcpy(menu_url, MENU_DEFAULT, sizeof(menu_url));
-}
-
-static bool menu_save(void)
-{
-   uint32_t length = (uint32_t)strlen(menu_url);
-   return filesystemWriteFile(MENU_FILE, (const uint8_t *)menu_url, length)
-          == length;
-}
-
 static bool command_string(uint32_t cp, const char **value)
 {
    uint32_t limit = DISC_RAM_BASE + DISC_RAM_SIZE;
    if (cp + 1u >= limit)
       return false;
-   for (uint32_t pos = cp + 1u; pos < limit && pos <= cp + MENU_MAX + 1u; pos++) {
+   for (uint32_t pos = cp + 1u;
+        pos < limit && pos <= cp + ELKWIFI_TEXT_MAX + 1u; pos++) {
       if (Pi1MHz->JIM_ram[pos] == 0u || Pi1MHz->JIM_ram[pos] == '\r') {
          Pi1MHz->JIM_ram[pos] = 0u;
          *value = (const char *)&Pi1MHz->JIM_ram[cp + 1u];
@@ -813,7 +1043,7 @@ static bool command_string(uint32_t cp, const char **value)
 static void response_string(uint32_t cp, const char *value)
 {
    size_t length = 0u;
-   while (length < MENU_MAX && value[length] != '\0')
+   while (length < ELKWIFI_TEXT_MAX && value[length] != '\0')
       length++;
    memcpy(&Pi1MHz->JIM_ram[cp + 1u], value, length);
    Pi1MHz->JIM_ram[cp + 1u + length] = 0u;
@@ -822,8 +1052,6 @@ static void response_string(uint32_t cp, const char *value)
 static uint8_t process_request(uint32_t cp)
 {
    uint8_t command = Pi1MHz->JIM_ram[cp];
-   const char *value;
-
    switch (command) {
       case ELKWIFI_CMD_STATUS:
          /* Version discovery identifies the installed Pi service. It is not
@@ -857,15 +1085,15 @@ static uint8_t process_request(uint32_t cp)
 
       case ELKWIFI_CMD_UEF_NORMALIZE:
       {
+         if (uef_incremental_request(cp))
+            return uef_incremental_command(cp);
          /* UEF data occupies the AP5-visible first 64K JIM window. This is
           * absolute JIM offset zero, not the services mailbox DISC_RAM. */
          const uint32_t base = ELKWIFI_UEF_BASE;
-         const uint32_t trailer = ELKWIFI_UEF_BASE + 0xfffeu;
-         size_t length = (size_t)Pi1MHz->JIM_ram[trailer]
-                       | ((size_t)Pi1MHz->JIM_ram[trailer + 1u] << 8);
+         size_t length = uef_public_length_get();
          uef_normalize_result_t normalized = uef_normalize(
-            &Pi1MHz->JIM_ram[base], &length, 0xfffeu,
-            uef_scratch, sizeof uef_scratch);
+            &Pi1MHz->JIM_ram[base], &length, ELKWIFI_UEF_LEGACY_CAPACITY,
+            uef_stream_scratch, ELKWIFI_UEF_LEGACY_CAPACITY);
          if (normalized == UEF_NORMALIZE_TOO_LARGE) {
             response_string(cp, "TOO LARGE\r\n");
             return ELKWIFI_OK;
@@ -878,31 +1106,19 @@ static uint8_t process_request(uint32_t cp)
           * explicit diagnostic comparison only, not the compatibility path. */
          if (uef_trim_tail)
             length = uef_legacy_trim_length(&Pi1MHz->JIM_ram[base], length);
-         Pi1MHz->JIM_ram[trailer] = (uint8_t)length;
-         Pi1MHz->JIM_ram[trailer + 1u] = (uint8_t)(length >> 8);
-         response_string(cp, normalized == UEF_NORMALIZE_RAW ? "RAW\r\n"
-                          : normalized == UEF_NORMALIZE_GZIP ? "GZIP\r\n"
-                                                            : "ZIP\r\n");
+         uef_stream_clear();
+         if (++uef_stream_token == 0u) ++uef_stream_token;
+         memcpy(uef_stream_data, &Pi1MHz->JIM_ram[base], length);
+         uef_stream_length = length;
+         uef_stream_cursor = 0u;
+         uef_stream_ready = true;
+         uef_upload_active = false;
+         uef_stream_format = normalized == UEF_NORMALIZE_RAW ? 'R'
+                           : normalized == UEF_NORMALIZE_GZIP ? 'G' : 'Z';
+         uef_public_length_set(length);
+         uef_normalize_response(cp, normalized);
          return ELKWIFI_OK;
       }
-
-      case ELKWIFI_CMD_MENU_GET:
-         response_string(cp, menu_url);
-         return ELKWIFI_OK;
-
-      case ELKWIFI_CMD_MENU_DEFAULT:
-         strlcpy(menu_url, MENU_DEFAULT, sizeof(menu_url));
-         if (!menu_save()) return ELKWIFI_ERR_IO;
-         response_string(cp, menu_url);
-         return ELKWIFI_OK;
-
-      case ELKWIFI_CMD_MENU_SET:
-         if (!command_string(cp, &value) || !valid_menu_url(value))
-            return ELKWIFI_ERR_PARAM;
-         strlcpy(menu_url, value, sizeof(menu_url));
-         if (!menu_save()) return ELKWIFI_ERR_IO;
-         response_string(cp, menu_url);
-         return ELKWIFI_OK;
 
       case ELKWIFI_CMD_LAPOPT:
          if (Pi1MHz->JIM_ram[cp + 1u] != 7u
@@ -1001,7 +1217,6 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
       one-shot failure when another optional service filled the old table. */
    if (!service_initialised) {
       service_initialised = true;
-      menu_load();
       lapopt_load();
       time_utc_offset_minutes = utc_offset_parse(
          config_get("elkwifi_utc_offset_minutes"));
@@ -1012,6 +1227,7 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
    wifi_credentials_load();
    (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_UEF_NORMALIZE,
                            elkwifi_service_command);
+   ftp_service_init();
    /* A host reset abandons the old OSWORD/star-command caller. Complete any
       request latched during reset reinitialisation with a bounded error before
       clearing it, so FCAA can never be left at BUSY. */

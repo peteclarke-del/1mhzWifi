@@ -66,20 +66,27 @@ not the `&0100` processor stack used by the original ROM.
 ## Command implementation
 
 `*WIFI`, `*LAP`, `*LAPOPT`, `*JOIN`, `*LEAVE`, `*IFCFG`, `*ONLINE`, `*PING`,
-`*DATE`, `*TIME`, `*MENU`, `*MENUSRC`, `*WGET`, `*WICFS`, `*REWIND` and
-`*UEF LOAD` use the Pi1MHz transport. `*MENU` uses the built-in Electron menu
-URL unless `*MENUSRC` has stored another URL. The built-in payload is rejected
-on a non-Electron machine; a custom source remains available.
+`*NSLOOK`, `*DATE`, `*TIME`, `*WGET`, `*FTP`, `*WICFS`, `*REWIND` and `*UEF LOAD` use
+the Pi1MHz transport. ROM 0.1.63 removes `*MENU`, `*MENUSRC`, the downloaded
+menu patcher and the corresponding Pi cache. Generic HTTP and UEF behavior is
+unchanged. ROM 0.1.64 makes ordinary `*WGET <url> <filename>` write through
+MOS OSFIND and OSBPUT to the active filing system. JIM output is retained only
+for the explicit `-U` and `-S` modes consumed by WiCFS and sideways RAM.
+ROM 0.1.65 adds interactive FTP commands 114 to 119. The Pi owns both sockets;
+the ROM moves local bytes only through OSFIND, OSBGET and OSBPUT. The fixed
+private JIM scratch address contains at most 240 bytes and is never interpreted
+as a host or Tube address.
 
-The published menu contains fixed cartridge bank-selection code. The ROM
-validates the downloaded size and instruction signatures, then replaces only
-the known byte sequences with AP5 JIM helpers. Unknown payloads are not
-patched or executed.
+ROM 0.1.66 replaces the public function comparison chain and FTP keyword chain
+with explicit tables, shares repeated diagnostics and removes the obsolete ROM
+end marker. The assembly fails if content crosses `&BE58`, preserving at least
+424 bytes. Its maintained PRD implementation never reads a JIM selector,
+reasserts selectors before each byte, and restores public bank `00:00`.
 
 ## WiCFS and UEF handling
 
 WiCFS remains an I/O-processor filing system. UEF bytes are read through the
-current MOS filing system or downloaded through WGET, normalized by the Pi and
+current MOS filing system or downloaded through `*WGET -U`, normalized by the Pi and
 consumed through the low JIM window. The implementation does not access Tube
 registers, claim a Tube channel, disable a fitted Tube or copy a title to a
 parasite.
@@ -107,14 +114,23 @@ handled explicitly. Generic responses, local UEF import and WGET finalisation
 reselect the page and access JIM with interrupts masked, while MOS filing calls
 remain outside those short critical sections.
 
-With an active Tube, the downloaded Electron menu and its cassette loaders
-must still run on the I/O processor. The verified menu launch enters the
-installed host BASIC ROM from RAM and queues `PAGE=&E00` before the internal
-WiCFS launch command. A cold host BASIC otherwise derives PAGE from the active
-Tube environment, leaving CHAIN continuation pointers in `&23xx` instead of
-the host program at `&0Exx`. The transition does not use the Tube as a
-destination. ROM selection uses `&FE05` with the Electron deselect cycle and
-`&FE30` on BBC-family machines, selected at runtime through OSBYTE `&81`.
+A cassette file may legally load over the MOS cassette workspace at `&0380`.
+WiCFS must not rewrite that range immediately after OSFILE because the loaded
+file may execute there. The corpus contains one such case, Shark's `PATCH`
+file. Its post-Break lifecycle remains an explicit hardware acceptance item;
+the ROM does not contain a speculative recovery path which would corrupt the
+loaded payload.
+
+Tube-off OSBGET uses a direct RAM guard, following the original WiCFS shape,
+instead of rebuilding and traversing the MOS extended-vector tuple for every
+byte. The guard is patched once at installation for `&FE05` on Electron or
+`&FE30` on BBC-family hosts. Hardware detection for JIM page selection occurs
+once per 256-byte sequential buffer refill, not once per returned byte.
+
+The generic UEF launch transition runs on the I/O processor and does not use
+the Tube as a destination. ROM selection uses `&FE05` with the Electron
+deselect cycle and `&FE30` on BBC-family machines, selected at runtime through
+OSBYTE `&81`.
 
 ## Code removal and audit notes
 

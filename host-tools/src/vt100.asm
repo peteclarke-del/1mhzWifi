@@ -21,9 +21,74 @@ VT_STRING_ESCAPE = 7
     STA vt_mode_parameter
     STA vt_mode_private
     STA vt_mode_value
-    LDA #23
+    JSR vt_read_window_geometry
+    LDA vt_last_row
     STA vt_margin_bottom
     JSR vt_sgr_reset
+    RTS
+
+\ Read the active MOS text window rather than assuming MODE 4's 40 columns.
+\ OSBYTE &A0 reads VDU variables 8=left, 9=bottom, 10=right and 11=top.
+\ Keep the VT100-standard 24-row maximum, but use narrower windows safely.
+\ Older or incomplete MOS implementations fall back to 40 by 24.
+.vt_read_window_geometry
+    LDA #40
+    STA vt_columns
+    LDA #39
+    STA vt_last_column
+    LDA #24
+    STA vt_rows
+    LDA #23
+    STA vt_last_row
+
+    LDA #&A0
+    LDX #8
+    JSR OSBYTE
+    STX vt_geometry_edge
+    LDA #&A0
+    LDX #10
+    JSR OSBYTE
+    TXA
+    SEC
+    SBC vt_geometry_edge
+    BCC vt_geometry_height
+    CLC
+    ADC #1
+    CMP #20
+    BCC vt_geometry_height
+    CMP #81
+    BCS vt_geometry_height
+    STA vt_columns
+    SEC
+    SBC #1
+    STA vt_last_column
+
+.vt_geometry_height
+    LDA #&A0
+    LDX #9
+    JSR OSBYTE
+    STX vt_geometry_edge
+    LDA #&A0
+    LDX #11
+    JSR OSBYTE
+    STX vt_geometry_top
+    LDA vt_geometry_edge
+    SEC
+    SBC vt_geometry_top
+    BCC vt_geometry_done
+    CLC
+    ADC #1
+    CMP #8
+    BCC vt_geometry_done
+    CMP #25
+    BCC vt_geometry_store_rows
+    LDA #24
+.vt_geometry_store_rows
+    STA vt_rows
+    SEC
+    SBC #1
+    STA vt_last_row
+.vt_geometry_done
     RTS
 
 \ Consume one byte in A.
@@ -371,7 +436,7 @@ VT_STRING_ESCAPE = 7
 
 .vt_insert_characters             \ CSI Ps @ (ICH)
     JSR vt_prepare_edit_count
-    LDA #39
+    LDA vt_last_column
     STA vt_edit_col
 .vt_ich_shift
     LDA vt_edit_col
@@ -451,7 +516,7 @@ VT_STRING_ESCAPE = 7
     LDA vt_edit_col
     CLC
     ADC vt_edit_count
-    CMP #40
+    CMP vt_columns
     BCS vt_dch_blank
     STA vt_copy_col
     LDX vt_copy_col
@@ -463,7 +528,7 @@ VT_STRING_ESCAPE = 7
     INC vt_edit_col
     JMP vt_dch_shift
 .vt_dch_blank
-    LDA #40
+    LDA vt_columns
     SEC
     SBC vt_edit_count
     STA vt_edit_col
@@ -526,7 +591,7 @@ VT_STRING_ESCAPE = 7
     JSR vt_default_one
     STX vt_edit_count
     JSR vt_get_cursor
-    LDA #40
+    LDA vt_columns
     SEC
     SBC vt_cursor_col
     CMP vt_edit_count
@@ -581,7 +646,7 @@ VT_STRING_ESCAPE = 7
     STA vt_char_remaining
 .vt_blank_edit_loop
     LDA vt_edit_col
-    CMP #40
+    CMP vt_columns
     BCS vt_restore_edit_cursor
     LDA #' '
     LDX vt_edit_col
@@ -604,7 +669,7 @@ VT_STRING_ESCAPE = 7
     JSR vt_write_cell
     INC vt_copy_col
     LDA vt_copy_col
-    CMP #40
+    CMP vt_columns
     BCC vt_copy_row_loop
     RTS
 
@@ -626,7 +691,7 @@ VT_STRING_ESCAPE = 7
     JSR vt_write_cell
     INC vt_copy_col
     LDA vt_copy_col
-    CMP #40
+    CMP vt_columns
     BCC vt_clear_row_loop
     RTS
 
@@ -688,10 +753,10 @@ VT_STRING_ESCAPE = 7
     BEQ vt_set_margins_default_bottom
     SEC
     SBC #1
-    CMP #24
+    CMP vt_rows
     BCC vt_set_margins_store_bottom
 .vt_set_margins_default_bottom
-    LDA #23
+    LDA vt_last_row
 .vt_set_margins_store_bottom
     STA vt_margin_bottom
     RTS
@@ -731,10 +796,10 @@ VT_STRING_ESCAPE = 7
     CLC
     ADC vt_move_count
     BCS vt_cursor_down_limit
-    CMP #24
+    CMP vt_rows
     BCC vt_cursor_vertical_set
 .vt_cursor_down_limit
-    LDA #23
+    LDA vt_last_row
 .vt_cursor_vertical_set
     PHA
     LDA #31
@@ -751,10 +816,10 @@ VT_STRING_ESCAPE = 7
     CLC
     ADC vt_move_count
     BCS vt_cursor_right_limit
-    CMP #40
+    CMP vt_columns
     BCC vt_cursor_horizontal_set
 .vt_cursor_right_limit
-    LDA #39
+    LDA vt_last_column
     BNE vt_cursor_horizontal_set
 .vt_cursor_left
     JSR vt_default_one
@@ -781,9 +846,9 @@ VT_STRING_ESCAPE = 7
 .vt_cursor_row_set
     SEC
     SBC #1
-    CMP #24
+    CMP vt_rows
     BCC vt_cursor_row_ok
-    LDA #23
+    LDA vt_last_row
 .vt_cursor_row_ok
     PHA
     LDA vt_param2
@@ -792,9 +857,9 @@ VT_STRING_ESCAPE = 7
 .vt_cursor_col_set
     SEC
     SBC #1
-    CMP #40
+    CMP vt_columns
     BCC vt_cursor_col_ok
-    LDA #39
+    LDA vt_last_column
 .vt_cursor_col_ok
     TAX
     LDA #31
@@ -830,7 +895,7 @@ VT_STRING_ESCAPE = 7
     STA vt_erase_row
 .vt_erase_display_after_loop
     LDA vt_erase_row
-    CMP #24
+    CMP vt_rows
     BCS vt_restore_display_cursor
     JSR vt_clear_whole_row
     INC vt_erase_row
@@ -870,7 +935,7 @@ VT_STRING_ESCAPE = 7
     JSR OSWRCH
     PLA
     JSR OSWRCH
-    LDA #40
+    LDA vt_columns
     STA vt_erase_count
 .vt_clear_whole_row_spaces
     LDA #' '
@@ -890,7 +955,7 @@ VT_STRING_ESCAPE = 7
     BEQ vt_erase_line_all
     LDA vt_cursor_col
     STA vt_erase_start_col
-    LDA #40
+    LDA vt_columns
     SEC
     SBC vt_cursor_col
     STA vt_erase_count
@@ -906,7 +971,7 @@ VT_STRING_ESCAPE = 7
 .vt_erase_line_all
     LDA #0
     STA vt_erase_start_col
-    LDA #40
+    LDA vt_columns
     STA vt_erase_count
 .vt_erase_line_run
     LDA #31
@@ -935,10 +1000,10 @@ VT_STRING_ESCAPE = 7
     CLC
     ADC vt_move_count
     BCS vt_cursor_next_line_limit
-    CMP #24
+    CMP vt_rows
     BCC vt_cursor_line_set
 .vt_cursor_next_line_limit
-    LDA #23
+    LDA vt_last_row
     BNE vt_cursor_line_set
 .vt_cursor_previous_line
     JSR vt_default_one
@@ -965,9 +1030,9 @@ VT_STRING_ESCAPE = 7
 .vt_cursor_column_set
     SEC
     SBC #1
-    CMP #40
+    CMP vt_columns
     BCC vt_cursor_column_ok
-    LDA #39
+    LDA vt_last_column
 .vt_cursor_column_ok
     TAX
     LDA #31
@@ -984,9 +1049,9 @@ VT_STRING_ESCAPE = 7
 .vt_cursor_absolute_row_set
     SEC
     SBC #1
-    CMP #24
+    CMP vt_rows
     BCC vt_cursor_absolute_row_ok
-    LDA #23
+    LDA vt_last_row
 .vt_cursor_absolute_row_ok
     PHA
     LDA #31
@@ -1010,9 +1075,9 @@ VT_STRING_ESCAPE = 7
     ORA #7
     CLC
     ADC #1
-    CMP #40
+    CMP vt_columns
     BCC vt_tab_set
-    LDA #39
+    LDA vt_last_column
 .vt_tab_set
     STA vt_cursor_col
 .vt_position_saved_cursor
@@ -1188,6 +1253,18 @@ VT_STRING_ESCAPE = 7
     EQUB 0
 .vt_margin_bottom
     EQUB 23
+.vt_columns
+    EQUB 40
+.vt_last_column
+    EQUB 39
+.vt_rows
+    EQUB 24
+.vt_last_row
+    EQUB 23
+.vt_geometry_edge
+    EQUB 0
+.vt_geometry_top
+    EQUB 0
 .vt_mode_parameter
     EQUB 0
 .vt_mode_private

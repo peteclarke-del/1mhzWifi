@@ -12,7 +12,7 @@
  .bUPCFS_installed
 +	JSR	wicfs_apply_pre_tape
  	JMP	call_claimed
-@@ -277,6 +280,110 @@
+@@ -277,6 +280,120 @@
  	STA	&FCA8
  	JSR	wicfs_bus_delay
  	RTS
@@ -64,6 +64,16 @@
 +	INX
 +	CPX	#13
 +	BNE	wicfs_snapshot_loop
++	LDX	#14
++	JSR	wicfs_pending_address_x
++	LDA	BYTEV
++	STA	&FCA9		\retain the pre-*TAPE standard BYTEV as well
++	JSR	wicfs_bus_delay
++	INX
++	JSR	wicfs_pending_address_x
++	LDA	BYTEV+1
++	STA	&FCA9
++	JSR	wicfs_bus_delay
 +	LDX	#0
 +	JSR	wicfs_pending_address_x
 +	LDA	#&A5

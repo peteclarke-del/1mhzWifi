@@ -2,14 +2,15 @@
 
 from pathlib import Path
 import os
+import sys
 import unittest
 
 import re
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "host-tools/.test-deps"))
 from py65.devices.mpu6502 import MPU
 
-
-ROOT = Path(__file__).resolve().parents[1]
 ROM_START = 0x8000
 OSBYTE = 0xFFF4
 RETURN_SENTINEL = 0x0400
@@ -538,7 +539,12 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
 
         driver = (ROOT / "rom-side" / "elkwifi-0.23" / "overlay" /
                   "driver.asm").read_text()
-        self.assertIn("cmp #29", driver)
+        table = driver.split(".public_driver_dispatch", 1)[1].split(
+            "\\ Initialize the data buffer", 1
+        )[0]
+        entries = re.findall(r"equw (service_driver_[a-z0-9_]+)-1", table)
+        self.assertEqual(len(entries), 32)
+        self.assertEqual(entries[29:32], ["service_driver_unsupported"] * 3)
         self.assertIn("and #&1F", driver)
         self.assertNotIn("service_driver_timeout_setting", driver)
         for public_alias in (32, 33, 34):
