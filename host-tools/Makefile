@@ -147,11 +147,20 @@ build/test-secure-service-core: \
 		-I $(PI_OVERLAY) $(REPO_ROOT)/pi-side/tests/test_secure_service_core.c \
 		$(PI_OVERLAY)/secure_service_core.c -o $@
 
+build/test-media-catalogue: \
+		$(REPO_ROOT)/pi-side/tests/test_media_catalogue.c \
+		$(PI_OVERLAY)/media_catalogue.c \
+		$(PI_OVERLAY)/media_catalogue.h | build
+	$(CC) -std=c11 -Wall -Wextra -Werror \
+		-I $(PI_OVERLAY) $(REPO_ROOT)/pi-side/tests/test_media_catalogue.c \
+		$(PI_OVERLAY)/media_catalogue.c -o $@
+
 test: build/nettools.ssd build/nettools-debug.ssd build/test-pi1mhz-mailbox build/test-pi1mhz-live \
-		build/test-secure-service-core
+		build/test-secure-service-core build/test-media-catalogue
 	./build/test-pi1mhz-mailbox
 	./build/test-pi1mhz-live
 	./build/test-secure-service-core
+	./build/test-media-catalogue
 	PYTHONPATH=.test-deps PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 
 emulator-deps:
