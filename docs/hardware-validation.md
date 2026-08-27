@@ -32,6 +32,69 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Vector gateway location study, 27 August 2026
 
+### The &07xx page cannot hold the gateway at any address
+
+A third candidate shrank the RAM resident to a pure ROM pager of 63 bytes,
+against the previous 103, by moving the extended-vector repair, its offset
+tables and the dispatcher selection into ROM. The pager records which vector
+was taken, pages the WiCFS ROM in, calls the repair, restores the caller's ROM
+and tail-calls the MOS dispatcher. It never touches X or Y, so the caller's
+registers reach the dispatcher intact. It was placed flush against the top of
+the page at `romsel = &07C1`, on the general rule that the gateway should abut
+`&0800` so the largest contiguous region below it stays available to loaders.
+
+Last of the Free passes. Repton fails with `Bad program`. The host RAM dump
+explains why:
+
+```text
+07A0  a5 71 c9 43 d0 ef 4c 00 41 43 43 43 43 43 43 43
+07B0  43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43
+07C0  43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43
+07F0  43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43
+```
+
+Repton's second stage does not stop at `&07A8`. Its decryption loop ends there
+but its filler continues to `&07FF`, so the whole page is consumed. The earlier
+reading that a gateway above `&07A8` would clear it was wrong.
+
+Structural analysis of the corpus agrees, and shows the top-of-page move bought
+almost nothing:
+
+| Region | Titles | Share |
+| --- | --- | --- |
+| `&0780-&07E6` previous gateway | 86 | 11.8% |
+| `&07C1-&07FF` candidate gateway | 82 | 11.3% |
+| `&0380-&0395` state cache | 26 | 3.6% |
+| `&0398-&039F` notape trap | 25 | 3.4% |
+| `&03A0-&03BC` chain_exec | 25 | 3.4% |
+
+No address in `&07xx` is materially safer than any other, because the titles
+which use the page use all of it. The gateway has to leave that page entirely,
+and the cassette page is the only materially safer region in low RAM.
+
+### What remains
+
+Three candidates have now failed, and each failure removed a design:
+
+1. Deleting the gateway fixes Repton and breaks Last of the Free.
+2. Repairing once per OSBGET refill fixes Repton and breaks Last of the Free,
+   because the corruption and the next filing call fall inside one window.
+3. A smaller gateway higher in the page fixes Last of the Free and breaks
+   Repton, because the whole page is consumed.
+
+What survives is the design measured earlier. The filing vectors point at the
+MOS extended entries, so nothing of ours sits in `&07xx` for a loader to
+destroy, and the extended-vector table is repaired from the BYTEV `*TAPE` trap
+at `notape`, which lives in the cassette page. `PI1MHZ_TUPLE_TRACE` measured one
+OSBYTE call between the last corrupting write and the filing call, so the
+repair has an opportunity to run.
+
+The repair stub reachable from that trap needs roughly thirty bytes, and the
+cassette page has about nine free. The 22-byte state cache at `&0380` is the
+only eviction candidate, and it cannot move until `upbgetv` reloads on a failed
+magic check rather than reporting an invalid state. That remains the next step,
+and it is the only route not yet eliminated.
+
 ### Root divergence from the original cartridge
 
 The original ElkWiFi 0.23 WiCFS streams, unpacks and runs UEFs on the real
