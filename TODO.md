@@ -383,7 +383,26 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
 - [x] Establish that the 6502 can execute code the Pi serves at `&FD00`. A
   temporary probe called into JIM and its routine wrote its marker into zero
   page. `--probe-command` was added to the runner to measure it.
-- [ ] Prove the JIM selector discipline. `&FCFF` chooses the page at `&FD00`,
+- [x] Prove the JIM selector discipline. It does not hold: the selector tracks
+  the stream cursor and was observed at &1A, &00, &02 and &FF at filing-vector
+  entries during one load. Restoring it on every exit would cost a bus settle
+  per OSBGET byte. The Pi serves JIM, so it mirrors a region into every page
+  instead, which makes the selector irrelevant at no hot-path cost. Measured:
+  a probe called the mirrored routine at three different selector values and it
+  ran all three times.
+- [ ] Build the trampoline. Four vector stubs and a pager, about 48 bytes,
+  synthesising the stack frame the MOS dispatcher builds so the four handlers
+  need no change.
+- [ ] Give the mirrored bytes up in the window arithmetic. `getbyte` must wrap
+  at `&E0` rather than on `INY` reaching zero, `uef_stream_publish` becomes a
+  scatter copy of 224 bytes per page, and the length trailer moves out of the
+  mirrored region. Costs an eighth of the window, which only affects images
+  above about 57 KB.
+- [ ] Mirror in the Pi kernel as the emulator adapter now does, and fall back
+  cleanly on a kernel which does not serve a mirror.
+- [ ] Rerun the joint gate and the sixteen title probe against the measured
+  three quarter baseline.
+- [ ] Superseded: prove the JIM selector discipline. `&FCFF` chooses the page at `&FD00`,
   WiCFS moves it while streaming, and it is write only. A vector firing while it
   points at a data page would execute UEF data. Establish that WiCFS can always
   restore it before returning to a caller, and decide what happens when another

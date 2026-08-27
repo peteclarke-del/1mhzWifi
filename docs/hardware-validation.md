@@ -32,6 +32,50 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Vector gateway location study, 27 August 2026
 
+### Implementing the Pi-resident trampoline
+
+Both blocking facts are now measured. The 6502 executes code the Pi serves at
+`&FD00`, and a region mirrored into every JIM page is reachable whatever the
+selector holds, which matters because the selector tracks the stream cursor and
+was observed at four different values during one load.
+
+What remains is a build across the ROM, the Pi kernel and the window protocol.
+The pieces and their costs, so the work can be picked up cleanly:
+
+**The trampoline.** Four entry points, one per filing vector, and a pager which
+saves the current ROM, selects the WiCFS bank, enters the handler and restores
+the previous bank on return. About 48 bytes. The handlers need no change if the
+trampoline synthesises the same stack frame the MOS extended dispatcher builds:
+`upfscv` reads the previous ROM number from `&0104,X` at entry, so the
+trampoline must push an equivalent frame before jumping. That is cheaper than
+rewriting four handlers.
+
+**The window arithmetic.** A mirror at offsets `&E0-&FF` leaves 224 usable
+bytes per page. `getbyte` currently wraps on `INY` reaching zero and increments
+the page; it must wrap at `&E0` instead, which is four more bytes. The Pi must
+pack to match, so `uef_stream_publish` becomes a scatter copy of 224 bytes per
+page rather than one linear `memcpy`.
+
+**The length trailer.** The published window length currently sits at the top
+of the last page, inside the region a top-of-page mirror would cover. It has to
+move to the last usable offsets, and both sides must agree.
+
+**Throughput.** Reserving 32 of every 256 bytes costs an eighth of the window,
+taking it from 65280 to about 57000 bytes. Most titles are far smaller than one
+window, so they see no extra refills at all; only images above about 57 KB pay,
+which in the local corpus is Repton 3, Repton Around The World and Repton
+Infinity. The practical cost is therefore much smaller than the percentage
+suggests.
+
+**The Pi kernel.** The emulator adapter mirrors and the kernel must do the same,
+which is Pi-side C plus an ARM rebuild. Older kernels must keep working: a ROM
+which asks for a mirror and does not get one has to fall back to the present
+behaviour rather than point its vectors at unserved addresses.
+
+None of this is speculative any more, but it is a build rather than another
+placement experiment, and it should be done with the joint gate and the sixteen
+title probe rerun against the measured three quarter baseline.
+
 ### Measured UEF baseline on the shipped ROM
 
 Sixteen titles were run on the 0.1.66 ROM, chosen to span the risk groups the
