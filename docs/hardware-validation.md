@@ -32,6 +32,66 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Vector gateway location study, 27 August 2026
 
+### Root divergence from the original cartridge
+
+The original ElkWiFi 0.23 WiCFS streams, unpacks and runs UEFs on the real
+cartridge, so its vector strategy is proven and worth comparing against.
+`.build-original-control/wicfs.asm` shows it does not use the MOS
+extended-vector table at all:
+
+```text
+romsel = &07A4
+
+.s_filev   JSR romsel+(aupurs-s_filev)   \page in the WiCFS ROM
+           JMP upfilev                   \and jump straight to the handler
+.s_fscv    JSR romsel+(aupurs-s_filev)
+           JMP upfscv
+.s_bgetv   JSR romsel+(aupurs-s_filev)
+           JMP upbgetv
+```
+
+FILEV, FINDV, BGETV and FSCV point at an eighty-byte RAM trampoline which pages
+the ROM in directly and jumps to the handler. `aupurs` and `bupurs` select and
+restore the ROM, and `x_filev`, `x_fscv` and `actioned` provide the return
+paths. Nothing reads `&0D9F-&0DEF`.
+
+That is why Last of the Free works on the cartridge. It overwrites the
+extended-vector table while loading, and the original never looks at it. This
+project rewired WiCFS onto the MOS extended vectors, which created the
+dependency, and the 0.1.61 gateway was then added to repair the table the new
+design had made load bearing. Both of the rejected candidates above are
+attempts to fix a problem the original does not have.
+
+The present gateway is 103 bytes because it performs that repair. Its RAM
+footprint is therefore larger than the original's, and it sits lower in the
+page: `&0780-&07E6` against the original's `&07A4-&07F3`.
+
+### The decomposition this suggests
+
+Only the paging trampoline has to live in RAM. Everything else can live in ROM,
+where about 460 bytes are free. A trampoline which saves the caller's context,
+pages the WiCFS ROM in, jumps to a ROM entry point and returns through a short
+RAM epilogue to restore the previous ROM costs roughly sixty bytes, against the
+current 103. The repair, the offset tables and the dispatcher selection all move
+into ROM.
+
+Sixty bytes placed flush against the top of the page occupy `&07C4-&07FF`. That
+is a general placement rule, not a title-specific one: the gateway abuts the top
+of the page so the largest possible contiguous region below it stays available
+to loaders. It also clears Repton's second stage, which reaches `&07A8`.
+
+Two routes are therefore open, and both keep the joint gate in `WICFS-016`:
+
+1. Shrink the existing gateway to a paging trampoline and move the repair into
+   ROM, keeping the extended-vector handlers as they are.
+2. Return to the original's design, in which the trampoline jumps straight to
+   the handlers and no repair exists because no table is consulted. This is the
+   proven architecture but requires the handlers to stop reading the MOS
+   extended-vector stack frame.
+
+Neither is attempted here. Both change the entry and return path of every
+filing vector, which is the code both rejected candidates got wrong.
+
 ### Rejected candidate: repair once per OSBGET refill
 
 A candidate replaced the gateway with two changes and no new RAM. The filing
