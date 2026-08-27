@@ -1,15 +1,49 @@
 --- a/rom/wicfs.asm
 +++ b/rom/wicfs.asm
-@@ -72,7 +72,7 @@
+@@ -72,9 +72,14 @@
  wicfs_record_valid_value = &A5
  
  serbuf	=	&06E0		\serial input buffer
 -notape	=	&0398		\location of external *TAPE trap
-+notape	=	&0100		\*TAPE trap and repair gate, deep stack page
++notape	=	&0398		\*TAPE trap entry, freed by moving the chunk header
  romsel	=	&0780		\Tube-off resilient vector guard, below &0800
- hchunk	=	&03CB		\Chunk header type(2) + length(4)
+-hchunk	=	&03CB		\Chunk header type(2) + length(4)
++hchunk	=	&07A8		\Chunk header type(2) + length(4). Deliberately in the
++				\loader-exposed page: the cassette workspace has no room for
++				\it and the alternative, shortening the CFS filename limit,
++				\would reject names real games use.
++notape_body =	&03CB		\second half of the *TAPE trap; see osb_b_s
++cfsname	=	&07B8		\sought CFS filename, refilled before every search
  
-@@ -1273,32 +1273,11 @@
+ bufsize	=	28		\data burst (buffer) size
+ sbuft	=	&F5		\official WiCFS start-of-UEF flag
+@@ -937,6 +942,13 @@
+ 	INX
+ 	CPX	#(osb_e-osb_s)
+ 	BNE	wicfs_copy_byte_trap
++	LDX	#0
++.wicfs_copy_byte_body
++	LDA	osb_b_s,X
++	STA	notape_body,X
++	INX
++	CPX	#(osb_b_e-osb_b_s)
++	BNE	wicfs_copy_byte_body
+ 	LDA	BYTEV
+ 	CMP	#<notape
+ 	BNE	wicfs_capture_bytev
+@@ -950,9 +962,9 @@
+ 	STA	bytev_rtn+1
+ .wicfs_patch_byte_trap
+ 	LDA	bytev_rtn
+-	STA	notape+(osb_j-osb_s)+1
++	STA	notape_body+(osb_j-osb_b_s)+1
+ 	LDA	bytev_rtn+1
+-	STA	notape+(osb_j-osb_s)+2
++	STA	notape_body+(osb_j-osb_b_s)+2
+ 	PLP
+ 	RTS
+ .wicfs_publish_byte_trap
+@@ -1273,32 +1285,11 @@
  \ it is about to use, then enters the normal MOS extended-vector dispatcher.
  \ The Tube path continues to use extended vectors because &0400-&07FF belongs
  \ to the Tube host implementation.
@@ -46,7 +80,7 @@
  	RTS
  .wicfs_guards_not_owned
  	CLC
-@@ -1348,84 +1327,66 @@
+@@ -1348,84 +1339,66 @@
  	BNE	wicfs_copy_guards
  	LDA	slotid
  	STA	romsel+(guard_slot-s_guard)
@@ -172,7 +206,7 @@
  	RTS
  .guard_offsets
  	equb	27,33,42,45
-@@ -1433,11 +1394,43 @@
+@@ -1433,11 +1406,43 @@
  	equb	<upfilev,<upbgetv,<upfindv,<upfscv
  .guard_handler_hi
  	equb	>upfilev,>upbgetv,>upfindv,>upfscv
@@ -219,7 +253,53 @@
  	equb	0
  .e_guard
  ASSERT romsel+(e_guard-s_guard) <= &0800
-@@ -2285,13 +2278,20 @@
+@@ -1787,32 +1792,32 @@
+ 	CMP	#&8C
+ 	BNE	wicfs_invalid_trap_bad
+ 	LDA	notape+2
+-	CMP	#&D0
+-	BNE	wicfs_invalid_trap_bad
+-	LDA	notape+3
+-	CMP	#1
++	CMP	#&F0		\BEQ osb_eat
+ 	BNE	wicfs_invalid_trap_bad
+ 	LDA	notape+4
+-	CMP	#&60
++	CMP	#&4C		\JMP notape_body
+ 	BNE	wicfs_invalid_trap_bad
+-	LDA	notape+5
+-	CMP	#&4C
++	LDA	notape_body
++	CMP	#&48		\PHA at the head of the body
+ 	BNE	wicfs_invalid_trap_bad
+-	LDA	notape+6
+-	ORA	notape+7
++	LDA	notape_body+(osb_j-osb_b_s)
++	CMP	#&4C		\JMP to the forwarded OSBYTE
++	BNE	wicfs_invalid_trap_bad
++	LDA	notape_body+(osb_j-osb_b_s)+1
++	ORA	notape_body+(osb_j-osb_b_s)+2
+ 	BEQ	wicfs_invalid_trap_bad
+-	LDA	notape+6
++	LDA	notape_body+(osb_j-osb_b_s)+1
+ 	CMP	#<notape
+ 	BNE	wicfs_invalid_trap_restore
+-	LDA	notape+7
++	LDA	notape_body+(osb_j-osb_b_s)+2
+ 	CMP	#>notape
+ 	BEQ	wicfs_invalid_trap_bad
+ .wicfs_invalid_trap_restore
+ 	PHP
+ 	SEI
+-	LDA	notape+6
++	LDA	notape_body+(osb_j-osb_b_s)+1
+ 	STA	BYTEV
+-	LDA	notape+7
++	LDA	notape_body+(osb_j-osb_b_s)+2
+ 	STA	BYTEV+1
+ 	PLP
+ .wicfs_invalid_trap_released
+@@ -2285,14 +2290,39 @@
  \~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  \Download code for OSBYTE *TAPE trap. Copied to notape by *QUPCFS
  
@@ -230,20 +310,117 @@
 -
 -.osb_j	JMP	&0000		\continue to OSBYTE at OS vector..
 -		        		\..address written by *QUPCFS
+-.osb_e	NOP
++\The trap is in two pieces because &03D1 belongs to the MOS and is rewritten
++\behind our back. The entry sits in the eight bytes the chunk header vacated and
++\jumps to the body, which starts past the MOS byte. Both are absolute jumps, so
++\each piece is position independent once copied.
 +.osb_s
 +	CMP	#&8C		\*TAPE ?
 +	BEQ	osb_eat		\yes, swallow it and keep WiCFS selected
-+	PHA			\the OSBYTE reason must survive the check below
++	JMP	notape_body
++.osb_eat
++	RTS
++.osb_e
++
++\Body, copied to notape_body. A carries the caller's OSBYTE reason code, so it
++\is saved before the signature is compared. The comparison is a full eight bits:
++\a BIT test of the top two bits matches A9, AD, A5, A2 and A0, which are among
++\the commonest opcodes, and would call game code.
++.osb_b_s
++	PHA			\A carries the caller's OSBYTE reason code
 +	LDA	romsel+(guard_sig-s_guard)
++	NOP			\aligns the next operand onto the MOS byte at &03D1
++.osb_hole
++	BIT	&00		\operand is &03D1, which the MOS rewrites. A zero-page read
++				\has no side effect and BIT leaves A alone; the flags it
++				\sets are replaced by the compare below.
 +	CMP	#&A5		\is the repair helper still ours?
-+	BNE	osb_restore	\no, a loader has replaced it; do not call it
++	BNE	osb_restore	\no, a loader replaced it; do not call it
 +	JSR	romsel+(guard_entry-s_guard)
 +.osb_restore
 +	PLA
 +.osb_j	JMP	&0000		\continue to OSBYTE at OS vector..
 +		        		\..address written by *QUPCFS
-+.osb_eat
-+	RTS
- .osb_e	NOP
++.osb_b_e
++
  
  \===============================================================================
+ \Loads a file into memory (*LOAD)
+@@ -2492,14 +2522,14 @@
+ 	BEQ	fl_a4
+ 	JSR	upper		\else rationalise case
+ 	CPX	#10		\CFS filenames are at most ten characters
+-	BCS	fl_a4		\terminate before the keyboard buffer at &03E0
+-	STA	&03D2,X
++	BCS	fl_a4		\cfsname reserves eleven bytes for ten characters and a NUL
++	STA	cfsname,X
+ 	INX			\save chr in CFS workspace
+ .fl_a3	INY
+ 	BNE	fl_a6		\and loop for next chr
+ 
+ .fl_a4	LDA	#0		\terminate CFS filename with a zero
+-	STA	&03D2,X
++	STA	cfsname,X
+ 
+ 	RTS			\and return
+ 
+@@ -2537,14 +2567,14 @@
+ 	BEQ	sr_a4
+ 	JSR	upper		\else rationalise case
+ 	CPX	#10		\CFS filenames are at most ten characters
+-	BCS	sr_a4		\terminate before the keyboard buffer at &03E0
+-	STA	&03D2,X
++	BCS	sr_a4		\cfsname reserves eleven bytes for ten characters and a NUL
++	STA	cfsname,X
+ 	INX			\save chr in CFS workspace
+ .sr_a3	INY
+ 	BNE	sr_a6 
+ 
+ .sr_a4	LDA	#0		\terminate CFS filename with a zero
+-	STA	&03D2,X
++	STA	cfsname,X
+ 	
+ 	JMP	runentry		\and merge with *LOAD code
+ 
+@@ -2565,7 +2595,7 @@
+ 	JSR	fl_name		\fetch filename
+ 	LDX	#&FF		\copy filename into BGET filename store
+ .fo_a1	INX
+-	LDA	&03D2,X		\from sought...
++	LDA	cfsname,X		\from sought...
+ 	STA	&03A7,X		\to BGET...
+ 	BNE	fo_a1		\loop until null terminator written
+ 	JSR	newuef		\check_for/process new uef
+@@ -2653,6 +2683,17 @@
+ \Detect it once per 256-byte refill, not once for every buffered OSBGET byte.
+ \This remains safe if a loader changes zero-page workspace between refills.
+ 	JSR	wicfs_detect_machine
++\The MOS zeroes &0780 during a load, which silently disarms the repair helper
++\and leaves the extended-vector table unrepaired from then on. The vectors and
++\the helper therefore restore each other: the helper repairs the table from the
++\BYTEV trap, and this repairs the helper from the vectors, which are reached
++\through the MOS dispatcher and are still working at this point. The check is a
++\single compare, so an intact helper costs nothing.
++	LDA	romsel+(guard_sig-s_guard)
++	CMP	#&A5
++	BEQ	wicfs_guard_present
++	JSR	wicfs_publish_guards_if_host_only
++.wicfs_guard_present
+ 	LDA	#0		\reset buffer address to &0A00
+ 	STA	CFSload
+ 	LDA	#&A
+@@ -2750,11 +2791,11 @@
+ .fnd_a1	JSR	header		\fetch the CFS block header
+ 	BCS	fnd_err		\error, exit find
+ 	LDX	#0		\check if r=ired file 
+-.fnd_a2	LDA	&03D2,X		\any filename entered?
++.fnd_a2	LDA	cfsname,X		\any filename entered?
+ 	BEQ	fnd_yes		\no, first file is a default match
+ 	LDA	&03B2,X		\else get a block name character
+ 	STA	temp		\save a copy
+-	CMP	&03D2,X		\compare with sought name character
++	CMP	cfsname,X		\compare with sought name character
+ 	BNE	fnd_no		\mismatch, not sought file
+ 	LDA	temp		\retrieve character
+ 	BEQ	fnd_yes		\end of names, good match

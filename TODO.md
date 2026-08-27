@@ -352,7 +352,25 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   bits 7 and 6 saves the push and pull pair but matches `A9`, `AD`, `A5`, `A2`
   and `A0`, which are among the commonest opcodes. Repton's decryptor starts
   `A9 00`, so the trap called game code.
-- [ ] Find the twenty second byte. The trap needs twenty two bytes once the
+- [x] Find the twenty second byte. The chunk header state moved to `&07A8` in
+  the loader-exposed page, on Peter's decision that shortening the CFS filename
+  limit is not acceptable because game filenames are outside our control. That
+  freed `&0398-&039F`, and the trap now splits into an eight byte entry there
+  and an eighteen byte body at `&03CB`, with the MOS byte at `&03D1` absorbed
+  as the operand of a harmless zero-page `BIT`.
+- [x] Establish that the MOS disarms the helper. The write watcher shows
+  `PC=D902` writing zero to `&0780` during a load, after which every OSBYTE
+  skips the repair. The vectors and the helper now restore each other: the
+  helper repairs the table from the BYTEV trap, and `fillget` repairs the
+  helper from the vectors, behind a single compare so an intact helper is free.
+- [ ] Find why Last of the Free stops after `B-CODE`. It now loads `FREE`,
+  `SCREEN0`, `SCREEN1`, `A-CODE` and `B-CODE`, but not `C-CODE` or `FREE2`.
+  Repton reaches sustained gameplay on the same ROM. The shipped 0.1.66 ROM
+  reaches that title's start prompt, so this remains a regression for it.
+- [ ] Measure the `hchunk` exposure against the corpus. The Repton dump shows
+  `&07A8` filled with game data during a load, so chunk parsing can be
+  corrupted mid-stream. Count the titles which write `&07A8-&07AD`.
+- [ ] Superseded: find the twenty second byte. The trap needs twenty two bytes once the
   MOS byte at `&03D1` is consumed as a discarded operand, and `&03CB-&03DF` is
   twenty one. Splitting the entry into `&0398-&039F` works arithmetically but
   that space holds the chunk header state, which is live during streaming and

@@ -40,3 +40,35 @@ call OSBYTE. BYTEV is the trap which reaches the repair, so an `OSBYTE &A8` to
 read the extended-vector table address re-enters the trap and recurses without
 bound, overflowing the stack. The table address is captured once at install
 time instead, where calling OSBYTE is safe.
+
+## Progress log
+
+Each candidate failed for a distinct, identified cause. None was a guess
+overturned by another guess; every one was settled from a RAM dump or an
+emulator trace.
+
+| Placement | Repton | Last of the Free | Cause |
+| --- | --- | --- | --- |
+| gateway as vector target, `&0780` | fails | passes | loader replaces the gateway the vectors point at |
+| gateway deleted | passes | fails | no repair, and Last of the Free needs one |
+| repair per OSBGET refill | passes | fails | corruption and the next filing call fall in one window |
+| smaller gateway, `&07C1` | fails | passes | Repton's filler runs to `&07FF`; the page is wholly consumed |
+| trap at `&0100` | passes | fails | the 6502 stack descends into the trap |
+| trap at `&03CB`, `BIT` signature | fails | passes | `A9` matches a two-bit test, so the trap called game code |
+| trap split, `&0398` and `&03CB` | passes | stops after `B-CODE` | the MOS zeroes `&0780`, disarming the helper |
+| plus helper self-heal from `fillget` | passes | stops after `B-CODE` | five of seven files load; cause not yet identified |
+
+The current candidate reaches sustained Repton gameplay and carries Last of the
+Free through `FREE`, `SCREEN0`, `SCREEN1`, `A-CODE` and `B-CODE` before
+stopping. `C-CODE` and `FREE2` do not load. On the shipped 0.1.66 ROM that
+title reaches its start prompt, so this is still a regression for it and the
+candidate is not promotable.
+
+## Accepted exposure
+
+`hchunk`, the UEF chunk type and remaining length, now lives at `&07A8` in the
+loader-exposed page. That was a deliberate choice: the cassette workspace had no
+room, and the alternative was shortening the CFS filename limit below the ten
+characters the format allows, which would reject names real games use. The
+Repton dump shows `&07A8` full of game data during a load, so the exposure is
+real and active, and it has not yet been measured against the corpus.
