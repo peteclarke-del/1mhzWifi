@@ -394,6 +394,12 @@ def main() -> int:
               "per-instruction vector checks reduce emulator throughput"),
     )
     parser.add_argument(
+        "--jim-mirror", default=None,
+        help=("diagnostic only: OFFSET:HEXBYTES served at that offset in every "
+              "JIM page, so a host trampoline there is reachable whatever the "
+              "page selector holds"),
+    )
+    parser.add_argument(
         "--probe-command", default=None,
         help=("diagnostic only: type this instead of the UEF load command, so "
               "a single ROM command can be exercised in the real boot profile"),
@@ -622,6 +628,8 @@ def main() -> int:
         environment["PI1MHZ_VECTOR_TRACE"] = str(
             (args.output / "vectors.trace").resolve()
         )
+    if args.jim_mirror:
+        environment["PI1MHZ_JIM_MIRROR"] = args.jim_mirror
     if args.write_watch:
         environment["PI1MHZ_WRITE_WATCH"] = str(
             (args.output / "writes.trace").resolve()
