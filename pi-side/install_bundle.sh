@@ -163,6 +163,8 @@ install_if_changed "$overlay_dir/src/ftp_service.h" "$upstream/src/ftp_service.h
 # mailbox service wrapper that calls it.
 install_if_changed "$overlay_dir/src/media_catalogue.c" "$upstream/src/media_catalogue.c"
 install_if_changed "$overlay_dir/src/media_catalogue.h" "$upstream/src/media_catalogue.h"
+install_if_changed "$overlay_dir/src/media_service_core.c" "$upstream/src/media_service_core.c"
+install_if_changed "$overlay_dir/src/media_service_core.h" "$upstream/src/media_service_core.h"
 install_if_changed "$overlay_dir/src/uef_normalize.c" "$upstream/src/uef_normalize.c"
 install_if_changed "$overlay_dir/src/uef_normalize.h" "$upstream/src/uef_normalize.h"
 install_if_changed "$overlay_dir/src/puff.c" "$upstream/src/puff.c"
