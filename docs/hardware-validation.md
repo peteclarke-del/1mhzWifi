@@ -32,6 +32,60 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Vector gateway location study, 27 August 2026
 
+### The signature-checked design works; the deep stack does not hold it
+
+The design above was implemented and run against both halves of the
+`WICFS-016` gate. The filing vectors were left permanently on the MOS extended
+entries, the repair moved into ROM behind a 40-byte pager in `&07xx`, and the
+BYTEV `*TAPE` trap was relocated to `&0100` and grown from eight to twenty
+bytes to check a signature before calling the helper.
+
+Repton reaches sustained gameplay, with the timer running down and the score
+panel live. Its host RAM dump shows exactly the intended behaviour:
+
+```text
+trap   &0100: c9 8c f0 0f 48 ad 80 07 c9 a5 d0 03 20 81 07 68 4c 44 e5 60
+helper &0780: 16 16 1e 18 18 19 16 19 19 19 19 18 19 16 19 19
+```
+
+The helper has been replaced by game data and the trap is intact, so the
+signature check refused to call it and the load completed. That is the case
+which defeated every earlier design.
+
+Last of the Free stalls at about seven percent of its stream, and its dump
+shows the opposite:
+
+```text
+trap   &0100: 01 25 b4 b1 02 01 25 b4 b1 07 01 25 b4 b0 0c 01 25 b4 b1 11
+helper &0780: a5 08 78 48 a5 f4 8d a5 07 a9 0c 8d 05 fe ad a4
+```
+
+The helper is intact and the trap is gone, replaced by 6502 stack frames.
+BYTEV still points at `&0100`, so every OSBYTE entered stack data. The stack
+descended into the trap and destroyed it.
+
+That is the risk recorded but not measured when the placement was chosen. Only
+4.1% of the corpus loads cassette blocks across `&0100-&013F`, but that counts
+tape loads and not run-time stack depth, and the WiCFS call chain is itself
+deep enough to reach the bottom of the page.
+
+The mechanism is therefore validated and the placement is not. The trap needs
+about twenty bytes in the cassette page, which at about 3.4% of the corpus is
+the only materially safer region, and that page has about nine free bytes
+scattered across it. Repacking it means relocating the CFS filename buffer at
+`&03D2-&03DF` and the chunk header state at `&03CB-&03D0`, which together need
+slightly more room than the trap frees.
+
+The candidate is preserved unbuilt under `rom-side/candidates/` with its
+reasoning, because only its address is wrong.
+
+One hazard found while implementing it is worth carrying forward. The repair
+must never call OSBYTE. BYTEV is the trap which reaches the repair, so reading
+the extended-vector table address with `OSBYTE &A8` from inside the repair
+re-enters the trap and recurses without bound. The first build did exactly that
+and destroyed BASIC's workspace, printing tokenised keywords as text. The table
+address is now captured once at install time, where calling OSBYTE is safe.
+
 ### Quantified design: a signature-checked repair helper
 
 The surviving design is measured rather than argued. The filing vectors point

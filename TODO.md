@@ -334,7 +334,22 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
 - [x] Establish that the state cache cannot move. `wicfs_state_load` restores
   the persisted checkpoint, not the live stream cursor, so reloading mid-file
   would rewind it. Evicting the cache to make room is therefore not available.
-- [ ] Choose where the enlarged BYTEV trap lives. It needs about twenty bytes
+- [x] Implement the signature-checked design and gate it. Repton reaches
+  sustained gameplay with the helper at `&0780` overwritten and the trap
+  intact, which is the case every earlier design failed. The mechanism is
+  therefore validated. Last of the Free stalls because the 6502 stack descended
+  into the trap at `&0100` and destroyed it. The placement is wrong, not the
+  design; the candidate is preserved unbuilt in `rom-side/candidates/`.
+- [x] Record that the repair must never call OSBYTE. BYTEV is the trap which
+  reaches it, so `OSBYTE &A8` from inside the repair recurses without bound.
+  The extended-vector table address is captured at install time instead.
+- [ ] Repack the cassette page to give the trap about twenty contiguous bytes.
+  It is the only materially safer region at about 3.4% of the corpus, and has
+  about nine free bytes scattered. The CFS filename buffer at `&03D2-&03DF` and
+  the chunk header state at `&03CB-&03D0` are the relocation candidates, and
+  together need slightly more room than the trap frees, so one of them must
+  also shrink.
+- [ ] Superseded: choose where the enlarged BYTEV trap lives. It needs about twenty bytes
   against the present eight, because the OSBYTE reason code must be preserved
   across the signature comparison. The cassette trap area is the safest at 3.4%
   of the corpus but `chain_exec` starts at `&03A0` and repacking the page costs
