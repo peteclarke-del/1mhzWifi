@@ -32,6 +32,71 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ## Vector gateway location study, 27 August 2026
 
+### Repair frequency trades directly against destroying the game
+
+The split trap reaches sustained Repton gameplay and carries Last of the Free
+through `FREE`, `SCREEN0`, `SCREEN1`, `A-CODE` and `B-CODE` before stopping
+short of `C-CODE` and `FREE2`. Instrumenting that stop corrects two earlier
+readings.
+
+The MOS does clear the helper, writing zero across `&0780-&07A7` from
+`PC=D902`, but the write trace places that at line 9277 of 9318, after the load
+has already stopped. It is teardown, not a mid-load disarm, so the helper was
+intact throughout and the self-heal added to `fillget` addresses something
+which happens too late to matter. It is cheap and harmless, but it is not the
+fix it was thought to be.
+
+More importantly, the vectors are healthy at the point of failure:
+
+```text
+PC=FFF7 ... FSC=FF2D FILE=FF1B FIND=FF2A LEN=4FA5 CLI=*L.B-CODE
+PC=A129 RB=B ... FSC=FF2D FILE=FF1B FIND=FF2A LEN=4FA5
+```
+
+All four vectors are still the MOS extended entries and the repair is working.
+Control simply returns to BASIC. This is not a vector failure.
+
+That points back at a tension noted earlier and then set aside. Last of the
+Free loads file data across `&0D9F-&0DEF`. Those bytes are the extended-vector
+table and the game's data at the same time, so every repair is also damage. The
+retired gateway wrote three bytes, once, at the moment a filing vector was
+entered. Reaching the repair from BYTEV instead means writing twelve bytes on
+every OSBYTE, which keeps the table perfect and destroys far more of what the
+game just loaded.
+
+The frequency of repair therefore trades directly against how much of the game
+is corrupted, and no BYTEV-driven design can improve on this, because BYTEV
+cannot know which vector is about to be used or whether one is needed at all.
+Repairing only what differs does not help either: while the game's data
+occupies those bytes they always differ.
+
+This is the strongest argument yet for the original cartridge's shape, in which
+the filing vectors point at a small RAM trampoline which pages the ROM in and
+jumps, and no table is consulted or repaired at all. Its single weakness is
+that the trampoline can be overwritten, and the measured ownership map now
+shows the cassette page is the right home for one: 3.4% of the corpus against
+11.8% for `&07xx`. The obstacle is size. The original needed eighty bytes and
+the cassette page currently offers about twenty six.
+
+### Exposure of the relocated chunk header
+
+Moving `hchunk` to `&07A8` bought the space for the split trap. Measured across
+the corpus:
+
+| Region | Titles | Share |
+| --- | --- | --- |
+| `hchunk` `&07A8-&07AD` | 83 | 11.4% |
+| helper `&0780-&07A7` | 86 | 11.8% |
+| `cfsname` `&07B8-&07C2` | 82 | 11.3% |
+| trap entry `&0398-&039F` | 25 | 3.4% |
+| trap body `&03CB-&03DC` | 24 | 3.3% |
+
+The trap is where it should be. The helper's exposure is tolerated because the
+signature check detects it. The chunk header's is not detected: corruption
+there misparses the stream silently. That is a worse failure mode than the
+helper's and it affects 11.4% of the corpus, so the trade taken to buy the
+trap's space should be revisited if the design changes again.
+
 ### Measured ownership of the cassette workspace
 
 Three placements of the BYTEV trap failed for three different reasons, and each

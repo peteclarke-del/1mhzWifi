@@ -363,7 +363,25 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   skips the repair. The vectors and the helper now restore each other: the
   helper repairs the table from the BYTEV trap, and `fillget` repairs the
   helper from the vectors, behind a single compare so an intact helper is free.
-- [ ] Find why Last of the Free stops after `B-CODE`. It now loads `FREE`,
+- [x] Find why Last of the Free stops after `B-CODE`. The vectors are healthy
+  at the stop: all four are still the MOS extended entries and the repair is
+  working. It is not a vector failure. The title loads file data across
+  `&0D9F-&0DEF`, so those bytes are the vector table and the game's data at the
+  same time and every repair is also damage. The retired gateway wrote three
+  bytes once per filing call; reaching the repair from BYTEV writes twelve on
+  every OSBYTE.
+- [x] Correct the earlier reading that the MOS disarms the helper mid-load. It
+  clears `&0780-&07A7` from `PC=D902`, but at line 9277 of 9318, after the load
+  has stopped. The `fillget` self-heal is cheap and harmless but is not the fix
+  it was taken for.
+- [x] Measure the `hchunk` exposure: 83 titles, 11.4%. Unlike the helper, whose
+  loss the signature check detects, chunk header corruption misparses silently.
+- [ ] Decide whether to keep pursuing a BYTEV-driven repair. No such design can
+  improve on the frequency tradeoff, because BYTEV cannot know which vector is
+  about to be used. The original cartridge shape avoids the problem entirely by
+  consulting no table, and the ownership map now shows the cassette page is the
+  right home for its trampoline at 3.4% against 11.8%. The obstacle is size:
+  eighty bytes needed against about twenty six available. It now loads `FREE`,
   `SCREEN0`, `SCREEN1`, `A-CODE` and `B-CODE`, but not `C-CODE` or `FREE2`.
   Repton reaches sustained gameplay on the same ROM. The shipped 0.1.66 ROM
   reaches that title's start prompt, so this remains a regression for it.
