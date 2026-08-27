@@ -323,8 +323,29 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   Last of the Free passes and Repton fails with `Bad program`: Repton's filler
   runs to `&07FF`, so the whole page is consumed and no address in it is safe.
   The corpus agrees, 82 titles write `&07C1-&07FF` against 86 for `&0780`.
-- [ ] Move the gateway out of `&07xx` altogether. The cassette page is the only
-  materially safer region, at about 3.4% of the corpus against 11%.
+- [x] Quantify the signature-checked helper design. The filing vectors point at
+  the MOS extended entries, the repair helper stays in `&07xx`, and the BYTEV
+  trap verifies a signature before calling it. Across the 727 parseable corpus
+  images: 531 titles touch neither region, 49 destroy the helper without
+  needing repair and are saved by the signature check, 104 need the repair and
+  leave the helper intact, and 43 do both and still fail. Repton is in the
+  second group and Last of the Free the third, so both halves of the
+  `WICFS-016` gate are satisfied and the failure set falls from 92 to 43.
+- [x] Establish that the state cache cannot move. `wicfs_state_load` restores
+  the persisted checkpoint, not the live stream cursor, so reloading mid-file
+  would rewind it. Evicting the cache to make room is therefore not available.
+- [ ] Choose where the enlarged BYTEV trap lives. It needs about twenty bytes
+  against the present eight, because the OSBYTE reason code must be preserved
+  across the signature comparison. The cassette trap area is the safest at 3.4%
+  of the corpus but `chain_exec` starts at `&03A0` and repacking the page costs
+  more room than it frees. The deep stack at `&0100-&0113` needs no repacking
+  and is 4.1%, but that counts tape loads only and not run-time stack depth, so
+  it introduces a new failure mode. This is a judgement about which risk to
+  accept, not a measurement.
+- [ ] Implement the chosen placement and gate it on Repton reaching sustained
+  gameplay and Last of the Free reaching its start prompt from one ROM, then
+  re-run the staged set and a sample of the 43-title both-regions set to
+  confirm they fail no worse than today.
 - [ ] Whichever route is taken, gate it on Repton reaching sustained gameplay
   and Last of the Free reaching its start prompt from the same ROM, then re-run
   the full staged set before proposing it for hardware.
