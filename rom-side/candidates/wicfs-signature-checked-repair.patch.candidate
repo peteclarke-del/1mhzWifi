@@ -1,0 +1,249 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -72,7 +72,7 @@
+ wicfs_record_valid_value = &A5
+ 
+ serbuf	=	&06E0		\serial input buffer
+-notape	=	&0398		\location of external *TAPE trap
++notape	=	&0100		\*TAPE trap and repair gate, deep stack page
+ romsel	=	&0780		\Tube-off resilient vector guard, below &0800
+ hchunk	=	&03CB		\Chunk header type(2) + length(4)
+ 
+@@ -1273,32 +1273,11 @@
+ \ it is about to use, then enters the normal MOS extended-vector dispatcher.
+ \ The Tube path continues to use extended vectors because &0400-&07FF belongs
+ \ to the Tube host implementation.
++\The filing vectors now stay on the MOS extended entries, so no RAM gateway is
++\ever their target and this can never report ownership. It is kept so the reset
++\and install paths read the same as before.
+ .wicfs_guards_owned
+-	LDA	OSFILEV
+-	CMP	#<(romsel+(guard_file-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSFILEV+1
+-	CMP	#>(romsel+(guard_file-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSBGETV
+-	CMP	#<(romsel+(guard_bget-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSBGETV+1
+-	CMP	#>(romsel+(guard_bget-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSFINDV
+-	CMP	#<(romsel+(guard_find-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSFINDV+1
+-	CMP	#>(romsel+(guard_find-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSFSCV
+-	CMP	#<(romsel+(guard_fsc-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSFSCV+1
+-	CMP	#>(romsel+(guard_fsc-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	SEC
++	CLC
+ 	RTS
+ .wicfs_guards_not_owned
+ 	CLC
+@@ -1348,84 +1327,66 @@
+ 	BNE	wicfs_copy_guards
+ 	LDA	slotid
+ 	STA	romsel+(guard_slot-s_guard)
+-	PHP
+-	SEI
+-	LDA	#<(romsel+(guard_file-s_guard))
+-	STA	OSFILEV
+-	LDA	#>(romsel+(guard_file-s_guard))
+-	STA	OSFILEV+1
+-	LDA	#<(romsel+(guard_bget-s_guard))
+-	STA	OSBGETV
+-	LDA	#>(romsel+(guard_bget-s_guard))
+-	STA	OSBGETV+1
+-	LDA	#<(romsel+(guard_find-s_guard))
+-	STA	OSFINDV
+-	LDA	#>(romsel+(guard_find-s_guard))
+-	STA	OSFINDV+1
+-	LDA	#<(romsel+(guard_fsc-s_guard))
+-	STA	OSFSCV
+-	LDA	#>(romsel+(guard_fsc-s_guard))
+-	STA	OSFSCV+1
+-	PLP
++\Patch the paging register for the detected machine. The Electron pages through
++\&FE05 and the BBC family through &FE30.
++	LDY	#<&FE30
++	LDA	wicfs_machine
++	CMP	#1
++	BNE	wicfs_guard_selector_ready
++	LDY	#<&FE05
++.wicfs_guard_selector_ready
++	STY	romsel+(guard_preselect-s_guard)+1
++	STY	romsel+(guard_selector-s_guard)+1
++	STY	romsel+(guard_restore-s_guard)+1
++\Capture the extended-vector table address once, here, where calling OSBYTE is
++\safe. The repair itself runs from the BYTEV trap and must never call OSBYTE.
++	LDA	#&A8
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	romsel+(guard_evlo-s_guard)
++	STY	romsel+(guard_evhi-s_guard)
++\The filing vectors are deliberately left on the MOS extended entries. Making a
++\RAM address their target is what allowed a cassette loader to replace the
++\filing system with its own code.
+ .wicfs_publish_guards_done
+ 	RTS
++	RTS
+ 
+-.s_guard
+-.guard_file
+-	PHP
++\Repair every WiCFS extended-vector tuple. Lives in ROM because only the pager
++\below has to survive a cassette loader. Preserves all registers: it is reached
++\from the BYTEV trap, where A, X and Y are the caller's OSBYTE arguments.
++.wicfs_guard_repair_all
+ 	PHA
+-	SEI
+-	LDA	#0
+-	BPL	guard_common
+-.guard_bget
+-	PHP
+-	PHA
+-	SEI
+-	LDA	#1
+-	BPL	guard_common
+-.guard_find
+-	PHP
+-	PHA
+-	SEI
+-	LDA	#2
+-	BPL	guard_common
+-.guard_fsc
+-	PHP
+-	PHA
+-	SEI
+-	LDA	#3
+-.guard_common
+-	STA	romsel+(guard_kind-s_guard)
+ 	TXA
+ 	PHA
+ 	TYA
+ 	PHA
+-	LDA	#&A8
+-	LDX	#0
+-	LDY	#&FF
+-	JSR	OSBYTE
+-	STX	evptr
+-	STY	evptr+1
+-	LDX	romsel+(guard_kind-s_guard)
+-	LDY	romsel+(guard_offsets-s_guard),X
+-	LDA	romsel+(guard_handler_lo-s_guard),X
++\The extended-vector table address is captured at install time. It must not be
++\read with OSBYTE &A8 here: BYTEV is the trap which calls this routine, so an
++\OSBYTE from inside the repair re-enters the trap and recurses without bound.
++	LDA	romsel+(guard_evlo-s_guard)
++	STA	evptr
++	LDA	romsel+(guard_evhi-s_guard)
++	STA	evptr+1
++	LDX	#3
++.wicfs_guard_repair_loop
++	LDY	guard_offsets,X
++	LDA	guard_handler_lo,X
+ 	STA	(evptr),Y
+ 	INY
+-	LDA	romsel+(guard_handler_hi-s_guard),X
++	LDA	guard_handler_hi,X
+ 	STA	(evptr),Y
+ 	INY
+ 	LDA	romsel+(guard_slot-s_guard)
+ 	STA	(evptr),Y
+-	LDA	romsel+(guard_dispatch-s_guard),X
+-	STA	romsel+(guard_call-s_guard)+1
++	DEX
++	BPL	wicfs_guard_repair_loop
+ 	PLA
+ 	TAY
+ 	PLA
+ 	TAX
+ 	PLA
+-	PLP
+-.guard_call
+-	JSR	&FF1B
+ 	RTS
+ .guard_offsets
+ 	equb	27,33,42,45
+@@ -1433,11 +1394,43 @@
+ 	equb	<upfilev,<upbgetv,<upfindv,<upfscv
+ .guard_handler_hi
+ 	equb	>upfilev,>upbgetv,>upfindv,>upfscv
+-.guard_dispatch
+-	equb	&1B,&21,&2A,&2D
++
++\Downloaded repair helper. It is never a filing vector target, so a loader
++\which overwrites it costs only the repair, not the filing system. The BYTEV
++\trap checks guard_sig before calling guard_entry, so a helper replaced by game
++\code is skipped rather than executed.
++.s_guard
++.guard_sig
++	equb	&A5
++.guard_entry
++	PHP
++	SEI
++	PHA
++	LDA	&F4
++	STA	romsel+(guard_prev-s_guard)
++.guard_preselect_value
++	LDA	#12
++.guard_preselect
++	STA	&FE30
++	LDA	romsel+(guard_slot-s_guard)
++	STA	&F4
++.guard_selector
++	STA	&FE30
++	JSR	wicfs_guard_repair_all
++	LDA	romsel+(guard_prev-s_guard)
++	STA	&F4
++.guard_restore
++	STA	&FE30
++	PLA
++	PLP
++	RTS
+ .guard_slot
+ 	equb	0
+-.guard_kind
++.guard_prev
++	equb	0
++.guard_evlo
++	equb	0
++.guard_evhi
+ 	equb	0
+ .e_guard
+ ASSERT romsel+(e_guard-s_guard) <= &0800
+@@ -2285,13 +2278,20 @@
+ \~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ \Download code for OSBYTE *TAPE trap. Copied to notape by *QUPCFS
+ 
+-.osb_s
+-	CMP	#&8C		\*TAPE ?
+-	BNE	osb_j		\no, continue to OSBYTE
+-	RTS	    		\yes, return no action
+-
+-.osb_j	JMP	&0000		\continue to OSBYTE at OS vector..
+-		        		\..address written by *QUPCFS
++.osb_s
++	CMP	#&8C		\*TAPE ?
++	BEQ	osb_eat		\yes, swallow it and keep WiCFS selected
++	PHA			\the OSBYTE reason must survive the check below
++	LDA	romsel+(guard_sig-s_guard)
++	CMP	#&A5		\is the repair helper still ours?
++	BNE	osb_restore	\no, a loader has replaced it; do not call it
++	JSR	romsel+(guard_entry-s_guard)
++.osb_restore
++	PLA
++.osb_j	JMP	&0000		\continue to OSBYTE at OS vector..
++		        		\..address written by *QUPCFS
++.osb_eat
++	RTS
+ .osb_e	NOP
+ 
+ \===============================================================================
