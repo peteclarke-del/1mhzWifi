@@ -310,6 +310,25 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   the next filing call follows inside the same 256-byte window. Any repair
   reached through the extended-vector table has this flaw, because once all
   four tuples are dead no ROM entry point remains.
+- [x] Compare against the original ElkWiFi 0.23 WiCFS, which streams and runs
+  UEFs on the real cartridge. It points FILEV, FINDV, BGETV and FSCV at an
+  eighty-byte RAM trampoline at `&07A4` which pages the ROM in and jumps
+  straight to the handler. It never reads `&0D9F-&0DEF`. Last of the Free works
+  there because the table it overwrites is never consulted. This project rewired
+  WiCFS onto the MOS extended vectors and then added the gateway to repair the
+  table that rewiring had made load bearing.
+- [ ] Shrink the gateway to a paging trampoline and move the repair, offset
+  tables and dispatcher selection into ROM, where about 460 bytes are free.
+  About sixty RAM bytes should remain, against the present 103. Place them
+  flush against the top of the page so the largest contiguous region below stays
+  available to loaders.
+- [ ] Alternatively return to the original design, in which the trampoline jumps
+  straight to the handlers and no repair exists. This is the proven
+  architecture, but the handlers must stop reading the MOS extended-vector stack
+  frame first.
+- [ ] Whichever route is taken, gate it on Repton reaching sustained gameplay
+  and Last of the Free reaching its start prompt from the same ROM, then re-run
+  the full staged set before proposing it for hardware.
 - [ ] Make `upbgetv` reload state on a failed magic check instead of reporting
   an invalid state. OSBGET is the only vector entry which does not call
   `wicfs_state_load`, so until it recovers, the 22-byte state cache cannot
