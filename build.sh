@@ -7,7 +7,7 @@ if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != "--rom-only" ]; }; then
 fi
 
 rom=build/pi1mhz-all/Pi1MHz/ElkWiFi.rom
-expected=afc0734188cb6b1b5b7068efe9ca6c937f0802773b2a2753e13942049491831a
+expected=82c0e0e49491b163d6cce324b123300dcf1ee56a3708a20dd850965d43a440fc
 test "$(stat -c %s "$rom")" -eq 16384
 printf '%s  %s\n' "$expected" "$rom" | sha256sum --check --strict
 

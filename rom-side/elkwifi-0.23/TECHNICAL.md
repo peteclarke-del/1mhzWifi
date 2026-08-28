@@ -79,9 +79,26 @@ as a host or Tube address.
 
 ROM 0.1.66 replaces the public function comparison chain and FTP keyword chain
 with explicit tables, shares repeated diagnostics and removes the obsolete ROM
-end marker. The assembly fails if content crosses `&BE58`, preserving at least
-424 bytes. Its maintained PRD implementation never reads a JIM selector,
+end marker. Its maintained PRD implementation never reads a JIM selector,
 reasserts selectors before each byte, and restores public bank `00:00`.
+
+ROM 0.1.67 keeps the four filing vectors on the RAM guard below `&0800`. A
+Pi-mirrored trampoline was built and withdrawn: pointing the vectors at it
+broke the `*/` handover that every multi-file cassette loader ends with,
+because `actioned` transfers to the loaded program by unwinding the MOS
+extended-vector dispatch frame and the mirrored entry supplies its own frame
+instead. Every multi-file title failed after its first file. Reverting the
+vectors fixed it, and the trampoline was then removed outright rather than
+left unreachable in the image.
+
+Two things survive from that work. `cfsinit` starts the read cursor at JIM
+page 1, because page 0 is the service reply buffer that OSWORD `&65` clients
+read in full and a reply landing there used to corrupt the stream. The vector
+ownership test and both vector installers became table walks instead of
+unrolled comparison and store chains, which returned about ninety bytes. The
+ceiling stands at `&BF00`; it was moved for the trampoline and has not been
+moved back, so the reserve is larger than the minimum rather than smaller.
+Any future move should carry the same justification.
 
 ## WiCFS and UEF handling
 

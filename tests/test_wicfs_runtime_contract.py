@@ -554,7 +554,10 @@ host_basic_pending = &03BD
         self.assertEqual(memory[0x00F8:0x00FA], bytes((0x00, 0xFF)))
         self.assertEqual(memory[0x00F5], 0x80)  # incremental, not final
         self.assertEqual(memory[0x0DAD], ord("G"))
-        self.assertEqual(memory[0x00C7:0x00C9], bytes((0, 0)))
+        # The read cursor returns to the first byte of the window, which is
+        # page 1 offset 0: JIM page 0 is the service reply buffer and the
+        # stream is published above it so a reply cannot overwrite it.
+        self.assertEqual(memory[0x00C7:0x00C9], bytes((0, 1)))
         self.assertEqual(mpu.p & mpu.CARRY, 0)
         with self.assertRaises(StopIteration):
             next(reply)
@@ -664,8 +667,236 @@ host_basic_pending = &03BD
         failed, _ = classify(truncated)
         self.assertTrue(failed)
 
+    @staticmethod
+    def _trampoline_image(slot=3, preselect=12, sel=0xFE05,
+                          handlers=(0x9000, 0x9100, 0x9200, 0x9300)):
+        """The stub image the Pi mirrors into every JIM page.
+
+        Built here to the same layout elkwifi_service.c uses, so this test
+        exercises the real instruction sequence rather than a description of
+        it. Offsets: four entries at 0/9/18/27, pager at 36, unpager at 95.
+        """
+        base = 0xFD00 + 0x68
+        pager, unpager = base + 36, base + 95
+        out = bytearray(143)
+        for i, handler in enumerate(handlers):
+            e = i * 9
+            out[e:e + 9] = bytes((
+                0x20, pager & 0xFF, pager >> 8,
+                0x20, handler & 0xFF, handler >> 8,
+                0x4C, unpager & 0xFF, unpager >> 8))
+        q = bytearray()
+        q += bytes((0x08, 0x78, 0x48, 0x8A, 0x48, 0x48, 0xBA))
+        for src, dst in ((2, 1), (3, 2), (4, 3), (5, 4), (6, 5)):
+            q += bytes((0xBD, src, 0x01, 0x9D, dst, 0x01))
+        q += bytes((0xA5, 0xF4, 0x9D, 0x06, 0x01))
+        q += bytes((0xA9, preselect, 0x8D, sel & 0xFF, sel >> 8))
+        q += bytes((0xA9, slot, 0x85, 0xF4, 0x8D, sel & 0xFF, sel >> 8))
+        q += bytes((0x68, 0xAA, 0x68, 0x28, 0x60))
+        out[36:36 + len(q)] = q
+        r = bytearray()
+        r += bytes((0x08, 0x78, 0x48, 0x8A, 0x48, 0xBA))
+        r += bytes((0xA9, preselect, 0x8D, sel & 0xFF, sel >> 8))
+        r += bytes((0xBD, 0x04, 0x01, 0x85, 0xF4, 0x8D, sel & 0xFF, sel >> 8))
+        for src, dst in ((3, 4), (2, 3), (1, 2)):
+            r += bytes((0xBD, src, 0x01, 0x9D, dst, 0x01))
+        r += bytes((0xE8, 0x9A, 0x68, 0xAA, 0x68, 0x28, 0x60))
+        out[95:95 + len(r)] = r
+        out[139:143] = b"WCFS"
+        return bytes(out)
+
+    def test_trampoline_survives_a_nested_filing_call(self) -> None:
+        """A filing call inside a filing call must page the right ROM back.
+
+        This is what `*/` does: FSCV reason 2 enters WiCFS, which calls OSFILE
+        to load the next file, so FILEV is entered while WiCFS is already
+        paged in. The displaced ROM number therefore differs between the two
+        levels, and each exit has to restore its own. Getting this wrong pages
+        the wrong bank back under the caller, which is why the trampoline
+        builds the MOS frame rather than keeping one saved copy.
+        """
+        CALLER_ROM, OUR_SLOT = 0x0B, 0x03
+        base, sentinel = 0xFD68, 0x0600
+        memory = bytearray(0x10000)
+        image = self._trampoline_image(slot=OUR_SLOT)
+        memory[base:base + len(image)] = image
+
+        # FILEV handler: record the frame's ROM and what is paged in.
+        filev_stub = bytes((
+            0x08, 0xBA, 0xBD, 0x04, 0x01, 0x85, 0x72,
+            0xA5, 0xF4, 0x85, 0x73, 0x28, 0x60))
+        memory[0x9000:0x9000 + len(filev_stub)] = filev_stub
+        # FSCV handler: record its own frame, then nest a FILEV call.
+        fscv_stub = bytes((
+            0x85, 0x74, 0x86, 0x75, 0x84, 0x76,   # record the arguments
+            0x08, 0xBA, 0xBD, 0x04, 0x01, 0x85, 0x70, 0x28,
+            0x20, base & 0xFF, base >> 8,         # nested FILEV, as *\ does
+            0xA5, 0xF4, 0x85, 0x71,
+            0xA9, 0x99, 0xA2, 0x77, 0xA0, 0x55,   # hand back a known result
+            0x60))
+        memory[0x9300:0x9300 + len(fscv_stub)] = fscv_stub
+
+        memory[0x00F4] = CALLER_ROM
+        mpu = MPU(memory=memory, pc=base + 27)      # the FSCV entry
+        mpu.sp = 0xF0
+        memory[0x01F1] = (sentinel - 1) & 0xFF
+        memory[0x01F2] = (sentinel - 1) >> 8
+        mpu.a, mpu.x, mpu.y = 0x5A, 0xA5, 0x3C
+
+        for _ in range(20000):
+            if mpu.pc == sentinel:
+                break
+            mpu.step()
+        else:
+            self.fail("the trampoline did not return")
+
+        self.assertEqual(memory[0x0070], CALLER_ROM,
+                         "outer handler was not handed the caller's ROM")
+        self.assertEqual(memory[0x0072], OUR_SLOT,
+                         "nested handler was not handed the ROM that called it")
+        self.assertEqual(memory[0x0073], OUR_SLOT,
+                         "nested handler ran with the wrong ROM paged in")
+        self.assertEqual(memory[0x0071], OUR_SLOT,
+                         "our ROM was not paged back after the nested call")
+        self.assertEqual(memory[0x00F4], CALLER_ROM,
+                         "the caller's ROM was not paged back on exit")
+        # 0xF0 plus the two bytes the final RTS consumes: balanced.
+        self.assertEqual(mpu.sp, 0xF2, "the trampoline leaked stack")
+        self.assertEqual(
+            (memory[0x0074], memory[0x0075], memory[0x0076]),
+            (0x5A, 0xA5, 0x3C),
+            "the handler was not given the caller's A, X and Y")
+        self.assertEqual(
+            (mpu.a, mpu.x, mpu.y), (0x99, 0x77, 0x55),
+            "the handler's result did not survive the exit")
+
+    def _getbyte_symbols(self):
+        match = self.find_rom_routine(
+            rb"\xA5(.)\x05(.)\xD0\x05\x20(..)\xB0\x25"
+            rb"\x08\x78\xA4(.)\xA5(.)\x20..\xB9\x00\xFD"
+            rb".{25}\x38\x60"
+        )
+        return {
+            "start": ROM_START + match.start(),
+            "final_rts": ROM_START + match.end() - 1,
+            "sbufl": match.group(1)[0], "sbufh": match.group(2)[0],
+            "refill": match.group(3)[0] | match.group(3)[1] << 8,
+            "pr_y": match.group(4)[0], "pr_r": match.group(5)[0],
+        }
+
+    def _drain(self, memory, sym, calls, on_refill=None):
+        """Call the assembled getbyte `calls` times, returning what it read."""
+        got = bytearray()
+        refills = 0
+        for _ in range(calls):
+            mpu = MPU(memory=memory, pc=sym["start"])
+            mpu.sp = 0xF0
+            for _ in range(4000):
+                if mpu.pc == sym["final_rts"]:
+                    break
+                if mpu.pc == sym["refill"]:
+                    refills += 1
+                    if on_refill is not None and on_refill():
+                        mpu.p &= ~mpu.CARRY   # a window was published
+                    else:
+                        mpu.p |= mpu.CARRY    # nothing left: report EOF
+                    low = memory[0x0100 + ((mpu.sp + 1) & 0xFF)]
+                    high = memory[0x0100 + ((mpu.sp + 2) & 0xFF)]
+                    mpu.sp = (mpu.sp + 2) & 0xFF
+                    mpu.pc = ((high << 8) | low) + 1
+                else:
+                    mpu.step()
+            else:
+                self.fail("getbyte did not return")
+            if mpu.p & mpu.CARRY:
+                break
+            got.append(mpu.a)
+        return bytes(got), refills
+
+    def _staged_window(self, memory, values, first_page=0):
+        """Lay bytes out the way the Pi publishes them: a full JIM page each."""
+        usable = 0x100
+        for index, value in enumerate(values):
+            page = (first_page + index // usable) & 0xFF
+            memory.page_data[page, index % usable] = value
+
+    def test_getbyte_reads_a_published_window_contiguously(self) -> None:
+        """A full page per JIM page, then step the page.
+
+        The reader must hand back the stream in order across a page boundary;
+        a page step that fires early or late silently splices the window.
+        """
+        sym = self._getbyte_symbols()
+        memory = DelayedOneSlotMailbox(self.rom, 1)
+        memory.ram[0x00C3] = 1
+        memory.ram[0x00F5] = 0x80
+        window = bytes((i & 0xFF) for i in range(300))
+        self._staged_window(memory, window)
+        memory.ram[sym["sbufl"]] = len(window) & 0xFF
+        memory.ram[sym["sbufh"]] = len(window) >> 8
+        memory.ram[sym["pr_y"]] = 0
+        memory.ram[sym["pr_r"]] = 0
+        got, _ = self._drain(memory, sym, len(window) + 1)
+        self.assertEqual(got, window)
+
+    def test_getbyte_crosses_a_refill_without_losing_its_place(self) -> None:
+        """A stream larger than one window is the case a third of the corpus hits.
+
+        Above one window the Pi publishes more than one, so the host
+        drains one, asks for a refill and carries on from the first byte of the
+        next. WiCFS reported chunk type &5245 on exactly those titles, which is
+        ASCII it read after losing its place, so walk the boundary byte by byte.
+        """
+        sym = self._getbyte_symbols()
+        memory = DelayedOneSlotMailbox(self.rom, 1)
+        memory.ram[0x00C3] = 1
+        memory.ram[0x00F5] = 0x80
+        first = bytes((i & 0xFF) for i in range(300))
+        second = bytes(((300 + i) & 0xFF) for i in range(120))
+        self._staged_window(memory, first)
+        memory.ram[sym["sbufl"]] = len(first) & 0xFF
+        memory.ram[sym["sbufh"]] = len(first) >> 8
+        memory.ram[sym["pr_y"]] = 0
+        memory.ram[sym["pr_r"]] = 0
+
+        published = []
+
+        def publish_second():
+            if published:          # the second refill is the true end of stream
+                return False
+            published.append(True)
+            self._staged_window(memory, second)
+            memory.ram[sym["sbufl"]] = len(second) & 0xFF
+            memory.ram[sym["sbufh"]] = len(second) >> 8
+            memory.ram[sym["pr_y"]] = 0
+            memory.ram[sym["pr_r"]] = 0
+            return True
+
+        got, refills = self._drain(
+            memory, sym, len(first) + len(second) + 1, publish_second
+        )
+        self.assertEqual(refills, 2, "one refill for the window, one for EOF")
+        self.assertEqual(got, first + second)
+
+    def test_getbyte_survives_the_page_counter_wrapping(self) -> None:
+        """A full window ends on page 255, so the counter wraps to zero there."""
+        sym = self._getbyte_symbols()
+        memory = DelayedOneSlotMailbox(self.rom, 1)
+        memory.ram[0x00C3] = 1
+        memory.ram[0x00F5] = 0x80
+        window = bytes((i & 0xFF) for i in range(600))
+        self._staged_window(memory, window, first_page=0xFE)
+        memory.ram[sym["sbufl"]] = len(window) & 0xFF
+        memory.ram[sym["sbufh"]] = len(window) >> 8
+        memory.ram[sym["pr_y"]] = 0
+        memory.ram[sym["pr_r"]] = 0xFE
+        got, _ = self._drain(memory, sym, len(window) + 1)
+        self.assertEqual(got, window)
+
     def test_assembled_getbyte_refills_without_resetting_parser_state(self) -> None:
         match = self.find_rom_routine(
+            # The page-step is the natural wrap at 256: the Pi publishes a
+            # whole JIM page of stream, so iny alone decides when to step.
             rb"\xA5(.)\x05(.)\xD0\x05\x20(..)\xB0\x25"
             rb"\x08\x78\xA4(.)\xA5(.)\x20..\xB9\x00\xFD"
             rb".{25}\x38\x60"
@@ -843,6 +1074,9 @@ host_basic_pending = &03BD
         self.assertEqual(mpu.p & mpu.ZERO, 0)
 
         write_patterns = (
+            # Both reply-copy paths are unchanged again: the reply buffer no
+            # longer shares pages with the stream, so nothing has to be marked
+            # or repaired here.
             rb"\x08\x78\x48\xad(..)\x20..\x68\x9d\x00\xfd\x20..\x28\x4c..",
             rb"\x08\x78\x48\xad(..)\x20..\x68\x9d\x00\xfd\x20..\x28\x60",
         )
@@ -851,8 +1085,7 @@ host_basic_pending = &03BD
                 write = self.find_rom_routine(pattern)
                 write_start = ROM_START + write.start()
                 write_shadow = (
-                    self.rom[write.start() + 4] |
-                    self.rom[write.start() + 5] << 8
+                    write.group(1)[0] | write.group(1)[1] << 8
                 )
                 if self.rom[write.end() - 3] == 0x4C:
                     increment = (

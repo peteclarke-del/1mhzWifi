@@ -13,6 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "pi-side/pi1mhz-516a267/overlay/src"
 EMULATOR = ROOT / "emulator/pi1mhz-mailbox"
+PUBLISH_BASE = 0x100
+FLAT_WINDOW = 0xFE00
 JIM_SIZE = 3 << 24
 SERVICE_BASE = JIM_SIZE - (2 << 24)
 CONTROL = SERVICE_BASE + 0xFFFF00
@@ -159,12 +161,12 @@ class UefNormalizeTest(unittest.TestCase):
                 )
                 upload_generation = next_generation
             generation, length, final = request(3)
-            output = bytearray(jim[:length])
+            output = bytearray(jim[PUBLISH_BASE:PUBLISH_BASE + length])
             lengths = [length]
             while not final:
                 previous_generation = generation
                 generation, length, final = request(5, generation)
-                window = bytes(jim[:length])
+                window = bytes(jim[PUBLISH_BASE:PUBLISH_BASE + length])
                 # A retry carrying the previous generation must republish the
                 # same window, never advance and silently skip UEF bytes.
                 retry_generation, retry_length, retry_final = request(
@@ -174,7 +176,9 @@ class UefNormalizeTest(unittest.TestCase):
                     (retry_generation, retry_length, retry_final),
                     (generation, length, final),
                 )
-                self.assertEqual(bytes(jim[:retry_length]), window)
+                self.assertEqual(
+                    bytes(jim[PUBLISH_BASE:PUBLISH_BASE + retry_length]), window
+                )
                 output.extend(window)
                 lengths.append(length)
             return bytes(output), lengths
@@ -183,9 +187,9 @@ class UefNormalizeTest(unittest.TestCase):
 
     def test_incremental_exact_window_boundaries(self) -> None:
         for size, expected_windows in (
-            (0xFF00, [0xFF00]),
-            (0x1FE00, [0xFF00, 0xFF00]),
-            (0x1FE01, [0xFF00, 0xFF00, 1]),
+            (FLAT_WINDOW, [FLAT_WINDOW]),
+            (2 * FLAT_WINDOW, [FLAT_WINDOW, FLAT_WINDOW]),
+            (2 * FLAT_WINDOW + 1, [FLAT_WINDOW, FLAT_WINDOW, 1]),
         ):
             raw = (b"UEF File!\0\x05\0" + bytes(range(256)) * 600)[:size]
             with self.subTest(size=size):
@@ -252,7 +256,294 @@ class UefNormalizeTest(unittest.TestCase):
                 self.assertEqual(pi_output, raw)
                 output, windows = self.run_incremental(encoded)
                 self.assertEqual(output, raw)
-                self.assertEqual(windows, [0xFF00, 0xFF00, len(raw) - 0x1FE00])
+                self.assertEqual(
+                    windows,
+                    [FLAT_WINDOW, FLAT_WINDOW, len(raw) - 2 * FLAT_WINDOW],
+                )
+
+    def test_republish_repairs_a_window_a_service_reply_trod_on(self) -> None:
+        """A reply written over the window must be repairable in place.
+
+        The host keeps its service reply buffer in the first bytes of JIM page
+        0, which is exactly where a published stream window starts, so any
+        command that copies a reply while a stream is open overwrites the start
+        of the stream. WiCFS then reads the reply text as UEF: an "ERR" reply
+        is read as chunk type &5245. Operation 7 lays the window down again
+        without moving the cursor or the generation, so the host can carry on
+        from where it was rather than restarting the file.
+        """
+        USABLE = 0x68
+        jim = (ctypes.c_uint8 * JIM_SIZE)()
+        backend = self.fixture.pi1mhz_net_backend_create(b"fixture", None, 0)
+        self.assertTrue(backend)
+
+        def request(operation: int, generation: int = 0) -> tuple[int, int, int]:
+            jim[CONTROL:CONTROL + 32] = bytes(32)
+            jim[CONTROL] = 93
+            jim[CONTROL + 1:CONTROL + 5] = b"IUEF"
+            jim[CONTROL + 5] = 1
+            jim[CONTROL + 6] = operation
+            jim[CONTROL + 11:CONTROL + 15] = generation.to_bytes(4, "little")
+            result = self.fixture.pi1mhz_net_backend_dispatch(
+                backend, 0xFF, CONTROL, jim, JIM_SIZE
+            )
+            self.assertEqual(result, 0, f"operation {operation}")
+            return (
+                int.from_bytes(bytes(jim[CONTROL + 10:CONTROL + 14]), "little"),
+                int.from_bytes(bytes(jim[CONTROL + 14:CONTROL + 16]), "little"),
+                jim[CONTROL + 16],
+            )
+
+        raw = b"UEF File!\x00\x05\x00" + bytes(range(256)) * 40
+        try:
+            request(1)
+            jim[:len(raw)] = raw
+            jim[0xFFFE] = len(raw) & 0xFF
+            jim[0xFFFF] = len(raw) >> 8
+            generation, _, _ = request(2, 0)
+            generation, length, _ = request(3)
+            expected = bytes(jim[0x100:0x100 + min(length, USABLE)])
+
+            # A service reply lands in JIM page 0, exactly as the ROM's reply
+            # buffer does. These are the bytes that produced &5245 on hardware.
+            # The stream starts at page 1, so this must not disturb it at all.
+            jim[0:5] = b"ERR\r\x00"
+            self.assertEqual(bytes(jim[0x100:0x100 + min(length, USABLE)]),
+                             expected,
+                             "a reply in page 0 reached the published stream")
+
+            # The republish is still the recovery path if a window is ever
+            # damaged, so corrupt one in-stream byte and prove it comes back.
+            jim[0x100] = 0xFF
+            self.assertNotEqual(bytes(jim[0x100:0x105]), expected[:5])
+
+            before = (generation, length)
+            generation, length, _ = request(7)
+            self.assertEqual((generation, length), before,
+                             "republish must not move the cursor or the"
+                             " generation; the host has consumed nothing")
+            self.assertEqual(bytes(jim[0x100:0x100 + min(length, USABLE)]),
+                             expected,
+                             "republish did not restore the damaged window")
+        finally:
+            self.fixture.pi1mhz_net_backend_destroy(backend)
+
+    def test_upload_retry_still_matches_with_a_trampoline_published(self) -> None:
+        """An upload window must be byte-identical when the host repeats it.
+
+        The ROM confirms every append by sending it a second time, and the Pi
+        checks the repeat by re-reading the window out of JIM. Anything the Pi
+        writes into that window between the two attempts makes the repeat look
+        like corruption and the upload cannot make progress.
+        """
+        jim = (ctypes.c_uint8 * JIM_SIZE)()
+        backend = self.fixture.pi1mhz_net_backend_create(b"fixture", None, 0)
+        self.assertTrue(backend)
+
+        def request(operation: int, generation: int = 0) -> int:
+            jim[CONTROL:CONTROL + 32] = bytes(32)
+            jim[CONTROL] = 93
+            jim[CONTROL + 1:CONTROL + 5] = b"IUEF"
+            jim[CONTROL + 5] = 1
+            jim[CONTROL + 6] = operation
+            jim[CONTROL + 11:CONTROL + 15] = generation.to_bytes(4, "little")
+            return self.fixture.pi1mhz_net_backend_dispatch(
+                backend, 0xFF, CONTROL, jim, JIM_SIZE
+            )
+
+        try:
+            jim[CONTROL:CONTROL + 32] = bytes(32)
+            jim[CONTROL] = 86
+            jim[CONTROL + 1:CONTROL + 14] = bytes([
+                3, 12, 0x05, 0xFE,
+                0x6F, 0x9B, 0x6B, 0xA2, 0x84, 0x9B, 0x1F, 0xA1, 0xCF,
+            ])
+            self.assertEqual(
+                self.fixture.pi1mhz_net_backend_dispatch(
+                    backend, 0xFF, CONTROL, jim, JIM_SIZE
+                ),
+                0,
+            )
+
+            self.assertEqual(request(1), 0)
+            part = (b"UEF File!\x00\x05\x00" + bytes(range(256)) * 40)[:0xFF00]
+            jim[:len(part)] = part
+            jim[0xFFFE] = len(part) & 0xFF
+            jim[0xFFFF] = len(part) >> 8
+            self.assertEqual(request(2, 0), 0, "first append")
+            self.assertEqual(
+                request(2, 0), 0,
+                "the confirming repeat of an append must be accepted; the Pi"
+                " must not have written into the upload window in between",
+            )
+        finally:
+            self.fixture.pi1mhz_net_backend_destroy(backend)
+
+    def test_mirrored_window_reads_back_byte_for_byte_across_refills(self) -> None:
+        """Read a published stream exactly as WiCFS reads it.
+
+        With a trampoline live the stream skips the mirrored window, so the
+        host walks 104 bytes of every JIM page and then steps the page. This
+        reassembles a stream that way, across refills, and compares it with
+        what was uploaded. The trampoline is published after the stream, which
+        is the order the ROM uses: the host loads a UEF, and only then selects
+        WiCFS and publishes its vectors.
+        """
+        USABLE = 0x68
+        jim = (ctypes.c_uint8 * JIM_SIZE)()
+        backend = self.fixture.pi1mhz_net_backend_create(b"fixture", None, 0)
+        self.assertTrue(backend)
+
+        def request(operation: int, generation: int = 0) -> tuple[int, int, int]:
+            jim[CONTROL:CONTROL + 32] = bytes(32)
+            jim[CONTROL] = 93
+            jim[CONTROL + 1:CONTROL + 5] = b"IUEF"
+            jim[CONTROL + 5] = 1
+            jim[CONTROL + 6] = operation
+            jim[CONTROL + 11:CONTROL + 15] = generation.to_bytes(4, "little")
+            result = self.fixture.pi1mhz_net_backend_dispatch(
+                backend, 0xFF, CONTROL, jim, JIM_SIZE
+            )
+            self.assertEqual(result, 0, f"operation {operation}")
+            return (
+                int.from_bytes(bytes(jim[CONTROL + 10:CONTROL + 14]), "little"),
+                int.from_bytes(bytes(jim[CONTROL + 14:CONTROL + 16]), "little"),
+                jim[CONTROL + 16],
+            )
+
+        def publish_mirror(slot: int) -> None:
+            jim[CONTROL:CONTROL + 32] = bytes(32)
+            jim[CONTROL] = 86
+            jim[CONTROL + 1:CONTROL + 14] = bytes([
+                slot, 12, 0x05, 0xFE,
+                0x6F, 0x9B, 0x6B, 0xA2, 0x84, 0x9B, 0x1F, 0xA1, 0xCF,
+            ])
+            self.assertEqual(
+                self.fixture.pi1mhz_net_backend_dispatch(
+                    backend, 0xFF, CONTROL, jim, JIM_SIZE
+                ),
+                0,
+            )
+
+        def read_window(count: int) -> bytes:
+            out = bytearray()
+            # Page 0 is the service reply buffer; the stream starts at page 1.
+            page, offset = 1, 0
+            for _ in range(count):
+                out.append(jim[(page << 8) + offset])
+                offset += 1
+                if offset == USABLE:
+                    offset, page = 0, page + 1
+            return bytes(out)
+
+        # Deliberately larger than one mirrored window (256 * 104), so the
+        # refill path is exercised rather than assumed.
+        # Several mirrored windows and several upload chunks, so both the
+        # multi-append upload and repeated refills are exercised.
+        raw = b"UEF File!\x00\x05\x00" + bytes(range(256)) * 1200
+        self.assertGreater(len(raw), 8 * 255 * USABLE)
+        self.assertGreater(len(raw), 4 * 0xFF00)
+        try:
+            request(1)
+            generation = 0
+            for offset in range(0, len(raw), 0xFF00):
+                part = raw[offset:offset + 0xFF00]
+                jim[:len(part)] = part
+                jim[0xFFFE] = len(part) & 0xFF
+                jim[0xFFFF] = len(part) >> 8
+                generation, _, _ = request(2, generation)
+            generation, length, final = request(3)
+
+            # The host now selects WiCFS and publishes its vectors, then
+            # rewinds, which is what the ROM does before chaining the title.
+            # The rewind is where it learns the window's new length and final
+            # flag, both of which change when the window changes shape.
+            publish_mirror(3)
+            generation, length, final = request(4)
+            self.assertLessEqual(length, 255 * USABLE)
+            self.assertFalse(final, "a rewound stream larger than one mirrored"
+                                    " window must not report itself final")
+
+            output = bytearray(read_window(length))
+            windows = 1
+            while not final:
+                generation, length, final = request(5, generation)
+                output += read_window(length)
+                windows += 1
+                self.assertLess(windows, 64)
+            self.assertGreater(windows, 1, "the fixture must span refills")
+            self.assertEqual(bytes(output), raw)
+        finally:
+            self.fixture.pi1mhz_net_backend_destroy(backend)
+
+    def test_vector_mirror_reserves_the_top_of_every_published_page(self) -> None:
+        """A published trampoline changes the shape of the stream window.
+
+        The host's filing vectors live in the mirrored window, so the Pi must
+        stop the stream short of it in every page and stamp the trampoline into
+        all 256 pages. Without a published mirror the window stays flat and
+        0xFF00 bytes long, which is what an older ROM still expects.
+        """
+        jim = (ctypes.c_uint8 * JIM_SIZE)()
+        backend = self.fixture.pi1mhz_net_backend_create(b"fixture", None, 0)
+        self.assertTrue(backend)
+        try:
+            # slot 3, preselect 12, selector &FE05, four handlers, currom &CF
+            params = bytes([
+                3, 12, 0x05, 0xFE,
+                0x6F, 0x9B, 0x6B, 0xA2, 0x84, 0x9B, 0x1F, 0xA1,
+                0xCF,
+            ])
+            jim[CONTROL] = 86
+            jim[CONTROL + 1:CONTROL + 1 + len(params)] = params
+            self.assertEqual(
+                self.fixture.pi1mhz_net_backend_dispatch(
+                    backend, 0xFF, CONTROL, jim, JIM_SIZE
+                ),
+                0,
+            )
+
+            # The signature must be readable at the same offset in every page,
+            # which is the whole point: the host checks it at two selectors.
+            for page in (0, 0x55, 0xFF):
+                base = (page << 8) + 0x68
+                self.assertEqual(bytes(jim[base:base + 3]), b"\x20\x8C\xFD",
+                                 f"entry stub missing in page {page:02X}")
+                self.assertEqual(bytes(jim[base + 139:base + 143]), b"WCFS",
+                                 f"signature missing in page {page:02X}")
+
+            # The pager must build the frame MOS builds, because filing calls
+            # nest: it grows the stack by one and slides the saved registers
+            # and return address down so the caller's ROM lands four bytes in,
+            # where every handler already looks for it. Pin those four moves.
+            pager = 0x68 + 36
+            # X is an argument to FILEV, FINDV and FSCV and is also the stack
+            # index the slide below needs, so the pager must save and restore
+            # it. Omitting this loaded one block of Repton and dropped back to
+            # BASIC, which is not an obvious symptom of a clobbered register.
+            self.assertEqual(bytes(jim[pager + 3:pager + 5]), b"\x8A\x48",
+                             "pager does not save X with TXA/PHA")
+            self.assertEqual(bytes(jim[pager + 54:pager + 56]), b"\x68\xAA",
+                             "pager does not restore X with PLA/TAX")
+            for index, (src, dst) in enumerate(((2, 1), (3, 2), (4, 3),
+                                                (5, 4), (6, 5))):
+                at = pager + 7 + index * 6
+                self.assertEqual(
+                    bytes(jim[at:at + 6]),
+                    bytes([0xBD, src, 0x01, 0x9D, dst, 0x01]),
+                    f"pager slide {index} is not LDA &01{src:02X},X /"
+                    f" STA &01{dst:02X},X",
+                )
+            # ...and the unpager must release that byte again, or every
+            # filing call would leak one byte of stack.
+            self.assertEqual(bytes(jim[0x68 + 95 + 37:0x68 + 95 + 39]),
+                             b"\xE8\x9A", "unpager does not INX/TXS")
+
+            # &FDFE-&FDFF must stay clear: the stream length trailer lives in
+            # the last two bytes of page &FF.
+            self.assertLessEqual(0x68 + 143, 0xFE)
+        finally:
+            self.fixture.pi1mhz_net_backend_destroy(backend)
 
     def test_incremental_stream_survives_public_jim_reuse(self) -> None:
         jim = (ctypes.c_uint8 * JIM_SIZE)()
@@ -291,27 +582,37 @@ class UefNormalizeTest(unittest.TestCase):
                 jim[0xFFFF] = len(part) >> 8
                 upload_generation, _, _ = request(2, upload_generation)
             _, first_length, first_final = request(3)  # FINALIZE
-            self.assertEqual(first_length, 0xFF00)
+            self.assertEqual(first_length, FLAT_WINDOW)
             self.assertEqual(first_final, 0)
-            self.assertEqual(bytes(jim[:first_length]), raw[:first_length])
+            self.assertEqual(
+                bytes(jim[PUBLISH_BASE:PUBLISH_BASE + first_length]),
+                raw[:first_length],
+            )
 
             rewind_generation, first_length, first_final = request(4)  # REWIND
-            self.assertEqual((first_length, first_final), (0xFF00, 0))
-            self.assertEqual(bytes(jim[:first_length]), raw[:first_length])
+            self.assertEqual((first_length, first_final), (FLAT_WINDOW, 0))
+            self.assertEqual(
+                bytes(jim[PUBLISH_BASE:PUBLISH_BASE + first_length]),
+                raw[:first_length],
+            )
 
-            jim[:0xFF00] = bytes([0xA5]) * 0xFF00
+            jim[PUBLISH_BASE:PUBLISH_BASE + FLAT_WINDOW] = (
+                bytes([0xA5]) * FLAT_WINDOW
+            )
             generation, second_length, second_final = request(
                 5, rewind_generation
             )  # REFILL
-            self.assertEqual(second_length, 0xFF00)
+            self.assertEqual(second_length, FLAT_WINDOW)
             self.assertEqual(second_final, 0)
             self.assertEqual(
-                bytes(jim[:second_length]), raw[0xFF00:0x1FE00]
+                bytes(jim[PUBLISH_BASE:PUBLISH_BASE + second_length]),
+                raw[FLAT_WINDOW:2 * FLAT_WINDOW],
             )
             _, last_length, last_final = request(5, generation)
             self.assertEqual(last_final, 1)
             self.assertEqual(
-                bytes(jim[:last_length]), raw[0x1FE00:]
+                bytes(jim[PUBLISH_BASE:PUBLISH_BASE + last_length]),
+                raw[2 * FLAT_WINDOW:],
             )
         finally:
             self.fixture.pi1mhz_net_backend_destroy(backend)

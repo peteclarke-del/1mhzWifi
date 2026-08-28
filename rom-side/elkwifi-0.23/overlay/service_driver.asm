@@ -23,6 +23,7 @@ drv_svc_datetime = 89
 drv_svc_cancel = 90
 drv_svc_radio = 91
 drv_svc_online = 92
+drv_svc_vector_mirror = 86
 drv_svc_uef_normalize = 93
 drv_svc_uef_op_probe = 0
 drv_svc_uef_op_begin = 1
@@ -31,6 +32,8 @@ drv_svc_uef_op_finalize = 3
 drv_svc_uef_op_rewind = 4
 drv_svc_uef_op_refill = 5
 drv_svc_uef_op_close = 6
+drv_svc_uef_op_republish = 7
+uef_first_page = 1
 drv_net_copy_public = 58
 drv_net_unsupported = &27
 
@@ -145,6 +148,9 @@ drv_net_status = 54
 \ command 93 with an exact guarded request, preserving commands 94-113 for
 \ the secure NetTools service. On return sbuf is the published window length,
 \ sbuft bit 6 says it is the final window, and pr_r/pr_y select its first byte.
+.service_driver_uef_stream_republish
+ lda #drv_svc_uef_op_republish
+ bne service_driver_uef_stream
 .service_driver_uef_stream_rewind
  lda #drv_svc_uef_op_rewind
  bne service_driver_uef_stream
@@ -211,6 +217,12 @@ drv_net_status = 54
  inx
  cpx #4
  bne service_driver_uef_stream_signature
+ \ A republish only repairs bytes the host has already been handed. Window
+ \ length, final flag, generation and read cursor all still describe where the
+ \ host is, so take none of them from the reply.
+ lda drv_uef_op
+ cmp #drv_svc_uef_op_republish
+ beq service_driver_uef_stream_repaired
  ldx #4
 .service_driver_uef_stream_skip_token
  jsr service_driver_read_a
@@ -238,11 +250,19 @@ drv_net_status = 54
 .service_driver_uef_stream_store_flags
  ora #&80
  sta drv_uef_sbuft
+ \ The reply buffer owns JIM page 0 in full: ElkChat and other OSWORD &65
+ \ clients read up to 241 contiguous bytes from it, so the published stream
+ \ starts at page 1 instead. Nothing then has to be repaired when a service
+ \ reply lands while a UEF is being read.
  lda #0
  sta drv_uef_pr_y
+ lda #uef_first_page
  sta drv_uef_pr_r
  jsr service_driver_read_a
  sta drv_uef_format
+ clc
+ rts
+.service_driver_uef_stream_repaired
  clc
  rts
 .service_driver_uef_stream_invalid
@@ -1089,14 +1109,31 @@ drv_net_status = 54
  \ The services emulator makes all three address bytes readable.  Check them
  \ before touching the command block so an absent/unforwarded FCA6-FCA9 port
  \ is reported as a missing device, rather than timing out ambiguously.
+ \ A settle is a CPU delay, not bus traffic, so the first read-back can still
+ \ carry the pre-write value on a bus that publishes writes asynchronously.
+ \ Poll the read-back the way the cursor wait does: only a port that never
+ \ agrees is an absent device.
+ txa
+ pha
+ ldx #0
+.service_driver_addr_verify
  lda &FC00+drv_svc_addr_lo
- bne service_driver_port_missing_near
+ bne service_driver_addr_retry
  lda &FC00+drv_svc_addr_mid
  cmp #&FF
- bne service_driver_port_missing_near
+ bne service_driver_addr_retry
  lda &FC00+drv_svc_addr_hi
  cmp #&FF
- bne service_driver_port_missing_near
+ beq service_driver_addr_ok
+.service_driver_addr_retry
+ dex
+ bne service_driver_addr_verify
+ pla
+ tax
+ jmp service_driver_port_missing_near
+.service_driver_addr_ok
+ pla
+ tax
  pla
  sta drv_svc_command_copy
  sta &FC00+drv_svc_data

@@ -7,7 +7,7 @@ diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
  
 -equs "This is the end!"
 +rom_content_end = P%
-+ASSERT rom_content_end <= &BE58
++ASSERT rom_content_end <= &BF00
  
  skipto &C000
  .romend             

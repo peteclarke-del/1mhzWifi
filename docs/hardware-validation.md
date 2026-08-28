@@ -11,12 +11,12 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-Pi1MHz       e949f2d2714b15f314df375e52db5febb6c40e6d
-1MHzWifi ROM afc0734188cb6b1b5b7068efe9ca6c937f0802773b2a2753e13942049491831a
-kernel.img   fca669d1bb6714877de7ceccc1c85967c79701b21e6801e381e9e7e5d67f1145
-kernel7.img  f18ecb8b374db812bbb88dfc6c500abb164f4c11c71ae0f3ffe82c6a7ad83426
+Pi1MHz       499f940df42ca69e8bfc5be315333f5d271e6c37
+1MHzWifi ROM 82c0e0e49491b163d6cce324b123300dcf1ee56a3708a20dd850965d43a440fc
+kernel.img   c8910a1ea94d72647a45b6d61c9dbd197865371e1b8662327d9a0e9c798e496d
+kernel7.img  20b3439503d574a73304b86fbd124efe6301e39ee3190a20711b3c78919770f1
 nettools.ssd 7bfe26b2c8f3212466bd3bdbc7f40e6f1d72722a3dbcc7a9f25fd3858dc8d883
-bundle ZIP   1b7684f494f4a97d92319b9e562305670c74e32c0139a7f6885f0b4370885047
+bundle ZIP   65702f87e59fd3fddc819e8712df4146278754ad32b23d49e26e040e4060f110
 ```
 
 The Pi1MHz commit was the official `master` tip verified on 23 August 2026. Run
@@ -120,14 +120,70 @@ The host RAM dump afterwards holds `&0070=5A` and `&0071=A5`. Pi RAM ran as
 code. `run_uef_gameplay.py --probe-command` was added to drive a single ROM
 command in the real boot profile, and is how this was measured.
 
-One assumption remains untested. `&FCFF` selects which Pi page appears at
-`&FD00`, WiCFS moves it constantly while streaming, and it is write only, so it
-cannot be read back and verified. A filing vector firing while the selector
-points at a data page would execute UEF data. The rule would be that WiCFS
-restores the selector to the trampoline page before returning to any caller,
-since vectors fire from the loader and not from inside WiCFS, but that has to be
-demonstrated before the design is built on, and the behaviour of other JIM users
-has to be considered with it.
+The selector question that blocked this has been answered by mirroring rather
+than by discipline. `&FCFF` selects which Pi page appears at `&FD00`, WiCFS
+moves it constantly while streaming, and it is write only, so it cannot be read
+back. Requiring WiCFS to restore a particular page before returning was never
+demonstrable; instead the Pi stamps the same trampoline at offset `&78` of all
+256 pages, so whichever page the selector holds when a vector fires, the stub
+is there. The stream gives up those bytes: 120 usable per page instead of 256.
+
+### The trampoline was built, then withdrawn
+
+**Outcome: this design does not ship.** Pointing the filing vectors at the
+mirrored stub broke the `*/` handover that every multi-file cassette loader
+ends with, and every multi-file title failed after loading its first file.
+`actioned` transfers to a loaded program by unwinding the MOS extended-vector
+dispatch frame; the mirrored entry supplies its own frame instead, so the
+transfer returns to the wrong place. Leaving the vectors on the RAM guard
+fixes it, and the trampoline has been removed from the ROM rather than left
+unreachable. Thrust, Arcadians, Repton, Repton 2 and Repton 3 all load to
+their title or menu screens with the vectors on the guard.
+
+Two results outlast it. The stream is published from JIM page 1, because page
+0 is the service reply buffer that OSWORD `&65` clients read in full, and a
+reply landing there corrupted the window. And the read cursor is checkpointed
+by `cfsinit`, so a state load after a loader clears low memory restores the
+window this init established rather than the one before the rewind.
+
+The description below records what was built and why it looked right, because
+the frame-preservation argument is sound and a future attempt should not have
+to rediscover it — only the *RUN transfer needs reworking to be frame-agnostic
+before the vectors can move.
+
+
+Four entries at `&FD78`, `&FD81`, `&FD8A` and `&FD93` take FILEV, BGETV, FINDV
+and FSCV. Each is `JSR pager / JSR handler / JMP unpager`. The pager records
+the caller's ROM, selects ours and returns; the unpager puts the caller's ROM
+back without disturbing the handler's result.
+
+The pager reproduces the MOS extended-vector dispatcher's stack frame exactly
+rather than saving the ROM number in a variable. Filing calls nest — a `*RUN`
+enters FSCV, which calls OSFILE, which enters FILEV — and a single saved copy
+is overwritten by the inner call, so the outer exit pages in the wrong ROM and
+the machine runs the caller's code with the wrong sideways bank. That was not
+theoretical: an early build using a `currom` variable loaded Repton, Repton 2
+and Repton 3 but hung Repton Around the World, which is a Repton 3 level pack
+and therefore chains. The pager instead pushes a byte, slides the saved
+registers and its own return address down over it, and drops the caller's ROM
+into the slot that opens underneath, so the handler finds it four bytes into
+the stack where it already looks. The unpager reverses that and releases the
+byte with `INX / TXS`, so the stack returns to the caller's depth.
+
+The host cannot spare the ROM to carry the image, so it publishes thirteen
+parameters through service command 86 and the Pi assembles the stub. The ROM
+verifies a `WCFS` signature at two different selector values before moving any
+vector, and falls back to the RAM guard below `&0800` when no mirror answers,
+so an old kernel still runs.
+
+A mirror cannot be left up permanently. `*WGET` copies whole JIM pages into
+sideways RAM, and the ElkWiFi reply buffer shares JIM page 0 with the stream
+window, so a standing stamp would corrupt a flashed ROM image and truncate any
+reply longer than 120 bytes. The reply buffer now steps over the stub on both
+the write and the read side, `*WGET`'s sideways load brackets itself with a
+withdraw and a republish, and the mirror is withdrawn altogether when WiCFS
+hands the vectors back to MOS. The NetTools clients are unaffected either way:
+they move bytes through the `&FC00` data register, not the JIM window.
 
 ### Disc images avoid the problem entirely
 

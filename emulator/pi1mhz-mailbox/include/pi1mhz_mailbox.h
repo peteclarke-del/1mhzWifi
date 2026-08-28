@@ -84,7 +84,7 @@ typedef struct pi1mhz_mailbox {
     pi1mhz_dispatch_fn dispatch;
     void *dispatch_opaque;
     /* Trampoline mirrored into every JIM page; see the read path. */
-    uint8_t  mirror[64];
+    uint8_t  mirror[160];
     uint8_t  mirror_offset;
     uint8_t  mirror_length;
 } pi1mhz_mailbox;
