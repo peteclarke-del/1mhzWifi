@@ -29,26 +29,21 @@ during a load; the last page carries the length trailer. That leaves 254 pages,
 so the window is `&FE00` bytes rather than the `&FF00` it was when the stream
 started at page 0.
 
-Command 86 publishes a host filing-vector trampoline: the host sends thirteen
-bytes describing its machine — sideways slot, the preselect value the Electron
-needs to reach a low slot, the sideways selector address, and the four
-filing-vector handler entry points — and the Pi assembles the 6502 stub and
-stamps it at offset `&78` of all 256 JIM pages, shrinking the stream window so
-it never covers the stub. A slot of zero withdraws it. **No shipping ROM sends
-command 86.** The host-side trampoline was withdrawn because pointing the
-filing vectors at it broke the `*/` multi-file handover; see
-`docs/hardware-validation.md`. The kernel support is kept so that a future
-host which reworks the `*RUN` transfer to be frame-agnostic can use it, and so
-a host that publishes no trampoline — which is now every host — gets the flat
-window unchanged.
+Command 86 published a host filing-vector trampoline into every JIM page. It
+has been removed from the kernel along with the scattered window it required:
+the host-side trampoline was withdrawn because pointing the filing vectors at
+it broke the `*/` multi-file handover, so nothing sent the command. The patch
+is kept under `rom-side/candidates` with the analysis in
+`docs/hardware-validation.md`, and reviving it means restoring the kernel side
+as well as reworking the `*RUN` transfer to be frame-agnostic.
 
 The stub exists because the host has nowhere safe in RAM to keep its filing
 vectors. WiCFS's gateway below `&0800` and the MOS extended vector table at
 `&0D9F` are both inside the region cassette loaders reuse, which is why a fifth
 of the corpus could not be loaded. JIM is served by the Pi, so a loader cannot
 reach it. Each stub pages the host's ROM in, calls the handler and pages the
-caller's ROM back, reproducing the MOS dispatcher's stack frame exactly — the
-displaced ROM number sits four bytes into the stack — because filing calls
+caller's ROM back, reproducing the MOS dispatcher's stack frame exactly, the
+displaced ROM number sits four bytes into the stack, because filing calls
 nest and a single saved copy would be overwritten by the inner call.
 
 Only one ElkWiFi request can be pending. A second request receives busy without
