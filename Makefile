@@ -21,7 +21,9 @@ test-host:
 test-package:
 	unzip -t build/pi1mhz-all-hardware-test.zip
 	git diff --check
-	@if rg -n '—|–' --glob '*.md' --glob '*.txt' .; then \
+	@# grep, not rg: a missing rg made this check pass silently, so a
+	@# typographic dash reached CI unseen.
+	@if grep -rn '—\|–' --include='*.md' --include='*.txt' .; then \
 		echo "Documentation contains a typographic dash" >&2; exit 1; \
 	fi
 

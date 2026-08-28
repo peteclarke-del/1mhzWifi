@@ -148,7 +148,7 @@ window this init established rather than the one before the rewind.
 
 The description below records what was built and why it looked right, because
 the frame-preservation argument is sound and a future attempt should not have
-to rediscover it — only the *RUN transfer needs reworking to be frame-agnostic
+to rediscover it: only the *RUN transfer needs reworking to be frame-agnostic
 before the vectors can move.
 
 
@@ -158,8 +158,8 @@ the caller's ROM, selects ours and returns; the unpager puts the caller's ROM
 back without disturbing the handler's result.
 
 The pager reproduces the MOS extended-vector dispatcher's stack frame exactly
-rather than saving the ROM number in a variable. Filing calls nest — a `*RUN`
-enters FSCV, which calls OSFILE, which enters FILEV — and a single saved copy
+rather than saving the ROM number in a variable. Filing calls nest, a `*RUN`
+enters FSCV, which calls OSFILE, which enters FILEV, and a single saved copy
 is overwritten by the inner call, so the outer exit pages in the wrong ROM and
 the machine runs the caller's code with the wrong sideways bank. That was not
 theoretical: an early build using a `currom` variable loaded Repton, Repton 2
@@ -171,7 +171,8 @@ the stack where it already looks. The unpager reverses that and releases the
 byte with `INX / TXS`, so the stack returns to the caller's depth.
 
 The host cannot spare the ROM to carry the image, so it publishes thirteen
-parameters through service command 86 and the Pi assembles the stub. The ROM
+parameters through service command 86 and the Pi assembles the stub (the
+kernel side of that command has since been removed too). The ROM
 verifies a `WCFS` signature at two different selector values before moving any
 vector, and falls back to the RAM guard below `&0800` when no mirror answers,
 so an old kernel still runs.
