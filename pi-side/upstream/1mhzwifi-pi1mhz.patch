@@ -7795,7 +7795,7 @@ index 0000000..1308c84
 +#define ELKWIFI_UEF_OP_REFILL 5u
 +#define ELKWIFI_UEF_OP_CLOSE 6u
 +#define ELKWIFI_VERSION_RESPONSE \
-+   "Pi1MHz ElkWiFi 0.1.66, kernel " GITVERSION "\r\n\r\nOK\r\n"
++   "Pi1MHz ElkWiFi 0.1.67, kernel " GITVERSION "\r\n\r\nOK\r\n"
 +
 +_Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
 +               "ElkWiFi service range start disagrees with services.h");

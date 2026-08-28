@@ -32,7 +32,7 @@ install -m 0644 "$overlay_dir/ping.asm" "$upstream/rom/ping.asm"
 install -m 0644 "$overlay_dir/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$overlay_dir/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$overlay_dir/uef.asm" "$upstream/rom/uef.asm"
-for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-reset-passive.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch wicfs-stream-finish.patch wicfs-pre-tape-predecessor.patch wicfs-bget-exhaustion.patch wicfs-run-return.patch wicfs-run-owner.patch wicfs-dual-predecessor.patch wicfs-native-predecessor.patch wicfs-opt-forward.patch wicfs-chain-target.patch wicfs-vector-flags.patch wicfs-message-preserve.patch wicfs-page-select-fast.patch wicfs-incremental-stream.patch wicfs-low-loader-guard.patch wicfs-bget-refill-detection.patch rom-prune.patch routines-prune.patch menu-retirement.patch ftp-command.patch rom-headroom.patch; do
+for patch_name in identity.patch integration.patch banner-spacing.patch command-surface.patch online-command.patch uef-command.patch disconnect-response.patch wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-reset-passive.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch wicfs-stream-finish.patch wicfs-pre-tape-predecessor.patch wicfs-bget-exhaustion.patch wicfs-run-return.patch wicfs-run-owner.patch wicfs-dual-predecessor.patch wicfs-native-predecessor.patch wicfs-opt-forward.patch wicfs-chain-target.patch wicfs-vector-flags.patch wicfs-message-preserve.patch wicfs-page-select-fast.patch wicfs-incremental-stream.patch wicfs-low-loader-guard.patch wicfs-bget-refill-detection.patch rom-prune.patch routines-prune.patch menu-retirement.patch ftp-command.patch wicfs-reply-buffer-page.patch rom-headroom.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -42,9 +42,13 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
               grep -q 'include "host_launch.asm"' "$upstream/rom/ElkWifi.asm"; } &&
             patch_present=true
             ;;
+        wicfs-reply-buffer-page.patch)
+            grep -q 'lda #uef_first_page' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
         identity.patch)
             grep -q '^\.romtitle.*equs "1MHzWifi"' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^\.romversion.*equs "0.1.66"' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^\.romversion.*equs "0.1.67"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
         banner-spacing.patch)
@@ -74,9 +78,14 @@ for patch_name in identity.patch integration.patch banner-spacing.patch command-
             grep -q 'include "ftp.asm"' "$upstream/rom/ElkWifi.asm" &&
             patch_present=true
             ;;
+        wicfs-mirrored-vectors.patch)
+            grep -q '^\\.wicfs_publish_mirror_vectors' "$upstream/rom/wicfs.asm" &&
+            grep -q '^jim_page_usable' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
         rom-headroom.patch)
             grep -q '^rom_content_end = P%' "$upstream/rom/ElkWifi.asm" &&
-            grep -q '^ASSERT rom_content_end <= &BE58' "$upstream/rom/ElkWifi.asm" &&
+            grep -q '^ASSERT rom_content_end <= &BF00' "$upstream/rom/ElkWifi.asm" &&
             ! grep -q 'jsr test_wifi_ena' "$upstream/rom/routines.asm" &&
             patch_present=true
             ;;

@@ -30,33 +30,44 @@ class MergedRepositoryTest(unittest.TestCase):
                 for title in title_names:
                     self.assertNotIn(title, text, f"{title} workaround in {path}")
 
-    def test_pi_bus_byte_write_preserves_live_adjacent_register(self) -> None:
-        patch = (
-            ROOT
-            / "pi-side/pi1mhz-516a267/patches/bus-window-adjacent-preservation.patch"
-        ).read_text()
-        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
-        self.assertIn("Pi1MHz_Memory_VPU[addr>>1] & 0xFFFFFF00u", patch)
-        self.assertIn("Pi1MHz_Memory_VPU[addr>>1] & 0xFF00FFFFu", patch)
-        added = "\n".join(
-            line[1:] for line in patch.splitlines() if line.startswith("+")
-        )
-        self.assertNotIn("Pi1MHz->Memory[addr ^ 1u]", added)
-        patch_loop = installer.split("for patch_name in ", 1)[1].split("; do", 1)[0]
-        self.assertIn("bus-window-adjacent-preservation.patch", patch_loop)
+    def test_adjacent_register_fix_is_taken_from_upstream(self) -> None:
+        """The adjacent-byte guarantee is upstream's to keep, not ours.
 
-        # Reproduce the real failure: &FCA8 is changed by the host/VPU while
-        # the ARM shadow still contains its former value. Publishing &FCA9
-        # must retain the live &FCA8 half of their shared VPU word.
-        live_word = 0xFFFF_FFFF  # high half: live &FCA9, low half: live &FCA8
-        stale_shadow_a8 = 0x00
-        new_a9 = 0x5E
-        old_shadow_result = ((0xFF00 | new_a9) << 16) | (0xFF00 | stale_shadow_a8)
-        live_preserving_result = (
-            ((0xFF00 | new_a9) << 16) | (live_word & 0xFF00_FFFF)
+        One VPU word holds two adjacent bus addresses, so writing one byte must
+        not revert its neighbour: a reverted SCSI data byte corrupts a transfer
+        and a reverted status byte leaves BSY set, which is the post-BREAK VFS
+        wedge. This project carried its own fix, which rebuilt the neighbour by
+        reading the live VPU window instead of the ARM shadow. dp111 then fixed
+        the same defect differently, by masking FIQs around the compose so the
+        read and the two stores cannot be split.
+
+        Upstream's fix is sufficient: the FIQ handler in src/FIQ.s dispatches to
+        callbacks that write through Pi1MHz_MemoryWrite, so the shadow is always
+        maintained and only the interleaving was ever the hazard. Carrying a
+        rival fix in a file upstream actively changes costs a conflict at every
+        update, so ours was dropped. This test keeps that decision honest: it
+        fails if a divergent fix reappears, or if the pin moves back before the
+        commit that carries upstream's.
+        """
+        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        patches = ROOT / "pi-side/pi1mhz-516a267/patches"
+        self.assertFalse(
+            (patches / "bus-window-adjacent-preservation.patch").exists(),
+            "the superseded local fix is back; upstream owns this function",
         )
-        self.assertEqual(old_shadow_result & 0xFF, 0x00)
-        self.assertEqual(live_preserving_result & 0xFF, 0xFF)
+        self.assertNotIn("bus-window-adjacent-preservation.patch", installer)
+        for patch in sorted(patches.glob("*.patch")):
+            self.assertNotIn(
+                "Preserve the adjacent byte from the authoritative VPU bus",
+                patch.read_text(errors="replace"),
+                f"{patch.name} reintroduces the local adjacent-byte fix",
+            )
+        upstream_env = (ROOT / "pi-side/upstream.env").read_text()
+        self.assertIn(
+            "PI1MHZ_UPSTREAM_COMMIT=499f940df42ca69e8bfc5be315333f5d271e6c37",
+            upstream_env,
+            "the pin must include dp111's FIQ-masked adjacent-byte fix",
+        )
 
     def test_secure_command_allocation_is_consistent(self) -> None:
         asm = (ROOT / "host-tools/src/common/pi1mhz_secure.asm").read_text()
@@ -269,8 +280,8 @@ class MergedRepositoryTest(unittest.TestCase):
 
     def test_packaged_kernels_have_matching_recovery_revisions(self) -> None:
         pattern = re.compile(
-            rb"Pi1MHz ElkWiFi 0\.1\.66, kernel "
-            rb"(V1\.30-91-ge949f2d-dirty\.[0-9a-f]{8})"
+            rb"Pi1MHz ElkWiFi 0\.1\.67, kernel "
+            rb"(V1\.30-99-g499f940-dirty\.[0-9a-f]{8})"
         )
         revisions = []
         for name in ("kernel.img", "kernel7.img"):
@@ -294,7 +305,7 @@ class MergedRepositoryTest(unittest.TestCase):
         )
         self.assertIn("firmware/Pi1MHz/ElkWiFi.rom", patch)
         self.assertIn("GIT binary patch", patch)
-        self.assertIn("Pi1MHz ElkWiFi 0.1.66, kernel", patch)
+        self.assertIn("Pi1MHz ElkWiFi 0.1.67, kernel", patch)
         self.assertNotIn("Pi1MHz ElkWiFi 0.1.52, kernel", patch)
         self.assertIn("RPI_GetSystemTime() - started_us >= 750000u", patch)
         self.assertIn("exact MENU TITLES transfer shape", patch)

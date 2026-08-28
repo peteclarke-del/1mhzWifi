@@ -72,3 +72,30 @@ room, and the alternative was shortening the CFS filename limit below the ten
 characters the format allows, which would reject names real games use. The
 Repton dump shows `&07A8` full of game data during a load, so the exposure is
 real and active, and it has not yet been measured against the corpus.
+
+## wicfs-mirrored-vectors.patch.candidate
+
+Moves the four filing vectors into a trampoline the Pi stamps into every JIM
+page, so no filing vector target lives anywhere a cassette loader can reach.
+The Pi assembles the stub from thirteen parameters sent as service command 86;
+the ROM verifies a `WCFS` signature at two selector values before moving any
+vector and falls back to the RAM guard when no mirror answers.
+
+**Withdrawn: it breaks the `*/` multi-file handover.** `actioned` transfers to
+a loaded program by unwinding the MOS extended-vector dispatch frame, and the
+mirrored entry supplies its own frame instead, so the transfer returns to the
+wrong place. Every multi-file title loaded its first file and then failed. The
+frame-preservation work in the pager is sound and unit-tested through a nested
+FILEV-inside-FSCV call; it is the `*RUN` transfer that assumes the MOS frame.
+Reworking that transfer to be frame-agnostic is the prerequisite for reviving
+this.
+
+Two results from this work were kept and are in the shipped ROM: the stream is
+published from JIM page 1, because page 0 is the service reply buffer that
+OSWORD `&65` clients read in full, and `cfsinit` checkpoints the cursor of the
+window it establishes.
+
+## wicfs-mirror-window.patch
+
+An earlier form of the same idea, kept only as a record of the window
+arithmetic before the stub grew to 143 bytes.

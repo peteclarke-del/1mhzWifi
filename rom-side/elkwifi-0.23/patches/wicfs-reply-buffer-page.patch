@@ -1,0 +1,26 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -3389,13 +3389,21 @@
+ 	LDA	#0
+ 	STA	host_basic_pending	\clear any stale host continuation request
+     STA pr_y        \reset pointer to paged ram
+-    sta pr_r
+ 	STA	sfopen		\reset sequential file control bytes
+-	STA	sfptr
++	STA	sfptr		\(still the zero loaded above)
++    lda #uef_first_page \page 0 belongs to the service reply buffer, which
++    sta pr_r        \OSWORD &65 clients read in full; set last so the page
++                    \number cannot leak into the stores above
+ 	LDA	sbuft
+ 	AND	#&C0		\preserve incremental/final flags, clear start marker
+ 	STA	sbuft
++\ Checkpoint the window this init just established. Without this the record
++\ still describes the stream as it was before the rewind, and the next state
++\ load puts that back: the length reverts to the whole stream and the final
++\ flag reappears, so the run shorthand searches a window that is not the one
++\ the Pi published.
++	JSR	wicfs_state_save
+ 	RTS			    \and return
+ 
+ \-------------------------------------------------------------------------------
+ \Multi-message print routine.

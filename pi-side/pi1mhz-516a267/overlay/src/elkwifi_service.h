@@ -13,6 +13,7 @@ void elkwifi_service_command(uint32_t command_pointer, uint32_t address,
 #define ELKWIFI_CMD_SCAN         81u
 #define ELKWIFI_CMD_JOIN         82u
 #define ELKWIFI_CMD_IFCFG        83u
+#define ELKWIFI_CMD_VECTOR_MIRROR 86u
 #define ELKWIFI_CMD_LAPOPT       87u
 #define ELKWIFI_CMD_PING         88u
 #define ELKWIFI_CMD_DATETIME     89u

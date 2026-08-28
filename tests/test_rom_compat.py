@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
-ROM_SHA256 = "afc0734188cb6b1b5b7068efe9ca6c937f0802773b2a2753e13942049491831a"
+ROM_SHA256 = "82c0e0e49491b163d6cce324b123300dcf1ee56a3708a20dd850965d43a440fc"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -26,8 +26,8 @@ class RomCompatibilityTest(unittest.TestCase):
         copyright_offset = self.rom[7]
         self.assertEqual(self.rom[copyright_offset:copyright_offset + 4], b"\0(C)")
         self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.66\0")
-        self.assertIn(b"1MHzWifi 0.1.66 (C) 2026 Peter Clarke", self.rom)
+        self.assertEqual(self.rom[18:25], b"0.1.67\0")
+        self.assertIn(b"1MHzWifi 0.1.67 (C) 2026 Peter Clarke", self.rom)
         self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
 
     def test_uef_host_transition_is_present(self) -> None:

@@ -177,7 +177,7 @@ install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/se
 install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
 install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
 
-for patch_name in bus-window-adjacent-preservation.patch integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch ftp-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-titles-transfer.patch net-rx-window.patch net-copy-public.patch net-connected-udp.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch net-debug-stage.patch net-debug-test-window.patch secure-debug-stage.patch; do
+for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch ftp-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-titles-transfer.patch net-rx-window.patch net-copy-public.patch net-connected-udp.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch net-debug-stage.patch net-debug-test-window.patch secure-debug-stage.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -374,11 +374,6 @@ for patch_name in bus-window-adjacent-preservation.patch integration.patch servi
             grep -q 'secure_debug_mark' "$upstream/src/secure_service.c" &&
             patch_present=true
             ;;
-        bus-window-adjacent-preservation.patch)
-            grep -q 'Preserve the adjacent byte from the authoritative VPU bus window' \
-                "$upstream/src/Pi1MHz.c" &&
-            patch_present=true
-            ;;
     esac
     if "$patch_present"; then
         echo "Pi1MHz $patch_name is already applied"
@@ -388,8 +383,14 @@ for patch_name in bus-window-adjacent-preservation.patch integration.patch servi
         git -C "$upstream" apply --unidiff-zero --check "$patch_file"
         git -C "$upstream" apply --unidiff-zero "$patch_file"
     else
-        git -C "$upstream" apply --check "$patch_file"
-        git -C "$upstream" apply "$patch_file"
+        # patch(1) rather than git apply: upstream regularly inserts code above
+        # our hunks, and git apply rejects any line-offset shift. Those are not
+        # conflicts, and treating them as such reported seven false breakages
+        # the last time upstream moved. Context still has to match, so a real
+        # conflict is still refused.
+        (cd "$upstream" && patch -p1 --forward --dry-run --silent < "$patch_file")
+        (cd "$upstream" && patch -p1 --forward --silent \
+             --no-backup-if-mismatch < "$patch_file")
     fi
 done
 

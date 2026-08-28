@@ -48,6 +48,7 @@
 #define UEF_OP_REWIND 4u
 #define UEF_OP_REFILL 5u
 #define UEF_OP_CLOSE 6u
+#define UEF_OP_REPUBLISH 7u
 #define SEC_CMD_CAPS       94u
 #define SEC_CMD_RANDOM     95u
 #define SEC_CMD_SSH_OPEN   96u
@@ -81,7 +82,30 @@
 #define ELKWIFI_TEXT_MAX  220u
 #define UEF_BASE       0u
 #define UEF_CAPACITY   0x00fffeu
-#define UEF_WINDOW_SIZE 0x0000ff00u
+/* Every JIM page carries the vector trampoline at offset &A0, so the published
+ * stream stops there: 160 usable bytes across 256 pages. &FDF0-&FDFF is left
+ * alone because the stream length trailer lives in the last two bytes of page
+ * &FF. Titles below 40 KB see no extra refills; larger ones pay one more
+ * mailbox round trip per 40 KB, which is the price of vectors a cassette
+ * loader cannot reach. Uploads are host writes into a contiguous window and
+ * are unaffected, so they keep their own larger bound. */
+#define UEF_PAGE_USABLE 0x0068u
+/* JIM page 0 belongs to the host's service reply buffer, which ElkChat and
+ * other OSWORD &65 clients read as up to 241 contiguous bytes. Publishing
+ * the stream from page 1 keeps the two apart, so a reply arriving while a
+ * UEF is being read can no longer overwrite bytes WiCFS has not reached:
+ * an "ERR" reply used to be read back as chunk type &5245. */
+#define UEF_FIRST_PAGE 1u
+#define UEF_MIRROR_WINDOW ((256u - UEF_FIRST_PAGE) * UEF_PAGE_USABLE)
+#define UEF_WINDOW_SIZE 0x00ff00u
+/* The flat window reserves page 0 for the service reply buffer, which the
+ * OSWORD &65 clients read in full, and the last page for the length trailer
+ * at UEF_CAPACITY. */
+#define UEF_FLAT_WINDOW ((256u - UEF_FIRST_PAGE - 1u) * 256u)
+#define UEF_UPLOAD_MAX  UEF_WINDOW_SIZE
+#define UEF_MIRROR_OFFSET UEF_PAGE_USABLE
+#define UEF_MIRROR_LENGTH 143u
+#define ELKWIFI_CMD_VECTOR_MIRROR 86u
 #define UEF_STREAM_CAPACITY 0x01000000u
 #define FAT_CMD_READ_SECTORS  0u
 #define FAT_CMD_WRITE_SECTORS 1u
@@ -748,20 +772,176 @@ static void uef_stream_reply(pi1mhz_net_backend *backend, uint8_t *command)
     p[17] = 0u;
 }
 
+/* Copy a published window into JIM, skipping the mirrored tail of each page so
+ * the host's page-and-offset walk lands on exactly these bytes. */
+/* The host's filing-vector trampoline, assembled here from the parameters it
+ * supplies and written into every JIM page at the same offset. This mirrors
+ * what elkwifi_service.c does on the Pi: JIM is real memory the host reads
+ * directly, so a mirror is a stamp, not a read intercept. */
+static uint8_t vector_mirror[UEF_MIRROR_LENGTH];
+static int     vector_mirror_valid;
+
+static void vector_mirror_build(const uint8_t *p)
+{
+    static const uint8_t entry_offset[4] = { 0u, 9u, 18u, 27u };
+    const uint8_t slot = p[0], preselect = p[1];
+    const uint8_t sel_lo = p[2], sel_hi = p[3];
+    /* p[12] carried the zero page byte the previous design kept the
+     * caller's ROM in; the frame slot replaced it. Still accepted so a
+     * host built against either revision publishes the same request. */
+    const uint16_t base = (uint16_t)(0xFD00u + UEF_MIRROR_OFFSET);
+    const uint16_t pager = (uint16_t)(base + 36u);
+    const uint16_t unpager = (uint16_t)(base + 58u);
+    uint8_t *out = vector_mirror;
+    unsigned i;
+
+    for (i = 0u; i < 4u; i++) {
+       uint8_t *e = out + entry_offset[i];
+       e[0] = 0x20u; e[1] = (uint8_t)pager;   e[2] = (uint8_t)(pager >> 8);
+       e[3] = 0x20u; e[4] = p[4u + 2u * i];   e[5] = p[5u + 2u * i];
+       e[6] = 0x4cu; e[7] = (uint8_t)unpager; e[8] = (uint8_t)(unpager >> 8);
+    }
+
+    /* Pager. MOS hands a filing vector handler the displaced ROM number four
+     * bytes into the stack, and the handlers read it there. Reproduce that
+     * frame exactly rather than keeping the number in a global: filing calls
+     * nest (a *RUN enters FSCV, which calls OSFILE, which enters FILEV) and a
+     * global would be overwritten by the inner call, leaving the outer exit to
+     * page in the wrong ROM. So push a byte, slide the saved registers and the
+     * return address down over it, and drop the caller's ROM into the slot that
+     * opens up underneath. */
+    {
+    uint8_t *q = out + 36u;
+    *q++ = 0x08u; *q++ = 0x78u; *q++ = 0x48u;   /* PHP SEI PHA            */
+    *q++ = 0x8au; *q++ = 0x48u;                 /* TXA PHA: X is a vector */
+                                                /* argument and the slide */
+                                                /* below needs it as the  */
+                                                /* stack index            */
+    *q++ = 0x48u;                               /* PHA: grow by one       */
+    *q++ = 0xbau;                               /* TSX                    */
+    *q++ = 0xbdu; *q++ = 0x02u; *q++ = 0x01u;   /* LDA &0102,X           */
+    *q++ = 0x9du; *q++ = 0x01u; *q++ = 0x01u;   /* STA &0101,X           */
+    *q++ = 0xbdu; *q++ = 0x03u; *q++ = 0x01u;   /* LDA &0103,X           */
+    *q++ = 0x9du; *q++ = 0x02u; *q++ = 0x01u;   /* STA &0102,X           */
+    *q++ = 0xbdu; *q++ = 0x04u; *q++ = 0x01u;   /* LDA &0104,X           */
+    *q++ = 0x9du; *q++ = 0x03u; *q++ = 0x01u;   /* STA &0103,X           */
+    *q++ = 0xbdu; *q++ = 0x05u; *q++ = 0x01u;   /* LDA &0105,X           */
+    *q++ = 0x9du; *q++ = 0x04u; *q++ = 0x01u;   /* STA &0104,X           */
+    *q++ = 0xbdu; *q++ = 0x06u; *q++ = 0x01u;   /* LDA &0106,X           */
+    *q++ = 0x9du; *q++ = 0x05u; *q++ = 0x01u;   /* STA &0105,X           */
+    *q++ = 0xa5u; *q++ = 0xf4u;                 /* LDA &F4  caller's ROM  */
+    *q++ = 0x9du; *q++ = 0x06u; *q++ = 0x01u;   /* STA &0106,X  deepest   */
+    *q++ = 0xa9u; *q++ = preselect;             /* LDA #preselect         */
+    *q++ = 0x8du; *q++ = sel_lo; *q++ = sel_hi; /* STA selector           */
+    *q++ = 0xa9u; *q++ = slot;                  /* LDA #slot              */
+    *q++ = 0x85u; *q++ = 0xf4u;                 /* STA &F4                */
+    *q++ = 0x8du; *q++ = sel_lo; *q++ = sel_hi; /* STA selector           */
+    *q++ = 0x68u; *q++ = 0xaau;                 /* PLA TAX                */
+    *q++ = 0x68u; *q++ = 0x28u; *q++ = 0x60u;   /* PLA PLP RTS            */
+    }
+
+    /* Unpager. The handler has returned and A, X, Y and the flags are its
+     * result, so save them, page the caller's ROM back from the frame slot,
+     * then slide the saved values up over that slot and release the byte. */
+    {
+        uint8_t *q = out + 95u;
+       *q++ = 0x08u; *q++ = 0x78u; *q++ = 0x48u;   /* PHP SEI PHA            */
+       *q++ = 0x8au; *q++ = 0x48u;                 /* TXA PHA                */
+       *q++ = 0xbau;                               /* TSX                    */
+       *q++ = 0xa9u; *q++ = preselect;             /* LDA #preselect         */
+       *q++ = 0x8du; *q++ = sel_lo; *q++ = sel_hi; /* STA selector           */
+       *q++ = 0xbdu; *q++ = 0x04u; *q++ = 0x01u;   /* LDA &0104,X  saved ROM */
+       *q++ = 0x85u; *q++ = 0xf4u;                 /* STA &F4                */
+       *q++ = 0x8du; *q++ = sel_lo; *q++ = sel_hi; /* STA selector           */
+       *q++ = 0xbdu; *q++ = 0x03u; *q++ = 0x01u;   /* LDA &0103,X  saved P   */
+       *q++ = 0x9du; *q++ = 0x04u; *q++ = 0x01u;   /* STA &0104,X            */
+       *q++ = 0xbdu; *q++ = 0x02u; *q++ = 0x01u;   /* LDA &0102,X  saved A   */
+       *q++ = 0x9du; *q++ = 0x03u; *q++ = 0x01u;   /* STA &0103,X            */
+       *q++ = 0xbdu; *q++ = 0x01u; *q++ = 0x01u;   /* LDA &0101,X  saved X   */
+       *q++ = 0x9du; *q++ = 0x02u; *q++ = 0x01u;   /* STA &0102,X            */
+       *q++ = 0xe8u; *q++ = 0x9au;                 /* INX TXS: release it    */
+       *q++ = 0x68u; *q++ = 0xaau;                 /* PLA TAX                */
+       *q++ = 0x68u; *q++ = 0x28u; *q++ = 0x60u;   /* PLA PLP RTS            */
+    }
+    memcpy(out + 139u, "WCFS", 4u);   /* checked by the host at two selectors */
+    vector_mirror_valid = 1;
+}
+
+static void vector_mirror_stamp(uint8_t *jim)
+{
+    unsigned page;
+    if (!vector_mirror_valid)
+        return;
+    for (page = 0; page < 256u; page++)
+        memcpy(jim + UEF_BASE + (page << 8) + UEF_MIRROR_OFFSET,
+               vector_mirror, UEF_MIRROR_LENGTH);
+}
+
+static void uef_window_scatter(uint8_t *jim, const uint8_t *source, size_t count)
+{
+    size_t page = 0;
+
+    while (count) {
+        size_t chunk = count < UEF_PAGE_USABLE ? count : UEF_PAGE_USABLE;
+        memcpy(jim + UEF_BASE + ((page + UEF_FIRST_PAGE) << 8),
+               source, chunk);
+        source += chunk;
+        count -= chunk;
+        page++;
+    }
+    vector_mirror_stamp(jim);
+}
+
 static void uef_stream_publish(pi1mhz_net_backend *backend, uint8_t *jim)
 {
     size_t available = backend->uef_stream_length - backend->uef_stream_cursor;
-    size_t count = available < UEF_WINDOW_SIZE ? available : UEF_WINDOW_SIZE;
+    /* A host that published no trampoline reads a flat window and must keep
+     * the window size it has always been given. */
+    size_t limit = vector_mirror_valid ? UEF_MIRROR_WINDOW : UEF_FLAT_WINDOW;
+    size_t count = available < limit ? available : limit;
     backend->uef_published_offset = backend->uef_stream_cursor;
-    if (count)
-        memcpy(jim + UEF_BASE,
-               backend->uef_stream + backend->uef_stream_cursor, count);
+    if (count) {
+        if (vector_mirror_valid)
+            uef_window_scatter(jim,
+                               backend->uef_stream + backend->uef_stream_cursor,
+                               count);
+        else
+            memcpy(jim + UEF_BASE + (UEF_FIRST_PAGE << 8),
+                   backend->uef_stream + backend->uef_stream_cursor, count);
+    }
     backend->uef_stream_cursor += count;
     backend->uef_published_length = (uint16_t)count;
     backend->uef_published_final =
         backend->uef_stream_cursor == backend->uef_stream_length;
     jim[UEF_CAPACITY] = (uint8_t)count;
     jim[UEF_CAPACITY + 1u] = (uint8_t)(count >> 8);
+}
+
+static void uef_stream_republish(pi1mhz_net_backend *backend, uint8_t *jim)
+{
+    if (!backend->uef_published_length)
+        return;
+    if (vector_mirror_valid)
+        uef_window_scatter(jim, backend->uef_stream +
+                                    backend->uef_published_offset,
+                           backend->uef_published_length);
+    else
+        memcpy(jim + UEF_BASE + (UEF_FIRST_PAGE << 8),
+               backend->uef_stream + backend->uef_published_offset,
+               backend->uef_published_length);
+    jim[UEF_CAPACITY] = (uint8_t)backend->uef_published_length;
+    jim[UEF_CAPACITY + 1u] = (uint8_t)(backend->uef_published_length >> 8);
+}
+
+/* Publishing or withdrawing a trampoline changes the shape of the window, so
+ * anything already published was laid out for the old shape and the host would
+ * read it misaligned. Lay the same bytes out again under the new rule. */
+static void uef_window_relayout(pi1mhz_net_backend *backend, uint8_t *jim)
+{
+    if (!backend->uef_stream_ready)
+        return;
+    backend->uef_stream_cursor = backend->uef_published_offset;
+    uef_stream_publish(backend, jim);
 }
 
 static void uef_stream_clear(pi1mhz_net_backend *backend, uint8_t *jim)
@@ -828,7 +1008,7 @@ static uint8_t incremental_uef_control(pi1mhz_net_backend *backend,
             length = (uint16_t)(jim[UEF_CAPACITY] |
                                 ((uint16_t)jim[UEF_CAPACITY + 1u] << 8));
         if (!backend->uef_upload_active || token != backend->uef_stream_token ||
-            !length || length > UEF_WINDOW_SIZE)
+            !length || length > UEF_UPLOAD_MAX)
             return NET_ERR_PARAM;
         actual_crc = (uint32_t)crc32(0L, jim, length);
         if (value == backend->uef_window_generation) {
@@ -951,12 +1131,20 @@ static uint8_t incremental_uef_control(pi1mhz_net_backend *backend,
             backend->uef_window_generation++;
             uef_stream_publish(backend, jim);
         } else if (value + 1u == backend->uef_window_generation) {
-            if (backend->uef_published_length)
-                memcpy(jim, backend->uef_stream + backend->uef_published_offset,
-                       backend->uef_published_length);
+            uef_stream_republish(backend, jim);
         } else {
             return NET_ERR_PARAM;
         }
+        break;
+    case UEF_OP_REPUBLISH:
+        /* The host's reply buffer is the first bytes of JIM page 0, which is
+         * also where the published window starts, so a command that copies a
+         * reply while a stream is open treads on the window. Lay the same
+         * bytes down again without moving the cursor or the generation. */
+        if (!backend->uef_stream_ready ||
+            (token && token != backend->uef_stream_token))
+            return NET_ERR_PARAM;
+        uef_stream_republish(backend, jim);
         break;
     case UEF_OP_CLOSE:
         if (token && token != backend->uef_stream_token)
@@ -1885,6 +2073,25 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
             command[4] == 'F' && command[5] == UEF_STREAM_VERSION)
             return incremental_uef_control(backend, command, jim);
         return normalize_uef_control(backend, command, jim, jim_size);
+    }
+    if (command[0] == ELKWIFI_CMD_VECTOR_MIRROR) {
+        /* slot, preselect, selector lo/hi, four handler addresses and the zero
+         * page byte the host keeps the caller's ROM in. A zero slot withdraws
+         * the mirror so the whole JIM page is stream data again. */
+        if (command[1] == 0u) {
+            vector_mirror_valid = 0;
+            memset(vector_mirror, 0, sizeof(vector_mirror));
+            uef_window_relayout(backend, jim);
+            elkwifi_response(command, "OFF\r\n");
+            return PI1MHZ_NET_OK;
+        }
+        if (command[1] > 15u || (command[3] == 0u && command[4] == 0u))
+            return NET_ERR_PARAM;
+        vector_mirror_build(command + 1);
+        vector_mirror_stamp(jim);
+        uef_window_relayout(backend, jim);
+        elkwifi_response(command, "OK\r\n");
+        return PI1MHZ_NET_OK;
     }
     switch (command[0]) {
     case ELKWIFI_CMD_STATUS:

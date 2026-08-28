@@ -395,7 +395,7 @@ class IntegrationContractTest(unittest.TestCase):
         )[0]
         self.assertNotIn("wifi_get_state", status_case)
         self.assertIn("response_string(cp, ELKWIFI_VERSION_RESPONSE)", status_case)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.66, kernel " GITVERSION', service)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.67, kernel " GITVERSION', service)
         self.assertIn("drv_svc_radio = 91", service_driver)
         wifi_control = service_driver.split(".service_driver_wifi_control", 1)[1].split(
             ".service_driver_ping", 1
@@ -864,9 +864,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("equw service_driver_version-1", public_driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/patches/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.66"', identity)
+        self.assertIn('romversion         equs "0.1.67"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/overlay/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.66 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.67 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
@@ -927,7 +927,7 @@ class IntegrationContractTest(unittest.TestCase):
             ROOT / "rom-side/elkwifi-0.23/patches/rom-headroom.patch"
         ).read_text()
         self.assertIn("rom_content_end = P%", patch)
-        self.assertIn("ASSERT rom_content_end <= &BE58", patch)
+        self.assertIn("ASSERT rom_content_end <= &BF00", patch)
         self.assertNotIn(b"This is the end!", (ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom").read_bytes())
 
     def test_menu_surface_is_fully_retired(self) -> None:
@@ -1001,11 +1001,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("expected_upstream=$PI1MHZ_UPSTREAM_COMMIT", installer)
         self.assertIn("PI1MHZ_VERIFY_REMOTE:-1", installer)
         self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=e949f2d2714b15f314df375e52db5febb6c40e6d",
+            "PI1MHZ_UPSTREAM_COMMIT=499f940df42ca69e8bfc5be315333f5d271e6c37",
             upstream,
         )
         self.assertIn("PI1MHZ_UPSTREAM_BRANCH=master", upstream)
-        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-23", upstream)
+        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-28", upstream)
         self.assertIn("git ls-remote --symref", verifier)
 
         rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()

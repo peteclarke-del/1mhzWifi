@@ -1,0 +1,343 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -72,6 +72,19 @@
+ wicfs_record_valid_value = &A5
+ 
+ serbuf	=	&06E0		\serial input buffer
++\ The Pi mirrors a vector trampoline into the same window of every JIM page,
++\ so the UEF stream stops short of it. FDF7-FDFF stays clear at the top
++\ because the Pi publishes the stream length in the last two bytes of page FF.
++jim_page_usable = &68
++mirror_base = &FD00 + jim_page_usable
++t_o_file = 0
++t_o_bget = 9
++t_o_find = 18
++t_o_fsc  = 27
++t_o_page = 36
++t_o_exit = 95
++t_o_sig  = 139
++t_len    = 143
+ notape	=	&0398		\location of external *TAPE trap
+ romsel	=	&0780		\Tube-off resilient vector guard, below &0800
+ hchunk	=	&03CB		\Chunk header type(2) + length(4)
+@@ -1273,31 +1286,38 @@
+ \ it is about to use, then enters the normal MOS extended-vector dispatcher.
+ \ The Tube path continues to use extended vectors because &0400-&07FF belongs
+ \ to the Tube host implementation.
++\ FILEV, BGETV, FINDV and FSCV, as low bytes within page &02, paired with the
++\ two entry tables below. Walking a table costs a third of what an unrolled
++\ comparison chain costs, and the ROM has no room for the unrolled form now
++\ that there are two possible sets of entry points.
++.wicfs_vector_slots
++	equb	<OSFILEV, <(OSFILEV+1), <OSBGETV, <(OSBGETV+1)
++	equb	<OSFINDV, <(OSFINDV+1), <OSFSCV,  <(OSFSCV+1)
++.wicfs_guard_entries
++	equb	<(romsel+(guard_file-s_guard)), >(romsel+(guard_file-s_guard))
++	equb	<(romsel+(guard_bget-s_guard)), >(romsel+(guard_bget-s_guard))
++	equb	<(romsel+(guard_find-s_guard)), >(romsel+(guard_find-s_guard))
++	equb	<(romsel+(guard_fsc-s_guard)),  >(romsel+(guard_fsc-s_guard))
++.wicfs_mirror_entries
++	equb	<(mirror_base+t_o_file), >(mirror_base+t_o_file)
++	equb	<(mirror_base+t_o_bget), >(mirror_base+t_o_bget)
++	equb	<(mirror_base+t_o_find), >(mirror_base+t_o_find)
++	equb	<(mirror_base+t_o_fsc),  >(mirror_base+t_o_fsc)
++
++\ The four vectors are ours if every byte matches one of the two tables. A
++\ mixture cannot arise: both sets are published together under SEI.
+ .wicfs_guards_owned
+-	LDA	OSFILEV
+-	CMP	#<(romsel+(guard_file-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSFILEV+1
+-	CMP	#>(romsel+(guard_file-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSBGETV
+-	CMP	#<(romsel+(guard_bget-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSBGETV+1
+-	CMP	#>(romsel+(guard_bget-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSFINDV
+-	CMP	#<(romsel+(guard_find-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSFINDV+1
+-	CMP	#>(romsel+(guard_find-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSFSCV
+-	CMP	#<(romsel+(guard_fsc-s_guard))
+-	BNE	wicfs_guards_not_owned
+-	LDA	OSFSCV+1
+-	CMP	#>(romsel+(guard_fsc-s_guard))
++	LDX	#7
++.wicfs_guards_owned_loop
++	LDY	wicfs_vector_slots,X
++	LDA	&0200,Y
++	CMP	wicfs_guard_entries,X
++	BEQ	wicfs_guards_owned_next
++	CMP	wicfs_mirror_entries,X
+ 	BNE	wicfs_guards_not_owned
++.wicfs_guards_owned_next
++	DEX
++	BPL	wicfs_guards_owned_loop
+ 	SEC
+ 	RTS
+ .wicfs_guards_not_owned
+@@ -1348,27 +1368,179 @@
+ 	BNE	wicfs_copy_guards
+ 	LDA	slotid
+ 	STA	romsel+(guard_slot-s_guard)
++	JSR	wicfs_publish_guard_table
++.wicfs_publish_guards_done
++	RTS
++
++\ The RAM guard above lives below &0800 and the MOS extended vector table lives
++\ at &0D9F. Cassette loaders reuse both, which is why a fifth of the corpus
++\ cannot be loaded through them. When the Pi mirrors a trampoline into the same
++\ window of every JIM page, the four filing vectors can point there instead,
++\ where no loader can reach them: the mirror is served by the Pi, not by RAM.
++\ Verify the signature at two different page-selector values before trusting
++\ it, so a stale stream byte cannot be mistaken for a live mirror, and leave
++\ the RAM guard installed as the fallback for kernels that serve no mirror.
++\ Tell the Pi how to assemble the trampoline it mirrors into every JIM page:
++\ our ROM slot, the sideways selector this host uses, the four handler entry
++\ points, and the zero page byte we keep the caller's ROM in. The Pi assembles
++\ the image because the host has no ROM to spare for one. Slot zero withdraws
++\ the mirror, which is how the vectors are released again.
++\ Take the mirrored trampoline out of the JIM window for the duration of a
++\ transfer that needs whole 256-byte pages, and put it back afterwards. Only
++\ meaningful while WiCFS owns the vectors; otherwise there is no mirror and
++\ both calls are a cheap no-op.
++\ A service reply is copied into the first bytes of JIM page 0, which is also
++\ where a published UEF window starts, so any command answered while a stream
++\ is open treads on bytes the stream has not reached yet. WiCFS then reads the
++\ reply text as UEF: an "ERR" reply is read as chunk type &5245. Ask the Pi to
++\ lay the window down again once the caller has finished with its reply. The
++\ republish moves neither the cursor nor the window, so the stream carries on
++\ from exactly where it was.
++.wicfs_repair_stream_window
++	LDA	sbuft		\clear the mark first: a republish that fails must not
++	AND	#&DF		\leave us asking for another on every byte
++	STA	sbuft
++	BIT	sbuft
++	BPL	wicfs_repair_not_streaming
++	JMP	service_driver_uef_stream_republish
++.wicfs_repair_not_streaming
++	RTS
++
++.wicfs_suspend_mirror
++	JSR	wicfs_guards_owned
++	BCC	wicfs_mirror_no_change
++	LDA	#0
++	BEQ	wicfs_mirror_change
++.wicfs_resume_mirror
++	JSR	wicfs_guards_owned
++	BCC	wicfs_mirror_no_change
++	LDA	slotid
++.wicfs_mirror_change
++	JMP	wicfs_publish_mirror_image
++.wicfs_mirror_no_change
++	RTS
++
++.wicfs_publish_mirror_image
++	PHA			\A holds the slot, or zero to withdraw the mirror
++	LDA	#drv_svc_vector_mirror
++	JSR	service_driver_write_command
++	LDX	#0
++.wicfs_mirror_send_loop
++	LDA	wicfs_mirror_params,X
++	CPX	#0
++	BNE	wicfs_mirror_not_slot
++	PLA
++	PHA
++.wicfs_mirror_not_slot
++	CPX	#2
++	BNE	wicfs_mirror_send
++	LDA	#<&FE30
++	LDY	wicfs_machine
++	CPY	#1
++	BNE	wicfs_mirror_send
++	LDA	#<&FE05
++.wicfs_mirror_send
++	TAY
++	JSR	service_driver_write_y
++	INX
++	CPX	#13
++	BNE	wicfs_mirror_send_loop
++	PLA
++\ Deliberately not service_driver_dispatch: that raises a MOS error when the
++\ Pi reports an unsupported command, and a kernel older than this ROM does not
++\ know command 86. Publishing must fail quietly so the signature check below
++\ sees no mirror and the RAM guard stays in place.
+ 	PHP
+ 	SEI
+-	LDA	#<(romsel+(guard_file-s_guard))
+-	STA	OSFILEV
+-	LDA	#>(romsel+(guard_file-s_guard))
+-	STA	OSFILEV+1
+-	LDA	#<(romsel+(guard_bget-s_guard))
+-	STA	OSBGETV
+-	LDA	#>(romsel+(guard_bget-s_guard))
+-	STA	OSBGETV+1
+-	LDA	#<(romsel+(guard_find-s_guard))
+-	STA	OSFINDV
+-	LDA	#>(romsel+(guard_find-s_guard))
+-	STA	OSFINDV+1
+-	LDA	#<(romsel+(guard_fsc-s_guard))
+-	STA	OSFSCV
+-	LDA	#>(romsel+(guard_fsc-s_guard))
+-	STA	OSFSCV+1
++	LDA	#&FF
++	STA	&FC00+drv_svc_command
++	JSR	service_driver_bus_settle
+ 	PLP
+-.wicfs_publish_guards_done
++	\Poll a few times with a bus settle between reads rather than spinning on
++	\the port. A Pi that implements this answers within one settle, and a Pi
++	\that does not costs eight reads instead of thousands.
++	LDX	#8
++.wicfs_mirror_await
++	JSR	wicfs_bus_delay
++	LDA	&FC00+drv_svc_command
++	BPL	wicfs_mirror_published
++	DEX
++	BNE	wicfs_mirror_await
++.wicfs_mirror_published
+ 	RTS
++.wicfs_mirror_params
++	equb	0		\ROM slot, supplied above
++	equb	12		\Electron preselect; a BBC ignores the extra write
++	equb	0, &FE		\sideways selector, low byte supplied above
++	equb	<upfilev, >upfilev
++	equb	<upbgetv, >upbgetv
++	equb	<upfindv, >upfindv
++	equb	<upfscv,  >upfscv
++	equb	currom
++
++.wicfs_publish_mirror_vectors
++	JSR	wicfs_detect_machine
++	LDA	slotid
++	JSR	wicfs_publish_mirror_image
++	LDA	#0
++	JSR	wicfs_mirror_signature_ok
++	BNE	wicfs_mirror_absent
++	LDA	#&55			\a second, unrelated page: one stale stream
++	JSR	wicfs_mirror_signature_ok	\byte cannot masquerade as a mirror
++	BNE	wicfs_mirror_absent
++\ The trampoline image is published so that the Pi lays the stream out in
++\ 104-byte pages, which is the geometry getbyte reads. The filing vectors
++\ are deliberately NOT repointed into it: a *RUN handover (the */ shorthand
++\ every multi-file cassette loader ends with) transfers to the loaded program
++\ through actioned, which unwinds the MOS extended-vector dispatch frame. The
++\ mirrored entry produces its own frame instead, so the handover returns to
++\ the wrong place and the second file never loads. The RAM guard keeps the
++\ vectors until that transfer is reworked to be frame-agnostic.
++	JMP	wicfs_mirror_absent
++	PHP
++	SEI
++	LDX	#7
++.wicfs_publish_mirror_loop
++	LDY	wicfs_vector_slots,X
++	LDA	wicfs_mirror_entries,X
++	STA	&0200,Y
++	DEX
++	BPL	wicfs_publish_mirror_loop
++	PLP
++.wicfs_mirror_absent
++	RTS
++
++.wicfs_publish_guard_table
++	PHP
++	SEI
++	LDX	#7
++.wicfs_publish_guard_loop
++	LDY	wicfs_vector_slots,X
++	LDA	wicfs_guard_entries,X
++	STA	&0200,Y
++	DEX
++	BPL	wicfs_publish_guard_loop
++	PLP
++	RTS
++
++\ Z=1 when the trampoline signature is present in the JIM page named in A.
++.wicfs_mirror_signature_ok
++	JSR	wicfs_select_public_page_a
++	LDA	mirror_base+t_o_sig
++	EOR	#'W'
++	BNE	wicfs_mirror_signature_done
++	LDA	mirror_base+t_o_sig+1
++	EOR	#'C'
++.wicfs_mirror_signature_done
++	PHA
++	JSR	wicfs_select_public_zero
++	PLA
++	RTS
++
++\ The trampoline image itself is assembled by the Pi, which already knows the
++\ geometry above; the ROM only tells it the slot, the sideways selector and
++\ the four handler addresses. Keeping the image off the host saves ROM and
++\ keeps the star commands thin, which is how the rest of this port is split.
+ 
+ .s_guard
+ .guard_file
+@@ -1495,6 +1658,8 @@
+ .wicfs_reset_active
+ 	JSR	wicfs_guards_owned
+ 	BCC	wicfs_reset_vectors_ready
++	LDA	#0		\the whole JIM page is data again once the
++	JSR	wicfs_publish_mirror_image	\vectors are MOS's
+ 	JSR	wicfs_publish_extended_vectors
+ 	PHP
+ 	SEI
+@@ -1944,9 +2109,9 @@
+ 	PLP
+ 	RTS
+ .upfscv_state_valid
+-	TSX				\saved P precedes the MOS extended-vector frame
+-	LDA	&0104,X
+-	STA	currom
++	TSX				\saved P precedes the extended-vector frame, which
++	LDA	&0104,X		\the mirrored trampoline reproduces exactly so
++	STA	currom		\that nested vector calls stay correct
+ 	LDX	fscv_x
+ 	LDY	fscv_y
+ 	LDA	fscv_reason
+@@ -3266,7 +3431,9 @@
+     lda pageram,y   \load data
+     pha             \save data
+     iny             \increment pointer
+-    bne getbyte1    \jump if not end of page
++    cpy #jim_page_usable
++    bne getbyte1    \jump if not at the mirrored tail of the page
++    ldy #0
+     inc pr_r        \advance the software shadow; FCFF is write-only through AP5/Pi1MHz
+ .getbyte1
+     sty pr_y        \save pointer
+@@ -3389,13 +3556,24 @@
+ 	LDA	#0
+ 	STA	host_basic_pending	\clear any stale host continuation request
+     STA pr_y        \reset pointer to paged ram
+-    sta pr_r
+ 	STA	sfopen		\reset sequential file control bytes
+-	STA	sfptr
++	STA	sfptr		\(still the zero loaded above)
++    lda #uef_first_page \page 0 belongs to the service reply buffer;
++    sta pr_r        \set last so it cannot leak into the stores above
+ 	LDA	sbuft
+ 	AND	#&C0		\preserve incremental/final flags, clear start marker
+-	STA	sbuft
+-	RTS			    \and return
++	STA	sbuft
++\ Checkpoint the window this init just established. Without this the record
++\ still describes the stream as it was before the rewind, and the next
++\ state load puts that back: the length reverts to the whole stream and
++\ the final flag reappears, so the run shorthand searches a window that
++\ is not the one the Pi published.
++	JSR	wicfs_state_save
++\ Publish the trampoline here rather than when the filing system is
++\ installed. It is only needed once a tape stream is being served, and
++\ describing this host to the Pi costs thirteen verified bus writes,
++\ which is measurable on the install path and not on this one.
++	JMP	wicfs_publish_mirror_vectors
+ 
+ \-------------------------------------------------------------------------------
+ \Multi-message print routine.

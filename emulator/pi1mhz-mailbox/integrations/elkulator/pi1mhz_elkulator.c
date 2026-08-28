@@ -25,6 +25,13 @@ static int trace_address(uint16_t address)
            (address >= 0xFEE0u && address <= 0xFEFFu);
 }
 
+/* Elkulator keeps the previous instruction's address in oldpc2; naming the
+ * writer is the difference between knowing a JIM byte changed and knowing
+ * which routine changed it. rombank says which sideways ROM was paged in,
+ * so a host address can be attributed to the right ROM. */
+extern uint16_t oldpc2;
+extern int rombank;
+
 static void trace_bus(char operation, uint16_t address, int value)
 {
     uint32_t page;
@@ -43,6 +50,7 @@ static void trace_bus(char operation, uint16_t address, int value)
     fprintf(bus_trace, " page=%06X", page);
     if (jim_address != 0xFFFFFFFFu)
         fprintf(bus_trace, " jim=%08X", jim_address);
+    fprintf(bus_trace, " pc=%04X rb=%X", oldpc2, rombank & 0xF);
     fputc('\n', bus_trace);
     if ((++bus_trace_events & 0xFFu) == 0u)
         fflush(bus_trace);
@@ -101,7 +109,7 @@ static int preload_mirror(void)
     const char *setting = getenv("PI1MHZ_JIM_MIRROR");
     const char *colon;
     unsigned long offset;
-    uint8_t bytes[64];
+    uint8_t bytes[160];
     size_t count = 0;
     char *end;
 

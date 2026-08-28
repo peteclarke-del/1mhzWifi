@@ -113,10 +113,10 @@ driver_entry_y = drv_svc_workspace+23
 .reset_buffer
  php
  sei
- ldx #&00
- stx driver_page_shadow
- txa
+ lda #0
+ sta driver_page_shadow
  jsr select_public_page_a
+ ldx #&00               \ callers read the buffer from its first byte
  plp
  rts
 

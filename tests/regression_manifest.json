@@ -15,7 +15,7 @@
       "symptom": "Delayed FCA6-FCA9 publication corrupted VERSION, NSLOOK, SSH, and ElkChat or returned errors 2A, 27, 2B, and 2D.",
       "status": "fixed",
       "tests": [
-        "tests/test_merged_repository.py::MergedRepositoryTest::test_pi_bus_byte_write_preserves_live_adjacent_register",
+        "tests/test_merged_repository.py::MergedRepositoryTest::test_adjacent_register_fix_is_taken_from_upstream",
         "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_assembled_driver_waits_for_page_publication",
         "tests/test_elkchat_osword.py::ElkChatOSWORDCompatibilityTests::test_status_survives_delayed_fca9_callback",
         "host-tools/tests/test_emulated_clients.py::EmulatedClientTests::test_clients_wait_for_selector_data_publication"
