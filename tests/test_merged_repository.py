@@ -64,7 +64,7 @@ class MergedRepositoryTest(unittest.TestCase):
             )
         upstream_env = (ROOT / "pi-side/upstream.env").read_text()
         self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=499f940df42ca69e8bfc5be315333f5d271e6c37",
+            "PI1MHZ_UPSTREAM_COMMIT=6b3b88df34172fbaeee927c24d9d5c937710400c",
             upstream_env,
             "the pin must include dp111's FIQ-masked adjacent-byte fix",
         )
@@ -281,7 +281,7 @@ class MergedRepositoryTest(unittest.TestCase):
     def test_packaged_kernels_have_matching_recovery_revisions(self) -> None:
         pattern = re.compile(
             rb"Pi1MHz ElkWiFi 0\.1\.67, kernel "
-            rb"(V1\.30-99-g499f940-dirty\.[0-9a-f]{8})"
+            rb"(V1\.30-114-g6b3b88d-dirty\.[0-9a-f]{8})"
         )
         revisions = []
         for name in ("kernel.img", "kernel7.img"):

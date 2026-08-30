@@ -1358,5 +1358,5 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
    request_cancel = false;
    scan_waiting = false;
    _restore_cpsr(cpsr);
-   Pi1MHz_Register_Poll(elkwifi_poll);
+   Pi1MHz_Register_Poll(elkwifi_poll, "elkwifi");
 }
