@@ -268,12 +268,16 @@ host_basic_pending = &03BD
             rb"\x08\x48\x78\xA9\x02\x10.\x08\x48\x78\xA9\x03"
         )
         template = self.rom[match.start():match.start() + 0x80]
-        dispatch = template.find(b"\x1B\x21\x2A\x2D\x00\x00")
-        self.assertGreater(dispatch, 0, "guard dispatch/slot table not found")
+        # One table serves twice: the MOS dispatcher low byte and the extended
+        # vector table offset are both three times the vector index, so the
+        # guard indexes 27, 33, 42, 45 for either purpose. Layout after it is
+        # handler low, handler high, then the installed slot.
+        table = template.find(b"\x1B\x21\x2A\x2D")
+        self.assertGreater(table, 0, "guard offset/dispatch table not found")
 
         mpu = MPU()
         mpu.memory[0x0780:0x0800] = template
-        mpu.memory[0x0780 + dispatch + 4] = 3  # installed ROM slot
+        mpu.memory[0x0780 + table + 12] = 3  # installed ROM slot
         # Simulate a cassette loader overwriting every extended tuple.
         mpu.memory[0x0400 + 27:0x0400 + 30] = [0xAA, 0xBB, 0xCC]
         mpu.pc = 0x0780

@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
-ROM_SHA256 = "82c0e0e49491b163d6cce324b123300dcf1ee56a3708a20dd850965d43a440fc"
+ROM_SHA256 = "b26423b695fd5ba8a7e5cf90b3ae06c43534fde806b104a9c791ab50ba4c1f6b"
 
 
 class RomCompatibilityTest(unittest.TestCase):

@@ -1,0 +1,72 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -53,6 +53,12 @@
+ wicfs_bytes_lo = wicfs_state_ram+20
+ wicfs_bytes_hi = wicfs_state_ram+21
+ wicfs_state_size = 22
++\ Not part of the persisted payload. The guard needs the kind only between
++\ its entry and its dispatch, so a loader clearing low memory between calls
++\ cannot matter. It cannot live in the guard body once that body is mirrored
++\ into every JIM page: a write would land only in the selected page and the
++\ Pi restamps the mirror when it publishes.
++guard_kind = wicfs_state_ram+22
+ wicfs_pending_run_rom = 13
+ 
+ \ Transaction scratch is zero-page and never part of the persisted payload.
+@@ -1395,7 +1401,7 @@
+ 	SEI
+ 	LDA	#3
+ .guard_common
+-	STA	romsel+(guard_kind-s_guard)
++	STA	guard_kind
+ 	TXA
+ 	PHA
+ 	TYA
+@@ -1406,7 +1412,7 @@
+ 	JSR	OSBYTE
+ 	STX	evptr
+ 	STY	evptr+1
+-	LDX	romsel+(guard_kind-s_guard)
++	LDX	guard_kind
+ 	LDY	romsel+(guard_offsets-s_guard),X
+ 	LDA	romsel+(guard_handler_lo-s_guard),X
+ 	STA	(evptr),Y
+@@ -1416,29 +1422,30 @@
+ 	INY
+ 	LDA	romsel+(guard_slot-s_guard)
+ 	STA	(evptr),Y
+-	LDA	romsel+(guard_dispatch-s_guard),X
+-	STA	romsel+(guard_call-s_guard)+1
++	LDA	romsel+(guard_offsets-s_guard),X	\the dispatcher low byte is
++				\the same 3*index as the table offset
++	STA	evptr
++	LDA	#&FF
++	STA	evptr+1
+ 	PLA
+ 	TAY
+ 	PLA
+ 	TAX
+ 	PLA
+ 	PLP
+-.guard_call
+-	JSR	&FF1B
++	JSR	romsel+(guard_indirect-s_guard)	\the guard runs at romsel, not
++				\at its address in the ROM
+ 	RTS
++.guard_indirect
++	JMP	(evptr)
+ .guard_offsets
+ 	equb	27,33,42,45
+ .guard_handler_lo
+ 	equb	<upfilev,<upbgetv,<upfindv,<upfscv
+ .guard_handler_hi
+ 	equb	>upfilev,>upbgetv,>upfindv,>upfscv
+-.guard_dispatch
+-	equb	&1B,&21,&2A,&2D
+ .guard_slot
+ 	equb	0
+-.guard_kind
+-	equb	0
+ .e_guard
+ ASSERT romsel+(e_guard-s_guard) <= &0800
+ 
