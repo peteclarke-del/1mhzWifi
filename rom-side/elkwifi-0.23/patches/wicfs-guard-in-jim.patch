@@ -1,0 +1,110 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -73,7 +73,11 @@
+ 
+ serbuf	=	&06E0		\serial input buffer
+ notape	=	&0398		\location of external *TAPE trap
+-romsel	=	&0780		\Tube-off resilient vector guard, below &0800
++\ The Pi stamps the guard into the top of every JIM page, so it is reachable
++\ whatever the page selector holds and no cassette loader can reach it. 105
++\ bytes ending exactly at &FDFF leaves 151 per page for the stream.
++jim_page_usable = &97
++romsel	=	&FD00+jim_page_usable	\filing-vector guard, served by the Pi
+ hchunk	=	&03CB		\Chunk header type(2) + length(4)
+ 
+ bufsize	=	28		\data burst (buffer) size
+@@ -1339,15 +1343,45 @@
+ 	JSR	OSBYTE
+ 	CPX	#&FF
+ 	BEQ	wicfs_publish_guards_done
++	LDA	#drv_svc_guard_image
++	JSR	service_driver_write_command
++	LDY	#(e_guard-s_guard)	\length, so an older kernel can reject it
++	JSR	service_driver_write_y
+ 	LDX	#0
+-.wicfs_copy_guards
++.wicfs_send_guard
+ 	LDA	s_guard,X
+-	STA	romsel,X
++	CPX	#(guard_slot-s_guard)	\substitute the live slot as it goes past
++	BNE	wicfs_send_guard_byte
++	LDA	slotid
++.wicfs_send_guard_byte
++	TAY
++	JSR	service_driver_write_y
+ 	INX
+ 	CPX	#(e_guard-s_guard)
+-	BNE	wicfs_copy_guards
+-	LDA	slotid
+-	STA	romsel+(guard_slot-s_guard)
++	BNE	wicfs_send_guard
++\ Deliberately not service_driver_dispatch: that raises a MOS error when the
++\ Pi reports an unsupported command, and a kernel older than this ROM does
++\ not know it. Publishing must fail quietly so the signature check below
++\ sees no guard and the vectors stay on the MOS extended entries.
++	LDA	#&FF
++	STA	&FC00+drv_svc_command
++	JSR	service_driver_bus_settle
++	LDX	#8
++.wicfs_guard_await
++	JSR	wicfs_bus_delay
++	LDA	&FC00+drv_svc_command
++	BPL	wicfs_guard_published
++	DEX
++	BNE	wicfs_guard_await
++.wicfs_guard_published
++\ Two unrelated selectors: one stale stream byte cannot masquerade as a
++\ guard. Page 0 is the service reply buffer and is never stamped.
++	LDA	#1
++	JSR	wicfs_guard_signature_ok
++	BNE	wicfs_publish_guards_done
++	LDA	#&55
++	JSR	wicfs_guard_signature_ok
++	BNE	wicfs_publish_guards_done
+ 	PHP
+ 	SEI
+ 	LDA	#<(romsel+(guard_file-s_guard))
+@@ -1370,6 +1404,23 @@
+ .wicfs_publish_guards_done
+ 	RTS
+ 
++\ Z=1 when the guard answers in the JIM page named in A. Its offset table is
++\ the signature: four bytes the stream is unlikely to hold at that offset.
++.wicfs_guard_signature_ok
++	JSR	wicfs_select_public_page_a
++	LDX	#3
++.wicfs_guard_signature_loop
++	LDA	romsel+(guard_offsets-s_guard),X
++	CMP	wicfs_guard_expected,X
++	BNE	wicfs_guard_signature_done
++	DEX
++	BPL	wicfs_guard_signature_loop
++	LDA	#0
++.wicfs_guard_signature_done
++	RTS
++.wicfs_guard_expected
++	equb	27,33,42,45
++
+ .s_guard
+ .guard_file
+ 	PHP
+@@ -1446,7 +1497,7 @@
+ .guard_slot
+ 	equb	0
+ .e_guard
+-ASSERT romsel+(e_guard-s_guard) <= &0800
++ASSERT romsel+(e_guard-s_guard) <= &FE00
+ 
+ .install_extended_vector
+ 	STA	(evptr),Y		\A is handler low byte
+@@ -3272,7 +3323,9 @@
+     lda pageram,y   \load data
+     pha             \save data
+     iny             \increment pointer
+-    bne getbyte1    \jump if not end of page
++    cpy #jim_page_usable   \the guard owns the top of the page
++    bne getbyte1    \jump if not at the guard
++    ldy #0
+     inc pr_r        \advance the software shadow; FCFF is write-only through AP5/Pi1MHz
+ .getbyte1
+     sty pr_y        \save pointer

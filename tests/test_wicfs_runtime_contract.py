@@ -212,7 +212,7 @@ wicfs_machine = &C3
 filev_x = &0396
 filev_y = &0397
 notape = &0398
-romsel = &0780
+romsel = &FD97
 chain_exec = &03A0
 host_basic_pending = &03BD
 """
@@ -276,11 +276,13 @@ host_basic_pending = &03BD
         self.assertGreater(table, 0, "guard offset/dispatch table not found")
 
         mpu = MPU()
-        mpu.memory[0x0780:0x0800] = template
-        mpu.memory[0x0780 + table + 12] = 3  # installed ROM slot
+        # The guard is assembled for the JIM page it is stamped into, so its
+        # own table reads only resolve when it runs there.
+        mpu.memory[0xFD97:0xFD97 + len(template)] = template
+        mpu.memory[0xFD97 + table + 12] = 3  # installed ROM slot
         # Simulate a cassette loader overwriting every extended tuple.
         mpu.memory[0x0400 + 27:0x0400 + 30] = [0xAA, 0xBB, 0xCC]
-        mpu.pc = 0x0780
+        mpu.pc = 0xFD97
         mpu.a, mpu.x, mpu.y = 0xFF, 0x34, 0x12
         mpu.p = 0xA1  # normal IRQ-enabled caller
         mpu.sp = 0xFD
@@ -673,9 +675,9 @@ host_basic_pending = &03BD
 
     def _getbyte_symbols(self):
         match = self.find_rom_routine(
-            rb"\xA5(.)\x05(.)\xD0\x05\x20(..)\xB0\x25"
+            rb"\xA5(.)\x05(.)\xD0\x05\x20(..)\xB0\x29"
             rb"\x08\x78\xA4(.)\xA5(.)\x20..\xB9\x00\xFD"
-            rb".{25}\x38\x60"
+            rb".{29}\x38\x60"
         )
         return {
             "start": ROM_START + match.start(),
@@ -715,17 +717,18 @@ host_basic_pending = &03BD
         return bytes(got), refills
 
     def _staged_window(self, memory, values, first_page=0):
-        """Lay bytes out the way the Pi publishes them: a full JIM page each."""
-        usable = 0x100
+        """Lay bytes out the way the Pi publishes them, short of the guard."""
+        usable = 0x97
         for index, value in enumerate(values):
             page = (first_page + index // usable) & 0xFF
             memory.page_data[page, index % usable] = value
 
     def test_getbyte_reads_a_published_window_contiguously(self) -> None:
-        """A full page per JIM page, then step the page.
+        """151 bytes per JIM page, then step the page.
 
-        The reader must hand back the stream in order across a page boundary;
-        a page step that fires early or late silently splices the window.
+        The Pi leaves the top of every page to the filing guard, so a reader
+        that wrapped at 256 would walk into 6502 guard bytes instead of the
+        stream. The step must fire exactly at the guard.
         """
         sym = self._getbyte_symbols()
         memory = DelayedOneSlotMailbox(self.rom, 1)
@@ -796,11 +799,12 @@ host_basic_pending = &03BD
 
     def test_assembled_getbyte_refills_without_resetting_parser_state(self) -> None:
         match = self.find_rom_routine(
-            # The page-step is the natural wrap at 256: the Pi publishes a
-            # whole JIM page of stream, so iny alone decides when to step.
-            rb"\xA5(.)\x05(.)\xD0\x05\x20(..)\xB0\x25"
+            # The page-step is a comparison again: the Pi stamps the filing
+            # guard into the top of every JIM page, so the stream stops short
+            # of it rather than wrapping on iny alone.
+            rb"\xA5(.)\x05(.)\xD0\x05\x20(..)\xB0\x29"
             rb"\x08\x78\xA4(.)\xA5(.)\x20..\xB9\x00\xFD"
-            rb".{25}\x38\x60"
+            rb".{29}\x38\x60"
         )
         start = ROM_START + match.start()
         final_rts = ROM_START + match.end() - 1
