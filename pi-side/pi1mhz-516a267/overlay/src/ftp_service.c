@@ -917,5 +917,5 @@ void ftp_service_init(void)
    request_pending = false;
    request_cancel = false;
    request_started = false;
-   Pi1MHz_Register_Poll(ftp_service_poll);
+   Pi1MHz_Register_Poll(ftp_service_poll, "ftp");
 }

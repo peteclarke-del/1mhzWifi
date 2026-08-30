@@ -13,7 +13,20 @@
  hchunk	=	&03CB		\Chunk header type(2) + length(4)
  
  bufsize	=	28		\data burst (buffer) size
-@@ -1339,15 +1343,45 @@
+@@ -896,8 +900,11 @@
+ 	LDX	#&0F
+ 	LDY	#0
+ 	JSR	OSBYTE
++	LDA	sbuft
++	BPL	cfsinit_guard_not_needed	\no stream yet: the install path takes
++				\no bus traffic it does not need
+ 	JSR	wicfs_publish_guards_if_host_only
+-
++.cfsinit_guard_not_needed
+ 	JSR	wicfs_prepare_byte_trap
+ 	JSR	wicfs_state_save	\capture any BYTEV owner installed by service &0F
+ 	JSR	wicfs_publish_byte_trap
+@@ -1339,15 +1346,45 @@
  	JSR	OSBYTE
  	CPX	#&FF
  	BEQ	wicfs_publish_guards_done
@@ -64,7 +77,7 @@
  	PHP
  	SEI
  	LDA	#<(romsel+(guard_file-s_guard))
-@@ -1370,6 +1404,23 @@
+@@ -1370,6 +1407,23 @@
  .wicfs_publish_guards_done
  	RTS
  
@@ -88,7 +101,7 @@
  .s_guard
  .guard_file
  	PHP
-@@ -1446,7 +1497,7 @@
+@@ -1446,7 +1500,7 @@
  .guard_slot
  	equb	0
  .e_guard
@@ -97,7 +110,7 @@
  
  .install_extended_vector
  	STA	(evptr),Y		\A is handler low byte
-@@ -3272,7 +3323,9 @@
+@@ -3272,7 +3326,9 @@
      lda pageram,y   \load data
      pha             \save data
      iny             \increment pointer
