@@ -110,15 +110,19 @@ static uint8_t rng_sample_count;
 static uint8_t rng_zero_count;
 static uint8_t rng_ones_count;
 
+/* Warm-up is not waited for here. rng_begin discards 0x40000 oscillator bits
+   and rng_poll samples the result from the cooperative poll loop, so by the
+   time a caller reaches this the generator is running at its hardware rate and
+   a word is due in microseconds. The bound is a safety net against a generator
+   that stops, not a settling time: at 750ms it was long enough to stall the
+   1MHz bus service for most of a second. */
+#define RNG_WORD_DEADLINE_US 5000u
+
 static int rng_word(uint32_t *out)
 {
-    /* Initialisation discards 0x40000 oscillator bits. An iteration-count
-       timeout expires much sooner on a Pi 3 than on a Pi Zero and can leave
-       managed SSH disabled for the entire boot. Use a wall-clock deadline so
-       every supported CPU receives the same hardware settling time. */
     uint32_t started_us = RPI_GetSystemTime();
     while ((BCM_RNG_STATUS >> 24) == 0u) {
-        if (RPI_GetSystemTime() - started_us >= 750000u) return -1;
+        if (RPI_GetSystemTime() - started_us >= RNG_WORD_DEADLINE_US) return -1;
         RPI_WaitMicroSeconds(1u);
     }
     *out = BCM_RNG_DATA;
@@ -133,7 +137,11 @@ int nts_bcm_random_block(unsigned char *out, unsigned int length)
 {
     uint32_t word = 0;
     unsigned int available = 0;
-    if (!rng_started || out == NULL) return -1;
+    /* Fail fast rather than block. The settling wait belongs to rng_poll, and
+       a caller which arrives before the generator is ready must retry: the
+       capability byte reports readiness so the host can wait for it rather
+       than have the Pi stall inside a command. */
+    if (!rng_started || !rng_ready || out == NULL) return -1;
     while (length != 0u) {
         if (available == 0u) {
             if (rng_word(&word) != 0) return -1;
