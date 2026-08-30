@@ -104,7 +104,8 @@ def main() -> int:
 
     symbols = source_symbols(source_dir)
     required_symbols = {"wicfs_state_ram", "wicfs_machine", "filev_x", "filev_y",
-                        "notape", "romsel", "chain_exec", "host_basic_pending"}
+                        "notape", "romsel", "chain_exec",
+                        "host_basic_pending"}
     missing = sorted(required_symbols - symbols.keys())
     if missing:
         print("combined RAM symbols are incomplete: " + ", ".join(missing), file=sys.stderr)
@@ -123,7 +124,11 @@ def main() -> int:
         "filev_x": 0x0396,
         "filev_y": 0x0397,
         "notape": 0x0398,
-        "romsel": 0x0780,
+        # The guard no longer lives in RAM: the Pi stamps it into the top of
+        # every JIM page, where no cassette loader can reach it. Only its kind
+        # byte stays in RAM, and only for the few instructions between the
+        # guard's entry and its dispatch.
+        "romsel": 0xFD97,
         "chain_exec": 0x03A0,
         "host_basic_pending": 0x03BD,
     }
@@ -132,8 +137,9 @@ def main() -> int:
     if bad:
         print("combined RAM layout changed without review: " + "; ".join(bad), file=sys.stderr)
         return 1
-    if symbols["romsel"] + guard_size > 0x0800:
-        print("WiCFS low-loader guard crosses &0800", file=sys.stderr)
+    if symbols["romsel"] + guard_size > 0xFE00:
+        print("WiCFS filing-vector guard crosses the JIM page top",
+              file=sys.stderr)
         return 1
 
     print(f"Combined assembled RAM-symbol audit: OK ({source_dir})")

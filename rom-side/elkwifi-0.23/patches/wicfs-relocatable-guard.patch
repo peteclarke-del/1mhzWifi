@@ -1,37 +1,28 @@
 --- a/rom/wicfs.asm
 +++ b/rom/wicfs.asm
-@@ -53,6 +53,12 @@
- wicfs_bytes_lo = wicfs_state_ram+20
- wicfs_bytes_hi = wicfs_state_ram+21
- wicfs_state_size = 22
-+\ Not part of the persisted payload. The guard needs the kind only between
-+\ its entry and its dispatch, so a loader clearing low memory between calls
-+\ cannot matter. It cannot live in the guard body once that body is mirrored
-+\ into every JIM page: a write would land only in the selected page and the
-+\ Pi restamps the mirror when it publishes.
-+guard_kind = wicfs_state_ram+22
- wicfs_pending_run_rom = 13
- 
- \ Transaction scratch is zero-page and never part of the persisted payload.
-@@ -1395,7 +1401,7 @@
+@@ -1395,7 +1395,9 @@
  	SEI
  	LDA	#3
  .guard_common
 -	STA	romsel+(guard_kind-s_guard)
-+	STA	guard_kind
++	PHA		\the kind rides the stack. A mirrored body cannot hold
++			\it, and page three has no free byte: &0398 is the
++			\*TAPE trap and &0396 is filev_x.
  	TXA
  	PHA
  	TYA
-@@ -1406,7 +1412,7 @@
+@@ -1406,7 +1408,9 @@
  	JSR	OSBYTE
  	STX	evptr
  	STY	evptr+1
 -	LDX	romsel+(guard_kind-s_guard)
-+	LDX	guard_kind
++	TSX		\Y and X were pushed above the kind
++	LDA	&0103,X
++	TAX
  	LDY	romsel+(guard_offsets-s_guard),X
  	LDA	romsel+(guard_handler_lo-s_guard),X
  	STA	(evptr),Y
-@@ -1416,29 +1422,30 @@
+@@ -1416,29 +1420,31 @@
  	INY
  	LDA	romsel+(guard_slot-s_guard)
  	STA	(evptr),Y
@@ -46,12 +37,13 @@
  	TAY
  	PLA
  	TAX
++	PLA		\discard the kind
  	PLA
  	PLP
 -.guard_call
 -	JSR	&FF1B
-+	JSR	romsel+(guard_indirect-s_guard)	\the guard runs at romsel, not
-+				\at its address in the ROM
++	JSR	romsel+(guard_indirect-s_guard)	\the guard runs at romsel,
++				\not at its address in the ROM
  	RTS
 +.guard_indirect
 +	JMP	(evptr)

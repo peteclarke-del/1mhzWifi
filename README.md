@@ -294,7 +294,7 @@ retaining the current Pi1MHz source revision.
 Release hashes:
 
 ```text
-1MHzWifi ROM b26423b695fd5ba8a7e5cf90b3ae06c43534fde806b104a9c791ab50ba4c1f6b
+1MHzWifi ROM 3c158f0dc38d943e62bd027ea858cf1a067816df38de2788b0f70cd9b55cf760
 kernel.img   c8910a1ea94d72647a45b6d61c9dbd197865371e1b8662327d9a0e9c798e496d
 kernel7.img  20b3439503d574a73304b86fbd124efe6301e39ee3190a20711b3c78919770f1
 nettools.ssd 7bfe26b2c8f3212466bd3bdbc7f40e6f1d72722a3dbcc7a9f25fd3858dc8d883
