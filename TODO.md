@@ -283,6 +283,60 @@ tracked elsewhere.
 
 ## Release gate
 
+### Outcome, 29 August 2026
+
+The trampoline route was built in full and withdrawn. What ships instead is the
+RAM guard the project already had, with two defects fixed on top of it.
+
+The `*/` multi-file handover works. Thrust, Arcadians, Repton 2 and Repton 3
+all reach their title, menu or gameplay screens on ROM `82c0e0e4`, checked
+against the screenshots rather than the frame counter. Repton 2 reaches
+gameplay and Repton 3 loads 111 KB across several window refills, so the
+handover, the scattered window and the refill path work together.
+
+Repton is not fixed. It renders its title screen correctly again, where the
+withdrawn mirrored-vector build corrupted the display, but it still stalls
+having consumed 6703 bytes of 28950 with 22247 unread, which is the exact
+signature `WICFS-016` records. The 0.1.66 baseline stalls at the same offset,
+so this is no regression rather than a repair, and an earlier note in this file
+which read Repton as loading was comparing against a build where Repton is
+itself the open defect.
+
+Two results from the withdrawn work are kept. The stream is published from JIM
+page 1, because page 0 is the service reply buffer that OSWORD `&65` clients
+read in full and a reply landing there corrupted the window mid-load. And
+`cfsinit` checkpoints the window it establishes, so a state load after a loader
+clears low memory restores that window rather than the one before the rewind.
+
+Separately, the `FCA6-FCA9` read-back that decides whether Pi1MHz is present was
+a single-shot check after `service_driver_bus_settle`, which is a CPU delay loop
+and generates no bus traffic. On a bus that publishes writes asynchronously the
+read-back carried the pre-write value, a present device was reported missing,
+and the install raised "Device not found" and never completed. It polls now.
+This was a pre-existing failure at bus delays 128 and 255 in the launch timing
+gate, and it is a real hardware exposure rather than a test artefact.
+
+- [x] Stage a title from `samples/` into a disposable BeebSCSI copy. Acorn File
+  Forge does this in one command, run through its own virtual environment
+  because the bulk-copy API needs the pinned Oaknut release:
+  `.venv/bin/python -m app.cli import-file <scsi0.dat> <title.uef> --descriptor
+  <scsi0.dsc> --destination 'UEF.LOTF' --output <staged.dat>`. `--dry-run`
+  reports `canProceed` before writing half a gigabyte.
+- [ ] Close `WICFS-016`. Half of it now passes: Last of the Free reaches its
+  start prompt on ROM `82c0e0e4` from a staged image. Repton does not. It still
+  stalls at 6703 bytes with 22247 unread, so the joint gate stays open on the
+  Repton half alone.
+- [ ] Record that the acceptance runner only injects its gameplay keys once the
+  frame matches `--title-reference`. Passing an unrelated screenshot, as the ad
+  hoc probe did for every title, turns the runner into a load test that can
+  never demonstrate gameplay. Only Thrust, Frak and Zalaga have committed
+  gameplay references.
+- [ ] Re-measure the three quarter corpus baseline. This work moves it in both
+  directions: the `*/` fix should raise every multi-file title, and withdrawing
+  the trampoline gives up the gain it was meant to buy.
+- [ ] Prove the ROM and kernel pair on real hardware. The kernels were rebuilt
+  for the smaller service and nothing in this pass has run on the machine.
+
 ### Vector gateway relocation, 27 August 2026
 
 `*UEF LOAD REPTON` stalls because Repton's second stage executes at `&0700`
@@ -390,18 +444,26 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   instead, which makes the selector irrelevant at no hot-path cost. Measured:
   a probe called the mirrored routine at three different selector values and it
   ran all three times.
-- [ ] Build the trampoline. Four vector stubs and a pager, about 48 bytes,
-  synthesising the stack frame the MOS dispatcher builds so the four handlers
-  need no change.
-- [ ] Give the mirrored bytes up in the window arithmetic. `getbyte` must wrap
-  at `&E0` rather than on `INY` reaching zero, `uef_stream_publish` becomes a
-  scatter copy of 224 bytes per page, and the length trailer moves out of the
-  mirrored region. Costs an eighth of the window, which only affects images
-  above about 57 KB.
-- [ ] Mirror in the Pi kernel as the emulator adapter now does, and fall back
-  cleanly on a kernel which does not serve a mirror.
+- [x] Build the trampoline. Built as a 143-byte stub, four entries and a pager,
+  reproducing the MOS dispatch frame so the handlers needed no change. Proven
+  correct through a nested FILEV-inside-FSCV call in the 6502 simulator.
+- [x] Give the mirrored bytes up in the window arithmetic. Done at 104 usable
+  bytes per page rather than 224, because the stub grew past the 32 bytes the
+  original estimate assumed. Reverted with the trampoline.
+- [x] Mirror in the Pi kernel as the emulator adapter did, with a signature
+  check and a fall back to the RAM guard on a kernel which serves no mirror.
+  Removed again in 9ff59d1 once no host sent service command 86.
+- [x] Superseded: the trampoline does not ship. Pointing the filing vectors at
+  it broke the `*/` handover that every multi-file cassette loader ends with,
+  and every multi-file title failed after loading its first file. `actioned`
+  transfers to a loaded program by unwinding the MOS extended-vector dispatch
+  frame; the mirrored entry supplies its own frame instead, so the transfer
+  returned to the wrong place. The vectors stay on the RAM guard. See the
+  withdrawal note in
+  [`docs/hardware-validation.md`](docs/hardware-validation.md) and the patch
+  under `rom-side/candidates`.
 - [ ] Rerun the joint gate and the sixteen title probe against the measured
-  three quarter baseline.
+  three quarter baseline. Blocked: see the staging item below.
 - [ ] Superseded: prove the JIM selector discipline. `&FCFF` chooses the page at `&FD00`,
   WiCFS moves it while streaming, and it is write only. A vector firing while it
   points at a data page would execute UEF data. Establish that WiCFS can always
