@@ -288,10 +288,19 @@ tracked elsewhere.
 The trampoline route was built in full and withdrawn. What ships instead is the
 RAM guard the project already had, with two defects fixed on top of it.
 
-The `*/` multi-file handover works. Thrust, Arcadians, Repton, Repton 2 and
-Repton 3 all reach their title, menu or gameplay screens on ROM `82c0e0e4`,
-checked against the screenshots rather than the frame counter. Repton 2 reaches
-gameplay and Repton 3 loads 111 KB across several window refills.
+The `*/` multi-file handover works. Thrust, Arcadians, Repton 2 and Repton 3
+all reach their title, menu or gameplay screens on ROM `82c0e0e4`, checked
+against the screenshots rather than the frame counter. Repton 2 reaches
+gameplay and Repton 3 loads 111 KB across several window refills, so the
+handover, the scattered window and the refill path work together.
+
+Repton is not fixed. It renders its title screen correctly again, where the
+withdrawn mirrored-vector build corrupted the display, but it still stalls
+having consumed 6703 bytes of 28950 with 22247 unread, which is the exact
+signature `WICFS-016` records. The 0.1.66 baseline stalls at the same offset,
+so this is no regression rather than a repair, and an earlier note in this file
+which read Repton as loading was comparing against a build where Repton is
+itself the open defect.
 
 Two results from the withdrawn work are kept. The stream is published from JIM
 page 1, because page 0 is the service reply buffer that OSWORD `&65` clients
@@ -307,13 +316,21 @@ and the install raised "Device not found" and never completed. It polls now.
 This was a pre-existing failure at bus delays 128 and 255 in the launch timing
 gate, and it is a real hardware exposure rather than a test artefact.
 
-- [ ] Stage a title from `samples/` into a disposable BeebSCSI copy from a
-  committed script. The sixteen title probe did this per title, but no script
-  for it is in the repository, and `*UEF LOAD LOTF` now reports `UEF file not
-  found`. This blocks both remaining measurements below.
-- [ ] Close `WICFS-016`. Repton reaches sustained gameplay, but the gate is
-  joint and Last of the Free must still reach its start prompt from the same
-  ROM. That half has not been run since the vectors changed.
+- [x] Stage a title from `samples/` into a disposable BeebSCSI copy. Acorn File
+  Forge does this in one command, run through its own virtual environment
+  because the bulk-copy API needs the pinned Oaknut release:
+  `.venv/bin/python -m app.cli import-file <scsi0.dat> <title.uef> --descriptor
+  <scsi0.dsc> --destination 'UEF.LOTF' --output <staged.dat>`. `--dry-run`
+  reports `canProceed` before writing half a gigabyte.
+- [ ] Close `WICFS-016`. Half of it now passes: Last of the Free reaches its
+  start prompt on ROM `82c0e0e4` from a staged image. Repton does not. It still
+  stalls at 6703 bytes with 22247 unread, so the joint gate stays open on the
+  Repton half alone.
+- [ ] Record that the acceptance runner only injects its gameplay keys once the
+  frame matches `--title-reference`. Passing an unrelated screenshot, as the ad
+  hoc probe did for every title, turns the runner into a load test that can
+  never demonstrate gameplay. Only Thrust, Frak and Zalaga have committed
+  gameplay references.
 - [ ] Re-measure the three quarter corpus baseline. This work moves it in both
   directions: the `*/` fix should raise every multi-file title, and withdrawing
   the trampoline gives up the gain it was meant to buy.
