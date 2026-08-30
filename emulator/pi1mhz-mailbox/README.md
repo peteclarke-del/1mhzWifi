@@ -43,11 +43,13 @@ fixture models managed SSH deterministically; when installed with
 wolfSSH, including public-key and ephemeral password authentication. The
 dispatch callback keeps the device independent of either backend.
 
-Control selector `&FF` implements the 1MHzWifi menu services and command 93
-UEF normalization. Raw, gzip, ZIP and ZIP-contained gzip inputs are normalized
-in the AP5-visible JIM window at `&000000`, with length and CRC validation matching the Pi-side
-contract. Secure random uses command 95, so command 93 is unambiguous on every
-selector.
+Control selector `&FF` implements 1MHzWifi control services and command 93 UEF
+normalization. Raw, gzip, ZIP and ZIP-contained gzip inputs are normalized
+through the AP5-visible JIM window at `&000000`, with length and CRC validation
+matching the Pi-side contract. An exact `IUEF` version-1 subprotocol retains up
+to 16 MiB privately and publishes `&FF00`-byte windows with idempotent refill
+generations. Legacy command-93 text responses remain byte-for-byte compatible.
+Secure random uses command 95, so command 93 is unambiguous on every selector.
 
 ## Elkulator adapter
 

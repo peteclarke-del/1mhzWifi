@@ -1,0 +1,18 @@
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -268,4 +268,6 @@ set(services_emulator_files
+    services_emulator.c
+    fat_service.c
++   ftp_service.c
++   ftp_service.h
+    secure_service.c
+    secure_service.h
+diff --git a/src/services.h b/src/services.h
+--- a/src/services.h
++++ b/src/services.h
+@@ -29 +29,3 @@
+-/* 114..255 unallocated */
++#define SERVICE_CMD_FTP_FIRST    114u /* interactive FTP service              */
++#define SERVICE_CMD_FTP_LAST     119u
++/* 120..255 unallocated */

@@ -114,9 +114,18 @@ class RunnerAcceptanceContractTests(unittest.TestCase):
         self.assertIn('"dfs_rom_present": not args.without_dfs_rom', source)
         self.assertIn('command_events(args.profile, args.uef_file)', source)
         self.assertIn('default="space,space"', source)
+        self.assertIn('"--title-similarity", type=float, default=0.99', source)
+        self.assertIn('"PI1MHZ_CPU_DUMP"', source)
+        self.assertIn('"terminal_cpu_state"', source)
+        self.assertIn('"PI1MHZ_VECTOR_TRACE"', source)
+        self.assertIn('"vector_trace"', source)
+        self.assertIn('"--vector-trace"', source)
         self.assertIn("gameplay_input_index == len(gameplay_input)", source)
         self.assertIn("inject_x11_keys(display, [gameplay_input[0]])", source)
         self.assertIn("title_score = similarity(screenshot, args.title_reference)", source)
+        self.assertIn('"--title-stable-seconds"', source)
+        self.assertIn("bus_size != title_candidate_bus_size", source)
+        self.assertIn("elapsed - title_candidate_since >= args.title_stable_seconds", source)
         self.assertNotIn("(2500, KEY_SPACE)", source)
         self.assertIn("sustained_gameplay_motion and", source)
         self.assertIn('"--recovery-check"', source)
@@ -145,11 +154,60 @@ class RunnerAcceptanceContractTests(unittest.TestCase):
         self.assertIn("tube_requirement_satisfied and", source)
         self.assertIn('if not key.startswith("PI1MHZ_")', source)
         self.assertIn('"hardware_environment"', source)
+        self.assertIn('"PI1MHZ_RAM_DUMP"', source)
+        self.assertIn('"terminal_host_ram"', source)
         self.assertIn('"argv": command', source)
         self.assertIn("args.pi1mhz_cfg", source)
         self.assertIn('"PI1MHZ_BUS_TRACE"', source)
-        self.assertIn('"bus_trace": bus_trace_summary', source)
+        self.assertIn('bus_summary = bus_trace_summary', source)
+        self.assertIn('"bus_trace": bus_summary', source)
+        self.assertIn("require_live_bus_trace(process", source)
+        self.assertIn(
+            'bus_trace_ready = not args.no_bus_trace and bus_summary["available"]',
+            source,
+        )
+        self.assertIn("tube_requirement_satisfied and bus_trace_ready", source)
         self.assertIn('"tube_requirement_satisfied"', source)
+
+    def test_uef_recovery_replays_in_one_process_after_real_adfs_reads(self):
+        source = (ROOT / "tests/elkulator/run_uef_gameplay.py").read_text()
+        # Restarting Elkulator would clear the stale state behind the physical
+        # second-launch failure, so recovery must stay in one guest process.
+        self.assertEqual(source.count("process = subprocess.Popen("), 1)
+        self.assertIn('inject_x11_keys(display, ["F12"])', source)
+        self.assertIn('recovery_commands = ["*ADFS", "*MOUNT", "*DIR UEF"]', source)
+        self.assertIn('recovery_commands.append(f"*UEF LOAD {args.uef_file}")', source)
+        self.assertIn('"--recovery-no-reload"', source)
+        self.assertIn("args.native_tape is not None or args.recovery_no_reload", source)
+        self.assertIn('"reload_required": not (', source)
+        self.assertIn("recovery_prompt_confirmations == len(recovery_commands) - 1", source)
+        self.assertIn("post_break_beebscsi_reads > 0", source)
+        self.assertIn("recovery_title_seconds is not None", source)
+        self.assertIn("recovery_gameplay_seconds is not None", source)
+        self.assertIn("recovery_input_index == len(gameplay_input)", source)
+        self.assertIn("recovery_motion", source)
+        self.assertIn("recovery_passed and", source)
+        self.assertIn('"second_gameplay_seconds"', source)
+
+    def test_catalogue_repeats_menu_and_gameplay_in_one_process(self):
+        source = (
+            ROOT / "tests/elkulator/run_catalogue_differential.py"
+        ).read_text()
+        # A fresh emulator would also create a fresh Pi cache and clear the
+        # damaged host state.  The regression is meaningful only when Break,
+        # the second *MENU and both game launches share one guest process.
+        self.assertEqual(source.count("process = subprocess.Popen("), 1)
+        self.assertIn('"--repeat-after-break"', source)
+        self.assertIn('inject_x11_keys(display, ["F12"])', source)
+        self.assertIn('["at", "m", "e", "n", "u", "Return"]', source)
+        self.assertIn('close_count(trace, "TITLES")', source)
+        self.assertIn("repeat_menu_ready = wait_for_close_count(", source)
+        self.assertIn("repeat_game_closed = wait_for_close_count(", source)
+        self.assertIn("repeat_ready_seen", source)
+        self.assertIn("repeat_gameplay_scores", source)
+        self.assertIn("repeat_motion_pixels", source)
+        self.assertIn('"repeat_passed": repeat_passed', source)
+        self.assertIn("off[\"repeat_passed\"]", source)
 
     def test_bus_trace_summary_preserves_failure_boundary(self):
         runner = load_uef_runner()
@@ -167,6 +225,27 @@ class RunnerAcceptanceContractTests(unittest.TestCase):
         self.assertEqual(summary["jim_access_count"], 1)
         self.assertEqual(summary["last_jim_access"].split()[2], "FD05")
 
+    def test_uef_runner_rejects_a_stale_uninstrumented_elkulator(self):
+        runner = load_uef_runner()
+        process = mock.Mock()
+        process.poll.return_value = None
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(RuntimeError, "binary is stale"):
+                runner.require_live_bus_trace(
+                    process, Path(temporary) / "bus.trace", timeout=0.01,
+                )
+
+    def test_uef_runner_accepts_only_the_instrumented_trace_header(self):
+        runner = load_uef_runner()
+        process = mock.Mock()
+        process.poll.return_value = None
+        with tempfile.TemporaryDirectory() as temporary:
+            trace = Path(temporary) / "bus.trace"
+            trace.write_text(
+                "# cycle op address value selected-page mapped-jim\n"
+            )
+            runner.require_live_bus_trace(process, trace, timeout=0.01)
+
     def test_uef_sustained_motion_rejects_a_late_freeze(self):
         runner = load_uef_runner()
         screens = [Path(f"frame-{number}") for number in range(6)]
@@ -179,6 +258,15 @@ class RunnerAcceptanceContractTests(unittest.TestCase):
             )
         self.assertEqual(maxima, [200, 0, 0])
         self.assertFalse(passed)
+
+    def test_uef_non_recovery_run_uses_observation_deadline_for_motion(self):
+        source = (ROOT / "tests/elkulator/run_uef_gameplay.py").read_text()
+        self.assertIn(
+            "else (capture_times[-1] if capture_times else None)", source,
+        )
+        self.assertNotIn(
+            ") if args.recovery_check else ([], gameplay_motion)", source,
+        )
 
     def test_uef_runtime_profile_disables_ambient_turbo_and_plus3(self):
         runner = load_uef_runner()

@@ -1,0 +1,330 @@
+{
+  "schema": 1,
+  "failures": [
+    {
+      "id": "BOOT-001",
+      "symptom": "ROM startup produced Buffer full, a hang, or touched a missing Pi service.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_integration_contract.py::IntegrationContractTest::test_rom_startup_and_absent_service_are_fail_safe",
+        "tests/test_rom_compat.py::RomCompatibilityTest::test_startup_does_not_probe_legacy_uart_or_reset_pi_service"
+      ]
+    },
+    {
+      "id": "MAILBOX-001",
+      "symptom": "Delayed FCA6-FCA9 publication corrupted VERSION, NSLOOK, SSH, and ElkChat or returned errors 2A, 27, 2B, and 2D.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_merged_repository.py::MergedRepositoryTest::test_adjacent_register_fix_is_taken_from_upstream",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_assembled_driver_waits_for_page_publication",
+        "tests/test_elkchat_osword.py::ElkChatOSWORDCompatibilityTests::test_status_survives_delayed_fca9_callback",
+        "host-tools/tests/test_emulated_clients.py::EmulatedClientTests::test_clients_wait_for_selector_data_publication"
+      ]
+    },
+    {
+      "id": "WIFI-001",
+      "symptom": "WIFI ON did not distinguish a missing radio from a supported Pi with WiFi.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_integration_contract.py::IntegrationContractTest::test_pi_zero_and_pi3_wifi_firmware_matrix_is_packaged",
+        "tests/test_integration_contract.py::IntegrationContractTest::test_rom_startup_and_absent_service_are_fail_safe"
+      ]
+    },
+    {
+      "id": "WIFI-002",
+      "symptom": "JOIN returned OK without a usable association or forgot the saved profile after reboot.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_integration_contract.py::IntegrationContractTest::test_wifi_credentials_persist_and_runtime_network_is_enabled",
+        "tests/test_elkchat_osword.py::ElkChatOSWORDCompatibilityTests::test_status_join_and_control_calls_return_bounded_responses"
+      ]
+    },
+    {
+      "id": "MENU-001",
+      "symptom": "Retired MENU and MENUSRC commands remained reachable or entered stale downloaded code.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_integration_contract.py::IntegrationContractTest::test_menu_surface_is_fully_retired",
+        "tests/test_rom_compat.py::RomCompatibilityTest::test_retired_cartridge_code_is_not_emitted"
+      ]
+    },
+    {
+      "id": "MENU-002",
+      "symptom": "MENU accepted an empty, corrupt, or incomplete title-data download and entered Bad Program.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_integration_contract.py::IntegrationContractTest::test_wget_and_wicfs_use_the_pi_transport_and_jim_windows",
+        "tests/test_catalogue_differential.py::CatalogueDifferentialTests::test_trace_payload_is_bounded_to_matching_handle_and_close"
+      ]
+    },
+    {
+      "id": "MENU-003",
+      "symptom": "Repeated MENU use fetched the stable executable and catalogue again, increasing endpoint load and making reset recovery unnecessarily dependent on the network.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_integration_contract.py::IntegrationContractTest::test_wifi_credentials_persist_and_runtime_network_is_enabled",
+        "tests/test_merged_repository.py::MergedRepositoryTest::test_emulator_has_no_retired_menu_cache"
+      ]
+    },
+    {
+      "id": "WICFS-001",
+      "symptom": "REWIND hung or restarted from a stale cursor.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_stream_cursor_is_round_tripped_with_vector_state",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_assembled_getbyte_refills_without_resetting_parser_state"
+      ]
+    },
+    {
+      "id": "WICFS-002",
+      "symptom": "A first cassette file loaded and returned to the prompt or raised Bad Program instead of continuing the loader.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_assembled_first_file_classifier_obeys_basic_line_boundary",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_run_returns_through_the_intact_extended_vector_frame",
+        "tests/test_runner_acceptance_contract.py::RunnerAcceptanceContractTests::test_uef_requires_known_state_and_input_correlated_change"
+      ]
+    },
+    {
+      "id": "WICFS-003",
+      "symptom": "UEF playback ended with Unexpected EOF, End of UEF, or Chunk type after otherwise valid files.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_uef_map.py::UefMapTest::test_rejects_truncated_chunks_and_multi_entry_zip",
+        "tests/test_uef_normalize.py::UefNormalizeTest::test_terminal_timing_chunks_do_not_extend_the_wicfs_stream",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_osfile_length_includes_full_final_block_and_carry"
+      ]
+    },
+    {
+      "id": "WICFS-004",
+      "symptom": "Large or boundary-aligned UEF data caused Buffer full or lost a full final page.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_uef_normalize.py::UefNormalizeTest::test_incremental_exact_window_boundaries",
+        "tests/test_uef_normalize.py::UefNormalizeTest::test_incremental_final_append_retry_at_exact_capacity",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_assembled_uef_completion_classifies_256_byte_multiples"
+      ]
+    },
+    {
+      "id": "WICFS-005",
+      "symptom": "Raw, gzip, ZIP, or gzip-inside-ZIP UEF input was rejected or decoded differently by Pi and emulator.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_uef_normalize.py::UefNormalizeTest::test_raw_gzip_zip_and_zip_containing_gzip",
+        "tests/test_uef_normalize.py::UefNormalizeTest::test_emulator_and_pi_normalizers_match_real_corpus",
+        "tests/test_uef_map.py::UefMapTest::test_decodes_gzip_and_single_entry_zip_gzip"
+      ]
+    },
+    {
+      "id": "WICFS-006",
+      "symptom": "Incremental streams over 64 KiB or public-JIM reuse corrupted later windows.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_uef_normalize.py::UefNormalizeTest::test_incremental_raw_gzip_zip_and_zip_gzip_over_64k",
+        "tests/test_uef_normalize.py::UefNormalizeTest::test_incremental_stream_survives_public_jim_reuse",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_assembled_incremental_reply_parser_preserves_ff00_window"
+      ]
+    },
+    {
+      "id": "WICFS-007",
+      "symptom": "A low cassette loader overwrote the Electron extended vectors and stopped after FREE 06 06FF.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_tube_off_guard_survives_low_loader_vector_table_overwrite",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_assembled_low_loader_guard_repairs_filev_tuple_and_preserves_call"
+      ]
+    },
+    {
+      "id": "WICFS-008",
+      "symptom": "A loader overwrote the host-side incremental generation and later REFILL or APPEND requests stopped.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_incremental_generation_survives_complete_loader_workspace_overwrite"
+      ]
+    },
+    {
+      "id": "WICFS-009",
+      "symptom": "ADFS, DFS, or MMFS disappeared after Break because WiCFS restored stale or unowned vectors.",
+      "status": "open-hardware",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_break_restores_only_owned_vectors_from_valid_state",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_reset_does_not_restore_arbitrary_host_workspace",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_tape_transition_preserves_the_real_filing_system_predecessor",
+        "tests/test_runner_acceptance_contract.py::RunnerAcceptanceContractTests::test_uef_recovery_replays_in_one_process_after_real_adfs_reads"
+      ],
+      "acceptance_runner": "tests/elkulator/run_uef_gameplay.py",
+      "required_profile": "Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS BeebSCSI, Tube disabled baseline, --recovery-check"
+    },
+    {
+      "id": "WICFS-010",
+      "symptom": "A second MENU invocation hung until a cold boot after a completed or aborted WiCFS session.",
+      "status": "open-hardware",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_exhausted_stream_restores_and_rearms_the_osbyte_trap",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_final_bget_retires_the_complete_wicfs_installation",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_inactive_host_tape_transition_returns_with_balanced_stack",
+        "tests/test_runner_acceptance_contract.py::RunnerAcceptanceContractTests::test_uef_recovery_replays_in_one_process_after_real_adfs_reads",
+        "tests/test_runner_acceptance_contract.py::RunnerAcceptanceContractTests::test_catalogue_repeats_menu_and_gameplay_in_one_process"
+      ],
+      "acceptance_runner": "tests/elkulator/run_catalogue_differential.py",
+      "required_profile": "Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS BeebSCSI, Tube disabled baseline, --repeat-after-break"
+    },
+    {
+      "id": "WICFS-011",
+      "symptom": "The automatic launcher misclassified real tokenised BASIC because it checked one byte before the declared trailing CR.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_assembled_first_file_classifier_obeys_basic_line_boundary"
+      ]
+    },
+    {
+      "id": "WICFS-012",
+      "symptom": "OSFILE metadata or a file handle stored in application memory was overwritten by the loaded file.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_rom_compat.py::RomCompatibilityTest::test_uef_file_handle_is_recovered_from_each_stack_context",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_osfile_length_includes_full_final_block_and_carry"
+      ]
+    },
+    {
+      "id": "WICFS-013",
+      "symptom": "ADFS, MMFS, or another expansion redirected the shared JIM page during UEF import.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_every_uef_jim_write_is_followed_by_bus_settle",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_jim_page_is_settled_before_data_access",
+        "tests/test_merged_repository.py::MergedRepositoryTest::test_emulator_preserves_pi1mhz_fat_service_for_mmfs"
+      ]
+    },
+    {
+      "id": "WICFS-014",
+      "symptom": "A cassette file loaded over MOS cassette workspace &0380 and caused WiCFS to persist corrupted vector ownership, lose the filing system, or replay stale stream state.",
+      "status": "open-hardware",
+      "tests": [
+        "tests/test_uef_map.py::UefMapTest::test_installed_corpus_contains_the_workspace_overwrite_boundary",
+        "tests/test_runner_acceptance_contract.py::RunnerAcceptanceContractTests::test_uef_recovery_replays_in_one_process_after_real_adfs_reads"
+      ],
+      "acceptance_runner": "tests/elkulator/run_uef_gameplay.py",
+      "required_profile": "Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS BeebSCSI, Tube disabled baseline, cassette file overlapping &0380, --recovery-check"
+    },
+    {
+      "id": "WICFS-015",
+      "symptom": "Protected and sequential UEF loaders were slowed by machine detection and MOS extended-vector dispatch on every OSBGET byte.",
+      "status": "open-hardware",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_machine_detection_occurs_once_per_bget_buffer_refill"
+      ],
+      "acceptance_runner": "tests/elkulator/run_uef_gameplay.py",
+      "required_profile": "Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS BeebSCSI, Tube disabled, protected sequential UEF through OSBGET"
+    },
+    {
+      "id": "OSWORD-001",
+      "symptom": "ElkWiFi function 9 hung instead of accepting single-connection mode locally.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_elkchat_osword.py::ElkChatOSWORDCompatibilityTests::test_function_9_single_connection_returns_local_ok"
+      ]
+    },
+    {
+      "id": "OSWORD-002",
+      "symptom": "Function 13 returned after transmit, lost partial sends, or failed to collect a multi-page response.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_elkchat_osword.py::ElkChatOSWORDCompatibilityTests::test_send_retries_zero_and_partial_queue_results",
+        "tests/test_elkchat_osword.py::ElkChatOSWORDCompatibilityTests::test_function_13_preserves_boundary_lengths_and_exact_jim_bytes",
+        "tests/test_elkchat_osword.py::ElkChatOSWORDCompatibilityTests::test_elkchat_tcp_open_send_receive_and_close_crosses_jim_pages"
+      ]
+    },
+    {
+      "id": "NETTOOLS-001",
+      "symptom": "SSH changed a usable display to MODE 4 when prompting for a password.",
+      "status": "fixed",
+      "tests": [
+        "host-tools/tests/test_emulated_clients.py::EmulatedClientTests::test_ssh_password_session_preserves_suitable_80_column_mode",
+        "host-tools/tests/test_build.py::BuildTests::test_public_loaders_preserve_a_safe_mode_or_select_mode4"
+      ]
+    },
+    {
+      "id": "NETTOOLS-002",
+      "symptom": "NSLOOK produced Bad Program and SSH produced ABI or secure-service timeout errors.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_rom_compat.py::RomCompatibilityTest::test_supported_commands_and_osword_are_present",
+        "host-tools/tests/test_emulated_clients.py::EmulatedClientTests::test_ssh_waits_for_deferred_pi_firmware_poll",
+        "host-tools/tests/test_emulated_clients.py::EmulatedClientTests::test_ssh_managed_session_renders_vt100_and_sends_keys"
+      ]
+    },
+    {
+      "id": "NETTOOLS-003",
+      "symptom": "Escape from PING or return from a transient tool executed stale memory and raised Bad Program.",
+      "status": "fixed",
+      "tests": [
+        "host-tools/tests/test_build.py::BuildTests::test_transient_tools_return_through_oscli",
+        "tests/test_runner_acceptance_contract.py::RunnerAcceptanceContractTests::test_ping_requires_bounded_request_count_and_clean_prompt"
+      ]
+    },
+    {
+      "id": "ELKCHAT-001",
+      "symptom": "Public chat displayed Settings records or private chat returned Bad Program because network responses crossed buffers.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_elkchat_fixture_server.py::ElkChatFixtureServerTests::test_public_and_private_responses_are_distinct",
+        "tests/test_elkchat_osword.py::ElkChatOSWORDCompatibilityTests::test_function_13_preserves_boundary_lengths_and_exact_jim_bytes"
+      ]
+    },
+    {
+      "id": "TUBE-001",
+      "symptom": "1MHzWifi attempted to use Tube registers or parasite RAM as the MENU, UEF, or NetTools transfer destination.",
+      "status": "fixed",
+      "tests": [
+        "tests/test_rom_compat.py::RomCompatibilityTest::test_wicfs_uses_mos_vectors_and_host_only_osfile_transfer",
+        "host-tools/tests/test_emulated_clients.py::EmulatedClientTests::test_tube_loader_ignores_parasite_memory_boundaries",
+        "tests/test_integration_contract.py::IntegrationContractTest::test_local_uef_import_uses_current_filing_system_and_wicfs"
+      ]
+    },
+    {
+      "id": "TUBE-002",
+      "symptom": "With an active Tube, some MENU titles and host tools return to the parasite prompt, hang, or fail at the final cassette file.",
+      "status": "open-hardware",
+      "tests": [
+        "tests/test_runner_acceptance_contract.py::RunnerAcceptanceContractTests::test_catalogue_requires_per_title_gameplay_evidence",
+        "tests/test_runner_acceptance_contract.py::RunnerAcceptanceContractTests::test_uef_runner_accepts_only_the_instrumented_trace_header"
+      ],
+      "acceptance_runner": "tests/elkulator/run_catalogue_differential.py",
+      "required_profile": "Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS BeebSCSI, active external 3 MHz 65C02 Tube"
+    },
+    {
+      "id": "PLATFORM-001",
+      "symptom": "A ROM path that is valid on Electron selects the wrong JIM bank or ROM register on BBC B, B+, Master, or Master Compact.",
+      "status": "open-hardware",
+      "tests": [
+        "tests/test_elkchat_osword.py::ElkChatOSWORDCompatibilityTests::test_one_rom_selects_public_jim_for_electron_and_bbc_family",
+        "tests/test_bem_runner_contract.py::BEmRunnerContractTests::test_b_plus_and_master_use_the_same_rom_image"
+      ],
+      "acceptance_runner": "tests/bem/run_bem_hardware.py",
+      "required_profile": "BBC B 32K minimum, B+, Master, Master Compact, and Electron minimum configurations"
+    },
+    {
+      "id": "WICFS-016",
+      "symptom": "A cassette loader executing in &0700-&07FF replaces the WiCFS vector gateway at &0780, leaving FILEV, FINDV and FSCV pointing into game code. *UEF LOAD REPTON stalls on the title screen with 22247 stream bytes unread and the filing system is unrecoverable without a power cycle. Removing the gateway fixes Repton but regresses Last of the Free, which needs its extended-vector repair, so the gateway must be relocated rather than deleted.",
+      "status": "open-hardware",
+      "acceptance_runner": "tests/elkulator/run_uef_gameplay.py",
+      "required_profile": "Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS BeebSCSI, Tube disabled baseline. *UEF LOAD REPTON must reach sustained gameplay and *UEF LOAD of Last of the Free must still reach its start prompt with the same ROM.",
+      "tests": [
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_tube_off_guard_survives_low_loader_vector_table_overwrite",
+        "tests/test_wicfs_runtime_contract.py::WicfsRuntimeContractTest::test_assembled_low_loader_guard_repairs_filev_tuple_and_preserves_call"
+      ]
+    },
+    {
+      "id": "WICFS-017",
+      "symptom": "A UEF larger than one incremental window stops after the first window. Repton Infinity reaches its loader and prints Searching with 63886 of 65280 stream bytes unread, identically with and without the &0780 gateway. The Pi normaliser and its window protocol pass their own tests, so the defect is in the host request path or the window handover above them.",
+      "status": "open-hardware",
+      "acceptance_runner": "tests/elkulator/run_uef_gameplay.py",
+      "required_profile": "Electron, Plus 1, Plus 2, AP5, RH Plus, ADFS BeebSCSI, Tube disabled, *UEF LOAD REPTONINF and any image above the 64 KiB window",
+      "tests": [
+        "tests/test_uef_normalize.py::UefNormalizeTest::test_incremental_raw_gzip_zip_and_zip_gzip_over_64k",
+        "tests/test_runner_acceptance_contract.py::RunnerAcceptanceContractTests::test_uef_runner_accepts_only_the_instrumented_trace_header"
+      ]
+    }
+  ]
+}

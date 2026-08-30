@@ -27,11 +27,8 @@ build/TELNET: src/telnet.asm src/vt100.asm $(COMMON_SOURCES) | build
 build/SSH: src/ssh.asm src/vt100.asm src/common/pi1mhz_secure.asm $(COMMON_SOURCES) | build
 	$(BEEBASM) -i src/ssh.asm -o $@ -D NET_DEBUG=$(NET_DEBUG)
 
-build/PING: src/ping.asm src/common/tool_common.asm $(COMMON_SOURCES) | build
-	$(BEEBASM) -i src/ping.asm -o $@ -D NET_DEBUG=$(NET_DEBUG)
-
-build/NSLOOK: src/nslook.asm src/common/tool_common.asm $(COMMON_SOURCES) | build
-	$(BEEBASM) -i src/nslook.asm -o $@ -D NET_DEBUG=$(NET_DEBUG)
+build/SFTP: src/sftp.asm src/common/pi1mhz_secure.asm $(COMMON_SOURCES) | build
+	$(BEEBASM) -i src/sftp.asm -o $@ -D NET_DEBUG=$(NET_DEBUG)
 
 build/NETMENU: src/netmenu.asm src/common/mos.inc src/common/application.asm | build
 	$(BEEBASM) -i src/netmenu.asm -o $@
@@ -48,18 +45,15 @@ build/TELNETL: src/tool_loader.asm src/common/mos.inc build/TELNET | build
 build/SSHL: src/tool_loader.asm src/common/mos.inc build/SSH | build
 	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=3 -D MAIN_SIZE=$$(wc -c < build/SSH)
 
-build/PINGL: src/tool_loader.asm src/common/mos.inc build/PING | build
-	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=4 -D MAIN_SIZE=$$(wc -c < build/PING)
-
-build/NSLOOKL: src/tool_loader.asm src/common/mos.inc build/NSLOOK | build
-	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=5 -D MAIN_SIZE=$$(wc -c < build/NSLOOK)
-
 build/HWDTESTL: src/tool_loader.asm src/common/mos.inc build/HWDTEST | build
 	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=6 -D MAIN_SIZE=$$(wc -c < build/HWDTEST)
 
-LOADERS := build/NETMENUL build/TELNETL build/SSHL build/PINGL build/NSLOOKL build/HWDTESTL
+build/SFTPL: src/tool_loader.asm src/common/mos.inc build/SFTP | build
+	$(BEEBASM) -i src/tool_loader.asm -o $@ -D LOADER_ID=7 -D MAIN_SIZE=$$(wc -c < build/SFTP)
 
-build/nettools.ssd: src/disc.asm build/NETMENU build/TELNET build/SSH build/PING build/NSLOOK build/HWDTEST $(LOADERS) | build
+LOADERS := build/NETMENUL build/TELNETL build/SSHL build/HWDTESTL build/SFTPL
+
+build/nettools.ssd: src/disc.asm build/NETMENU build/TELNET build/SSH build/SFTP build/HWDTEST $(LOADERS) | build
 	rm -f $@
 	$(BEEBASM) -i src/disc.asm -do $@ -boot NETMENU -title NETTOOLS
 	truncate -s 204800 $@
@@ -70,13 +64,10 @@ build/TELNET-debug: src/telnet.asm src/vt100.asm $(COMMON_SOURCES) | build
 build/SSH-debug: src/ssh.asm src/vt100.asm src/common/pi1mhz_secure.asm $(COMMON_SOURCES) | build
 	$(BEEBASM) -i src/ssh.asm -o $@ -D NET_DEBUG=1
 
-build/PING-debug: src/ping.asm src/common/tool_common.asm $(COMMON_SOURCES) | build
-	$(BEEBASM) -i src/ping.asm -o $@ -D NET_DEBUG=1
+build/SFTP-debug: src/sftp.asm src/common/pi1mhz_secure.asm $(COMMON_SOURCES) | build
+	$(BEEBASM) -i src/sftp.asm -o $@ -D NET_DEBUG=1
 
-build/NSLOOK-debug: src/nslook.asm src/common/tool_common.asm $(COMMON_SOURCES) | build
-	$(BEEBASM) -i src/nslook.asm -o $@ -D NET_DEBUG=1
-
-build/nettools-debug.ssd: src/disc-debug.asm build/NETMENU build/TELNET-debug build/SSH-debug build/PING-debug build/NSLOOK-debug build/HWDTEST $(LOADERS) | build
+build/nettools-debug.ssd: src/disc-debug.asm build/NETMENU build/TELNET-debug build/SSH-debug build/SFTP-debug build/HWDTEST $(LOADERS) | build
 	rm -f $@
 	$(BEEBASM) -i src/disc-debug.asm -do $@ -boot NETMENU -title NETTOOLS
 	truncate -s 204800 $@
@@ -138,13 +129,15 @@ build/test-pi1mhz-live: \
 		$(MAILBOX)/tests/test_live_backend.c \
 		$(MAILBOX)/src/pi1mhz_mailbox.c \
 		$(MAILBOX)/src/pi1mhz_net_backend.c \
+		$(MAILBOX)/src/pi1mhz_ftp.c \
 		$(MAILBOX)/include/pi1mhz_mailbox.h \
 		$(MAILBOX)/include/pi1mhz_net_backend.h | build
 	$(CC) -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror \
 		-I $(MAILBOX)/include \
 		$(MAILBOX)/tests/test_live_backend.c \
 		$(MAILBOX)/src/pi1mhz_mailbox.c \
-		$(MAILBOX)/src/pi1mhz_net_backend.c -lz -o $@
+		$(MAILBOX)/src/pi1mhz_net_backend.c \
+		$(MAILBOX)/src/pi1mhz_ftp.c -lz -o $@
 
 build/test-secure-service-core: \
 		$(REPO_ROOT)/pi-side/tests/test_secure_service_core.c \
@@ -154,11 +147,32 @@ build/test-secure-service-core: \
 		-I $(PI_OVERLAY) $(REPO_ROOT)/pi-side/tests/test_secure_service_core.c \
 		$(PI_OVERLAY)/secure_service_core.c -o $@
 
+build/test-media-catalogue: \
+		$(REPO_ROOT)/pi-side/tests/test_media_catalogue.c \
+		$(PI_OVERLAY)/media_catalogue.c \
+		$(PI_OVERLAY)/media_catalogue.h | build
+	$(CC) -std=c11 -Wall -Wextra -Werror \
+		-I $(PI_OVERLAY) $(REPO_ROOT)/pi-side/tests/test_media_catalogue.c \
+		$(PI_OVERLAY)/media_catalogue.c -o $@
+
+build/test-media-service-core: \
+		$(REPO_ROOT)/pi-side/tests/test_media_service_core.c \
+		$(PI_OVERLAY)/media_service_core.c \
+		$(PI_OVERLAY)/media_service_core.h \
+		$(PI_OVERLAY)/media_catalogue.c \
+		$(PI_OVERLAY)/media_catalogue.h | build
+	$(CC) -std=c11 -Wall -Wextra -Werror \
+		-I $(PI_OVERLAY) $(REPO_ROOT)/pi-side/tests/test_media_service_core.c \
+		$(PI_OVERLAY)/media_service_core.c $(PI_OVERLAY)/media_catalogue.c -o $@
+
 test: build/nettools.ssd build/nettools-debug.ssd build/test-pi1mhz-mailbox build/test-pi1mhz-live \
-		build/test-secure-service-core
+		build/test-secure-service-core build/test-media-catalogue \
+		build/test-media-service-core
 	./build/test-pi1mhz-mailbox
 	./build/test-pi1mhz-live
 	./build/test-secure-service-core
+	./build/test-media-catalogue
+	./build/test-media-service-core
 	PYTHONPATH=.test-deps PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 
 emulator-deps:

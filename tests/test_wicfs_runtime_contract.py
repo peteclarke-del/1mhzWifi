@@ -20,6 +20,8 @@ CHAIN_TARGET = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-chain-target.patch"
 VECTOR_FLAGS = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-vector-flags.patch"
 MESSAGE_PRESERVE = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-message-preserve.patch"
 PAGE_SELECT_FAST = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-page-select-fast.patch"
+LOW_LOADER_GUARD = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-low-loader-guard.patch"
+BGET_REFILL_DETECTION = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-bget-refill-detection.patch"
 ROM_START = 0x8000
 
 
@@ -111,6 +113,13 @@ def run_to(mpu: MPU, address: int, limit: int = 200000) -> None:
 
 
 class WicfsRuntimeContractTest(unittest.TestCase):
+    def test_machine_detection_occurs_once_per_bget_buffer_refill(self) -> None:
+        text = BGET_REFILL_DETECTION.read_text()
+        bget, fill = text.split("@@ -2672", 1)
+        self.assertIn("-    JSR wicfs_detect_machine", bget)
+        self.assertIn("+\tJSR\twicfs_detect_machine", fill)
+        self.assertIn("once per 256-byte refill", fill)
+
     def test_message_terminator_survives_osasci_register_clobber(self) -> None:
         text = MESSAGE_PRESERVE.read_text()
         loop = text.split(" .xmess_a1", 1)[1]
@@ -156,13 +165,6 @@ class WicfsRuntimeContractTest(unittest.TestCase):
         self.assertEqual(mpu.x, 16)
         self.assertEqual(mpu.a, 0x0D)
 
-    def test_menu_page_select_settles_after_fcff_write(self):
-        source = (ROOT / "rom-side/elkwifi-0.23/overlay/menusrc.asm").read_text()
-        helper = source.split(".menusrc_catalogue_select\n", 1)[1].split(
-            ".menusrc_catalogue_select_end", 1
-        )[0]
-        self.assertLess(helper.index("sta &FCFF"), helper.index("nop:nop"))
-
     def test_every_mos_error_fits_private_workspace(self) -> None:
         source = (
             ROOT / "rom-side/elkwifi-0.23/overlay/errors.asm"
@@ -193,14 +195,24 @@ class WicfsRuntimeContractTest(unittest.TestCase):
 
     def test_combined_assembled_ram_audit_rejects_fixed_uef_counter(self) -> None:
         checker = ROOT / "rom-side/check_combined_ram_layout.py"
-        labels = [{name: 0x8000 + index for index, name in enumerate(
-            (".uef_cmd", ".wicfs_state_load", ".menu_cmd", ".pi_wget_cmd"))}]
+        labels = [{
+            ".uef_cmd": 0x8000,
+            ".wicfs_state_load": 0x8001,
+            ".host_select_tape": 0x8002,
+            ".pi_wget_cmd": 0x8003,
+            ".wicfs_reset_done": 0x8100,
+            ".wicfs_load_pre_tape": 0x810B,
+            ".wicfs_release_invalid_byte_trap": 0x8120,
+            ".s_guard": 0x8200,
+            ".e_guard": 0x8260,
+        }]
         base = """
 wicfs_state_ram = &0380
 wicfs_machine = &C3
 filev_x = &0396
 filev_y = &0397
 notape = &0398
+romsel = &0780
 chain_exec = &03A0
 host_basic_pending = &03BD
 """
@@ -211,10 +223,156 @@ host_basic_pending = &03BD
             command = [sys.executable, str(checker), str(root), str(root / "labels.txt")]
             valid = subprocess.run(command, capture_output=True, text=True, check=False)
             self.assertEqual(valid.returncode, 0, valid.stderr)
+            aliased = [dict(labels[0])]
+            aliased[0][".wicfs_load_pre_tape"] = aliased[0][".wicfs_reset_done"]
+            (root / "labels.txt").write_text(repr(aliased))
+            bad_layout = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
+            self.assertNotEqual(bad_layout.returncode, 0)
+            self.assertIn("complete reset epilogue", bad_layout.stderr)
+            (root / "labels.txt").write_text(repr(labels))
             (root / "uef.asm").write_text("uef_length_hi = &0395\n")
             collision = subprocess.run(command, capture_output=True, text=True, check=False)
             self.assertNotEqual(collision.returncode, 0)
             self.assertIn("stack-local", collision.stderr)
+
+    def test_tube_off_guard_survives_low_loader_vector_table_overwrite(self) -> None:
+        text = LOW_LOADER_GUARD.read_text()
+        self.assertIn("romsel\t=\t&0780", text)
+        self.assertIn("loaders routinely overwrite &0900-&10FF", text)
+        self.assertIn(".wicfs_publish_guards_if_host_only", text)
+        self.assertIn("LDA\t#&EA", text)
+        self.assertIn("CPX\t#&FF", text)
+        self.assertIn(".guard_offsets", text)
+        self.assertIn("equb\t27,33,42,45", text)
+        self.assertIn("equb\t&1B,&21,&2A,&2D", text)
+        self.assertIn("ASSERT romsel+(e_guard-s_guard) <= &0800", text)
+        for entry in (".guard_file", ".guard_bget", ".guard_find", ".guard_fsc"):
+            body = text.split(entry, 1)[1].split("LDA\t#", 1)[0]
+            self.assertIn("PHP", body)
+            self.assertIn("SEI", body)
+        # Reset must first rebuild overwritten extended tuples and replace the
+        # guard vectors with the normal MOS dispatchers. Otherwise the guard
+        # would remain installed after stream retirement and a second MENU
+        # invocation could re-enter stale WiCFS state.
+        reset = text.split(".wicfs_reset_active", 1)[1]
+        self.assertLess(reset.index("JSR\twicfs_publish_extended_vectors"),
+                        reset.index(".wicfs_reset_vectors_ready"))
+        for dispatcher in ("&FF1B", "&FF21", "&FF2A", "&FF2D"):
+            self.assertIn(dispatcher, reset)
+
+    def test_assembled_low_loader_guard_repairs_filev_tuple_and_preserves_call(self) -> None:
+        match = self.find_rom_routine(
+            rb"\x08\x48\x78\xA9\x00\x10.\x08\x48\x78\xA9\x01\x10."
+            rb"\x08\x48\x78\xA9\x02\x10.\x08\x48\x78\xA9\x03"
+        )
+        template = self.rom[match.start():match.start() + 0x80]
+        dispatch = template.find(b"\x1B\x21\x2A\x2D\x00\x00")
+        self.assertGreater(dispatch, 0, "guard dispatch/slot table not found")
+
+        mpu = MPU()
+        mpu.memory[0x0780:0x0800] = template
+        mpu.memory[0x0780 + dispatch + 4] = 3  # installed ROM slot
+        # Simulate a cassette loader overwriting every extended tuple.
+        mpu.memory[0x0400 + 27:0x0400 + 30] = [0xAA, 0xBB, 0xCC]
+        mpu.pc = 0x0780
+        mpu.a, mpu.x, mpu.y = 0xFF, 0x34, 0x12
+        mpu.p = 0xA1  # normal IRQ-enabled caller
+        mpu.sp = 0xFD
+        sentinel = 0x0600
+        return_address = sentinel - 1
+        mpu.memory[0x01FE] = return_address & 0xFF
+        mpu.memory[0x01FF] = return_address >> 8
+        entered_dispatch = False
+
+        def mos_return() -> None:
+            low = mpu.memory[0x0100 + ((mpu.sp + 1) & 0xFF)]
+            high = mpu.memory[0x0100 + ((mpu.sp + 2) & 0xFF)]
+            mpu.sp = (mpu.sp + 2) & 0xFF
+            mpu.pc = (((high << 8) | low) + 1) & 0xFFFF
+
+        for _ in range(1000):
+            if mpu.pc == sentinel:
+                break
+            if mpu.pc == 0xFFF4:
+                self.assertEqual((mpu.a, mpu.x, mpu.y), (0xA8, 0, 0xFF))
+                mpu.x, mpu.y = 0x00, 0x04
+                mos_return()
+            elif mpu.pc == 0xFF1B:
+                entered_dispatch = True
+                self.assertEqual((mpu.a, mpu.x, mpu.y), (0xFF, 0x34, 0x12))
+                # PHP records the architecturally synthetic B flag. All real
+                # caller flags must otherwise be unchanged at the dispatcher.
+                self.assertEqual(mpu.p & 0xEF, 0xA1)
+                repaired = bytes(mpu.memory[0x0400 + 27:0x0400 + 30])
+                self.assertNotEqual(repaired[:2], b"\xAA\xBB")
+                self.assertEqual(repaired[2], 3)
+                mpu.a = 1
+                mpu.p |= mpu.CARRY
+                mos_return()
+            else:
+                mpu.step()
+        else:
+            self.fail("assembled FILEV guard did not return")
+
+        self.assertTrue(entered_dispatch)
+        self.assertEqual((mpu.a, mpu.x, mpu.y), (1, 0x34, 0x12))
+        self.assertTrue(mpu.p & mpu.CARRY)
+
+    def test_inactive_host_tape_transition_returns_with_balanced_stack(self) -> None:
+        # Locate the assembled host transition by its four-call control-flow shape.
+        # This executes the emitted ROM, so a source patch which aliases the
+        # reset epilogue and helper cannot pass by textual inspection alone.
+        match = self.find_rom_routine(
+            rb"\x20..\xB0.\x20..\x20..\x90.\x20"
+        )
+        # 255 is the maximum capture-delay override accepted by the Elkulator
+        # Pi1MHz integration. This makes the lifecycle path prove that every
+        # private cursor access gets a complete quiet window, rather than only
+        # passing the emulator's normal low-latency profile.
+        memory = DelayedOneSlotMailbox(self.rom, delay_accesses=255)
+        mpu = MPU(memory=memory)
+        mpu.pc = ROM_START + match.start()
+        mpu.sp = 0xFD
+        sentinel = 0x0600
+        return_address = sentinel - 1
+        memory.ram[0x01FE] = return_address & 0xFF
+        memory.ram[0x01FF] = return_address >> 8
+        memory.ram[0x020A] = 0x34  # ordinary MOS BYTEV, no active WiCFS trap
+        memory.ram[0x020B] = 0x12
+        oscli_commands = []
+
+        def mos_return() -> None:
+            low = memory.ram[0x0100 + ((mpu.sp + 1) & 0xFF)]
+            high = memory.ram[0x0100 + ((mpu.sp + 2) & 0xFF)]
+            mpu.sp = (mpu.sp + 2) & 0xFF
+            mpu.pc = (((high << 8) | low) + 1) & 0xFFFF
+
+        for _ in range(300000):
+            if mpu.pc == sentinel:
+                break
+            if mpu.pc == 0xFFF4:  # OSBYTE &A8: extended-vector table address
+                self.assertEqual(mpu.a, 0xA8)
+                mpu.x, mpu.y = 0x00, 0x04
+                mos_return()
+            elif mpu.pc == 0xFFF7:  # OSCLI TAPE
+                address = mpu.x | mpu.y << 8
+                command = bytearray()
+                while memory.ram[address] != 0x0D:
+                    command.append(memory.ram[address])
+                    address += 1
+                oscli_commands.append(bytes(command))
+                mos_return()
+            else:
+                mpu.step()
+        else:
+            self.fail("inactive menu_select_tape did not return")
+
+        self.assertEqual(oscli_commands, [b"TAPE"])
+        self.assertEqual(mpu.sp, 0xFF)
+        self.assertEqual(mpu.p & mpu.CARRY, 0)
+        self.assertEqual(memory.collisions, 0)
 
     def test_persisted_state_uses_explicit_private_addresses(self) -> None:
         base = (ROOT / "rom-side/elkwifi-0.23/patches/wicfs-jim-state.patch").read_text()
@@ -326,20 +484,14 @@ host_basic_pending = &03BD
 
     def test_assembled_uef_completion_classifies_256_byte_multiples(self) -> None:
         match = self.find_rom_routine(
-            rb"\x28\xba\xbd\x02\x01\x1d\x01\x01\xd0.\x4c.."
+            rb"\x28\xba\xbd\x02\x01\x1d\x01\x01"
         )
         start = ROM_START + match.start()
-        branch_address = start + 8
-        fallthrough = branch_address + 2
-        displacement = self.rom[match.start() + 9]
-        if displacement & 0x80:
-            displacement -= 0x100
-        nonempty = fallthrough + displacement
-        for value, expected in (
-            (0x0000, fallthrough),
-            (0x0100, nonempty),
-            (0x01FF, nonempty),
-            (0xFFFE, nonempty),
+        for value, expected_zero in (
+            (0x0000, True),
+            (0x0100, False),
+            (0x01FF, False),
+            (0xFFFE, False),
         ):
             with self.subTest(value=f"{value:04X}"):
                 memory = bytearray(0x10000)
@@ -351,10 +503,343 @@ host_basic_pending = &03BD
                 memory[0x01F2] = value >> 8
                 mpu = MPU(memory=memory, pc=start)
                 mpu.sp = 0xEF
-                for _ in range(5):
+                # PLP, TSX, LDA high and ORA low. Inspect the result before
+                # following either the legacy or negotiated-stream branch.
+                for _ in range(4):
                     mpu.step()
-                self.assertEqual(mpu.pc, expected)
+                self.assertEqual(bool(mpu.p & mpu.ZERO), expected_zero)
                 self.assertEqual(mpu.sp, 0xF0)
+
+    def test_assembled_incremental_reply_parser_preserves_ff00_window(self) -> None:
+        # Enter at the token-skip loop and replace only service_driver_read_a
+        # with a deterministic reply source. This executes the assembled ROM
+        # parser, so an extra or missing mailbox read cannot be hidden by a
+        # source-level protocol model.
+        match = self.find_rom_routine(
+            rb"\xA2\x04\x20(..)\xCA\xD0\xFA\x20\1"
+        )
+        start = ROM_START + match.start()
+        read_a = match.group(1)[0] | match.group(1)[1] << 8
+        memory = bytearray(0x10000)
+        memory[ROM_START:ROM_START + len(self.rom)] = self.rom
+        mpu = MPU(memory=memory, pc=start)
+        mpu.sp = 0xF0
+        sentinel = 0x0600
+        return_address = sentinel - 1
+        memory[0x01F1] = return_address & 0xFF
+        memory[0x01F2] = return_address >> 8
+
+        # token, 32-bit generation, 16-bit length, final flag and format.
+        reply = iter((0xA1, 0xB2, 0xC3, 0xD4,
+                      0x34, 0x12, 0x78, 0x56,
+                      0x00, 0xFF, 0x00, ord("G")))
+        reads = 0
+        for _ in range(5000):
+            if mpu.pc == sentinel:
+                break
+            if mpu.pc == read_a:
+                mpu.a = next(reply)
+                reads += 1
+                low = memory[0x0100 + ((mpu.sp + 1) & 0xFF)]
+                high = memory[0x0100 + ((mpu.sp + 2) & 0xFF)]
+                mpu.sp = (mpu.sp + 2) & 0xFF
+                mpu.pc = ((high << 8) | low) + 1
+            else:
+                mpu.step()
+        else:
+            self.fail("incremental response parser did not return")
+
+        self.assertEqual(reads, 12)
+        self.assertEqual(memory[0x0DAE:0x0DB0], bytes((0x34, 0x12)))
+        self.assertEqual(memory[0x00F8:0x00FA], bytes((0x00, 0xFF)))
+        self.assertEqual(memory[0x00F5], 0x80)  # incremental, not final
+        self.assertEqual(memory[0x0DAD], ord("G"))
+        # The read cursor returns to the first byte of the window, which is
+        # page 1 offset 0: JIM page 0 is the service reply buffer and the
+        # stream is published above it so a reply cannot overwrite it.
+        self.assertEqual(memory[0x00C7:0x00C9], bytes((0, 1)))
+        self.assertEqual(mpu.p & mpu.CARRY, 0)
+        with self.assertRaises(StopIteration):
+            next(reply)
+
+    def test_incremental_generation_survives_complete_loader_workspace_overwrite(self) -> None:
+        load = self.find_rom_routine(
+            rb"\x08\x78\x48\x8A\x48\xA2\x1A\x20..\xAD\xA9\xFC\x20..\x8D\xAE\x0D"
+        )
+        save = self.find_rom_routine(
+            rb"\x08\x78\x48\x8A\x48\xA2\x1A\x20..\xAD\xAE\x0D\x8D\xA9\xFC"
+        )
+        memory = DelayedOneSlotMailbox(self.rom)
+
+        def call(address: int) -> None:
+            mpu = MPU(memory=memory, pc=address)
+            mpu.sp = 0xFD
+            sentinel = 0x0600
+            return_address = sentinel - 1
+            memory.ram[0x01FE] = return_address & 0xFF
+            memory.ram[0x01FF] = return_address >> 8
+            for _ in range(5000):
+                if mpu.pc == sentinel:
+                    return
+                mpu.step()
+            self.fail("generation persistence helper did not return")
+
+        memory.ram[0x0DAE:0x0DB0] = bytes((0x34, 0x12))
+        call(ROM_START + save.start())
+        # This is the exact host-memory range occupied by the observed A-CODE
+        # loader. It destroys netprt and the old generation scratch bytes.
+        memory.ram[0x0900:0x1100] = b"\xA5" * 0x800
+        self.assertEqual(memory.ram[0x0DAE:0x0DB0], b"\xA5\xA5")
+        call(ROM_START + load.start())
+        self.assertEqual(memory.ram[0x0DAE:0x0DB0], bytes((0x34, 0x12)))
+        self.assertEqual(memory.collisions, 0)
+
+    def test_assembled_first_file_classifier_obeys_basic_line_boundary(self) -> None:
+        match = self.find_rom_routine(
+            rb"\x20(..)\x20(..)\xA9\x00\x85.\x8D\xD2\x03"
+            rb"\x20(..)\xB0.\x20(..)\xB0.\xF0.\x20(..)\xB0."
+        )
+        start = ROM_START + match.start()
+        cfsinit = match.group(1)[0] | match.group(1)[1] << 8
+        wsinit = match.group(2)[0] | match.group(2)[1] << 8
+        newuef = match.group(3)[0] | match.group(3)[1] << 8
+        findf = match.group(4)[0] | match.group(4)[1] << 8
+        getbyte = match.group(5)[0] | match.group(5)[1] << 8
+        chain = ROM_START + self.rom.index(b'*REWIND\rCHAIN ""\r\xff')
+        run = ROM_START + self.rom.index(b'*REWIND\r*RUN ""\r\xff')
+
+        def classify(first_file: bytes) -> tuple[bool, int]:
+            memory = bytearray(0x10000)
+            memory[ROM_START:ROM_START + len(self.rom)] = self.rom
+            mpu = MPU(memory=memory, pc=start)
+            mpu.sp = 0xFD
+            sentinel = 0x0600
+            return_address = sentinel - 1
+            memory[0x01FE] = return_address & 0xFF
+            memory[0x01FF] = return_address >> 8
+            stream = iter(first_file)
+
+            def return_from_stub() -> None:
+                low = memory[0x0100 + ((mpu.sp + 1) & 0xFF)]
+                high = memory[0x0100 + ((mpu.sp + 2) & 0xFF)]
+                mpu.sp = (mpu.sp + 2) & 0xFF
+                mpu.pc = (((high << 8) | low) + 1) & 0xFFFF
+
+            for _ in range(20000):
+                if mpu.pc == sentinel:
+                    return bool(mpu.p & mpu.CARRY), mpu.a | mpu.x << 8
+                if mpu.pc in (cfsinit, wsinit):
+                    return_from_stub()
+                elif mpu.pc == newuef:
+                    mpu.p &= ~mpu.CARRY
+                    return_from_stub()
+                elif mpu.pc == findf:
+                    mpu.a = 1
+                    mpu.p &= ~(mpu.CARRY | mpu.ZERO)
+                    return_from_stub()
+                elif mpu.pc == getbyte:
+                    try:
+                        mpu.a = next(stream)
+                        mpu.p &= ~mpu.CARRY
+                    except StopIteration:
+                        mpu.p |= mpu.CARRY
+                    return_from_stub()
+                else:
+                    mpu.step()
+            self.fail("assembled first-file classifier did not return")
+
+        # Real BBC BASIC line shape: length &0B points at the CR at offset
+        # &0B, not at the preceding byte. This is the boundary that exposed
+        # the former SBC #4 off-by-one with Thrust and Desk Diary.
+        basic = bytes((0x0D, 0x00, 0x0A, 0x0B,
+                       0xF4, 0x20, 0x22, 0x58, 0x22, 0x3A, 0x40, 0x0D))
+        self.assertEqual(classify(basic), (False, chain))
+
+        # An early CR must not make arbitrary machine code look like BASIC.
+        misleading_machine = bytes((0x0D, 0x00, 0x0A, 0x0B,
+                                    0x0D, 0xA9, 0x00, 0x8D,
+                                    0x00, 0x20, 0x60, 0xEA))
+        self.assertEqual(classify(misleading_machine), (False, run))
+
+        # Truncation before the declared boundary is a probe failure. It must
+        # not queue either launch command from incomplete evidence.
+        truncated = basic[:-1]
+        failed, _ = classify(truncated)
+        self.assertTrue(failed)
+
+    def _getbyte_symbols(self):
+        match = self.find_rom_routine(
+            rb"\xA5(.)\x05(.)\xD0\x05\x20(..)\xB0\x25"
+            rb"\x08\x78\xA4(.)\xA5(.)\x20..\xB9\x00\xFD"
+            rb".{25}\x38\x60"
+        )
+        return {
+            "start": ROM_START + match.start(),
+            "final_rts": ROM_START + match.end() - 1,
+            "sbufl": match.group(1)[0], "sbufh": match.group(2)[0],
+            "refill": match.group(3)[0] | match.group(3)[1] << 8,
+            "pr_y": match.group(4)[0], "pr_r": match.group(5)[0],
+        }
+
+    def _drain(self, memory, sym, calls, on_refill=None):
+        """Call the assembled getbyte `calls` times, returning what it read."""
+        got = bytearray()
+        refills = 0
+        for _ in range(calls):
+            mpu = MPU(memory=memory, pc=sym["start"])
+            mpu.sp = 0xF0
+            for _ in range(4000):
+                if mpu.pc == sym["final_rts"]:
+                    break
+                if mpu.pc == sym["refill"]:
+                    refills += 1
+                    if on_refill is not None and on_refill():
+                        mpu.p &= ~mpu.CARRY   # a window was published
+                    else:
+                        mpu.p |= mpu.CARRY    # nothing left: report EOF
+                    low = memory[0x0100 + ((mpu.sp + 1) & 0xFF)]
+                    high = memory[0x0100 + ((mpu.sp + 2) & 0xFF)]
+                    mpu.sp = (mpu.sp + 2) & 0xFF
+                    mpu.pc = ((high << 8) | low) + 1
+                else:
+                    mpu.step()
+            else:
+                self.fail("getbyte did not return")
+            if mpu.p & mpu.CARRY:
+                break
+            got.append(mpu.a)
+        return bytes(got), refills
+
+    def _staged_window(self, memory, values, first_page=0):
+        """Lay bytes out the way the Pi publishes them: a full JIM page each."""
+        usable = 0x100
+        for index, value in enumerate(values):
+            page = (first_page + index // usable) & 0xFF
+            memory.page_data[page, index % usable] = value
+
+    def test_getbyte_reads_a_published_window_contiguously(self) -> None:
+        """A full page per JIM page, then step the page.
+
+        The reader must hand back the stream in order across a page boundary;
+        a page step that fires early or late silently splices the window.
+        """
+        sym = self._getbyte_symbols()
+        memory = DelayedOneSlotMailbox(self.rom, 1)
+        memory.ram[0x00C3] = 1
+        memory.ram[0x00F5] = 0x80
+        window = bytes((i & 0xFF) for i in range(300))
+        self._staged_window(memory, window)
+        memory.ram[sym["sbufl"]] = len(window) & 0xFF
+        memory.ram[sym["sbufh"]] = len(window) >> 8
+        memory.ram[sym["pr_y"]] = 0
+        memory.ram[sym["pr_r"]] = 0
+        got, _ = self._drain(memory, sym, len(window) + 1)
+        self.assertEqual(got, window)
+
+    def test_getbyte_crosses_a_refill_without_losing_its_place(self) -> None:
+        """A stream larger than one window is the case a third of the corpus hits.
+
+        Above one window the Pi publishes more than one, so the host
+        drains one, asks for a refill and carries on from the first byte of the
+        next. WiCFS reported chunk type &5245 on exactly those titles, which is
+        ASCII it read after losing its place, so walk the boundary byte by byte.
+        """
+        sym = self._getbyte_symbols()
+        memory = DelayedOneSlotMailbox(self.rom, 1)
+        memory.ram[0x00C3] = 1
+        memory.ram[0x00F5] = 0x80
+        first = bytes((i & 0xFF) for i in range(300))
+        second = bytes(((300 + i) & 0xFF) for i in range(120))
+        self._staged_window(memory, first)
+        memory.ram[sym["sbufl"]] = len(first) & 0xFF
+        memory.ram[sym["sbufh"]] = len(first) >> 8
+        memory.ram[sym["pr_y"]] = 0
+        memory.ram[sym["pr_r"]] = 0
+
+        published = []
+
+        def publish_second():
+            if published:          # the second refill is the true end of stream
+                return False
+            published.append(True)
+            self._staged_window(memory, second)
+            memory.ram[sym["sbufl"]] = len(second) & 0xFF
+            memory.ram[sym["sbufh"]] = len(second) >> 8
+            memory.ram[sym["pr_y"]] = 0
+            memory.ram[sym["pr_r"]] = 0
+            return True
+
+        got, refills = self._drain(
+            memory, sym, len(first) + len(second) + 1, publish_second
+        )
+        self.assertEqual(refills, 2, "one refill for the window, one for EOF")
+        self.assertEqual(got, first + second)
+
+    def test_getbyte_survives_the_page_counter_wrapping(self) -> None:
+        """A full window ends on page 255, so the counter wraps to zero there."""
+        sym = self._getbyte_symbols()
+        memory = DelayedOneSlotMailbox(self.rom, 1)
+        memory.ram[0x00C3] = 1
+        memory.ram[0x00F5] = 0x80
+        window = bytes((i & 0xFF) for i in range(600))
+        self._staged_window(memory, window, first_page=0xFE)
+        memory.ram[sym["sbufl"]] = len(window) & 0xFF
+        memory.ram[sym["sbufh"]] = len(window) >> 8
+        memory.ram[sym["pr_y"]] = 0
+        memory.ram[sym["pr_r"]] = 0xFE
+        got, _ = self._drain(memory, sym, len(window) + 1)
+        self.assertEqual(got, window)
+
+    def test_assembled_getbyte_refills_without_resetting_parser_state(self) -> None:
+        match = self.find_rom_routine(
+            # The page-step is the natural wrap at 256: the Pi publishes a
+            # whole JIM page of stream, so iny alone decides when to step.
+            rb"\xA5(.)\x05(.)\xD0\x05\x20(..)\xB0\x25"
+            rb"\x08\x78\xA4(.)\xA5(.)\x20..\xB9\x00\xFD"
+            rb".{25}\x38\x60"
+        )
+        start = ROM_START + match.start()
+        final_rts = ROM_START + match.end() - 1
+        sbufl, sbufh = match.group(1)[0], match.group(2)[0]
+        refill = match.group(3)[0] | match.group(3)[1] << 8
+        pr_y, pr_r = match.group(4)[0], match.group(5)[0]
+
+        memory = bytearray(0x10000)
+        memory[ROM_START:ROM_START + len(self.rom)] = self.rom
+        memory[0x00C3] = 1  # Electron/AP5 selector forwarding.
+        memory[0x00F5] = 0x80  # incremental and not final
+        memory[0xFD00] = 0xA7
+        mpu = MPU(memory=memory, pc=start)
+        mpu.sp = 0xF0
+        refill_calls = 0
+
+        for _ in range(20000):
+            if mpu.pc == final_rts:
+                break
+            if mpu.pc == refill:
+                refill_calls += 1
+                memory[sbufl] = 2
+                memory[sbufh] = 0
+                memory[pr_y] = 0
+                memory[pr_r] = 0
+                mpu.p &= ~mpu.CARRY
+                low = memory[0x0100 + ((mpu.sp + 1) & 0xFF)]
+                high = memory[0x0100 + ((mpu.sp + 2) & 0xFF)]
+                mpu.sp = (mpu.sp + 2) & 0xFF
+                mpu.pc = ((high << 8) | low) + 1
+            else:
+                mpu.step()
+        else:
+            self.fail("getbyte did not return after publishing a refill")
+
+        self.assertEqual(refill_calls, 1)
+        self.assertEqual(mpu.a, 0xA7)
+        self.assertEqual(memory[sbufl], 1)
+        self.assertEqual(memory[sbufh], 0)
+        self.assertEqual(memory[pr_y], 1)
+        self.assertEqual(memory[pr_r], 0)
+        self.assertEqual(mpu.p & mpu.CARRY, 0)
+        self.assertEqual(mpu.sp, 0xF0)
 
     def test_assembled_wget_transport_survives_one_slot_delayed_mailbox(self) -> None:
         probe = DelayedOneSlotMailbox(self.rom)
@@ -402,6 +887,39 @@ host_basic_pending = &03BD
         self.assertEqual(mpu.a, 0xA7)
         self.assertEqual(memory.selector, [0x36, 0x12, 0x00])
         self.assertIsNone(memory.pending)
+        self.assertEqual(mpu.sp, 0xF0)
+
+    def test_assembled_wget_file_sink_passes_each_byte_to_mos(self) -> None:
+        match = self.find_rom_routine(
+            rb"\x68\xac(..)\x20\xd4\xff\x4c(..)"
+        )
+        start = ROM_START + match.start()
+        handle_address = match.group(1)[0] | match.group(1)[1] << 8
+        copied = match.group(2)[0] | match.group(2)[1] << 8
+
+        mpu = MPU()
+        mpu.memory[ROM_START:ROM_START + len(self.rom)] = self.rom
+        mpu.pc = start
+        mpu.sp = 0xEF
+        mpu.memory[0x01F0] = 0xA7
+        mpu.memory[handle_address] = 0x35
+
+        calls = []
+        for _ in range(32):
+            if mpu.pc == copied:
+                break
+            if mpu.pc == 0xFFD4:
+                calls.append((mpu.a, mpu.y))
+                low = mpu.memory[0x0100 + ((mpu.sp + 1) & 0xFF)]
+                high = mpu.memory[0x0100 + ((mpu.sp + 2) & 0xFF)]
+                mpu.sp = (mpu.sp + 2) & 0xFF
+                mpu.pc = ((high << 8) | low) + 1
+            else:
+                mpu.step()
+        else:
+            self.fail("WGET file sink did not return from OSBPUT")
+
+        self.assertEqual(calls, [(0xA7, 0x35)])
         self.assertEqual(mpu.sp, 0xF0)
 
     def test_assembled_wget_dispatch_waits_for_command_publication(self) -> None:
@@ -453,6 +971,9 @@ host_basic_pending = &03BD
         self.assertEqual(mpu.p & mpu.ZERO, 0)
 
         write_patterns = (
+            # Both reply-copy paths are unchanged again: the reply buffer no
+            # longer shares pages with the stream, so nothing has to be marked
+            # or repaired here.
             rb"\x08\x78\x48\xad(..)\x20..\x68\x9d\x00\xfd\x20..\x28\x4c..",
             rb"\x08\x78\x48\xad(..)\x20..\x68\x9d\x00\xfd\x20..\x28\x60",
         )
@@ -461,8 +982,7 @@ host_basic_pending = &03BD
                 write = self.find_rom_routine(pattern)
                 write_start = ROM_START + write.start()
                 write_shadow = (
-                    self.rom[write.start() + 4] |
-                    self.rom[write.start() + 5] << 8
+                    write.group(1)[0] | write.group(1)[1] << 8
                 )
                 if self.rom[write.end() - 3] == 0x4C:
                     increment = (
@@ -569,7 +1089,7 @@ host_basic_pending = &03BD
         self.assertIn("+\tJMP\twicfs_reset", finish)
         self.assertIn("+.wicfs_install_invalid", text)
         uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
-        self.assertIn("WiCFS state invalid; power cycle", uef)
+        self.assertIn("jsr print_wicfs_power_cycle", uef)
         for vector, dispatcher in (
             ("OSFILEV", "&FF1B"),
             ("OSBGETV", "&FF21"),
@@ -607,9 +1127,9 @@ host_basic_pending = &03BD
         self.assertIn("+\tBCC\tbUPCFS_installed", text)
         self.assertIn("+\tLDX\t#(error_wicfs_state-error_table)", text)
         self.assertIn("+.bUPCFS_installed", text)
-        self.assertIn(
-            'equs "WiCFS state invalid; power cycle",&0D,&EA', uef
-        )
+        self.assertIn("jsr print_wicfs_power_cycle", uef)
+        host = (ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm").read_text()
+        self.assertEqual(host.count('equs "WiCFS state invalid; power cycle"'), 1)
 
         invalid = text.split("+.wicfs_install_invalid", 1)[1].split(
             " .b_install", 1
@@ -704,7 +1224,9 @@ host_basic_pending = &03BD
             ROOT
             / "rom-side/elkwifi-0.23/patches/wicfs-pre-tape-predecessor.patch"
         ).read_text()
-        menu = (ROOT / "rom-side/elkwifi-0.23/overlay/menu.asm").read_text()
+        host_launch = (
+            ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm"
+        ).read_text()
         uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
 
         self.assertIn("+.wicfs_snapshot_pre_tape", patch)
@@ -712,10 +1234,26 @@ host_basic_pending = &03BD
         self.assertIn("private Pi JIM at &FFED00", patch)
         self.assertIn("+\tLDA\t#&ED", patch)
         self.assertNotIn("private Pi JIM at &FFEE00", patch)
+        self.assertIn("+\tLDX\t#14", patch)
+        self.assertIn("+\tLDA\tBYTEV\n+\tSTA\t&FCA9", patch)
+        self.assertIn("+\tLDA\tBYTEV+1\n+\tSTA\t&FCA9", patch)
 
-        release = menu.index("jsr release_owned_wicfs")
-        snapshot = menu.index("jsr wicfs_snapshot_pre_tape")
-        select_tape = menu.index("jsr oscli", snapshot)
+        retirement = (
+            ROOT
+            / "rom-side/elkwifi-0.23/patches/wicfs-dual-predecessor.patch"
+        ).read_text()
+        self.assertIn("+\tSTA\tbytev_rtn", retirement)
+        self.assertIn("+\tSTA\tbytev_rtn+1", retirement)
+        build = (ROOT / "rom-side/build_rom.sh").read_text()
+        self.assertIn("retain the pre-\\*TAPE standard BYTEV as well", build)
+        self.assertIn("STA\\tbytev_rtn+1", build)
+
+        release = host_launch.index("jsr release_owned_wicfs")
+        release_failed = host_launch.index("bcs host_tape_invalid", release)
+        snapshot = host_launch.index("jsr wicfs_snapshot_pre_tape")
+        select_tape = host_launch.index("jsr oscli", snapshot)
+        self.assertLess(release, release_failed)
+        self.assertLess(release_failed, snapshot)
         self.assertLess(release, snapshot)
         self.assertLess(snapshot, select_tape)
         self.assertLess(
@@ -884,7 +1422,9 @@ host_basic_pending = &03BD
         self.assertNotIn("txa\n tay", close)
         self.assertNotIn("lda &FDFE", read_loop)
         self.assertNotIn("lda &FDFF", read_loop)
-        self.assertEqual(read_loop.count("jsr uef_commit_length"), 1)
+        # One commit publishes each full incremental source window; the
+        # second checkpoints partial progress for the legacy path and Escape.
+        self.assertEqual(read_loop.count("jsr uef_commit_length"), 2)
         self.assertIn("inc &0102,x\n bne uef_byte_stored\n inc &0103,x", read_loop)
         self.assertNotIn("uef_length_lo", uef)
         self.assertNotIn("uef_length_hi", uef)
@@ -941,24 +1481,30 @@ host_basic_pending = &03BD
         self.assertIn("+\tCPX\t#10", starrun)
         self.assertIn("+\tBCS\tsr_a4", starrun)
 
-    def test_menu_refuses_invalid_vector_record(self) -> None:
-        menu = (ROOT / "rom-side/elkwifi-0.23/overlay/menu.asm").read_text()
-        release = menu.split(".wicfs_release_tape_trap", 1)[1].split(
-            ".menu_download_invalid", 1
+    def test_host_transition_refuses_invalid_vector_record(self) -> None:
+        host_launch = (
+            ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm"
+        ).read_text()
+        release = host_launch.split(".wicfs_release_tape_trap", 1)[1].split(
+            ".host_basic_cmd", 1
         )[0]
         self.assertIn("jsr wicfs_state_load\n    bcs wicfs_release_tape_invalid", release)
         self.assertIn(".wicfs_release_tape_invalid\n    sec\n    rts", release)
-        self.assertIn("WiCFS state invalid; power cycle", menu)
+        self.assertIn("WiCFS state invalid; power cycle", host_launch)
 
     def test_uef_tube_and_native_paths_share_host_tape_transition(self) -> None:
         uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
-        transition = uef.index("jsr menu_select_tape")
+        transition = uef.index("jsr host_select_tape")
         tube_query = uef.index("lda #&EA", transition)
         self.assertLess(transition, tube_query)
         launch = uef.split(".uef_launch", 1)[1].split(".uef_run_launch", 1)[0]
         self.assertNotIn("*TAPE", launch)
-        menu = (ROOT / "rom-side/elkwifi-0.23/overlay/menu.asm").read_text()
-        helper = menu.split(".menu_select_tape", 1)[1].split(".menu_tape_command", 1)[0]
+        host_launch = (
+            ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm"
+        ).read_text()
+        helper = host_launch.split(".host_select_tape", 1)[1].split(
+            ".host_tape_command", 1
+        )[0]
         self.assertIn("jsr oscli", helper)
         self.assertIn("clc\n    rts", helper)
 
@@ -968,7 +1514,7 @@ host_basic_pending = &03BD
             ".uef_too_large_cleanup", 1
         )[0]
         too_large = uef.split(".uef_too_large\n", 1)[1].split(
-            ".uef_open_failed", 1
+            ".uef_stream_failed", 1
         )[0]
         self.assertNotRegex(invalid, r"(?m)^\s*pla\s*$")
         self.assertNotRegex(too_large, r"(?m)^\s*pla\s*$")

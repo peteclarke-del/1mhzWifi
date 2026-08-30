@@ -71,11 +71,11 @@ def inspect_cfs_block(payload: bytes, chunk_index: int,
     # header CRC. There is no data payload and therefore no data CRC field.
     data_crc_size = 0 if data_length == 0 else 2
     expected_length = data_crc_at + data_crc_size
-    if expected_length != len(payload):
+    if expected_length > len(payload):
         raise UefError(
             f"CFS block in chunk {chunk_index} at &{chunk_offset:06X} "
             f"declares {data_length} data bytes but chunk shape is "
-            f"{len(payload)} bytes, expected {expected_length}"
+            f"{len(payload)} bytes, requires at least {expected_length}"
         )
     header_bytes = payload[1:header_crc_at]
     data = payload[data_at:data_crc_at]
@@ -99,6 +99,11 @@ def inspect_cfs_block(payload: bytes, chunk_index: int,
         "header_crc_ok": tape_crc(header_bytes) == stored_header_crc,
         "data_crc": stored_data_crc,
         "data_crc_ok": data_crc_size == 0 or tape_crc(data) == stored_data_crc,
+        # Original WiCFS subtracts the parsed header, data and CRC from the
+        # enclosing chunk length and skips any residual bytes. Some published
+        # images use that allowance for one or more trailing bytes.
+        "trailing_length": len(payload) - expected_length,
+        "trailing_hex": payload[expected_length:].hex(),
     }
 
 

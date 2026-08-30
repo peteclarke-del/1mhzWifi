@@ -3,7 +3,7 @@
 ## Scope and base
 
 This package targets Pi1MHz commit
-`d08242ee1b35cf1285b72c9ec1869e98081a8c3e`, the reviewed official `master`
+`e949f2d2714b15f314df375e52db5febb6c40e6d`, the reviewed official `master`
 revision recorded in `../upstream.env`. It extends Pi1MHz's existing bare-metal
 CYW43, lwIP, services and network code. It does not install a Linux daemon.
 
@@ -22,6 +22,30 @@ firmware is already ready.
 Filesystem, SDIO, scan, DNS, ICMP, NTP and UEF work runs from the cooperative
 poll loop.
 
+The UEF stream window is published flat, a whole JIM page at a time, starting
+at page 1. Page 0 is reserved for the service reply buffer, which OSWORD `&65`
+clients read in full and which used to corrupt the stream when a reply landed
+during a load; the last page carries the length trailer. That leaves 254 pages,
+so the window is `&FE00` bytes rather than the `&FF00` it was when the stream
+started at page 0.
+
+Command 86 published a host filing-vector trampoline into every JIM page. It
+has been removed from the kernel along with the scattered window it required:
+the host-side trampoline was withdrawn because pointing the filing vectors at
+it broke the `*/` multi-file handover, so nothing sent the command. The patch
+is kept under `rom-side/candidates` with the analysis in
+`docs/hardware-validation.md`, and reviving it means restoring the kernel side
+as well as reworking the `*RUN` transfer to be frame-agnostic.
+
+The stub exists because the host has nowhere safe in RAM to keep its filing
+vectors. WiCFS's gateway below `&0800` and the MOS extended vector table at
+`&0D9F` are both inside the region cassette loaders reuse, which is why a fifth
+of the corpus could not be loaded. JIM is served by the Pi, so a loader cannot
+reach it. Each stub pages the host's ROM in, calls the handler and pages the
+caller's ROM back, reproducing the MOS dispatcher's stack frame exactly, the
+displaced ROM number sits four bytes into the stack, because filing calls
+nest and a single saved copy would be overwritten by the inner call.
+
 Only one ElkWiFi request can be pending. A second request receives busy without
 replacing the active command pointer. Every asynchronous operation has a
 deadline or a lower-layer bounded state machine. Cancel invalidates callback
@@ -31,6 +55,16 @@ Responses are limited to 240 bytes because the inherited host driver exposes a
 single bounded response page. IFCFG deliberately returns original-style
 station IP and station MAC records. Pi-specific progress is reported by
 `*ONLINE`.
+
+Command 93 retains its legacy raw, gzip and ZIP normalization response. An
+exact `IUEF`, version-1 request adds begin, append, finalize, rewind, refill and
+close operations without allocating another command number. Source windows are
+at most `&FF00` bytes in public JIM; normalized streams are retained in two
+16 MiB Pi-private buffers and republished on demand. The response includes a
+session token, 32-bit generation, window length and final flag. The ROM carries
+the low 16 generation bits, which covers every window in the 16 MiB limit, so
+a timed-out refill can be retried without advancing twice. Normalization and
+window publication execute in the cooperative poll loop, never in FIQ.
 
 ## WiFi startup and association
 

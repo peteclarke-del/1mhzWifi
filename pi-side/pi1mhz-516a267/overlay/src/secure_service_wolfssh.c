@@ -19,6 +19,7 @@
 
 #include <wolfssh/error.h>
 #include <wolfssh/ssh.h>
+#include <wolfssh/wolfsftp.h>
 #include <wolfssl/wolfcrypt/coding.h>
 #include <wolfssl/wolfcrypt/sha256.h>
 
@@ -39,6 +40,7 @@
 #define SSH_HOSTS_BAK SSH_DIR "/known_hosts.bak"
 
 #define NTS_ERR_DNS 0x24u
+#define NTS_ERR_INUSE 0x21u
 #define NTS_ERR_CONN 0x25u
 #define NTS_ERR_PROTOCOL 0x2Bu
 
@@ -86,6 +88,12 @@ typedef struct {
     word32 private_key_type_size;
     byte password[128];
     word32 password_size;
+    bool sftp_mode;
+    byte sftp_handle[WOLFSSH_MAX_HANDLE];
+    word32 sftp_handle_size;
+    word32 sftp_offset[2];
+    uint8_t sftp_transfer; /* 0 none, 1 download, 2 upload */
+    char sftp_cwd[256];
 } pi_ssh;
 
 static pi_ssh client;
@@ -557,12 +565,13 @@ static void close_connection(bool keep_password)
 static void close_client(void) { close_connection(false); }
 
 static uint8_t start_connection(const char *url, const char *username,
-                                int trust_unknown)
+                                int trust_unknown, bool sftp_mode)
 {
     err_t result;
     if (parse_url(url) != 0 || *username == '\0' ||
         strlen(username) >= sizeof(client.username)) return NTS_ERR_PARAM;
     strcpy(client.username, username);
+    client.sftp_mode = sftp_mode;
     client.trust_unknown = trust_unknown != 0;
     if (load_keys() != 0) {
         free_keys();
@@ -606,9 +615,12 @@ static uint8_t start_wolfssh(void)
     wolfSSH_CTX_SetPublicKeyCheck(client.wolf_ctx, hostkey_callback);
     client.ssh = wolfSSH_new(client.wolf_ctx);
     if (client.ssh == NULL ||
-        wolfSSH_SetUsername(client.ssh, client.username) != WS_SUCCESS ||
+        wolfSSH_SetUsername(client.ssh, client.username) != WS_SUCCESS)
+        return NTS_ERR_CONN;
+    if (!client.sftp_mode &&
         wolfSSH_SetChannelType(client.ssh, WOLFSSH_SESSION_TERMINAL,
-                               NULL, 0) != WS_SUCCESS) return NTS_ERR_CONN;
+                               NULL, 0) != WS_SUCCESS)
+        return NTS_ERR_CONN;
     wolfSSH_SetIOReadCtx(client.ssh, &client);
     wolfSSH_SetIOWriteCtx(client.ssh, &client);
     wolfSSH_SetUserAuthCtx(client.ssh, &client);
@@ -616,14 +628,18 @@ static uint8_t start_wolfssh(void)
     return NTS_PENDING;
 }
 
-static uint8_t port_open(void *opaque, const char *url, const char *username,
-                         int trust_unknown, char fingerprint[96])
+static uint8_t port_open_mode(void *opaque, const char *url,
+                              const char *username, int trust_unknown,
+                              char fingerprint[96], bool sftp_mode)
 {
     int result;
     uint8_t status = NTS_PENDING;
     (void)opaque;
+    if (client.stage != SSH_IDLE && client.sftp_mode != sftp_mode)
+        return NTS_ERR_INUSE;
     switch (client.stage) {
-    case SSH_IDLE: status = start_connection(url, username, trust_unknown); break;
+    case SSH_IDLE: status = start_connection(url, username, trust_unknown,
+                                              sftp_mode); break;
     case SSH_RESOLVING: status = start_tcp(); break;
     case SSH_CONNECTING: return NTS_PENDING;
     case SSH_HANDSHAKE:
@@ -631,11 +647,16 @@ static uint8_t port_open(void *opaque, const char *url, const char *username,
             status = start_wolfssh();
             if (status != NTS_PENDING) break;
         }
-        result = wolfSSH_connect(client.ssh);
+        result = client.sftp_mode ? wolfSSH_SFTP_connect(client.ssh) :
+                                    wolfSSH_connect(client.ssh);
         if (result == WS_SUCCESS) {
             free_keys();
             clear_password();
-            client.stage = SSH_RESIZE;
+            client.stage = client.sftp_mode ? SSH_UP : SSH_RESIZE;
+            if (client.sftp_mode) {
+                strcpy(client.sftp_cwd, ".");
+                return NTS_OK;
+            }
             return NTS_PENDING;
         }
         if (want_io(result)) return NTS_PENDING;
@@ -656,6 +677,203 @@ static uint8_t port_open(void *opaque, const char *url, const char *username,
         close_connection(status == NTS_HOSTKEY_UNKNOWN);
     return status;
 }
+
+static uint8_t port_open(void *opaque, const char *url, const char *username,
+                         int trust_unknown, char fingerprint[96])
+{
+    return port_open_mode(opaque, url, username, trust_unknown, fingerprint,
+                          false);
+}
+
+static uint8_t port_sftp_open(void *opaque, const char *url,
+                              const char *username, int trust_unknown,
+                              char fingerprint[96])
+{
+    return port_open_mode(opaque, url, username, trust_unknown, fingerprint,
+                          true);
+}
+
+static bool sftp_want_io(void)
+{
+    int error = client.ssh != NULL ? wolfSSH_get_error(client.ssh) : 0;
+    return error == WS_WANT_READ || error == WS_WANT_WRITE ||
+           error == WS_REKEYING;
+}
+
+static int sftp_fail_or_pending(void)
+{
+    return sftp_want_io() ? -(int)NTS_PENDING : -(int)NTS_ERR_PROTOCOL;
+}
+
+static int sftp_resolve_path(const char *path, char out[512])
+{
+    int count;
+    if (path == NULL) return -1;
+    if (*path == '/' || !strcmp(client.sftp_cwd, "."))
+        count = snprintf(out, 512u, "%s", *path != '\0' ? path : ".");
+    else
+        count = snprintf(out, 512u, "%s/%s", client.sftp_cwd,
+                         *path != '\0' ? path : ".");
+    return count > 0 && count < 512 ? 0 : -1;
+}
+
+static int sftp_copy_name(WS_SFTPNAME *name, uint8_t *out, size_t maximum)
+{
+    size_t used = 0;
+    for (WS_SFTPNAME *entry = name; entry != NULL; entry = entry->next) {
+        const char *text = entry->lName != NULL ? entry->lName : entry->fName;
+        size_t length = text != NULL ? strlen(text) : 0u;
+        if (length + 1u > maximum - used) return -(int)NTS_ERR_PROTOCOL;
+        memcpy(out + used, text, length);
+        used += length;
+        out[used++] = '\n';
+    }
+    return (int)used;
+}
+
+static int port_sftp_path(void *opaque, uint8_t operation, const char *path,
+                          uint8_t *out, size_t maximum)
+{
+    char full[512];
+    int result;
+    WS_SFTPNAME *names;
+    (void)opaque;
+    if (client.stage != SSH_UP || !client.sftp_mode ||
+        sftp_resolve_path(path, full) != 0)
+        return -(int)NTS_ERR_CONN;
+    switch (operation) {
+    case NTS_SEC_SFTP_PWD: {
+        size_t length = strlen(client.sftp_cwd);
+        if (length + 1u > maximum) return -(int)NTS_ERR_PARAM;
+        memcpy(out, client.sftp_cwd, length);
+        out[length++] = '\n';
+        return (int)length;
+    }
+    case NTS_SEC_SFTP_CD:
+        names = wolfSSH_SFTP_RealPath(client.ssh, full);
+        if (names == NULL) return sftp_fail_or_pending();
+        if (names->fName == NULL || strlen(names->fName) >= sizeof(client.sftp_cwd)) {
+            wolfSSH_SFTPNAME_list_free(names);
+            return -(int)NTS_ERR_PROTOCOL;
+        }
+        strcpy(client.sftp_cwd, names->fName);
+        wolfSSH_SFTPNAME_list_free(names);
+        return 0;
+    case NTS_SEC_SFTP_LS:
+        names = wolfSSH_SFTP_LS(client.ssh, full);
+        if (names == NULL) {
+            int error = wolfSSH_get_error(client.ssh);
+            if (sftp_want_io()) return -(int)NTS_PENDING;
+            return error == WS_SUCCESS || error == WOLFSSH_FTP_EOF ? 0 :
+                   -(int)NTS_ERR_PROTOCOL;
+        }
+        result = sftp_copy_name(names, out, maximum);
+        wolfSSH_SFTPNAME_list_free(names);
+        return result;
+    case NTS_SEC_SFTP_DELETE:
+        result = wolfSSH_SFTP_Remove(client.ssh, full);
+        break;
+    case NTS_SEC_SFTP_MKDIR:
+        result = wolfSSH_SFTP_MKDIR(client.ssh, full, NULL);
+        break;
+    case NTS_SEC_SFTP_RMDIR:
+        result = wolfSSH_SFTP_RMDIR(client.ssh, full);
+        break;
+    default:
+        return -(int)NTS_ERR_PARAM;
+    }
+    if (result == WS_SUCCESS) return 0;
+    return sftp_fail_or_pending();
+}
+
+static int port_sftp_transfer_open(const char *path, bool upload)
+{
+    char full[512];
+    word32 flags = upload ? (WOLFSSH_FXF_WRITE | WOLFSSH_FXF_CREAT |
+                             WOLFSSH_FXF_TRUNC) : WOLFSSH_FXF_READ;
+    int result;
+    if (client.stage != SSH_UP || !client.sftp_mode ||
+        client.sftp_transfer != 0u || sftp_resolve_path(path, full) != 0)
+        return -(int)NTS_ERR_CONN;
+    client.sftp_handle_size = sizeof(client.sftp_handle);
+    result = wolfSSH_SFTP_Open(client.ssh, full, flags, NULL,
+                               client.sftp_handle,
+                               &client.sftp_handle_size);
+    if (result != WS_SUCCESS) return sftp_fail_or_pending();
+    client.sftp_offset[0] = client.sftp_offset[1] = 0u;
+    client.sftp_transfer = upload ? 2u : 1u;
+    return 0;
+}
+
+static int port_sftp_get_open(void *opaque, const char *path)
+{
+    (void)opaque;
+    return port_sftp_transfer_open(path, false);
+}
+
+static int port_sftp_put_open(void *opaque, const char *path)
+{
+    (void)opaque;
+    return port_sftp_transfer_open(path, true);
+}
+
+static void sftp_advance(word32 amount)
+{
+    word32 old = client.sftp_offset[0];
+    client.sftp_offset[0] += amount;
+    if (client.sftp_offset[0] < old) client.sftp_offset[1]++;
+}
+
+static int port_sftp_get_read(void *opaque, uint8_t *out, size_t maximum)
+{
+    int result;
+    (void)opaque;
+    if (client.sftp_transfer != 1u || maximum > UINT32_MAX)
+        return -(int)NTS_ERR_CONN;
+    result = wolfSSH_SFTP_SendReadPacket(client.ssh, client.sftp_handle,
+                                         client.sftp_handle_size,
+                                         client.sftp_offset, out,
+                                         (word32)maximum);
+    if (result >= 0) {
+        sftp_advance((word32)result);
+        return result;
+    }
+    return sftp_fail_or_pending();
+}
+
+static int port_sftp_put_write(void *opaque, const uint8_t *data, size_t length)
+{
+    int result;
+    (void)opaque;
+    if (client.sftp_transfer != 2u || length == 0u || length > UINT32_MAX)
+        return -(int)NTS_ERR_PARAM;
+    result = wolfSSH_SFTP_SendWritePacket(client.ssh, client.sftp_handle,
+                                          client.sftp_handle_size,
+                                          client.sftp_offset,
+                                          (byte *)(uintptr_t)data,
+                                          (word32)length);
+    if (result >= 0) {
+        if ((size_t)result != length) return -(int)NTS_ERR_PROTOCOL;
+        sftp_advance((word32)result);
+        return result;
+    }
+    return sftp_fail_or_pending();
+}
+
+static int port_sftp_transfer_close(void *opaque)
+{
+    int result;
+    (void)opaque;
+    if (client.sftp_transfer == 0u) return 0;
+    result = wolfSSH_SFTP_Close(client.ssh, client.sftp_handle,
+                                client.sftp_handle_size);
+    if (result != WS_SUCCESS) return sftp_fail_or_pending();
+    client.sftp_transfer = 0u;
+    client.sftp_handle_size = 0u;
+    return 0;
+}
+
+static void port_sftp_close(void *opaque) { (void)opaque; close_client(); }
 
 static int port_read(void *opaque, uint8_t *out, size_t maximum)
 {
@@ -697,7 +915,10 @@ static int port_password(void *opaque, const uint8_t *password, size_t length)
 static void port_close(void *opaque) { (void)opaque; close_client(); }
 
 static const nts_secure_port port = {
-    port_random, port_open, port_read, port_write, port_password, port_close
+    port_random, port_open, port_read, port_write, port_password, port_close,
+    port_sftp_open, port_sftp_path, port_sftp_get_open, port_sftp_get_read,
+    port_sftp_put_open, port_sftp_put_write, port_sftp_transfer_close,
+    port_sftp_close
 };
 
 const nts_secure_port *nts_pi_wolfssh_port(void) { return &port; }

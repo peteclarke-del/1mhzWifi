@@ -16,11 +16,11 @@ $(BUILD)/test-mailbox: tests/test_mailbox.c src/pi1mhz_mailbox.c \
 		tests/test_mailbox.c src/pi1mhz_mailbox.c -o $@
 
 $(BUILD)/test-live: tests/test_live_backend.c src/pi1mhz_mailbox.c \
-		src/pi1mhz_net_backend.c include/pi1mhz_mailbox.h \
+		src/pi1mhz_net_backend.c src/pi1mhz_ftp.c include/pi1mhz_mailbox.h \
 		include/pi1mhz_net_backend.h | $(BUILD)
 	$(CC) -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror \
 		-I include tests/test_live_backend.c src/pi1mhz_mailbox.c \
-		src/pi1mhz_net_backend.c -lz -o $@
+		src/pi1mhz_net_backend.c src/pi1mhz_ftp.c -lz -o $@
 
 clean:
 	rm -rf -- $(BUILD)

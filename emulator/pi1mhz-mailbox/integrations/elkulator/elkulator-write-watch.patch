@@ -1,0 +1,59 @@
+--- a/src/6502.c
++++ b/src/6502.c
+@@ -180,6 +180,11 @@
+                         }
+ 
+ int output=0;
++static FILE *write_watch;
++static const char *write_watch_path;
++static unsigned write_watch_lo, write_watch_hi;
++static unsigned char write_watch_last[0x40];
++static int write_watch_primed;
+ static FILE *tuple_trace;
+ static const char *tuple_trace_path;
+ static unsigned long tuple_osbyte_calls;
+@@ -202,6 +207,44 @@
+         {
+                 oldpc2=oldpc;
+                 oldpc=pc;
++                /* Log every change to a watched RAM window with the PC which
++                 * was executing. Used to map who really owns the cassette
++                 * workspace, rather than inferring it from the ROM source. */
++                if (!write_watch_path)
++                {
++                        write_watch_path=getenv("PI1MHZ_WRITE_WATCH");
++                        if (write_watch_path && *write_watch_path)
++                        {
++                                const char *lo=getenv("PI1MHZ_WRITE_WATCH_LO");
++                                const char *hi=getenv("PI1MHZ_WRITE_WATCH_HI");
++                                write_watch_lo=lo?(unsigned)strtoul(lo,NULL,16):0x03CB;
++                                write_watch_hi=hi?(unsigned)strtoul(hi,NULL,16):0x03DF;
++                                if (write_watch_hi-write_watch_lo>=0x40)
++                                        write_watch_hi=write_watch_lo+0x3F;
++                                write_watch=fopen(write_watch_path,"w");
++                        }
++                }
++                if (write_watch)
++                {
++                        unsigned wi;
++                        if (!write_watch_primed)
++                        {
++                                for (wi=write_watch_lo;wi<=write_watch_hi;wi++)
++                                        write_watch_last[wi-write_watch_lo]=ram[wi];
++                                write_watch_primed=1;
++                        }
++                        for (wi=write_watch_lo;wi<=write_watch_hi;wi++)
++                        {
++                                if (ram[wi]!=write_watch_last[wi-write_watch_lo])
++                                {
++                                        fprintf(write_watch,
++                                                "ADDR=%04X %02X->%02X PC=%04X RB=%X\n",
++                                                wi,write_watch_last[wi-write_watch_lo],
++                                                ram[wi],oldpc2,rombank);
++                                        write_watch_last[wi-write_watch_lo]=ram[wi];
++                                        fflush(write_watch);
++                                }
++                        }
+                 }
+                 /* Diagnostic for the WiCFS vector gateway relocation. The
+                  * replacement repairs the MOS extended-vector table from the

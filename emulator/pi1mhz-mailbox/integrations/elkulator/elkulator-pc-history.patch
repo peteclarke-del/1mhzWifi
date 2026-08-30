@@ -1,0 +1,95 @@
+--- a/src/6502.c
++++ b/src/6502.c
+@@ -184,5 +184,25 @@
+ static uint16_t pc_dump_address;
+ static int pc_dump_initialised;
+ static int pc_dump_complete;
++typedef struct {
++        uint16_t pc;
++        uint8_t opcode,a,x,y,s,flags,rombank,extrom;
++} pc_history_entry;
++#define PC_HISTORY_SIZE 262144u
++static pc_history_entry pc_history[PC_HISTORY_SIZE];
++static unsigned pc_history_next;
++static unsigned pc_history_count;
++static uint16_t pc_history_trigger;
++static const char *pc_history_path;
++static int pc_history_initialised;
++static int pc_history_complete;
++static uint8_t pc_history_last_s;
++static int pc_history_last_s_valid;
++
++static uint8_t pc_history_flags(void)
++{
++        return (p.n ? 0x80 : 0) | (p.v ? 0x40 : 0) | (p.d ? 8 : 0) |
++               (p.i ? 4 : 0) | (p.z ? 2 : 0) | (p.c ? 1 : 0);
++}
+ void exec6502()
+ {
+@@ -194,4 +214,66 @@
+                 oldpc=pc;
+                 oldcycs=cycles;
++                if (!pc_history_initialised)
++                {
++                        const char *trigger=getenv("PI1MHZ_PC_HISTORY_TRIGGER");
++                        pc_history_path=getenv("PI1MHZ_PC_HISTORY");
++                        if (trigger && *trigger && pc_history_path && *pc_history_path)
++                                pc_history_trigger=(uint16_t)strtoul(trigger,NULL,16);
++                        else
++                                pc_history_path=NULL;
++                        pc_history_initialised=1;
++                }
++                if (!pc_history_complete && pc_history_path)
++                {
++                        uint8_t history_opcode=readmem(pc);
++                        int history_record=pc==pc_history_trigger ||
++                                history_opcode==0x00 || history_opcode==0x08 ||
++                                history_opcode==0x20 || history_opcode==0x28 ||
++                                history_opcode==0x40 || history_opcode==0x48 ||
++                                history_opcode==0x4C || history_opcode==0x60 ||
++                                history_opcode==0x68 || history_opcode==0x6C ||
++                                !pc_history_last_s_valid || s!=pc_history_last_s;
++                        pc_history_entry *entry=&pc_history[pc_history_next];
++                        pc_history_last_s=s;
++                        pc_history_last_s_valid=1;
++                        if (!history_record)
++                                goto pc_history_recorded;
++                        entry->pc=pc;
++                        entry->opcode=history_opcode;
++                        entry->a=a;
++                        entry->x=x;
++                        entry->y=y;
++                        entry->s=s;
++                        entry->flags=pc_history_flags();
++                        entry->rombank=rombank;
++                        entry->extrom=extrom;
++                        pc_history_next=(pc_history_next+1u)%PC_HISTORY_SIZE;
++                        if (pc_history_count<PC_HISTORY_SIZE)
++                                pc_history_count++;
++                        if (pc==pc_history_trigger)
++                        {
++                                FILE *history=fopen(pc_history_path,"w");
++                                if (history)
++                                {
++                                        unsigned first=(pc_history_next+PC_HISTORY_SIZE-
++                                                        pc_history_count)%PC_HISTORY_SIZE;
++                                        for (unsigned i=0;i<pc_history_count;i++)
++                                        {
++                                                entry=&pc_history[(first+i)%PC_HISTORY_SIZE];
++                                                fprintf(history,
++                                                        "PC=%04X OP=%02X A=%02X X=%02X Y=%02X S=%02X "
++                                                        "P=%02X ROM=%X EXT=%X\n",
++                                                        entry->pc,entry->opcode,
++                                                        entry->a,entry->x,entry->y,
++                                                        entry->s,entry->flags,
++                                                        entry->rombank,entry->extrom);
++                                        }
++                                        fclose(history);
++                                }
++                                pc_history_complete=1;
++                        }
++pc_history_recorded:
++                        ;
++                }
+                 if (!pc_dump_initialised)
+                 {

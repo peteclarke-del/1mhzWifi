@@ -14,7 +14,7 @@ diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
     net_service.c
     net_service.h
     net_tnfs.c
-@@ -421,9 +427,35 @@
+@@ -421,9 +427,37 @@
     lib/newlib-str/strcasestr.c
     PROPERTIES COMPILE_OPTIONS "-Os;-Wno-cast-qual;-Wno-conversion" )
  
@@ -35,9 +35,11 @@ diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 +   third_party/wolfssh/src/io.c
 +   third_party/wolfssh/src/port.c
 +   third_party/wolfssh/src/wolfterm.c
-+   third_party/wolfssh/src/ossh.c)
++   third_party/wolfssh/src/ossh.c
++   third_party/wolfssh/src/wolfsftp.c)
 +target_include_directories(nettools_wolfssh PUBLIC
-+   third_party/wolfssh third_party/wolfssl ${CMAKE_CURRENT_SOURCE_DIR})
++   third_party/wolfssh third_party/wolfssl ${CMAKE_CURRENT_SOURCE_DIR}
++   ${CMAKE_CURRENT_SOURCE_DIR}/BeebSCSI/fatfs)
 +target_compile_definitions(nettools_wolfssh PRIVATE
 +   BUILDING_WOLFSSH WOLFSSL_USER_SETTINGS)
 +target_compile_options(nettools_wolfssh PRIVATE -w -Os -fno-lto)

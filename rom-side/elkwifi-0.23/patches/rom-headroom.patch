@@ -1,0 +1,27 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -319,9 +319,10 @@ include "uef.asm"
+ include "ping.asm"
+ include "nslook.asm"
+ 
+-equs "This is the end!"
++rom_content_end = P%
++ASSERT rom_content_end <= &BF00
+ 
+ skipto &C000
+ .romend             
+ 
+ SAVE "elkwifi.rom", atmheader, romend
+diff --git a/rom/routines.asm b/rom/routines.asm
+--- a/rom/routines.asm
++++ b/rom/routines.asm
+@@ -259,8 +259,6 @@ endif
+ \ Print the WiFi logo
+ if __ELECTRON__
+ .print_logo
+- jsr test_wifi_ena          \ test wifi enabled status
+- bne logo2                  \ jump if wifi is disabled
+  \ The stock ROM copied the glyph to fixed address &60A0, permanently tying
+  \ it to row zero while the MOS banner followed the current boot cursor.
+  \ Define a user character and print it through the VDU so the icon stays on

@@ -30,7 +30,7 @@ diff --git a/src/services_emulator.c b/src/services_emulator.c
 index 7656f41..c642127 100644
 --- a/src/services_emulator.c
 +++ b/src/services_emulator.c
-@@ -17,6 +17,12 @@
+@@ -17,6 +17,13 @@
  #include "ram_emulator.h"
  #include "services.h"
  
@@ -39,11 +39,12 @@ index 7656f41..c642127 100644
 +void net_service_command(uint32_t, uint32_t, uint8_t);
 +void elkwifi_service_command(uint32_t, uint32_t, uint8_t);
 +void secure_service_command(uint32_t, uint32_t, uint8_t);
++void ftp_service_command(uint32_t, uint32_t, uint8_t);
 +
  static size_t disc_ram_addr;
  static size_t disc_ram_max;
  // High byte (bits 16-23) of the address last written to the +2 read-back
-@@ -139,6 +145,25 @@ static void services_emulator_command(unsigned int gpio)
+@@ -139,6 +146,30 @@ static void services_emulator_command(unsigned int gpio)
     uint32_t command_pointer = (uint32_t) (DISC_RAM_BASE | 0xFF0000U | (uint32_t) (data<<8));
     uint8_t command = Pi1MHz->JIM_ram[command_pointer];
  
@@ -65,6 +66,11 @@ index 7656f41..c642127 100644
 +      secure_service_command(command_pointer, addr, data);
 +      return;
 +   }
++   if (command >= SERVICE_CMD_FTP_FIRST &&
++       command <= SERVICE_CMD_FTP_LAST) {
++      ftp_service_command(command_pointer, addr, data);
++      return;
++   }
 +
     for (unsigned int i = 0; i < s_service_count; i++) {
        if (command >= s_services[i].first && command <= s_services[i].last) {
@@ -73,7 +79,7 @@ diff --git a/src/tests/services/fuzz_fat.c b/src/tests/services/fuzz_fat.c
 index 53a165d..6410550 100644
 --- a/src/tests/services/fuzz_fat.c
 +++ b/src/tests/services/fuzz_fat.c
-@@ -64,6 +64,13 @@ unsigned char disk_type(void) { return 1; }
+@@ -64,6 +64,15 @@ unsigned char disk_type(void) { return 1; }
  bool filesystemMount(void) { return true; }
  bool filesystemDismount(void) { return true; }
  
@@ -83,6 +89,8 @@ index 53a165d..6410550 100644
 +{ (void)cp; (void)addr; (void)data; }
 +void secure_service_command(uint32_t cp, uint32_t addr, uint8_t data)
 +{ (void)cp; (void)addr; (void)data; }
++void ftp_service_command(uint32_t cp, uint32_t addr, uint8_t data)
++{ (void)cp; (void)addr; (void)data; }
 +
  /* config.c (linked for config_beeb_write_protected) references this. */
  uint32_t filesystemReadFile(const char *f, uint8_t **a, unsigned int m)
@@ -91,13 +99,13 @@ diff --git a/src/tests/services/test_services.c b/src/tests/services/test_servic
 index 8d58e8b..ce339b7 100644
 --- a/src/tests/services/test_services.c
 +++ b/src/tests/services/test_services.c
-@@ -81,6 +81,23 @@ static uint8_t  aun_last_cmd;
+@@ -81,6 +81,25 @@ static uint8_t  aun_last_cmd;
  static void test_aun_handler(uint32_t cp, uint32_t addr, uint8_t data)
  { (void)addr; (void)data; aun_calls++; aun_last_cmd = Pi1MHz->JIM_ram[cp]; }
  
-+static uint32_t fixed_calls[3];
-+static uint8_t fixed_last_cmd[3];
-+static bool fixed_echo_seen[3];
++static uint32_t fixed_calls[4];
++static uint8_t fixed_last_cmd[4];
++static bool fixed_echo_seen[4];
 +static void fixed_handler(unsigned int index, uint32_t cp, uint32_t addr)
 +{
 +   fixed_calls[index]++;
@@ -111,11 +119,13 @@ index 8d58e8b..ce339b7 100644
 +{ (void)data; fixed_handler(1u, cp, addr); }
 +void secure_service_command(uint32_t cp, uint32_t addr, uint8_t data)
 +{ (void)data; fixed_handler(2u, cp, addr); }
++void ftp_service_command(uint32_t cp, uint32_t addr, uint8_t data)
++{ (void)data; fixed_handler(3u, cp, addr); }
 +
  /* ---- helpers driving the real dispatch ---- */
  #define CMD_PAGE 0xF3u
  static uint32_t cp_of(uint8_t page) { return DISC_RAM_BASE | 0xFF0000u | ((uint32_t)page << 8); }
-@@ -150,8 +167,20 @@ int main(void)
+@@ -150,8 +169,24 @@ int main(void)
        (void)dispatch(CMD_PAGE);
        ok(aun_calls == 1 && aun_last_cmd == 31, "command 31 routed to the AUN handler");
        Pi1MHz->JIM_ram[cp] = 45;
@@ -130,6 +140,10 @@ index 8d58e8b..ce339b7 100644
 +      ok(dispatch(CMD_PAGE) == 0x42u && fixed_calls[2] == 1u &&
 +         fixed_echo_seen[2] &&
 +         fixed_last_cmd[2] == 94u, "command 94 routed directly to secure service");
++      Pi1MHz->JIM_ram[cp] = 114;
++      ok(dispatch(CMD_PAGE) == 0x43u && fixed_calls[3] == 1u &&
++         fixed_echo_seen[3] &&
++         fixed_last_cmd[3] == 114u, "command 114 routed directly to FTP service");
 +      Pi1MHz->JIM_ram[cp] = 200;
        uint8_t echo = dispatch(CMD_PAGE);
 -      ok(echo == CMD_PAGE, "unclaimed command 45 ignored (echo only)");

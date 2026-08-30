@@ -1,0 +1,18 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -161,3 +161,5 @@
+ .commandtable       equs "WGET"
+                     equb >pi_wget_cmd, <pi_wget_cmd
++                    equs "FTP"
++                    equb >ftp_cmd, <ftp_cmd
+                     equs "QUPRUN"
+@@ -228,2 +230,3 @@
+                     equs " DATE      Print current date",&0D
++                    equs " FTP       Interactive file transfer",&0D
+                     equs " IFCFG     Print IP and MAC address",&0D
+@@ -290,3 +293,4 @@
+ include "wget.asm"
+ include "net_wget.asm"
++include "ftp.asm"
+ include "host_launch.asm"

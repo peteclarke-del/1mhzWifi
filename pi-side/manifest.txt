@@ -5,7 +5,7 @@ Reviewed upstream
 -----------------
 
 - Branch: master
-- Commit: d08242ee1b35cf1285b72c9ec1869e98081a8c3e
+- Commit: e949f2d2714b15f314df375e52db5febb6c40e6d
 - Verification metadata: upstream.env
 
 Installer and review tools
@@ -45,6 +45,10 @@ Ordered Pi1MHz patches
 - http-status.patch
 - tcp-diagnostics.patch
 - http-truncated-body.patch
+- http-titles-transfer.patch
+- net-rx-window.patch
+- net-copy-public.patch
+- net-connected-udp.patch
 - http-user-agent.patch
 - wifi-off-state.patch
 - wifi-scan-cancel.patch
@@ -62,6 +66,7 @@ Added source overlays
 - secure_service.c and secure_service.h
 - secure_service_core.c and secure_service_core.h
 - secure_service_wolfssh.c and secure_service_wolfssh.h
+- ftp_service.c and ftp_service.h
 - user_settings.h
 
 Firmware inputs

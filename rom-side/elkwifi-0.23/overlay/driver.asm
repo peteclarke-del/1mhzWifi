@@ -60,133 +60,63 @@ driver_entry_y = drv_svc_workspace+23
  \ therefore do not consume public driver numbers 32-34.
  lda driver_function
  and #&1F
- cmp #0
- bne service_driver_not_0
- jmp service_driver_init
-.service_driver_not_0
- cmp #1
- bne service_driver_not_1
- jmp service_driver_reset
-.service_driver_not_1
- cmp #2
- bne service_driver_not_2
- jmp service_driver_version
-.service_driver_not_2
- cmp #3
- bne service_driver_not_3
- jmp service_driver_scan
-.service_driver_not_3
- cmp #4
- bne service_driver_not_4
- jmp service_driver_join
-.service_driver_not_4
- cmp #5
- bne service_driver_not_5
- jmp service_driver_leave
-.service_driver_not_5
- cmp #6
- bne service_driver_not_6
- jmp service_driver_ifcfg
-.service_driver_not_6
- cmp #18
- bne service_driver_not_18
- jmp service_driver_ifcfg
-.service_driver_not_18
- cmp #8
- bne service_driver_not_8
- jmp service_driver_cipstart
-.service_driver_not_8
- cmp #13
- bne service_driver_not_13
- jmp service_driver_cipsend
-.service_driver_not_13
- cmp #14
- bne service_driver_not_14
- jmp service_driver_cipclose
-.service_driver_not_14
- cmp #20
- bne service_driver_not_20
- jmp service_driver_ipd
-.service_driver_not_20
- cmp #7
- bne service_driver_not_7
- jmp service_driver_mode
-.service_driver_not_7
- cmp #9
- bne service_driver_not_9
- jmp service_driver_cpmux
-.service_driver_not_9
- cmp #10
- bne service_driver_not_10
- jmp service_driver_connection_status
-.service_driver_not_10
- cmp #11
- bne service_driver_not_11
- jmp service_driver_set_buffer
-.service_driver_not_11
- cmp #12
- bne service_driver_not_12
- jmp service_driver_connection_status
-.service_driver_not_12
- cmp #15
- bne service_driver_not_15
- jmp service_driver_baud_compat
-.service_driver_not_15
- cmp #16
- bne service_driver_not_16
- jmp service_driver_baud_compat
-.service_driver_not_16
- cmp #17
- bne service_driver_not_17
- jmp service_driver_baud_compat
-.service_driver_not_17
- cmp #21
- bne service_driver_not_21
- jmp service_driver_ok
-.service_driver_not_21
- cmp #22
- bne service_driver_not_22
- jmp service_driver_ok
-.service_driver_not_22
- cmp #23
- bne service_driver_not_23
- jmp service_driver_mux_channel
-.service_driver_not_23
- cmp #24
- bne service_driver_not_24
- jmp service_driver_wifi_control
-.service_driver_not_24
- cmp #25
- bne service_driver_not_25
- jmp service_driver_lapopt
-.service_driver_not_25
- cmp #26
- bne service_driver_not_26
- jmp service_driver_ok
-.service_driver_not_26
- cmp #27
- bne service_driver_not_27
- jmp service_driver_mode_unsupported
-.service_driver_not_27
- cmp #28
- bne service_driver_not_28
- jmp service_driver_ping
-.service_driver_not_28
- cmp #29
- bne service_driver_not_29
- jmp service_driver_unsupported
-.service_driver_not_29
- jmp service_driver_unsupported
+ asl a
+ tax
+ lda public_driver_dispatch+1,x
+ pha
+ lda public_driver_dispatch,x
+ pha
+ ldx driver_entry_x
+ ldy driver_entry_y
+ lda driver_function
+ and #&1F
+ rts
+
+; RTS dispatch preserves the JMP-style handler entry stack while reducing the
+; public 0-31 ABI to one auditable table. Entries contain target minus one.
+.public_driver_dispatch
+ equw service_driver_init-1
+ equw service_driver_reset-1
+ equw service_driver_version-1
+ equw service_driver_scan-1
+ equw service_driver_join-1
+ equw service_driver_leave-1
+ equw service_driver_ifcfg-1
+ equw service_driver_mode-1
+ equw service_driver_cipstart-1
+ equw service_driver_cpmux-1
+ equw service_driver_connection_status-1
+ equw service_driver_set_buffer-1
+ equw service_driver_connection_status-1
+ equw service_driver_cipsend-1
+ equw service_driver_cipclose-1
+ equw service_driver_baud_compat-1
+ equw service_driver_baud_compat-1
+ equw service_driver_baud_compat-1
+ equw service_driver_ifcfg-1
+ equw service_driver_unsupported-1
+ equw service_driver_ipd-1
+ equw service_driver_ok-1
+ equw service_driver_ok-1
+ equw service_driver_mux_channel-1
+ equw service_driver_wifi_control-1
+ equw service_driver_lapopt-1
+ equw service_driver_ok-1
+ equw service_driver_mode_unsupported-1
+ equw service_driver_ping-1
+ equw service_driver_unsupported-1
+ equw service_driver_unsupported-1
+ equw service_driver_unsupported-1
 \ Initialize the data buffer, by resetting the paged ram register to 0. This
 \ call does not clear the buffer and will mostly be called after a command
 \ is executed and the response is processed.
 .reset_buffer
  php
  sei
- ldx #&00
- stx driver_page_shadow
- txa
+ lda #0
+ sta driver_page_shadow
  jsr select_public_page_a
+ ldx #&00               \ callers read the buffer from its first byte
  plp
  rts
 
