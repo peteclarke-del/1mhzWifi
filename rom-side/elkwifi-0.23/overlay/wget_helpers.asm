@@ -41,23 +41,6 @@ laddr = heap+&FE
  plp
  rts
 
-.wget_set_default_load
- pha
- txa
- pha
- tya
- pha
- lda #&83
- jsr osbyte
- stx laddr
- sty laddr+1
- pla
- tay
- pla
- tax
- pla
- rts
-
 .wget_copy_file_to_swr
  ldy #(wget_swramload_end-wget_swramload)
 .wget_copy_file_l1

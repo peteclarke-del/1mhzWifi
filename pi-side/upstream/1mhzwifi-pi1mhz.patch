@@ -1,196 +1,213 @@
 diff --git a/firmware/Pi1MHz/ElkWiFi.rom b/firmware/Pi1MHz/ElkWiFi.rom
 new file mode 100644
-index 0000000000000000000000000000000000000000..6cae9360d521423ace6083994c37261ac3a78fea
+index 0000000000000000000000000000000000000000..098f895392f1a20eb185e28a8138fe60d639dc07
 GIT binary patch
 literal 16384
-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
-S4*bA@A2{#>2mb%$!2bpT5VFMp
+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
+XdgcV+gT-G(z>nzPqOsEd55NBnq;Z_=
 
 literal 0
 HcmV?d00001
 
 diff --git a/firmware/Pi1MHz/Pi1MHz.cfg b/firmware/Pi1MHz/Pi1MHz.cfg
-index 49f2689..f7c37da 100644
+index 49f2689..4c5f947 100644
 --- a/firmware/Pi1MHz/Pi1MHz.cfg
 +++ b/firmware/Pi1MHz/Pi1MHz.cfg
 @@ -29,7 +29,7 @@
@@ -215,7 +232,7 @@ index 49f2689..f7c37da 100644
  
  # ---- audio ----------------------------------------------------------------
  # BeebAudio_Off=1          # mute the Beeb's own audio passthrough (the
-@@ -111,3 +111,16 @@
+@@ -111,3 +111,13 @@
  # teletext_server3=a.b.c.d:port   # channel 3
  # teletext_server4=a.b.c.d:port   # channel 4 (port optional, default 19761)
  # teletext_debug=1                # log teletext events
@@ -226,9 +243,6 @@ index 49f2689..f7c37da 100644
 +
 +# Required by the ElkWiFi ROM transport
 +net_enable=1
-+
-+# Initial ElkWiFi menu source; an explicit *MENUSRC setting overrides it
-+# elkwifi_menu_url=http://acornelectron.nl/uefarchive/MENU
 +# elkwifi_utc_offset_minutes=0  # DATE/TIME offset east of UTC; e.g. 60 for BST
 +# elkwifi_uef_trim_tail=0  # diagnostic A/B only; normal WiCFS receives the complete UEF
 +# wifi_security=auto      # auto|open|wep|wpa|wpa2
@@ -7491,7 +7505,7 @@ zr<XUcN5!~_6+Om#`;MDCp_g~~yb0di?A&ghvwL*T?di?V>2+gHuk2iJN#Eh#JICkE
 ysGLBx_VVUrckk9EHzz;a+rMm3U*zjtk(Zxe(KDw)#Mt_dP*FK~m6h43?Ee9r9wGh!
 
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 9fd8185..a87e6d9 100644
+index 36abb1b..4399674 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
 @@ -36,7 +36,11 @@ project( Pi1MHz C ASM )
@@ -7519,10 +7533,12 @@ index 9fd8185..a87e6d9 100644
  
  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Warith-conversion ")
  
-@@ -260,6 +267,12 @@ set(FrameBuffer_emulator_files
+@@ -260,6 +267,14 @@ set(FrameBuffer_emulator_files
  set(services_emulator_files
     services_emulator.c
     fat_service.c
++   ftp_service.c
++   ftp_service.h
 +   secure_service.c
 +   secure_service.h
 +   secure_service_core.c
@@ -7532,7 +7548,7 @@ index 9fd8185..a87e6d9 100644
     net_service.c
     net_service.h
     net_tnfs.c
-@@ -313,6 +326,7 @@ set(lwip_files
+@@ -313,6 +328,7 @@ set(lwip_files
     ${LWIP_ROOT}/src/core/pbuf.c
     ${LWIP_ROOT}/src/core/stats.c
     ${LWIP_ROOT}/src/core/sys.c
@@ -7540,7 +7556,7 @@ index 9fd8185..a87e6d9 100644
     ${LWIP_ROOT}/src/core/tcp.c
     ${LWIP_ROOT}/src/core/tcp_in.c
     ${LWIP_ROOT}/src/core/tcp_out.c
-@@ -352,6 +366,7 @@ set_source_files_properties(
+@@ -352,6 +368,7 @@ set_source_files_properties(
     ${LWIP_ROOT}/src/core/pbuf.c
     ${LWIP_ROOT}/src/core/stats.c
     ${LWIP_ROOT}/src/core/sys.c
@@ -7548,7 +7564,7 @@ index 9fd8185..a87e6d9 100644
     ${LWIP_ROOT}/src/core/tcp.c
     ${LWIP_ROOT}/src/core/tcp_in.c
     ${LWIP_ROOT}/src/core/tcp_out.c
-@@ -390,11 +405,15 @@ set( Pi1MHz_sources
+@@ -390,11 +407,15 @@ set( Pi1MHz_sources
      ${M5000_emulator_files}
      ${BeebSID_emulator_files}
      ${FrameBuffer_emulator_files}
@@ -7564,7 +7580,7 @@ index 9fd8185..a87e6d9 100644
  )
  
  # These are cold (config/filename handling, ~12 call sites). We recompile them
-@@ -409,9 +428,35 @@ set_source_files_properties(
+@@ -409,9 +430,37 @@ set_source_files_properties(
     lib/newlib-str/strcasestr.c
     PROPERTIES COMPILE_OPTIONS "-Os;-Wno-cast-qual;-Wno-conversion" )
  
@@ -7585,9 +7601,11 @@ index 9fd8185..a87e6d9 100644
 +   third_party/wolfssh/src/io.c
 +   third_party/wolfssh/src/port.c
 +   third_party/wolfssh/src/wolfterm.c
-+   third_party/wolfssh/src/ossh.c)
++   third_party/wolfssh/src/ossh.c
++   third_party/wolfssh/src/wolfsftp.c)
 +target_include_directories(nettools_wolfssh PUBLIC
-+   third_party/wolfssh third_party/wolfssl ${CMAKE_CURRENT_SOURCE_DIR})
++   third_party/wolfssh third_party/wolfssl ${CMAKE_CURRENT_SOURCE_DIR}
++   ${CMAKE_CURRENT_SOURCE_DIR}/BeebSCSI/fatfs)
 +target_compile_definitions(nettools_wolfssh PRIVATE
 +   BUILDING_WOLFSSH WOLFSSL_USER_SETTINGS)
 +target_compile_options(nettools_wolfssh PRIVATE -w -Os -fno-lto)
@@ -7602,7 +7620,7 @@ index 9fd8185..a87e6d9 100644
  # Kernel images always go to the top-level firmware/ directory, regardless of
  # where the build directory is (so out-of-source build/<config> dirs work).
 diff --git a/src/Pi1MHz.c b/src/Pi1MHz.c
-index 8a7a155..50fa0e4 100644
+index 0a60ef8..e2d5820 100644
 --- a/src/Pi1MHz.c
 +++ b/src/Pi1MHz.c
 @@ -124,6 +124,8 @@ See mdfs.net/Docs/Comp/BBC/Hardware/JIMAddrs for full details
@@ -7716,10 +7734,10 @@ index 8a7a155..50fa0e4 100644
              }
 diff --git a/src/elkwifi_service.c b/src/elkwifi_service.c
 new file mode 100644
-index 0000000..853ff9f
+index 0000000..1308c84
 --- /dev/null
 +++ b/src/elkwifi_service.c
-@@ -0,0 +1,1027 @@
+@@ -0,0 +1,1243 @@
 +/* Pi1MHz-side service for the ElkWiFi-compatible ROM.
 + *
 + * The AP5 passes &FCA0-&FCAF, &FCFF and JIM to its 1 MHz connector. Pi1MHz's
@@ -7740,6 +7758,7 @@ index 0000000..853ff9f
 +#include "BeebSCSI/filesystem.h"
 +#include "config.h"
 +#include "elkwifi_service.h"
++#include "ftp_service.h"
 +#include "ram_emulator.h"
 +#include "services.h"
 +#include "uef_normalize.h"
@@ -7756,9 +7775,7 @@ index 0000000..853ff9f
 +#include "lwip/raw.h"
 +#include "lwip/udp.h"
 +
-+#define MENU_FILE "/Pi1MHz/ElkWiFi.menu"
-+#define MENU_DEFAULT "http://acornelectron.nl/uefarchive/MENU"
-+#define MENU_MAX 240u
++#define ELKWIFI_TEXT_MAX 240u
 +#define WIFI_FILE "/Pi1MHz/ElkWiFi.wifi"
 +#define WIFI_PROFILE_HEADER "ELKWIFI1"
 +#define LAPOPT_FILE "/Pi1MHz/ElkWiFi.lapopt"
@@ -7766,15 +7783,25 @@ index 0000000..853ff9f
 + * forward Pi1MHz's extension selectors at &FCFD/&FCFE. Keep UEF data in the
 + * first 64K so the host and Pi always refer to the same physical bytes. */
 +#define ELKWIFI_UEF_BASE 0u
++#define ELKWIFI_UEF_LEGACY_CAPACITY 0xfffeu
++#define ELKWIFI_UEF_WINDOW_SIZE 0xff00u
++#define ELKWIFI_UEF_STREAM_CAPACITY (16u * 1024u * 1024u)
++#define ELKWIFI_UEF_STREAM_VERSION 1u
++#define ELKWIFI_UEF_OP_PROBE 0u
++#define ELKWIFI_UEF_OP_BEGIN 1u
++#define ELKWIFI_UEF_OP_APPEND 2u
++#define ELKWIFI_UEF_OP_FINALIZE 3u
++#define ELKWIFI_UEF_OP_REWIND 4u
++#define ELKWIFI_UEF_OP_REFILL 5u
++#define ELKWIFI_UEF_OP_CLOSE 6u
 +#define ELKWIFI_VERSION_RESPONSE \
-+   "Pi1MHz ElkWiFi 0.1.58, kernel " GITVERSION "\r\n\r\nOK\r\n"
++   "Pi1MHz ElkWiFi 0.1.67, kernel " GITVERSION "\r\n\r\nOK\r\n"
 +
 +_Static_assert(ELKWIFI_CMD_FIRST == SERVICE_CMD_ELKWIFI_FIRST,
 +               "ElkWiFi service range start disagrees with services.h");
 +_Static_assert(ELKWIFI_CMD_LAST == SERVICE_CMD_ELKWIFI_LAST,
 +               "ElkWiFi service range end disagrees with services.h");
 +
-+static char menu_url[MENU_MAX + 1u];
 +static volatile bool request_pending;
 +static volatile bool request_cancel;
 +static volatile uint32_t request_pointer;
@@ -7782,7 +7809,24 @@ index 0000000..853ff9f
 +static bool service_initialised;
 +static bool scan_waiting;
 +static uint8_t scan_fields = 127u;
-+static uint8_t uef_scratch[0xfffeu];
++/* The AP5 only exposes one 64K JIM aperture. Keep the authoritative stream on
++ * the Pi and publish bounded windows into that aperture. This also protects a
++ * loaded UEF from filing systems and other expansions which share JIM. */
++static uint8_t uef_stream_data[ELKWIFI_UEF_STREAM_CAPACITY];
++static uint8_t uef_stream_scratch[ELKWIFI_UEF_STREAM_CAPACITY];
++static size_t uef_stream_length;
++static size_t uef_stream_cursor;
++static size_t uef_published_offset;
++static uint16_t uef_published_length;
++static uint32_t uef_stream_token;
++static uint32_t uef_window_generation;
++static uint32_t uef_last_append_offset;
++static uint32_t uef_last_append_crc;
++static uint16_t uef_last_append_length;
++static uint8_t uef_stream_format;
++static bool uef_published_final;
++static bool uef_stream_ready;
++static bool uef_upload_active;
 +static bool uef_trim_tail;
 +
 +typedef enum {
@@ -7800,7 +7844,7 @@ index 0000000..853ff9f
 +static netop_state_t ping_state;
 +static struct raw_pcb *ping_pcb;
 +static ip_addr_t ping_address;
-+static char ping_host[MENU_MAX + 1u];
++static char ping_host[ELKWIFI_TEXT_MAX + 1u];
 +static uint16_t ping_sequence;
 +static uint32_t ping_started_us;
 +static uint32_t ping_deadline_us;
@@ -7819,6 +7863,254 @@ index 0000000..853ff9f
 +static void response_printf(uint32_t cp, const char *format, ...)
 +   __attribute__((format(printf, 2, 3)));
 +static bool command_string(uint32_t cp, const char **value);
++
++static void uef_stream_clear(void)
++{
++   uef_stream_length = 0u;
++   uef_stream_cursor = 0u;
++   uef_stream_ready = false;
++   uef_upload_active = false;
++   uef_published_offset = 0u;
++   uef_published_length = 0u;
++   uef_window_generation = 0u;
++   uef_last_append_offset = UINT32_MAX;
++   uef_last_append_crc = 0u;
++   uef_last_append_length = 0u;
++   uef_stream_format = 0u;
++   uef_published_final = false;
++}
++
++static uint16_t uef_rd16(const uint8_t *p)
++{
++   return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
++}
++
++static uint32_t uef_rd32(const uint8_t *p)
++{
++   return (uint32_t)p[0] | ((uint32_t)p[1] << 8)
++        | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
++}
++
++static void uef_wr16(uint8_t *p, uint16_t value)
++{
++   p[0] = (uint8_t)value;
++   p[1] = (uint8_t)(value >> 8);
++}
++
++static void uef_wr32(uint8_t *p, uint32_t value)
++{
++   p[0] = (uint8_t)value;
++   p[1] = (uint8_t)(value >> 8);
++   p[2] = (uint8_t)(value >> 16);
++   p[3] = (uint8_t)(value >> 24);
++}
++
++static uint32_t uef_crc32(const uint8_t *data, size_t length)
++{
++   uint32_t crc = 0xffffffffu;
++   while (length-- != 0u) {
++      crc ^= *data++;
++      for (unsigned int bit = 0; bit < 8u; bit++)
++         crc = (crc >> 1) ^ (0xedb88320u & (uint32_t)-(int32_t)(crc & 1u));
++   }
++   return ~crc;
++}
++
++static bool uef_incremental_request(uint32_t cp)
++{
++   const uint8_t *p = &Pi1MHz->JIM_ram[cp + 1u];
++   return p[0] == 'I' && p[1] == 'U' && p[2] == 'E' && p[3] == 'F'
++       && p[4] == ELKWIFI_UEF_STREAM_VERSION;
++}
++
++static void uef_incremental_response(uint32_t cp)
++{
++   uint8_t *p = &Pi1MHz->JIM_ram[cp + 1u];
++   memcpy(p, "IUEF", 4u);
++   p[4] = ELKWIFI_UEF_STREAM_VERSION;
++   uef_wr32(p + 5u, uef_stream_token);
++   uef_wr32(p + 9u, uef_window_generation);
++   uef_wr16(p + 13u, uef_published_length);
++   p[15] = uef_published_final ? 1u : 0u;
++   p[16] = uef_stream_format;
++   p[17] = 0u;
++}
++
++static void uef_public_length_set(size_t length)
++{
++   const uint32_t trailer = ELKWIFI_UEF_BASE + 0xfffeu;
++   Pi1MHz->JIM_ram[trailer] = (uint8_t)length;
++   Pi1MHz->JIM_ram[trailer + 1u] = (uint8_t)(length >> 8);
++}
++
++static size_t uef_public_length_get(void)
++{
++   const uint32_t trailer = ELKWIFI_UEF_BASE + 0xfffeu;
++   return (size_t)Pi1MHz->JIM_ram[trailer]
++        | ((size_t)Pi1MHz->JIM_ram[trailer + 1u] << 8);
++}
++
++static void uef_stream_publish_window(void)
++{
++   size_t available = uef_stream_length - uef_stream_cursor;
++   size_t count = available < ELKWIFI_UEF_WINDOW_SIZE
++                ? available : ELKWIFI_UEF_WINDOW_SIZE;
++   uef_published_offset = uef_stream_cursor;
++   if (count != 0u)
++      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE],
++             uef_stream_data + uef_stream_cursor, count);
++   uef_stream_cursor += count;
++   uef_published_length = (uint16_t)count;
++   uef_published_final = uef_stream_cursor == uef_stream_length;
++   uef_public_length_set(count);
++}
++
++static void uef_stream_republish_window(void)
++{
++   if (uef_published_length != 0u)
++      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE],
++             uef_stream_data + uef_published_offset, uef_published_length);
++   uef_public_length_set(uef_published_length);
++}
++
++static void uef_normalize_response(uint32_t cp,
++                                   uef_normalize_result_t normalized)
++{
++   response_string(cp, normalized == UEF_NORMALIZE_RAW ? "RAW\r\n"
++                    : normalized == UEF_NORMALIZE_GZIP ? "GZIP\r\n"
++                                                       : "ZIP\r\n");
++   /* A fixed byte beyond every legacy text response advertises stream ABI 1.
++    * Old ROMs see the byte-for-byte response they already understand. */
++   Pi1MHz->JIM_ram[cp + 17u] = '1';
++}
++
++static uint8_t uef_incremental_command(uint32_t cp)
++{
++   const uint8_t *request = &Pi1MHz->JIM_ram[cp + 1u];
++   uint8_t operation = request[5];
++   uint32_t token = uef_rd32(request + 6u);
++   uint32_t value = uef_rd32(request + 10u);
++   uint16_t length = uef_rd16(request + 14u);
++   uint32_t crc = uef_rd32(request + 16u);
++
++   switch (operation) {
++      case ELKWIFI_UEF_OP_PROBE:
++         uef_incremental_response(cp);
++         return ELKWIFI_OK;
++
++      case ELKWIFI_UEF_OP_BEGIN:
++         uef_stream_clear();
++         if (++uef_stream_token == 0u) ++uef_stream_token;
++         uef_upload_active = true;
++         uef_incremental_response(cp);
++         return ELKWIFI_OK;
++
++      case ELKWIFI_UEF_OP_APPEND:
++      {
++         uint32_t actual_crc;
++         if (token == 0u) token = uef_stream_token;
++         if (length == 0u) length = (uint16_t)uef_public_length_get();
++         if (!uef_upload_active || token != uef_stream_token
++             || length == 0u || length > ELKWIFI_UEF_WINDOW_SIZE)
++            return ELKWIFI_ERR_PARAM;
++         actual_crc = uef_crc32(
++            &Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE], length);
++         if (value == uef_window_generation) {
++            if (length > ELKWIFI_UEF_STREAM_CAPACITY - uef_stream_length)
++               return ELKWIFI_ERR_PARAM;
++            if (crc != 0u && actual_crc != crc)
++               return ELKWIFI_ERR_PARAM;
++            memcpy(uef_stream_data + uef_stream_length,
++                   &Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE], length);
++            uef_stream_length += length;
++            uef_last_append_offset = value;
++            uef_last_append_length = length;
++            uef_last_append_crc = actual_crc;
++            uef_window_generation++;
++         } else if (value + 1u != uef_window_generation
++                    || value != uef_last_append_offset
++                    || length != uef_last_append_length
++                    || actual_crc != uef_last_append_crc
++                    || (crc != 0u && crc != actual_crc)) {
++            return ELKWIFI_ERR_PARAM;
++         }
++         uef_incremental_response(cp);
++         return ELKWIFI_OK;
++      }
++
++      case ELKWIFI_UEF_OP_FINALIZE:
++      {
++         size_t normalized_length = uef_stream_length;
++         uef_normalize_result_t normalized;
++         if (token == 0u) token = uef_stream_token;
++         if (!uef_upload_active || token != uef_stream_token
++             || normalized_length == 0u)
++            return ELKWIFI_ERR_PARAM;
++         normalized = uef_normalize(uef_stream_data, &normalized_length,
++                                    sizeof uef_stream_data,
++                                    uef_stream_scratch,
++                                    sizeof uef_stream_scratch);
++         if (normalized == UEF_NORMALIZE_TOO_LARGE) {
++            response_string(cp, "TOO LARGE\r\n");
++            return ELKWIFI_OK;
++         }
++         if (normalized == UEF_NORMALIZE_INVALID) {
++            response_string(cp, "INVALID\r\n");
++            return ELKWIFI_OK;
++         }
++         if (uef_trim_tail)
++            normalized_length = uef_legacy_trim_length(
++               uef_stream_data, normalized_length);
++         uef_stream_length = normalized_length;
++         uef_stream_cursor = 0u;
++         uef_stream_ready = true;
++         uef_upload_active = false;
++         uef_stream_format = normalized == UEF_NORMALIZE_RAW ? 'R'
++                           : normalized == UEF_NORMALIZE_GZIP ? 'G' : 'Z';
++         uef_window_generation++;
++         uef_stream_publish_window();
++         uef_incremental_response(cp);
++         return ELKWIFI_OK;
++      }
++
++      case ELKWIFI_UEF_OP_REWIND:
++         if (!uef_stream_ready
++             || (token != 0u && token != uef_stream_token))
++            return ELKWIFI_ERR_PARAM;
++         uef_stream_cursor = 0u;
++         uef_window_generation++;
++         uef_stream_publish_window();
++         uef_incremental_response(cp);
++         return ELKWIFI_OK;
++
++      case ELKWIFI_UEF_OP_REFILL:
++         if (!uef_stream_ready
++             || (token != 0u && token != uef_stream_token))
++            return ELKWIFI_ERR_PARAM;
++         if ((token == 0u && value == 0u) || value == 0xffffffffu
++             || value == uef_window_generation) {
++            uef_window_generation++;
++            uef_stream_publish_window();
++         } else if (value + 1u == uef_window_generation) {
++            uef_stream_republish_window();
++         } else {
++            return ELKWIFI_ERR_PARAM;
++         }
++         uef_incremental_response(cp);
++         return ELKWIFI_OK;
++
++      case ELKWIFI_UEF_OP_CLOSE:
++         if (token != 0u && token != uef_stream_token)
++            return ELKWIFI_ERR_PARAM;
++         uef_stream_clear();
++         uef_public_length_set(0u);
++         uef_incremental_response(cp);
++         return ELKWIFI_OK;
++
++      default:
++         return ELKWIFI_ERR_PARAM;
++   }
++}
 +
 +static bool deadline_expired(uint32_t deadline)
 +{
@@ -8261,14 +8553,14 @@ index 0000000..853ff9f
 +
 +static void response_printf(uint32_t cp, const char *format, ...)
 +{
-+   char value[MENU_MAX + 1u];
++   char value[ELKWIFI_TEXT_MAX + 1u];
 +   va_list args;
 +   va_start(args, format);
 +   int length = vsnprintf(value, sizeof value, format, args);
 +   va_end(args);
 +   if (length < 0)
 +      value[0] = '\0';
-+   value[MENU_MAX] = '\0';
++   value[ELKWIFI_TEXT_MAX] = '\0';
 +   response_string(cp, value);
 +}
 +
@@ -8425,7 +8717,7 @@ index 0000000..853ff9f
 +static uint8_t wifi_scan(uint32_t cp)
 +{
 +   sdio_wifi_scan_result_t results[SDIO_WIFI_SCAN_MAX_RESULTS];
-+   char response[MENU_MAX + 1u];
++   char response[ELKWIFI_TEXT_MAX + 1u];
 +   size_t used = 0u;
 +
 +   if (!scan_waiting) {
@@ -8472,57 +8764,13 @@ index 0000000..853ff9f
 +   return ELKWIFI_OK;
 +}
 +
-+static bool valid_menu_url(const char *url)
-+{
-+   size_t length;
-+   if (url == NULL || strncmp(url, "http://", 7u) != 0)
-+      return false; /* HTTPS is enabled only when a verified TLS backend exists. */
-+   length = strnlen(url, MENU_MAX + 1u);
-+   if (length <= 7u || length > MENU_MAX)
-+      return false;
-+   for (size_t i = 0u; i < length; i++)
-+      if ((unsigned char)url[i] < 0x20u || (unsigned char)url[i] == 0x7fu)
-+         return false;
-+   return true;
-+}
-+
-+static void menu_load(void)
-+{
-+   uint8_t storage[MENU_MAX + 1u];
-+   uint8_t *data = storage;
-+   uint32_t length = filesystemReadFile(MENU_FILE, &data, MENU_MAX);
-+   if (length != 0u) {
-+      while (length != 0u && (data[length - 1u] == '\r' || data[length - 1u] == '\n'))
-+         length--;
-+      data[length] = '\0';
-+      if (valid_menu_url((const char *)data)) {
-+         strlcpy(menu_url, (const char *)data, sizeof(menu_url));
-+         return;
-+      }
-+   }
-+   {
-+      const char *configured = config_get("elkwifi_menu_url");
-+      if (valid_menu_url(configured)) {
-+         strlcpy(menu_url, configured, sizeof(menu_url));
-+         return;
-+      }
-+   }
-+   strlcpy(menu_url, MENU_DEFAULT, sizeof(menu_url));
-+}
-+
-+static bool menu_save(void)
-+{
-+   uint32_t length = (uint32_t)strlen(menu_url);
-+   return filesystemWriteFile(MENU_FILE, (const uint8_t *)menu_url, length)
-+          == length;
-+}
-+
 +static bool command_string(uint32_t cp, const char **value)
 +{
 +   uint32_t limit = DISC_RAM_BASE + DISC_RAM_SIZE;
 +   if (cp + 1u >= limit)
 +      return false;
-+   for (uint32_t pos = cp + 1u; pos < limit && pos <= cp + MENU_MAX + 1u; pos++) {
++   for (uint32_t pos = cp + 1u;
++        pos < limit && pos <= cp + ELKWIFI_TEXT_MAX + 1u; pos++) {
 +      if (Pi1MHz->JIM_ram[pos] == 0u || Pi1MHz->JIM_ram[pos] == '\r') {
 +         Pi1MHz->JIM_ram[pos] = 0u;
 +         *value = (const char *)&Pi1MHz->JIM_ram[cp + 1u];
@@ -8535,7 +8783,7 @@ index 0000000..853ff9f
 +static void response_string(uint32_t cp, const char *value)
 +{
 +   size_t length = 0u;
-+   while (length < MENU_MAX && value[length] != '\0')
++   while (length < ELKWIFI_TEXT_MAX && value[length] != '\0')
 +      length++;
 +   memcpy(&Pi1MHz->JIM_ram[cp + 1u], value, length);
 +   Pi1MHz->JIM_ram[cp + 1u + length] = 0u;
@@ -8544,8 +8792,6 @@ index 0000000..853ff9f
 +static uint8_t process_request(uint32_t cp)
 +{
 +   uint8_t command = Pi1MHz->JIM_ram[cp];
-+   const char *value;
-+
 +   switch (command) {
 +      case ELKWIFI_CMD_STATUS:
 +         /* Version discovery identifies the installed Pi service. It is not
@@ -8579,15 +8825,15 @@ index 0000000..853ff9f
 +
 +      case ELKWIFI_CMD_UEF_NORMALIZE:
 +      {
++         if (uef_incremental_request(cp))
++            return uef_incremental_command(cp);
 +         /* UEF data occupies the AP5-visible first 64K JIM window. This is
 +          * absolute JIM offset zero, not the services mailbox DISC_RAM. */
 +         const uint32_t base = ELKWIFI_UEF_BASE;
-+         const uint32_t trailer = ELKWIFI_UEF_BASE + 0xfffeu;
-+         size_t length = (size_t)Pi1MHz->JIM_ram[trailer]
-+                       | ((size_t)Pi1MHz->JIM_ram[trailer + 1u] << 8);
++         size_t length = uef_public_length_get();
 +         uef_normalize_result_t normalized = uef_normalize(
-+            &Pi1MHz->JIM_ram[base], &length, 0xfffeu,
-+            uef_scratch, sizeof uef_scratch);
++            &Pi1MHz->JIM_ram[base], &length, ELKWIFI_UEF_LEGACY_CAPACITY,
++            uef_stream_scratch, ELKWIFI_UEF_LEGACY_CAPACITY);
 +         if (normalized == UEF_NORMALIZE_TOO_LARGE) {
 +            response_string(cp, "TOO LARGE\r\n");
 +            return ELKWIFI_OK;
@@ -8600,31 +8846,19 @@ index 0000000..853ff9f
 +          * explicit diagnostic comparison only, not the compatibility path. */
 +         if (uef_trim_tail)
 +            length = uef_legacy_trim_length(&Pi1MHz->JIM_ram[base], length);
-+         Pi1MHz->JIM_ram[trailer] = (uint8_t)length;
-+         Pi1MHz->JIM_ram[trailer + 1u] = (uint8_t)(length >> 8);
-+         response_string(cp, normalized == UEF_NORMALIZE_RAW ? "RAW\r\n"
-+                          : normalized == UEF_NORMALIZE_GZIP ? "GZIP\r\n"
-+                                                            : "ZIP\r\n");
++         uef_stream_clear();
++         if (++uef_stream_token == 0u) ++uef_stream_token;
++         memcpy(uef_stream_data, &Pi1MHz->JIM_ram[base], length);
++         uef_stream_length = length;
++         uef_stream_cursor = 0u;
++         uef_stream_ready = true;
++         uef_upload_active = false;
++         uef_stream_format = normalized == UEF_NORMALIZE_RAW ? 'R'
++                           : normalized == UEF_NORMALIZE_GZIP ? 'G' : 'Z';
++         uef_public_length_set(length);
++         uef_normalize_response(cp, normalized);
 +         return ELKWIFI_OK;
 +      }
-+
-+      case ELKWIFI_CMD_MENU_GET:
-+         response_string(cp, menu_url);
-+         return ELKWIFI_OK;
-+
-+      case ELKWIFI_CMD_MENU_DEFAULT:
-+         strlcpy(menu_url, MENU_DEFAULT, sizeof(menu_url));
-+         if (!menu_save()) return ELKWIFI_ERR_IO;
-+         response_string(cp, menu_url);
-+         return ELKWIFI_OK;
-+
-+      case ELKWIFI_CMD_MENU_SET:
-+         if (!command_string(cp, &value) || !valid_menu_url(value))
-+            return ELKWIFI_ERR_PARAM;
-+         strlcpy(menu_url, value, sizeof(menu_url));
-+         if (!menu_save()) return ELKWIFI_ERR_IO;
-+         response_string(cp, menu_url);
-+         return ELKWIFI_OK;
 +
 +      case ELKWIFI_CMD_LAPOPT:
 +         if (Pi1MHz->JIM_ram[cp + 1u] != 7u
@@ -8723,7 +8957,6 @@ index 0000000..853ff9f
 +      one-shot failure when another optional service filled the old table. */
 +   if (!service_initialised) {
 +      service_initialised = true;
-+      menu_load();
 +      lapopt_load();
 +      time_utc_offset_minutes = utc_offset_parse(
 +         config_get("elkwifi_utc_offset_minutes"));
@@ -8734,6 +8967,7 @@ index 0000000..853ff9f
 +   wifi_credentials_load();
 +   (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_UEF_NORMALIZE,
 +                           elkwifi_service_command);
++   ftp_service_init();
 +   /* A host reset abandons the old OSWORD/star-command caller. Complete any
 +      request latched during reset reinitialisation with a bounded error before
 +      clearing it, so FCAA can never be left at BUSY. */
@@ -8749,10 +8983,10 @@ index 0000000..853ff9f
 +}
 diff --git a/src/elkwifi_service.h b/src/elkwifi_service.h
 new file mode 100644
-index 0000000..d160475
+index 0000000..f5ce9b0
 --- /dev/null
 +++ b/src/elkwifi_service.h
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,38 @@
 +#ifndef ELKWIFI_SERVICE_H
 +#define ELKWIFI_SERVICE_H
 +
@@ -8768,9 +9002,6 @@ index 0000000..d160475
 +#define ELKWIFI_CMD_SCAN         81u
 +#define ELKWIFI_CMD_JOIN         82u
 +#define ELKWIFI_CMD_IFCFG        83u
-+#define ELKWIFI_CMD_MENU_GET     84u
-+#define ELKWIFI_CMD_MENU_SET     85u
-+#define ELKWIFI_CMD_MENU_DEFAULT 86u
 +#define ELKWIFI_CMD_LAPOPT       87u
 +#define ELKWIFI_CMD_PING         88u
 +#define ELKWIFI_CMD_DATETIME     89u
@@ -8792,6 +9023,973 @@ index 0000000..d160475
 +#define ELKWIFI_JOIN_SET         1u
 +#define ELKWIFI_JOIN_LEAVE       2u
 +#define ELKWIFI_JOIN_RADIO_OFF   3u
++
++#endif
+diff --git a/src/ftp_service.c b/src/ftp_service.c
+new file mode 100644
+index 0000000..1748ebf
+--- /dev/null
++++ b/src/ftp_service.c
+@@ -0,0 +1,921 @@
++/* Interactive FTP client for the Pi1MHz services mailbox.
++ *
++ * FTP control and passive data sockets live entirely on the Pi. The host ROM
++ * sees bounded high-level operations and moves file bytes through the fixed
++ * service scratch page. No host or Tube address is ever passed to lwIP.
++ */
++
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <string.h>
++#include <strings.h>
++
++#include "Pi1MHz.h"
++#include "ftp_service.h"
++#include "ram_emulator.h"
++#include "services.h"
++#include "rpi/asm-helpers.h"
++#include "rpi/systimer.h"
++#include "wifi/wifi_lwip.h"
++#include "lwip/altcp.h"
++#include "lwip/dns.h"
++#include "lwip/err.h"
++#include "lwip/ip_addr.h"
++#include "lwip/pbuf.h"
++
++#define FTP_TEXT_MAX 237u
++#define FTP_CONTROL_CAPACITY 768u
++#define FTP_DATA_CAPACITY 8192u
++#define FTP_SCRATCH_OFFSET 0xfff100u
++#define FTP_TIMEOUT_MS 30000u
++
++typedef enum {
++   FTP_STATE_CLOSED = 0,
++   FTP_STATE_DNS,
++   FTP_STATE_CONNECTING,
++   FTP_STATE_GREETING,
++   FTP_STATE_READY,
++   FTP_STATE_ERROR
++} ftp_state_t;
++
++typedef enum {
++   FTP_OP_NONE = 0,
++   FTP_OP_OPEN,
++   FTP_OP_SIMPLE_SEND,
++   FTP_OP_SIMPLE_REPLY,
++   FTP_OP_EPSV_SEND,
++   FTP_OP_EPSV_REPLY,
++   FTP_OP_PASV_SEND,
++   FTP_OP_PASV_REPLY,
++   FTP_OP_DATA_CONNECT,
++   FTP_OP_TRANSFER_SEND,
++   FTP_OP_TRANSFER_REPLY,
++   FTP_OP_READ,
++   FTP_OP_WRITE,
++   FTP_OP_WRITE_FINISH,
++   FTP_OP_CLOSE
++} ftp_operation_t;
++
++static struct {
++   ftp_state_t state;
++   ftp_operation_t operation;
++   struct altcp_pcb *control;
++   struct altcp_pcb *data;
++   ip_addr_t address;
++   bool dns_done;
++   bool dns_ok;
++   bool control_connected;
++   bool control_eof;
++   bool data_connected;
++   bool data_eof;
++   bool data_error;
++   uint16_t data_port;
++   uint8_t transfer;
++   char host[192];
++   char request[FTP_TEXT_MAX + 1u];
++   char transfer_command[FTP_TEXT_MAX + 8u];
++   char control_text[FTP_CONTROL_CAPACITY];
++   uint16_t control_length;
++   char last_reply[FTP_TEXT_MAX + 1u];
++   uint8_t data_buffer[FTP_DATA_CAPACITY];
++   uint16_t data_head;
++   uint16_t data_tail;
++   uint16_t data_count;
++   uint32_t deadline_ms;
++} ftp;
++
++static volatile bool request_pending;
++static volatile bool request_cancel;
++static volatile uint32_t request_pointer;
++static volatile uint32_t request_status_address;
++static bool request_started;
++static uint8_t request_command;
++
++static uint32_t ftp_now_ms(void)
++{
++   return (uint32_t)(RPI_GetSystemTime64() / 1000u);
++}
++
++static bool ftp_expired(void)
++{
++   return (int32_t)(ftp_now_ms() - ftp.deadline_ms) >= 0;
++}
++
++static void ftp_set_deadline(void)
++{
++   ftp.deadline_ms = ftp_now_ms() + FTP_TIMEOUT_MS;
++}
++
++static void ftp_detach(struct altcp_pcb **slot, bool abort_connection)
++{
++   struct altcp_pcb *pcb = *slot;
++   if (pcb == NULL)
++      return;
++   *slot = NULL;
++   altcp_arg(pcb, NULL);
++   altcp_recv(pcb, NULL);
++   altcp_sent(pcb, NULL);
++   altcp_poll(pcb, NULL, 0u);
++   altcp_err(pcb, NULL);
++   if (abort_connection)
++      altcp_abort(pcb);
++   else if (altcp_close(pcb) != ERR_OK)
++      altcp_abort(pcb);
++}
++
++static void ftp_reset(bool abort_connections)
++{
++   ftp_detach(&ftp.data, abort_connections);
++   ftp_detach(&ftp.control, abort_connections);
++   memset(&ftp, 0, sizeof ftp);
++}
++
++static uint8_t ftp_error(uint8_t result)
++{
++   ftp.state = FTP_STATE_ERROR;
++   ftp.operation = FTP_OP_NONE;
++   return result;
++}
++
++static err_t ftp_sent(void *arg, struct altcp_pcb *pcb, u16_t length)
++{
++   (void)arg;
++   (void)pcb;
++   (void)length;
++   return ERR_OK;
++}
++
++static err_t ftp_poll_callback(void *arg, struct altcp_pcb *pcb)
++{
++   (void)arg;
++   (void)pcb;
++   return ERR_OK;
++}
++
++static void ftp_control_error(void *arg, err_t error)
++{
++   (void)arg;
++   (void)error;
++   ftp.control = NULL;
++   ftp.state = FTP_STATE_ERROR;
++}
++
++static void ftp_data_error(void *arg, err_t error)
++{
++   (void)arg;
++   (void)error;
++   ftp.data = NULL;
++   ftp.data_error = true;
++}
++
++static err_t ftp_control_receive(void *arg, struct altcp_pcb *pcb,
++                                 struct pbuf *p, err_t error)
++{
++   uint16_t offset = 0u;
++   (void)arg;
++   if (error != ERR_OK) {
++      if (p != NULL)
++         pbuf_free(p);
++      ftp.state = FTP_STATE_ERROR;
++      return ERR_OK;
++   }
++   if (p == NULL) {
++      ftp.control_eof = true;
++      return ERR_OK;
++   }
++   if ((uint32_t)ftp.control_length + p->tot_len >= FTP_CONTROL_CAPACITY) {
++      pbuf_free(p);
++      ftp.state = FTP_STATE_ERROR;
++      return ERR_OK;
++   }
++   while (offset < p->tot_len) {
++      uint16_t available = (uint16_t)(p->tot_len - offset);
++      uint16_t copied = pbuf_copy_partial(
++         p, ftp.control_text + ftp.control_length, available, offset);
++      if (copied == 0u)
++         break;
++      ftp.control_length = (uint16_t)(ftp.control_length + copied);
++      offset = (uint16_t)(offset + copied);
++   }
++   ftp.control_text[ftp.control_length] = '\0';
++   altcp_recved(pcb, p->tot_len);
++   pbuf_free(p);
++   wifi_lwip_rx_kick();
++   return ERR_OK;
++}
++
++static err_t ftp_data_receive(void *arg, struct altcp_pcb *pcb,
++                              struct pbuf *p, err_t error)
++{
++   uint16_t offset = 0u;
++   (void)arg;
++   if (error != ERR_OK) {
++      if (p != NULL)
++         pbuf_free(p);
++      ftp.data_error = true;
++      return ERR_OK;
++   }
++   if (p == NULL) {
++      ftp.data_eof = true;
++      return ERR_OK;
++   }
++   if (p->tot_len > (uint16_t)(FTP_DATA_CAPACITY - ftp.data_count))
++      return ERR_MEM;
++   while (offset < p->tot_len) {
++      uint8_t block[128];
++      uint16_t wanted = (uint16_t)(p->tot_len - offset);
++      uint16_t copied;
++      if (wanted > sizeof block)
++         wanted = (uint16_t)sizeof block;
++      copied = pbuf_copy_partial(p, block, wanted, offset);
++      if (copied == 0u)
++         break;
++      for (uint16_t i = 0u; i < copied; i++) {
++         ftp.data_buffer[ftp.data_head] = block[i];
++         ftp.data_head = (uint16_t)((ftp.data_head + 1u)
++                                   & (FTP_DATA_CAPACITY - 1u));
++      }
++      ftp.data_count = (uint16_t)(ftp.data_count + copied);
++      offset = (uint16_t)(offset + copied);
++   }
++   altcp_recved(pcb, p->tot_len);
++   pbuf_free(p);
++   wifi_lwip_rx_kick();
++   return ERR_OK;
++}
++
++static err_t ftp_control_connected(void *arg, struct altcp_pcb *pcb,
++                                   err_t error)
++{
++   (void)arg;
++   (void)pcb;
++   if (error == ERR_OK) {
++      ftp.control_connected = true;
++      ftp.state = FTP_STATE_GREETING;
++   } else {
++      ftp.control = NULL;
++      ftp.state = FTP_STATE_ERROR;
++   }
++   return ERR_OK;
++}
++
++static err_t ftp_data_connected(void *arg, struct altcp_pcb *pcb, err_t error)
++{
++   (void)arg;
++   (void)pcb;
++   if (error == ERR_OK)
++      ftp.data_connected = true;
++   else {
++      ftp.data = NULL;
++      ftp.data_error = true;
++   }
++   return ERR_OK;
++}
++
++static void ftp_bind_control(struct altcp_pcb *pcb)
++{
++   altcp_arg(pcb, &ftp);
++   altcp_recv(pcb, ftp_control_receive);
++   altcp_sent(pcb, ftp_sent);
++   altcp_poll(pcb, ftp_poll_callback, 4u);
++   altcp_err(pcb, ftp_control_error);
++}
++
++static void ftp_bind_data(struct altcp_pcb *pcb)
++{
++   altcp_arg(pcb, &ftp);
++   altcp_recv(pcb, ftp_data_receive);
++   altcp_sent(pcb, ftp_sent);
++   altcp_poll(pcb, ftp_poll_callback, 4u);
++   altcp_err(pcb, ftp_data_error);
++}
++
++/* Return a complete final reply line. Multiline opening lines use "ddd-";
++ * only a matching conventional "ddd " line completes the reply. */
++static bool ftp_reply(unsigned int *code)
++{
++   uint16_t line_start = 0u;
++   uint16_t i;
++   unsigned int multiline = 0u;
++   for (i = 0u; i + 1u < ftp.control_length; i++) {
++      if (ftp.control_text[i] != '\r' || ftp.control_text[i + 1u] != '\n')
++         continue;
++      if (i >= line_start + 4u
++          && ftp.control_text[line_start] >= '1'
++          && ftp.control_text[line_start] <= '5'
++          && ftp.control_text[line_start + 1u] >= '0'
++          && ftp.control_text[line_start + 1u] <= '9'
++          && ftp.control_text[line_start + 2u] >= '0'
++          && ftp.control_text[line_start + 2u] <= '9') {
++         unsigned int line_code =
++              (unsigned int)(ftp.control_text[line_start] - '0') * 100u
++            + (unsigned int)(ftp.control_text[line_start + 1u] - '0') * 10u
++            + (unsigned int)(ftp.control_text[line_start + 2u] - '0');
++         if (line_start == 0u && ftp.control_text[line_start + 3u] == '-')
++            multiline = line_code;
++         if (ftp.control_text[line_start + 3u] != ' '
++             || (multiline != 0u && line_code != multiline))
++            goto next_line;
++         size_t reply_length = (size_t)(i + 2u);
++         size_t copy = reply_length < FTP_TEXT_MAX ? reply_length : FTP_TEXT_MAX;
++         memcpy(ftp.last_reply, ftp.control_text, copy);
++         ftp.last_reply[copy] = '\0';
++         *code = line_code;
++         memmove(ftp.control_text, ftp.control_text + reply_length,
++                 ftp.control_length - reply_length);
++         ftp.control_length = (uint16_t)(ftp.control_length - reply_length);
++         ftp.control_text[ftp.control_length] = '\0';
++         return true;
++      }
++next_line:
++      line_start = (uint16_t)(i + 2u);
++      i++;
++   }
++   return false;
++}
++
++static bool ftp_send(const char *command)
++{
++   size_t length = strlen(command);
++   if (ftp.control == NULL || length > 0xffffu
++       || altcp_sndbuf(ftp.control) < length)
++      return false;
++   if (altcp_write(ftp.control, command, (u16_t)length,
++                   TCP_WRITE_FLAG_COPY) != ERR_OK)
++      return false;
++   altcp_output(ftp.control);
++   wifi_lwip_rx_kick();
++   ftp_set_deadline();
++   return true;
++}
++
++static bool ftp_parse_url(const char *url, char *host, size_t host_size,
++                          uint16_t *port)
++{
++   const char *start = url;
++   const char *end;
++   const char *colon = NULL;
++   size_t length;
++   if (!strncasecmp(start, "ftp://", 6u))
++      start += 6;
++   end = start;
++   while (*end != '\0' && *end != '/') {
++      if (*end == ':')
++         colon = end;
++      if ((unsigned char)*end < 0x21u || *end == '@')
++         return false;
++      end++;
++   }
++   if (colon != NULL) {
++      uint32_t value = 0u;
++      const char *p = colon + 1;
++      if (p == end)
++         return false;
++      while (p != end) {
++         if (*p < '0' || *p > '9')
++            return false;
++         value = value * 10u + (uint32_t)(*p++ - '0');
++         if (value > 65535u)
++            return false;
++      }
++      *port = (uint16_t)value;
++      end = colon;
++   } else {
++      *port = 21u;
++   }
++   length = (size_t)(end - start);
++   if (length == 0u || length >= host_size)
++      return false;
++   memcpy(host, start, length);
++   host[length] = '\0';
++   return true;
++}
++
++static void ftp_dns_found(const char *name, const ip_addr_t *address,
++                          void *argument)
++{
++   (void)name;
++   (void)argument;
++   ftp.dns_done = true;
++   if (address != NULL) {
++      ftp.address = *address;
++      ftp.dns_ok = true;
++   }
++   wifi_lwip_rx_kick();
++}
++
++static uint8_t ftp_start_control(uint16_t port)
++{
++   err_t error;
++   ftp.control = altcp_new_ip_type(NULL, IPADDR_TYPE_V4);
++   if (ftp.control == NULL)
++      return ftp_error(FTP_RESULT_CONNECT);
++   ftp_bind_control(ftp.control);
++   error = altcp_connect(ftp.control, &ftp.address, port,
++                         ftp_control_connected);
++   if (error != ERR_OK) {
++      ftp_detach(&ftp.control, true);
++      return ftp_error(FTP_RESULT_CONNECT);
++   }
++   ftp.state = FTP_STATE_CONNECTING;
++   ftp_set_deadline();
++   return FTP_RESULT_PENDING;
++}
++
++static uint8_t ftp_open_poll(void)
++{
++   static uint16_t control_port;
++   unsigned int code;
++   if (ftp.state == FTP_STATE_ERROR)
++      return FTP_RESULT_CONNECT;
++   if (ftp.state == FTP_STATE_CLOSED) {
++      err_t result;
++      if (!ftp_parse_url(ftp.request, ftp.host, sizeof ftp.host,
++                         &control_port))
++         return FTP_RESULT_PARAM;
++      if (!wifi_lwip_get_context()->address_ready)
++         return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++      ftp.state = FTP_STATE_DNS;
++      result = dns_gethostbyname(ftp.host, &ftp.address, ftp_dns_found, NULL);
++      if (result == ERR_OK) {
++         ftp.dns_done = true;
++         ftp.dns_ok = true;
++      } else if (result != ERR_INPROGRESS) {
++         return ftp_error(FTP_RESULT_DNS);
++      }
++      ftp_set_deadline();
++   }
++   if (ftp.state == FTP_STATE_DNS) {
++      if (!ftp.dns_done)
++         return ftp_expired() ? ftp_error(FTP_RESULT_TIMEOUT)
++                              : FTP_RESULT_PENDING;
++      if (!ftp.dns_ok)
++         return ftp_error(FTP_RESULT_DNS);
++      return ftp_start_control(control_port);
++   }
++   if (ftp.state == FTP_STATE_CONNECTING)
++      return ftp_expired() ? ftp_error(FTP_RESULT_TIMEOUT)
++                           : FTP_RESULT_PENDING;
++   if (ftp.state == FTP_STATE_GREETING) {
++      if (!ftp_reply(&code))
++         return ftp_expired() ? ftp_error(FTP_RESULT_TIMEOUT)
++                              : FTP_RESULT_PENDING;
++      if (code != 220u)
++         return ftp_error(FTP_RESULT_CONNECT);
++      ftp.state = FTP_STATE_READY;
++      ftp.operation = FTP_OP_NONE;
++      return FTP_RESULT_OK;
++   }
++   return ftp.state == FTP_STATE_READY ? FTP_RESULT_OK : FTP_RESULT_CONNECT;
++}
++
++static void ftp_upper_word(char *text)
++{
++   while (*text != '\0' && *text != ' ') {
++      if (*text >= 'a' && *text <= 'z')
++         *text = (char)(*text - 32);
++      text++;
++   }
++}
++
++static bool ftp_is_transfer(const char *command, uint8_t *transfer,
++                            const char **verb)
++{
++   if (!strncmp(command, "GET ", 4u)) {
++      *transfer = FTP_TRANSFER_READ;
++      *verb = "RETR";
++      return true;
++   }
++   if (!strncmp(command, "PUT ", 4u)) {
++      *transfer = FTP_TRANSFER_WRITE;
++      *verb = "STOR";
++      return true;
++   }
++   if (!strcmp(command, "DIR") || !strncmp(command, "DIR ", 4u)) {
++      *transfer = FTP_TRANSFER_LIST;
++      *verb = "LIST";
++      return true;
++   }
++   if (!strcmp(command, "LS") || !strncmp(command, "LS ", 3u)) {
++      *transfer = FTP_TRANSFER_LIST;
++      *verb = "NLST";
++      return true;
++   }
++   return false;
++}
++
++static bool ftp_make_command(char *output, size_t output_size,
++                             const char *input)
++{
++   const char *argument = strchr(input, ' ');
++   const char *verb = input;
++   size_t word = argument != NULL ? (size_t)(argument - input) : strlen(input);
++   if (word == 2u && !strncmp(input, "CD", 2u))
++      verb = "CWD";
++   else if (word == 6u && !strncmp(input, "DELETE", 6u))
++      verb = "DELE";
++   else if (word == 5u && !strncmp(input, "MKDIR", 5u))
++      verb = "MKD";
++   else if (word == 5u && !strncmp(input, "RMDIR", 5u))
++      verb = "RMD";
++   else if (word == 6u && !strncmp(input, "BINARY", 6u)) {
++      verb = "TYPE";
++      argument = " I";
++   } else if (word == 5u && !strncmp(input, "ASCII", 5u)) {
++      verb = "TYPE";
++      argument = " A";
++   }
++   if (verb == input) {
++      if (snprintf(output, output_size, "%s\r\n", input) >= (int)output_size)
++         return false;
++   } else {
++      if (snprintf(output, output_size, "%s%s\r\n", verb,
++                   argument != NULL ? argument : "") >= (int)output_size)
++         return false;
++   }
++   return true;
++}
++
++static bool ftp_parse_epsv(const char *reply, uint16_t *port)
++{
++   const char *open = strchr(reply, '(');
++   const char *close = open != NULL ? strchr(open, ')') : NULL;
++   const char *p;
++   char delimiter;
++   uint32_t value = 0u;
++   if (open == NULL || close == NULL || close - open < 6)
++      return false;
++   delimiter = open[1];
++   if (open[2] != delimiter || open[3] != delimiter)
++      return false;
++   p = open + 4;
++   if (p == close || *p < '0' || *p > '9')
++      return false;
++   while (p < close && *p >= '0' && *p <= '9') {
++      value = value * 10u + (uint32_t)(*p++ - '0');
++      if (value > 65535u)
++         return false;
++   }
++   if (p >= close || *p != delimiter || value == 0u)
++      return false;
++   *port = (uint16_t)value;
++   return true;
++}
++
++static bool ftp_parse_pasv(const char *reply, uint16_t *port)
++{
++   const char *p = strchr(reply, '(');
++   unsigned int values[6];
++   if (p == NULL)
++      return false;
++   p++;
++   for (unsigned int i = 0u; i < 6u; i++) {
++      unsigned int value = 0u;
++      if (*p < '0' || *p > '9')
++         return false;
++      while (*p >= '0' && *p <= '9') {
++         value = value * 10u + (unsigned int)(*p++ - '0');
++         if (value > 255u)
++            return false;
++      }
++      values[i] = value;
++      if (i != 5u) {
++         if (*p++ != ',')
++            return false;
++      }
++   }
++   *port = (uint16_t)(values[4] * 256u + values[5]);
++   return *port != 0u;
++}
++
++static uint8_t ftp_start_data(void)
++{
++   err_t error;
++   ftp_detach(&ftp.data, true);
++   ftp.data_connected = false;
++   ftp.data_eof = false;
++   ftp.data_error = false;
++   ftp.data_head = 0u;
++   ftp.data_tail = 0u;
++   ftp.data_count = 0u;
++   ftp.data = altcp_new_ip_type(NULL, IPADDR_TYPE_V4);
++   if (ftp.data == NULL)
++      return FTP_RESULT_CONNECT;
++   ftp_bind_data(ftp.data);
++   error = altcp_connect(ftp.data, &ftp.address, ftp.data_port,
++                         ftp_data_connected);
++   if (error != ERR_OK) {
++      ftp_detach(&ftp.data, true);
++      return FTP_RESULT_CONNECT;
++   }
++   ftp_set_deadline();
++   return FTP_RESULT_PENDING;
++}
++
++static uint8_t ftp_exec_poll(void)
++{
++   unsigned int code;
++   const char *verb;
++   if (ftp.state != FTP_STATE_READY)
++      return FTP_RESULT_CONNECT;
++   switch (ftp.operation) {
++      case FTP_OP_NONE:
++         ftp_upper_word(ftp.request);
++         if (ftp_is_transfer(ftp.request, &ftp.transfer, &verb)) {
++            const char *argument = strchr(ftp.request, ' ');
++            if ((ftp.transfer == FTP_TRANSFER_READ
++                 || ftp.transfer == FTP_TRANSFER_WRITE)
++                && (argument == NULL || argument[1] == '\0'))
++               return FTP_RESULT_PARAM;
++            if (snprintf(ftp.transfer_command, sizeof ftp.transfer_command,
++                         "%s%s\r\n", verb,
++                         argument != NULL ? argument : "")
++                >= (int)sizeof ftp.transfer_command)
++               return FTP_RESULT_PARAM;
++            ftp.operation = FTP_OP_EPSV_SEND;
++         } else {
++            if (!ftp_make_command(ftp.transfer_command,
++                                  sizeof ftp.transfer_command, ftp.request))
++               return FTP_RESULT_PARAM;
++            ftp.transfer = FTP_TRANSFER_NONE;
++            ftp.operation = FTP_OP_SIMPLE_SEND;
++         }
++         /* fall through */
++      case FTP_OP_SIMPLE_SEND:
++         if (!ftp_send(ftp.transfer_command))
++            return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++         ftp.operation = FTP_OP_SIMPLE_REPLY;
++         return FTP_RESULT_PENDING;
++      case FTP_OP_SIMPLE_REPLY:
++         if (!ftp_reply(&code))
++            return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++         ftp.operation = FTP_OP_NONE;
++         /* A syntactically valid FTP rejection is a server reply, not a
++          * transport failure. Return it to the interactive client verbatim. */
++         return FTP_RESULT_OK;
++      case FTP_OP_EPSV_SEND:
++         if (!ftp_send("EPSV\r\n"))
++            return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++         ftp.operation = FTP_OP_EPSV_REPLY;
++         return FTP_RESULT_PENDING;
++      case FTP_OP_EPSV_REPLY:
++         if (!ftp_reply(&code))
++            return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++         if (code == 229u && ftp_parse_epsv(ftp.last_reply, &ftp.data_port)) {
++            ftp.operation = FTP_OP_DATA_CONNECT;
++            return ftp_start_data();
++         }
++         if (code >= 400u) {
++            ftp.operation = FTP_OP_PASV_SEND;
++            return FTP_RESULT_PENDING;
++         }
++         return FTP_RESULT_CONNECT;
++      case FTP_OP_PASV_SEND:
++         if (!ftp_send("PASV\r\n"))
++            return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++         ftp.operation = FTP_OP_PASV_REPLY;
++         return FTP_RESULT_PENDING;
++      case FTP_OP_PASV_REPLY:
++         if (!ftp_reply(&code))
++            return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++         if (code != 227u || !ftp_parse_pasv(ftp.last_reply, &ftp.data_port))
++            return FTP_RESULT_CONNECT;
++         ftp.operation = FTP_OP_DATA_CONNECT;
++         return ftp_start_data();
++      case FTP_OP_DATA_CONNECT:
++         if (ftp.data_error)
++            return FTP_RESULT_CONNECT;
++         if (!ftp.data_connected)
++            return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++         ftp.operation = FTP_OP_TRANSFER_SEND;
++         /* fall through */
++      case FTP_OP_TRANSFER_SEND:
++         if (!ftp_send(ftp.transfer_command))
++            return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++         ftp.operation = FTP_OP_TRANSFER_REPLY;
++         return FTP_RESULT_PENDING;
++      case FTP_OP_TRANSFER_REPLY:
++         if (!ftp_reply(&code))
++            return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++         if (code != 125u && code != 150u) {
++            ftp_detach(&ftp.data, true);
++            ftp.operation = FTP_OP_NONE;
++            ftp.transfer = FTP_TRANSFER_NONE;
++            return FTP_RESULT_OK;
++         }
++         ftp.operation = ftp.transfer == FTP_TRANSFER_WRITE
++                       ? FTP_OP_WRITE : FTP_OP_READ;
++         return FTP_RESULT_OK;
++      default:
++         return FTP_RESULT_PARAM;
++   }
++}
++
++static uint8_t ftp_transfer_reply(void)
++{
++   unsigned int code;
++   if (!ftp_reply(&code))
++      return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++   ftp.operation = FTP_OP_NONE;
++   ftp.transfer = FTP_TRANSFER_NONE;
++   return FTP_RESULT_EOF;
++}
++
++static uint8_t ftp_read_poll(uint32_t cp)
++{
++   uint8_t maximum = Pi1MHz->JIM_ram[cp + 1u];
++   uint8_t count = maximum < ftp.data_count ? maximum
++                                            : (uint8_t)ftp.data_count;
++   uint8_t *destination = &Pi1MHz->JIM_ram[DISC_RAM_BASE + FTP_SCRATCH_OFFSET];
++   if (ftp.operation != FTP_OP_READ || ftp.transfer == FTP_TRANSFER_WRITE)
++      return FTP_RESULT_PARAM;
++   for (uint8_t i = 0u; i < count; i++) {
++      destination[i] = ftp.data_buffer[ftp.data_tail];
++      ftp.data_tail = (uint16_t)((ftp.data_tail + 1u)
++                                 & (FTP_DATA_CAPACITY - 1u));
++   }
++   ftp.data_count = (uint16_t)(ftp.data_count - count);
++   Pi1MHz->JIM_ram[cp + 1u] = count;
++   if (count != 0u) {
++      ftp_set_deadline();
++      return FTP_RESULT_OK;
++   }
++   if (ftp.data_error)
++      return FTP_RESULT_CONNECT;
++   if (!ftp.data_eof)
++      return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++   ftp_detach(&ftp.data, false);
++   return ftp_transfer_reply();
++}
++
++static uint8_t ftp_write_poll(uint32_t cp)
++{
++   uint8_t count = Pi1MHz->JIM_ram[cp + 1u];
++   const uint8_t *source = &Pi1MHz->JIM_ram[DISC_RAM_BASE + FTP_SCRATCH_OFFSET];
++   if (ftp.operation == FTP_OP_WRITE_FINISH)
++      return ftp_transfer_reply();
++   if (ftp.operation != FTP_OP_WRITE || ftp.transfer != FTP_TRANSFER_WRITE
++       || ftp.data == NULL)
++      return FTP_RESULT_PARAM;
++   if (count == 0u) {
++      /* altcp_close can return ERR_MEM while previously queued payload is
++       * still being acknowledged. Retry it instead of aborting the socket,
++       * otherwise a nominally successful PUT can be truncated. */
++      if (altcp_close(ftp.data) != ERR_OK)
++         return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++      ftp.data = NULL;
++      ftp.operation = FTP_OP_WRITE_FINISH;
++      ftp_set_deadline();
++      return FTP_RESULT_PENDING;
++   }
++   if (altcp_sndbuf(ftp.data) < count)
++      return ftp_expired() ? FTP_RESULT_TIMEOUT : FTP_RESULT_PENDING;
++   if (altcp_write(ftp.data, source, count, TCP_WRITE_FLAG_COPY) != ERR_OK)
++      return FTP_RESULT_PENDING;
++   altcp_output(ftp.data);
++   wifi_lwip_rx_kick();
++   Pi1MHz->JIM_ram[cp + 1u] = count;
++   ftp_set_deadline();
++   return FTP_RESULT_OK;
++}
++
++static void ftp_response(uint32_t cp)
++{
++   size_t length = strnlen(ftp.last_reply, FTP_TEXT_MAX);
++   Pi1MHz->JIM_ram[cp + 1u] = ftp.transfer;
++   memcpy(&Pi1MHz->JIM_ram[cp + 2u], ftp.last_reply, length);
++   Pi1MHz->JIM_ram[cp + 2u + length] = '\0';
++}
++
++static bool ftp_copy_request(uint32_t cp)
++{
++   size_t length = 0u;
++   while (length <= FTP_TEXT_MAX
++          && Pi1MHz->JIM_ram[cp + 1u + length] != '\0')
++      length++;
++   if (length > FTP_TEXT_MAX)
++      return false;
++   memcpy(ftp.request, &Pi1MHz->JIM_ram[cp + 1u], length);
++   ftp.request[length] = '\0';
++   return length != 0u;
++}
++
++static uint8_t ftp_process(uint32_t cp)
++{
++   uint8_t result;
++   if (!request_started) {
++      request_started = true;
++      if ((request_command == FTP_CMD_OPEN || request_command == FTP_CMD_EXEC)
++          && !ftp_copy_request(cp))
++         return FTP_RESULT_PARAM;
++      if (request_command == FTP_CMD_OPEN) {
++         /* OPEN always starts a new session so a failed connection can be
++          * retried without rebooting the Pi. Preserve the copied target
++          * across the connection teardown. */
++         char target[sizeof ftp.request];
++         memcpy(target, ftp.request, sizeof target);
++         ftp_reset(true);
++         memcpy(ftp.request, target, sizeof ftp.request);
++      }
++      if (request_command == FTP_CMD_EXEC)
++         ftp.operation = FTP_OP_NONE;
++      ftp_set_deadline();
++   }
++   switch (request_command) {
++      case FTP_CMD_OPEN:
++         result = ftp_open_poll();
++         break;
++      case FTP_CMD_EXEC:
++         result = ftp_exec_poll();
++         break;
++      case FTP_CMD_READ:
++         result = ftp_read_poll(cp);
++         break;
++      case FTP_CMD_WRITE:
++         result = ftp_write_poll(cp);
++         break;
++      case FTP_CMD_CLOSE:
++         if (ftp.control != NULL && ftp.state == FTP_STATE_READY)
++            (void)ftp_send("QUIT\r\n");
++         ftp_reset(false);
++         strcpy(ftp.last_reply, "221 Closed\r\n");
++         result = FTP_RESULT_OK;
++         break;
++      default:
++         result = FTP_RESULT_PARAM;
++         break;
++   }
++   if (result != FTP_RESULT_PENDING
++       && ((request_command != FTP_CMD_READ && request_command != FTP_CMD_WRITE)
++           || result == FTP_RESULT_EOF))
++      ftp_response(cp);
++   return result;
++}
++
++static void ftp_service_poll(void)
++{
++   uint32_t cp;
++   uint32_t address;
++   uint8_t result;
++   if (request_cancel) {
++      ftp_reset(true);
++      request_pending = false;
++      request_cancel = false;
++      request_started = false;
++      Pi1MHz_MemoryWrite(request_status_address, FTP_RESULT_ABORT);
++      return;
++   }
++   if (!request_pending)
++      return;
++   cp = request_pointer;
++   address = request_status_address;
++   result = ftp_process(cp);
++   if (result == FTP_RESULT_PENDING)
++      return;
++   request_pending = false;
++   request_started = false;
++   Pi1MHz_MemoryWrite(address, result);
++}
++
++void ftp_service_command(uint32_t command_pointer, uint32_t address,
++                         uint8_t data)
++{
++   uint32_t cp = command_pointer - 0xff0000u + DISC_RAM_BASE;
++   uint8_t command = Pi1MHz->JIM_ram[cp];
++   (void)data;
++   if (command == FTP_CMD_CANCEL) {
++      if (!request_pending) {
++         ftp_reset(true);
++         Pi1MHz_MemoryWrite(address, FTP_RESULT_ABORT);
++         return;
++      }
++      request_cancel = true;
++      Pi1MHz_MemoryWrite(address, FTP_RESULT_PENDING);
++      return;
++   }
++   if (request_pending) {
++      Pi1MHz_MemoryWrite(address, FTP_RESULT_PENDING);
++      return;
++   }
++   request_pointer = cp;
++   request_status_address = address;
++   request_command = command;
++   request_started = false;
++   request_pending = true;
++   Pi1MHz_MemoryWrite(address, FTP_RESULT_PENDING);
++}
++
++void ftp_service_init(void)
++{
++   static bool initialised;
++   if (!initialised) {
++      memset(&ftp, 0, sizeof ftp);
++      initialised = true;
++   }
++   (void)services_register(FTP_CMD_FIRST, FTP_CMD_LAST, ftp_service_command);
++   request_pending = false;
++   request_cancel = false;
++   request_started = false;
++   Pi1MHz_Register_Poll(ftp_service_poll);
++}
+diff --git a/src/ftp_service.h b/src/ftp_service.h
+new file mode 100644
+index 0000000..3670454
+--- /dev/null
++++ b/src/ftp_service.h
+@@ -0,0 +1,34 @@
++#ifndef PI1MHZ_FTP_SERVICE_H
++#define PI1MHZ_FTP_SERVICE_H
++
++#include <stdint.h>
++
++/* High-level interactive FTP service on the shared Pi1MHz mailbox. */
++#define FTP_CMD_FIRST   114u
++#define FTP_CMD_OPEN    114u
++#define FTP_CMD_EXEC    115u
++#define FTP_CMD_READ    116u
++#define FTP_CMD_WRITE   117u
++#define FTP_CMD_CLOSE   118u
++#define FTP_CMD_CANCEL  119u
++#define FTP_CMD_LAST    FTP_CMD_CANCEL
++
++#define FTP_RESULT_OK       0x00u
++#define FTP_RESULT_PENDING  0x80u
++#define FTP_RESULT_EOF      0x20u
++#define FTP_RESULT_PARAM    0x23u
++#define FTP_RESULT_DNS      0x24u
++#define FTP_RESULT_CONNECT  0x25u
++#define FTP_RESULT_TIMEOUT  0x2Bu
++#define FTP_RESULT_ABORT    0x2Du
++
++#define FTP_TRANSFER_NONE   0u
++#define FTP_TRANSFER_READ   1u
++#define FTP_TRANSFER_WRITE  2u
++#define FTP_TRANSFER_LIST   3u
++
++void ftp_service_init(void);
++void ftp_service_command(uint32_t command_pointer, uint32_t address,
++                         uint8_t data);
 +
 +#endif
 diff --git a/src/net_service.c b/src/net_service.c
@@ -10216,7 +11414,7 @@ index 0000000..e23a245
 +         const unsigned char *source,   /* pointer to source data pointer */
 +         unsigned long *sourcelen);     /* amount of input available */
 diff --git a/src/scripts/gitversion.cmake b/src/scripts/gitversion.cmake
-index d0b2ea8..7831f50 100644
+index d0b2ea8..806d412 100644
 --- a/src/scripts/gitversion.cmake
 +++ b/src/scripts/gitversion.cmake
 @@ -50,18 +50,41 @@ if(GIT_VERSION MATCHES "-dirty$")
@@ -10224,14 +11422,14 @@ index d0b2ea8..7831f50 100644
     # generated header itself (its BUILD_DATE would otherwise feed back in).
     execute_process(
 -      COMMAND git -C "${SRC_DIR}" diff HEAD -- . ":(exclude)scripts/gitversion.h"
-+      COMMAND git -C "${SRC_DIR}" diff HEAD -- . ":(exclude)scripts/gitversion.h" ":(exclude)third_party/**"
++      COMMAND git -C "${SRC_DIR}" diff --ignore-submodules=dirty HEAD -- . ":(exclude)scripts/gitversion.h" ":(exclude)third_party/**"
        OUTPUT_VARIABLE GIT_DIFF
        RESULT_VARIABLE DIFF_RESULT
        ERROR_QUIET
     )
     execute_process(
 -      COMMAND git -C "${SRC_DIR}" status --porcelain -- . ":(exclude)scripts/gitversion.h"
-+      COMMAND git -C "${SRC_DIR}" status --porcelain -- . ":(exclude)scripts/gitversion.h" ":(exclude)third_party/**"
++      COMMAND git -C "${SRC_DIR}" status --porcelain --ignore-submodules=dirty -- . ":(exclude)scripts/gitversion.h" ":(exclude)third_party/**"
        OUTPUT_VARIABLE GIT_STATUS
        ERROR_QUIET
     )
@@ -10267,10 +11465,10 @@ index d0b2ea8..7831f50 100644
     endif()
 diff --git a/src/secure_service.c b/src/secure_service.c
 new file mode 100644
-index 0000000..bf0cea1
+index 0000000..23bfe67
 --- /dev/null
 +++ b/src/secure_service.c
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,143 @@
 +/* Pi1MHz services-port wrapper for the NetTools secure ABI.
 + *
 + * FIQ only latches a command and publishes BUSY. All RNG, FatFs, lwIP and
@@ -10305,12 +11503,14 @@ index 0000000..bf0cea1
 +    capability_features = (uint8_t)((random_ready ? 1u : 0u) |
 +        (ssh_ready ? 2u : 0u) |
 +        (ssh_ready && service.port != NULL &&
-+         service.port->ssh_password != NULL ? 4u : 0u));
++         service.port->ssh_password != NULL ? 4u : 0u) |
++        (ssh_ready && service.port != NULL &&
++         service.port->sftp_open != NULL ? 8u : 0u));
 +}
 +
 +_Static_assert(NTS_SEC_CAPS == SERVICE_CMD_SECURE_FIRST,
 +               "secure service first command mismatch");
-+_Static_assert(NTS_SEC_SSH_PASSWORD <= SERVICE_CMD_SECURE_LAST,
++_Static_assert(NTS_SEC_SFTP_CLOSE == SERVICE_CMD_SECURE_LAST,
 +               "secure service command exceeds reserved range");
 +
 +static void secure_write_capabilities(uint8_t *command)
@@ -10430,10 +11630,10 @@ index 0000000..87b0ea5
 +#endif
 diff --git a/src/secure_service_core.c b/src/secure_service_core.c
 new file mode 100644
-index 0000000..ab71404
+index 0000000..86bd7c4
 --- /dev/null
 +++ b/src/secure_service_core.c
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,245 @@
 +#include "secure_service_core.h"
 +
 +#include <string.h>
@@ -10501,6 +11701,8 @@ index 0000000..ab71404
 +        command[3] = (uint8_t)(1u | (service->managed_ssh ? 2u : 0u));
 +        if (service->managed_ssh && service->port->ssh_password != NULL)
 +            command[3] |= 4u;
++        if (service->managed_ssh && service->port->sftp_open != NULL)
++            command[3] |= 8u;
 +        command[4] = 0xB8;
 +        command[5] = 0x88;
 +        command[6] = service->managed_ssh ? 1 : 0;
@@ -10585,16 +11787,104 @@ index 0000000..ab71404
 +        wipe_bytes(jim + address, length);
 +        return result == 0 ? NTS_OK : NTS_ERR_PARAM;
 +
++    case NTS_SEC_SFTP_OPEN: {
++        const char *url = jim_string(jim, jim_size, rd32(command + 2));
++        const char *username = jim_string(jim, jim_size, rd32(command + 6));
++        char fingerprint[96] = { 0 };
++        if (!service->managed_ssh || service->port->sftp_open == NULL)
++            return NTS_ERR_UNSUPPORTED;
++        if (url == NULL || username == NULL || *username == '\0')
++            return NTS_ERR_PARAM;
++        result = service->port->sftp_open(service->opaque, url, username,
++                                          (command[1] & 1u) != 0,
++                                          fingerprint);
++        if (result == NTS_HOSTKEY_UNKNOWN) {
++            size_t count = bounded_length(fingerprint, sizeof(fingerprint));
++            if (count == sizeof(fingerprint) ||
++                !buffer_ok(NTS_FINGERPRINT_ADDRESS, (uint32_t)count + 1u,
++                           jim_size))
++                return NTS_ERR_PARAM;
++            memcpy(jim + NTS_FINGERPRINT_ADDRESS, fingerprint, count + 1u);
++        }
++        return (uint8_t)result;
++    }
++
++    case NTS_SEC_SFTP_PWD:
++    case NTS_SEC_SFTP_CD:
++    case NTS_SEC_SFTP_LS:
++    case NTS_SEC_SFTP_DELETE:
++    case NTS_SEC_SFTP_MKDIR:
++    case NTS_SEC_SFTP_RMDIR: {
++        const char *path = jim_string(jim, jim_size, rd32(command + 4));
++        uint32_t output = rd32(command + 8);
++        length = (uint32_t)command[1] | ((uint32_t)command[2] << 8) |
++                 ((uint32_t)command[3] << 16);
++        if (service->port->sftp_path == NULL || path == NULL ||
++            !buffer_ok(output, length, jim_size))
++            return NTS_ERR_PARAM;
++        result = service->port->sftp_path(service->opaque, command[0], path,
++                                          jim + output, length);
++        if (result < 0) return (uint8_t)-result;
++        if ((uint32_t)result > length) return NTS_ERR_PROTOCOL;
++        wr24(command + 1, (uint32_t)result);
++        return NTS_OK;
++    }
++
++    case NTS_SEC_SFTP_GET_OPEN:
++    case NTS_SEC_SFTP_PUT_OPEN: {
++        const char *path = jim_string(jim, jim_size, rd32(command + 4));
++        if (path == NULL || *path == '\0') return NTS_ERR_PARAM;
++        if (command[0] == NTS_SEC_SFTP_GET_OPEN) {
++            if (service->port->sftp_get_open == NULL) return NTS_ERR_UNSUPPORTED;
++            result = service->port->sftp_get_open(service->opaque, path);
++        } else {
++            if (service->port->sftp_put_open == NULL) return NTS_ERR_UNSUPPORTED;
++            result = service->port->sftp_put_open(service->opaque, path);
++        }
++        return result < 0 ? (uint8_t)-result : NTS_OK;
++    }
++
++    case NTS_SEC_SFTP_GET_READ:
++    case NTS_SEC_SFTP_PUT_WRITE:
++        length = (uint32_t)command[1] | ((uint32_t)command[2] << 8) |
++                 ((uint32_t)command[3] << 16);
++        address = rd32(command + 4);
++        if (!buffer_ok(address, length, jim_size)) return NTS_ERR_PARAM;
++        if (command[0] == NTS_SEC_SFTP_GET_READ) {
++            if (service->port->sftp_get_read == NULL) return NTS_ERR_UNSUPPORTED;
++            result = service->port->sftp_get_read(service->opaque,
++                                                   jim + address, length);
++        } else {
++            if (service->port->sftp_put_write == NULL) return NTS_ERR_UNSUPPORTED;
++            result = service->port->sftp_put_write(service->opaque,
++                                                    jim + address, length);
++        }
++        if (result < 0) return (uint8_t)-result;
++        if ((uint32_t)result > length) return NTS_ERR_PROTOCOL;
++        wr24(command + 1, (uint32_t)result);
++        return NTS_OK;
++
++    case NTS_SEC_SFTP_TRANSFER_CLOSE:
++        if (service->port->sftp_transfer_close == NULL)
++            return NTS_ERR_UNSUPPORTED;
++        result = service->port->sftp_transfer_close(service->opaque);
++        return result < 0 ? (uint8_t)-result : NTS_OK;
++
++    case NTS_SEC_SFTP_CLOSE:
++        if (service->port->sftp_close != NULL)
++            service->port->sftp_close(service->opaque);
++        return NTS_OK;
++
 +    default:
 +        return NTS_ERR_UNSUPPORTED;
 +    }
 +}
 diff --git a/src/secure_service_core.h b/src/secure_service_core.h
 new file mode 100644
-index 0000000..7184364
+index 0000000..ad63d1e
 --- /dev/null
 +++ b/src/secure_service_core.h
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,67 @@
 +#ifndef NETTOOLS_SECURE_SERVICE_CORE_H
 +#define NETTOOLS_SECURE_SERVICE_CORE_H
 +
@@ -10609,11 +11899,25 @@ index 0000000..7184364
 +    NTS_SEC_SSH_WRITE = 98,
 +    NTS_SEC_SSH_CLOSE = 99,
 +    NTS_SEC_SSH_PASSWORD = 100,
++    NTS_SEC_SFTP_OPEN = 101,
++    NTS_SEC_SFTP_PWD = 102,
++    NTS_SEC_SFTP_CD = 103,
++    NTS_SEC_SFTP_LS = 104,
++    NTS_SEC_SFTP_DELETE = 105,
++    NTS_SEC_SFTP_MKDIR = 106,
++    NTS_SEC_SFTP_RMDIR = 107,
++    NTS_SEC_SFTP_GET_OPEN = 108,
++    NTS_SEC_SFTP_GET_READ = 109,
++    NTS_SEC_SFTP_PUT_OPEN = 110,
++    NTS_SEC_SFTP_PUT_WRITE = 111,
++    NTS_SEC_SFTP_TRANSFER_CLOSE = 112,
++    NTS_SEC_SFTP_CLOSE = 113,
 +    NTS_OK = 0,
 +    NTS_PENDING = 1,
 +    NTS_EOF = 0x20,
 +    NTS_ERR_PARAM = 0x23,
 +    NTS_ERR_UNSUPPORTED = 0x27,
++    NTS_ERR_PROTOCOL = 0x2B,
 +    NTS_HOSTKEY_UNKNOWN = 0x2C,
 +    NTS_AUTH_FAILED = 0x2D
 +};
@@ -10626,6 +11930,16 @@ index 0000000..7184364
 +    int (*ssh_write)(void *opaque, const uint8_t *data, size_t length);
 +    int (*ssh_password)(void *opaque, const uint8_t *password, size_t length);
 +    void (*ssh_close)(void *opaque);
++    uint8_t (*sftp_open)(void *opaque, const char *url, const char *username,
++                         int trust_unknown, char fingerprint[96]);
++    int (*sftp_path)(void *opaque, uint8_t operation, const char *path,
++                     uint8_t *out, size_t maximum);
++    int (*sftp_get_open)(void *opaque, const char *path);
++    int (*sftp_get_read)(void *opaque, uint8_t *out, size_t maximum);
++    int (*sftp_put_open)(void *opaque, const char *path);
++    int (*sftp_put_write)(void *opaque, const uint8_t *data, size_t length);
++    int (*sftp_transfer_close)(void *opaque);
++    void (*sftp_close)(void *opaque);
 +} nts_secure_port;
 +
 +typedef struct nts_secure_service {
@@ -10640,10 +11954,10 @@ index 0000000..7184364
 +#endif
 diff --git a/src/secure_service_wolfssh.c b/src/secure_service_wolfssh.c
 new file mode 100644
-index 0000000..46de836
+index 0000000..f6dedac
 --- /dev/null
 +++ b/src/secure_service_wolfssh.c
-@@ -0,0 +1,730 @@
+@@ -0,0 +1,951 @@
 +/* Bare-metal Pi1MHz wolfSSH provider.
 + *
 + * This file is copied into the Pi1MHz source tree by install.sh.  It keeps
@@ -10665,6 +11979,7 @@ index 0000000..46de836
 +
 +#include <wolfssh/error.h>
 +#include <wolfssh/ssh.h>
++#include <wolfssh/wolfsftp.h>
 +#include <wolfssl/wolfcrypt/coding.h>
 +#include <wolfssl/wolfcrypt/sha256.h>
 +
@@ -10685,6 +12000,7 @@ index 0000000..46de836
 +#define SSH_HOSTS_BAK SSH_DIR "/known_hosts.bak"
 +
 +#define NTS_ERR_DNS 0x24u
++#define NTS_ERR_INUSE 0x21u
 +#define NTS_ERR_CONN 0x25u
 +#define NTS_ERR_PROTOCOL 0x2Bu
 +
@@ -10732,6 +12048,12 @@ index 0000000..46de836
 +    word32 private_key_type_size;
 +    byte password[128];
 +    word32 password_size;
++    bool sftp_mode;
++    byte sftp_handle[WOLFSSH_MAX_HANDLE];
++    word32 sftp_handle_size;
++    word32 sftp_offset[2];
++    uint8_t sftp_transfer; /* 0 none, 1 download, 2 upload */
++    char sftp_cwd[256];
 +} pi_ssh;
 +
 +static pi_ssh client;
@@ -11203,12 +12525,13 @@ index 0000000..46de836
 +static void close_client(void) { close_connection(false); }
 +
 +static uint8_t start_connection(const char *url, const char *username,
-+                                int trust_unknown)
++                                int trust_unknown, bool sftp_mode)
 +{
 +    err_t result;
 +    if (parse_url(url) != 0 || *username == '\0' ||
 +        strlen(username) >= sizeof(client.username)) return NTS_ERR_PARAM;
 +    strcpy(client.username, username);
++    client.sftp_mode = sftp_mode;
 +    client.trust_unknown = trust_unknown != 0;
 +    if (load_keys() != 0) {
 +        free_keys();
@@ -11252,9 +12575,12 @@ index 0000000..46de836
 +    wolfSSH_CTX_SetPublicKeyCheck(client.wolf_ctx, hostkey_callback);
 +    client.ssh = wolfSSH_new(client.wolf_ctx);
 +    if (client.ssh == NULL ||
-+        wolfSSH_SetUsername(client.ssh, client.username) != WS_SUCCESS ||
++        wolfSSH_SetUsername(client.ssh, client.username) != WS_SUCCESS)
++        return NTS_ERR_CONN;
++    if (!client.sftp_mode &&
 +        wolfSSH_SetChannelType(client.ssh, WOLFSSH_SESSION_TERMINAL,
-+                               NULL, 0) != WS_SUCCESS) return NTS_ERR_CONN;
++                               NULL, 0) != WS_SUCCESS)
++        return NTS_ERR_CONN;
 +    wolfSSH_SetIOReadCtx(client.ssh, &client);
 +    wolfSSH_SetIOWriteCtx(client.ssh, &client);
 +    wolfSSH_SetUserAuthCtx(client.ssh, &client);
@@ -11262,14 +12588,18 @@ index 0000000..46de836
 +    return NTS_PENDING;
 +}
 +
-+static uint8_t port_open(void *opaque, const char *url, const char *username,
-+                         int trust_unknown, char fingerprint[96])
++static uint8_t port_open_mode(void *opaque, const char *url,
++                              const char *username, int trust_unknown,
++                              char fingerprint[96], bool sftp_mode)
 +{
 +    int result;
 +    uint8_t status = NTS_PENDING;
 +    (void)opaque;
++    if (client.stage != SSH_IDLE && client.sftp_mode != sftp_mode)
++        return NTS_ERR_INUSE;
 +    switch (client.stage) {
-+    case SSH_IDLE: status = start_connection(url, username, trust_unknown); break;
++    case SSH_IDLE: status = start_connection(url, username, trust_unknown,
++                                              sftp_mode); break;
 +    case SSH_RESOLVING: status = start_tcp(); break;
 +    case SSH_CONNECTING: return NTS_PENDING;
 +    case SSH_HANDSHAKE:
@@ -11277,11 +12607,16 @@ index 0000000..46de836
 +            status = start_wolfssh();
 +            if (status != NTS_PENDING) break;
 +        }
-+        result = wolfSSH_connect(client.ssh);
++        result = client.sftp_mode ? wolfSSH_SFTP_connect(client.ssh) :
++                                    wolfSSH_connect(client.ssh);
 +        if (result == WS_SUCCESS) {
 +            free_keys();
 +            clear_password();
-+            client.stage = SSH_RESIZE;
++            client.stage = client.sftp_mode ? SSH_UP : SSH_RESIZE;
++            if (client.sftp_mode) {
++                strcpy(client.sftp_cwd, ".");
++                return NTS_OK;
++            }
 +            return NTS_PENDING;
 +        }
 +        if (want_io(result)) return NTS_PENDING;
@@ -11302,6 +12637,203 @@ index 0000000..46de836
 +        close_connection(status == NTS_HOSTKEY_UNKNOWN);
 +    return status;
 +}
++
++static uint8_t port_open(void *opaque, const char *url, const char *username,
++                         int trust_unknown, char fingerprint[96])
++{
++    return port_open_mode(opaque, url, username, trust_unknown, fingerprint,
++                          false);
++}
++
++static uint8_t port_sftp_open(void *opaque, const char *url,
++                              const char *username, int trust_unknown,
++                              char fingerprint[96])
++{
++    return port_open_mode(opaque, url, username, trust_unknown, fingerprint,
++                          true);
++}
++
++static bool sftp_want_io(void)
++{
++    int error = client.ssh != NULL ? wolfSSH_get_error(client.ssh) : 0;
++    return error == WS_WANT_READ || error == WS_WANT_WRITE ||
++           error == WS_REKEYING;
++}
++
++static int sftp_fail_or_pending(void)
++{
++    return sftp_want_io() ? -(int)NTS_PENDING : -(int)NTS_ERR_PROTOCOL;
++}
++
++static int sftp_resolve_path(const char *path, char out[512])
++{
++    int count;
++    if (path == NULL) return -1;
++    if (*path == '/' || !strcmp(client.sftp_cwd, "."))
++        count = snprintf(out, 512u, "%s", *path != '\0' ? path : ".");
++    else
++        count = snprintf(out, 512u, "%s/%s", client.sftp_cwd,
++                         *path != '\0' ? path : ".");
++    return count > 0 && count < 512 ? 0 : -1;
++}
++
++static int sftp_copy_name(WS_SFTPNAME *name, uint8_t *out, size_t maximum)
++{
++    size_t used = 0;
++    for (WS_SFTPNAME *entry = name; entry != NULL; entry = entry->next) {
++        const char *text = entry->lName != NULL ? entry->lName : entry->fName;
++        size_t length = text != NULL ? strlen(text) : 0u;
++        if (length + 1u > maximum - used) return -(int)NTS_ERR_PROTOCOL;
++        memcpy(out + used, text, length);
++        used += length;
++        out[used++] = '\n';
++    }
++    return (int)used;
++}
++
++static int port_sftp_path(void *opaque, uint8_t operation, const char *path,
++                          uint8_t *out, size_t maximum)
++{
++    char full[512];
++    int result;
++    WS_SFTPNAME *names;
++    (void)opaque;
++    if (client.stage != SSH_UP || !client.sftp_mode ||
++        sftp_resolve_path(path, full) != 0)
++        return -(int)NTS_ERR_CONN;
++    switch (operation) {
++    case NTS_SEC_SFTP_PWD: {
++        size_t length = strlen(client.sftp_cwd);
++        if (length + 1u > maximum) return -(int)NTS_ERR_PARAM;
++        memcpy(out, client.sftp_cwd, length);
++        out[length++] = '\n';
++        return (int)length;
++    }
++    case NTS_SEC_SFTP_CD:
++        names = wolfSSH_SFTP_RealPath(client.ssh, full);
++        if (names == NULL) return sftp_fail_or_pending();
++        if (names->fName == NULL || strlen(names->fName) >= sizeof(client.sftp_cwd)) {
++            wolfSSH_SFTPNAME_list_free(names);
++            return -(int)NTS_ERR_PROTOCOL;
++        }
++        strcpy(client.sftp_cwd, names->fName);
++        wolfSSH_SFTPNAME_list_free(names);
++        return 0;
++    case NTS_SEC_SFTP_LS:
++        names = wolfSSH_SFTP_LS(client.ssh, full);
++        if (names == NULL) {
++            int error = wolfSSH_get_error(client.ssh);
++            if (sftp_want_io()) return -(int)NTS_PENDING;
++            return error == WS_SUCCESS || error == WOLFSSH_FTP_EOF ? 0 :
++                   -(int)NTS_ERR_PROTOCOL;
++        }
++        result = sftp_copy_name(names, out, maximum);
++        wolfSSH_SFTPNAME_list_free(names);
++        return result;
++    case NTS_SEC_SFTP_DELETE:
++        result = wolfSSH_SFTP_Remove(client.ssh, full);
++        break;
++    case NTS_SEC_SFTP_MKDIR:
++        result = wolfSSH_SFTP_MKDIR(client.ssh, full, NULL);
++        break;
++    case NTS_SEC_SFTP_RMDIR:
++        result = wolfSSH_SFTP_RMDIR(client.ssh, full);
++        break;
++    default:
++        return -(int)NTS_ERR_PARAM;
++    }
++    if (result == WS_SUCCESS) return 0;
++    return sftp_fail_or_pending();
++}
++
++static int port_sftp_transfer_open(const char *path, bool upload)
++{
++    char full[512];
++    word32 flags = upload ? (WOLFSSH_FXF_WRITE | WOLFSSH_FXF_CREAT |
++                             WOLFSSH_FXF_TRUNC) : WOLFSSH_FXF_READ;
++    int result;
++    if (client.stage != SSH_UP || !client.sftp_mode ||
++        client.sftp_transfer != 0u || sftp_resolve_path(path, full) != 0)
++        return -(int)NTS_ERR_CONN;
++    client.sftp_handle_size = sizeof(client.sftp_handle);
++    result = wolfSSH_SFTP_Open(client.ssh, full, flags, NULL,
++                               client.sftp_handle,
++                               &client.sftp_handle_size);
++    if (result != WS_SUCCESS) return sftp_fail_or_pending();
++    client.sftp_offset[0] = client.sftp_offset[1] = 0u;
++    client.sftp_transfer = upload ? 2u : 1u;
++    return 0;
++}
++
++static int port_sftp_get_open(void *opaque, const char *path)
++{
++    (void)opaque;
++    return port_sftp_transfer_open(path, false);
++}
++
++static int port_sftp_put_open(void *opaque, const char *path)
++{
++    (void)opaque;
++    return port_sftp_transfer_open(path, true);
++}
++
++static void sftp_advance(word32 amount)
++{
++    word32 old = client.sftp_offset[0];
++    client.sftp_offset[0] += amount;
++    if (client.sftp_offset[0] < old) client.sftp_offset[1]++;
++}
++
++static int port_sftp_get_read(void *opaque, uint8_t *out, size_t maximum)
++{
++    int result;
++    (void)opaque;
++    if (client.sftp_transfer != 1u || maximum > UINT32_MAX)
++        return -(int)NTS_ERR_CONN;
++    result = wolfSSH_SFTP_SendReadPacket(client.ssh, client.sftp_handle,
++                                         client.sftp_handle_size,
++                                         client.sftp_offset, out,
++                                         (word32)maximum);
++    if (result >= 0) {
++        sftp_advance((word32)result);
++        return result;
++    }
++    return sftp_fail_or_pending();
++}
++
++static int port_sftp_put_write(void *opaque, const uint8_t *data, size_t length)
++{
++    int result;
++    (void)opaque;
++    if (client.sftp_transfer != 2u || length == 0u || length > UINT32_MAX)
++        return -(int)NTS_ERR_PARAM;
++    result = wolfSSH_SFTP_SendWritePacket(client.ssh, client.sftp_handle,
++                                          client.sftp_handle_size,
++                                          client.sftp_offset,
++                                          (byte *)(uintptr_t)data,
++                                          (word32)length);
++    if (result >= 0) {
++        if ((size_t)result != length) return -(int)NTS_ERR_PROTOCOL;
++        sftp_advance((word32)result);
++        return result;
++    }
++    return sftp_fail_or_pending();
++}
++
++static int port_sftp_transfer_close(void *opaque)
++{
++    int result;
++    (void)opaque;
++    if (client.sftp_transfer == 0u) return 0;
++    result = wolfSSH_SFTP_Close(client.ssh, client.sftp_handle,
++                                client.sftp_handle_size);
++    if (result != WS_SUCCESS) return sftp_fail_or_pending();
++    client.sftp_transfer = 0u;
++    client.sftp_handle_size = 0u;
++    return 0;
++}
++
++static void port_sftp_close(void *opaque) { (void)opaque; close_client(); }
 +
 +static int port_read(void *opaque, uint8_t *out, size_t maximum)
 +{
@@ -11343,7 +12875,10 @@ index 0000000..46de836
 +static void port_close(void *opaque) { (void)opaque; close_client(); }
 +
 +static const nts_secure_port port = {
-+    port_random, port_open, port_read, port_write, port_password, port_close
++    port_random, port_open, port_read, port_write, port_password, port_close,
++    port_sftp_open, port_sftp_path, port_sftp_get_open, port_sftp_get_read,
++    port_sftp_put_open, port_sftp_put_write, port_sftp_transfer_close,
++    port_sftp_close
 +};
 +
 +const nts_secure_port *nts_pi_wolfssh_port(void) { return &port; }
@@ -11394,10 +12929,10 @@ index 0000000..4abd777
 +
 +#endif
 diff --git a/src/services.h b/src/services.h
-index 7544807..2b9a28a 100644
+index 7544807..fd4fd4b 100644
 --- a/src/services.h
 +++ b/src/services.h
-@@ -22,7 +22,11 @@
+@@ -22,7 +22,13 @@
  #define SERVICE_CMD_AUN_LAST    44u
  #define SERVICE_CMD_NET_FIRST   45u   /* IP sockets / N: device - net_service.c */
  #define SERVICE_CMD_NET_LAST    79u   /* sockets 45-56, IRQ 57, N: dev 60-65   */
@@ -11406,15 +12941,17 @@ index 7544807..2b9a28a 100644
 +#define SERVICE_CMD_ELKWIFI_LAST  93u
 +#define SERVICE_CMD_SECURE_FIRST  94u /* RNG and managed SSH service          */
 +#define SERVICE_CMD_SECURE_LAST  113u
-+/* 114..255 unallocated */
++#define SERVICE_CMD_FTP_FIRST    114u /* interactive FTP service              */
++#define SERVICE_CMD_FTP_LAST     119u
++/* 120..255 unallocated */
  
  /* Handler for one service's command range.  FIQ context: called from the
     FRED write callback, so anything slow must be queued for the main loop
 diff --git a/src/services_emulator.c b/src/services_emulator.c
-index 7656f41..83844bd 100644
+index 7656f41..88f1146 100644
 --- a/src/services_emulator.c
 +++ b/src/services_emulator.c
-@@ -17,6 +17,12 @@
+@@ -17,6 +17,13 @@
  #include "ram_emulator.h"
  #include "services.h"
  
@@ -11423,11 +12960,12 @@ index 7656f41..83844bd 100644
 +void net_service_command(uint32_t, uint32_t, uint8_t);
 +void elkwifi_service_command(uint32_t, uint32_t, uint8_t);
 +void secure_service_command(uint32_t, uint32_t, uint8_t);
++void ftp_service_command(uint32_t, uint32_t, uint8_t);
 +
  static size_t disc_ram_addr;
  static size_t disc_ram_max;
  // High byte (bits 16-23) of the address last written to the +2 read-back
-@@ -31,18 +37,25 @@ typedef struct {
+@@ -31,18 +38,25 @@ typedef struct {
     service_command_fn handler;
  } service_range_t;
  
@@ -11456,7 +12994,7 @@ index 7656f41..83844bd 100644
  
     s_services[s_service_count].first = first;
     s_services[s_service_count].last = last;
-@@ -139,6 +152,25 @@ static void services_emulator_command(unsigned int gpio)
+@@ -139,6 +153,30 @@ static void services_emulator_command(unsigned int gpio)
     uint32_t command_pointer = (uint32_t) (DISC_RAM_BASE | 0xFF0000U | (uint32_t) (data<<8));
     uint8_t command = Pi1MHz->JIM_ram[command_pointer];
  
@@ -11476,6 +13014,11 @@ index 7656f41..83844bd 100644
 +   if (command >= SERVICE_CMD_SECURE_FIRST &&
 +       command <= SERVICE_CMD_SECURE_LAST) {
 +      secure_service_command(command_pointer, addr, data);
++      return;
++   }
++   if (command >= SERVICE_CMD_FTP_FIRST &&
++       command <= SERVICE_CMD_FTP_LAST) {
++      ftp_service_command(command_pointer, addr, data);
 +      return;
 +   }
 +
@@ -11916,10 +13459,10 @@ index cdcac69..2964782 100644
  }
 +#endif
 diff --git a/src/tests/services/fuzz_fat.c b/src/tests/services/fuzz_fat.c
-index 53a165d..6410550 100644
+index 53a165d..b709af2 100644
 --- a/src/tests/services/fuzz_fat.c
 +++ b/src/tests/services/fuzz_fat.c
-@@ -64,6 +64,13 @@ unsigned char disk_type(void) { return 1; }
+@@ -64,6 +64,15 @@ unsigned char disk_type(void) { return 1; }
  bool filesystemMount(void) { return true; }
  bool filesystemDismount(void) { return true; }
  
@@ -11929,21 +13472,23 @@ index 53a165d..6410550 100644
 +{ (void)cp; (void)addr; (void)data; }
 +void secure_service_command(uint32_t cp, uint32_t addr, uint8_t data)
 +{ (void)cp; (void)addr; (void)data; }
++void ftp_service_command(uint32_t cp, uint32_t addr, uint8_t data)
++{ (void)cp; (void)addr; (void)data; }
 +
  /* config.c (linked for config_beeb_write_protected) references this. */
  uint32_t filesystemReadFile(const char *f, uint8_t **a, unsigned int m)
  { (void)f; (void)a; (void)m; return 0; }
 diff --git a/src/tests/services/test_services.c b/src/tests/services/test_services.c
-index 8d58e8b..a9c510b 100644
+index 8d58e8b..de8d81f 100644
 --- a/src/tests/services/test_services.c
 +++ b/src/tests/services/test_services.c
-@@ -81,6 +81,23 @@ static uint8_t  aun_last_cmd;
+@@ -81,6 +81,25 @@ static uint8_t  aun_last_cmd;
  static void test_aun_handler(uint32_t cp, uint32_t addr, uint8_t data)
  { (void)addr; (void)data; aun_calls++; aun_last_cmd = Pi1MHz->JIM_ram[cp]; }
  
-+static uint32_t fixed_calls[3];
-+static uint8_t fixed_last_cmd[3];
-+static bool fixed_echo_seen[3];
++static uint32_t fixed_calls[4];
++static uint8_t fixed_last_cmd[4];
++static bool fixed_echo_seen[4];
 +static void fixed_handler(unsigned int index, uint32_t cp, uint32_t addr)
 +{
 +   fixed_calls[index]++;
@@ -11957,11 +13502,13 @@ index 8d58e8b..a9c510b 100644
 +{ (void)data; fixed_handler(1u, cp, addr); }
 +void secure_service_command(uint32_t cp, uint32_t addr, uint8_t data)
 +{ (void)data; fixed_handler(2u, cp, addr); }
++void ftp_service_command(uint32_t cp, uint32_t addr, uint8_t data)
++{ (void)data; fixed_handler(3u, cp, addr); }
 +
  /* ---- helpers driving the real dispatch ---- */
  #define CMD_PAGE 0xF3u
  static uint32_t cp_of(uint8_t page) { return DISC_RAM_BASE | 0xFF0000u | ((uint32_t)page << 8); }
-@@ -136,11 +153,17 @@ int main(void)
+@@ -136,11 +155,17 @@ int main(void)
     puts("== registration ==");
     ok(services_register(SERVICE_CMD_AUN_FIRST, SERVICE_CMD_AUN_LAST, test_aun_handler),
        "AUN range registers");
@@ -11980,7 +13527,7 @@ index 8d58e8b..a9c510b 100644
  
     puts("== dispatch ==");
     ok(do_simple(0, 20) == 42, "FAT command 20 reaches disk_type");
-@@ -150,8 +173,20 @@ int main(void)
+@@ -150,8 +175,24 @@ int main(void)
        (void)dispatch(CMD_PAGE);
        ok(aun_calls == 1 && aun_last_cmd == 31, "command 31 routed to the AUN handler");
        Pi1MHz->JIM_ram[cp] = 45;
@@ -11995,6 +13542,10 @@ index 8d58e8b..a9c510b 100644
 +      ok(dispatch(CMD_PAGE) == 0x42u && fixed_calls[2] == 1u &&
 +         fixed_echo_seen[2] &&
 +         fixed_last_cmd[2] == 94u, "command 94 routed directly to secure service");
++      Pi1MHz->JIM_ram[cp] = 114;
++      ok(dispatch(CMD_PAGE) == 0x43u && fixed_calls[3] == 1u &&
++         fixed_echo_seen[3] &&
++         fixed_last_cmd[3] == 114u, "command 114 routed directly to FTP service");
 +      Pi1MHz->JIM_ram[cp] = 200;
        uint8_t echo = dispatch(CMD_PAGE);
 -      ok(echo == CMD_PAGE, "unclaimed command 45 ignored (echo only)");
@@ -12258,10 +13809,10 @@ index 0000000..e4d77bd
 +#endif
 diff --git a/src/user_settings.h b/src/user_settings.h
 new file mode 100644
-index 0000000..af018fc
+index 0000000..49b08a4
 --- /dev/null
 +++ b/src/user_settings.h
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,75 @@
 +#ifndef NETTOOLS_WOLFSSL_USER_SETTINGS_H
 +#define NETTOOLS_WOLFSSL_USER_SETTINGS_H
 +
@@ -12279,8 +13830,14 @@ index 0000000..af018fc
 +
 +#define WOLFSSH_USER_IO
 +#define WOLFSSH_NO_SERVER
++#define NO_WOLFSSH_SERVER
 +#define WOLFSSH_NO_DH_GEX_SHA256
 +#define WOLFSSH_TERM
++#define WOLFSSH_SFTP
++#define WOLFSSH_FATFS
++#define WOLFSSH_MAX_SFTP_RW 256
++#define WOLFSSH_MAX_SFTP_RECV 4096
++#define WOLFSSH_MAX_SFTP_NAME 4096
 +#define NO_TERMIOS
 +#define DEFAULT_WINDOW_SZ 4096
 +

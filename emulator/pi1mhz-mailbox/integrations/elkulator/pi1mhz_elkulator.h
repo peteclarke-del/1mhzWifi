@@ -12,5 +12,6 @@ uint8_t pi1mhz_elkulator_read(uint16_t address);
 void pi1mhz_elkulator_write(uint16_t address, uint8_t value);
 void pi1mhz_elkulator_sync_host_clock(int host_cycle_counter);
 void pi1mhz_elkulator_rebase_host_clock(int host_cycle_counter);
+uint32_t pi1mhz_elkulator_selected_page(void);
 
 #endif

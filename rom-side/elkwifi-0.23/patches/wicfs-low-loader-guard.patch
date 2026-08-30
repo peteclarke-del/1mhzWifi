@@ -1,0 +1,280 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -73,6 +73,7 @@
+ 
+ serbuf	=	&06E0		\serial input buffer
+ notape	=	&0398		\location of external *TAPE trap
++romsel	=	&0780		\Tube-off resilient vector guard, below &0800
+ hchunk	=	&03CB		\Chunk header type(2) + length(4)
+ 
+ bufsize	=	28		\data burst (buffer) size
+@@ -630,6 +631,11 @@
+ \turn the OSBYTE forwarding jump into a self-loop.
+ 	LDA	&F4
+ 	STA	slotid
++	JSR	wicfs_guards_owned
++	BCC	wicfs_install_extended_check
++	JSR	wicfs_publish_extended_vectors
++	JMP	wicfs_install_components_ok
++.wicfs_install_extended_check
+ 	LDA	#&A8
+ 	LDX	#0
+ 	LDY	#&FF
+@@ -868,22 +874,7 @@
+ \range may contain the host implementation for an independently fitted Tube.
+ 	PHP
+ 	SEI
+-	LDY	#27		\FILEV extended entry: 3 * vector 9
+-	LDA	#<upfilev
+-	LDX	#>upfilev
+-	JSR	install_extended_vector
+-	LDY	#33		\BGETV: 3 * vector 11
+-	LDA	#<upbgetv
+-	LDX	#>upbgetv
+-	JSR	install_extended_vector
+-	LDY	#42		\FINDV: 3 * vector 14
+-	LDA	#<upfindv
+-	LDX	#>upfindv
+-	JSR	install_extended_vector
+-	LDY	#45		\FSCV: 3 * vector 15
+-	LDA	#<upfscv
+-	LDX	#>upfscv
+-	JSR	install_extended_vector
++	JSR	wicfs_publish_extended_vectors
+ 	LDA	#<&FF1B
+ 	STA	OSFILEV
+ 	LDA	#>&FF1B
+@@ -905,7 +896,8 @@
+ 	LDX	#&0F
+ 	LDY	#0
+ 	JSR	OSBYTE
+-
++	JSR	wicfs_publish_guards_if_host_only
++
+ 	JSR	wicfs_prepare_byte_trap
+ 	JSR	wicfs_state_save	\capture any BYTEV owner installed by service &0F
+ 	JSR	wicfs_publish_byte_trap
+@@ -1004,6 +996,10 @@
+ 	PHA
+ 	LDA	pbh
+ 	PHA
++	JSR	wicfs_guards_owned
++	BCC	wicfs_owned_extended
++	JMP	wicfs_owned_yes
++.wicfs_owned_extended
+ 	LDA	#&A8
+ 	LDX	#0
+ 	LDY	#&FF
+@@ -1270,6 +1266,182 @@
+ 	LDA	#1			\OSFILE successfully loaded and found the file
+ 	RTS
+ 
++\ The original WiCFS keeps its filing-vector gateway below &0800. Cassette
++\ loaders routinely overwrite &0900-&10FF, including the MOS extended-vector
++\ table at &0D9F. On a Tube-off host, retain that compatibility boundary with
++\ a compact standard-vector guard. Each entry rebuilds only the extended tuple
++\ it is about to use, then enters the normal MOS extended-vector dispatcher.
++\ The Tube path continues to use extended vectors because &0400-&07FF belongs
++\ to the Tube host implementation.
++.wicfs_guards_owned
++	LDA	OSFILEV
++	CMP	#<(romsel+(guard_file-s_guard))
++	BNE	wicfs_guards_not_owned
++	LDA	OSFILEV+1
++	CMP	#>(romsel+(guard_file-s_guard))
++	BNE	wicfs_guards_not_owned
++	LDA	OSBGETV
++	CMP	#<(romsel+(guard_bget-s_guard))
++	BNE	wicfs_guards_not_owned
++	LDA	OSBGETV+1
++	CMP	#>(romsel+(guard_bget-s_guard))
++	BNE	wicfs_guards_not_owned
++	LDA	OSFINDV
++	CMP	#<(romsel+(guard_find-s_guard))
++	BNE	wicfs_guards_not_owned
++	LDA	OSFINDV+1
++	CMP	#>(romsel+(guard_find-s_guard))
++	BNE	wicfs_guards_not_owned
++	LDA	OSFSCV
++	CMP	#<(romsel+(guard_fsc-s_guard))
++	BNE	wicfs_guards_not_owned
++	LDA	OSFSCV+1
++	CMP	#>(romsel+(guard_fsc-s_guard))
++	BNE	wicfs_guards_not_owned
++	SEC
++	RTS
++.wicfs_guards_not_owned
++	CLC
++	RTS
++
++.wicfs_publish_extended_vectors
++	LDA	#&A8
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	evptr
++	STY	evptr+1
++	PHP
++	SEI
++	LDY	#27
++	LDA	#<upfilev
++	LDX	#>upfilev
++	JSR	install_extended_vector
++	LDY	#33
++	LDA	#<upbgetv
++	LDX	#>upbgetv
++	JSR	install_extended_vector
++	LDY	#42
++	LDA	#<upfindv
++	LDX	#>upfindv
++	JSR	install_extended_vector
++	LDY	#45
++	LDA	#<upfscv
++	LDX	#>upfscv
++	JSR	install_extended_vector
++	PLP
++	RTS
++
++.wicfs_publish_guards_if_host_only
++	LDA	#&EA			\read Tube presence without selecting it
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	CPX	#&FF
++	BEQ	wicfs_publish_guards_done
++	LDX	#0
++.wicfs_copy_guards
++	LDA	s_guard,X
++	STA	romsel,X
++	INX
++	CPX	#(e_guard-s_guard)
++	BNE	wicfs_copy_guards
++	LDA	slotid
++	STA	romsel+(guard_slot-s_guard)
++	PHP
++	SEI
++	LDA	#<(romsel+(guard_file-s_guard))
++	STA	OSFILEV
++	LDA	#>(romsel+(guard_file-s_guard))
++	STA	OSFILEV+1
++	LDA	#<(romsel+(guard_bget-s_guard))
++	STA	OSBGETV
++	LDA	#>(romsel+(guard_bget-s_guard))
++	STA	OSBGETV+1
++	LDA	#<(romsel+(guard_find-s_guard))
++	STA	OSFINDV
++	LDA	#>(romsel+(guard_find-s_guard))
++	STA	OSFINDV+1
++	LDA	#<(romsel+(guard_fsc-s_guard))
++	STA	OSFSCV
++	LDA	#>(romsel+(guard_fsc-s_guard))
++	STA	OSFSCV+1
++	PLP
++.wicfs_publish_guards_done
++	RTS
++
++.s_guard
++.guard_file
++	PHP
++	PHA
++	SEI
++	LDA	#0
++	BPL	guard_common
++.guard_bget
++	PHP
++	PHA
++	SEI
++	LDA	#1
++	BPL	guard_common
++.guard_find
++	PHP
++	PHA
++	SEI
++	LDA	#2
++	BPL	guard_common
++.guard_fsc
++	PHP
++	PHA
++	SEI
++	LDA	#3
++.guard_common
++	STA	romsel+(guard_kind-s_guard)
++	TXA
++	PHA
++	TYA
++	PHA
++	LDA	#&A8
++	LDX	#0
++	LDY	#&FF
++	JSR	OSBYTE
++	STX	evptr
++	STY	evptr+1
++	LDX	romsel+(guard_kind-s_guard)
++	LDY	romsel+(guard_offsets-s_guard),X
++	LDA	romsel+(guard_handler_lo-s_guard),X
++	STA	(evptr),Y
++	INY
++	LDA	romsel+(guard_handler_hi-s_guard),X
++	STA	(evptr),Y
++	INY
++	LDA	romsel+(guard_slot-s_guard)
++	STA	(evptr),Y
++	LDA	romsel+(guard_dispatch-s_guard),X
++	STA	romsel+(guard_call-s_guard)+1
++	PLA
++	TAY
++	PLA
++	TAX
++	PLA
++	PLP
++.guard_call
++	JSR	&FF1B
++	RTS
++.guard_offsets
++	equb	27,33,42,45
++.guard_handler_lo
++	equb	<upfilev,<upbgetv,<upfindv,<upfscv
++.guard_handler_hi
++	equb	>upfilev,>upbgetv,>upfindv,>upfscv
++.guard_dispatch
++	equb	&1B,&21,&2A,&2D
++.guard_slot
++	equb	0
++.guard_kind
++	equb	0
++.e_guard
++ASSERT romsel+(e_guard-s_guard) <= &0800
++
+ .install_extended_vector
+ 	STA	(evptr),Y		\A is handler low byte
+ 	INY
+@@ -1321,6 +1493,29 @@
+ 	BEQ	wicfs_reset_active
+ 	JMP	wicfs_reset_done
+ .wicfs_reset_active
++	JSR	wicfs_guards_owned
++	BCC	wicfs_reset_vectors_ready
++	JSR	wicfs_publish_extended_vectors
++	PHP
++	SEI
++	LDA	#<&FF1B
++	STA	OSFILEV
++	LDA	#>&FF1B
++	STA	OSFILEV+1
++	LDA	#<&FF21
++	STA	OSBGETV
++	LDA	#>&FF21
++	STA	OSBGETV+1
++	LDA	#<&FF2A
++	STA	OSFINDV
++	LDA	#>&FF2A
++	STA	OSFINDV+1
++	LDA	#<&FF2D
++	STA	OSFSCV
++	LDA	#>&FF2D
++	STA	OSFSCV+1
++	PLP
++.wicfs_reset_vectors_ready
+ 	JSR	wicfs_load_pre_tape
+ \Restore BYTEV before using OSBYTE. This keeps reset recovery independent of
+ \the RAM *TAPE trap and its cassette workspace remaining intact.

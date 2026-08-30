@@ -7,22 +7,24 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 ## Complete in this build
 
 - [x] Bare-metal Pi1MHz service integration on reviewed upstream commit
-  `d08242ee1b35cf1285b72c9ec1869e98081a8c3e`.
+  `e949f2d2714b15f314df375e52db5febb6c40e6d`.
 - [x] Both Raspberry Pi kernel families and the complete SD-card bundle.
 - [x] AP5-safe FRED/JIM transport with no dependency on cartridge `&FC30` UART
   registers.
 - [x] `*WIFI ON`, `*WIFI OFF`, `*LAP`, `*LAPOPT`, `*JOIN`, `*JOIN ?`,
-  `*LEAVE`, `*ONLINE`, `*IFCFG`, station `*MODE`, `*PING`, `*DATE`, `*TIME`,
-  `*WGET`, `*UEF LOAD`, `*MENU`, `*MENUSRC`, `*PRD`, `*WICFS` and `*REWIND`.
-- [x] Persistent WiFi profile, menu source and LAPOPT settings.
+  `*LEAVE`, `*ONLINE`, `*IFCFG`, station `*MODE`, `*PING`, `*NSLOOK`, `*DATE`,
+  `*TIME`, `*WGET`, `*UEF LOAD`, `*PRD`, `*WICFS` and `*REWIND`.
+- [x] Persistent WiFi profile and LAPOPT settings.
 - [x] Open, WEP, WPA and WPA2 association modes, with automatic reconnect from
   a saved profile.
-- [x] MENU download validation, transfer reporting and runtime conversion of
-  the published cartridge bank-select sequence.
+- [x] Retire MENU, MENUSRC, their downloaded-code patcher and Pi cache while
+  retaining generic WGET and UEF transport.
 - [x] Escape-aware scan, DNS, ICMP, NTP, HTTP and raw socket waits. Pi-side
   cancellation releases PCBs, clears scan state and invalidates late callback
   generations.
 - [x] WiCFS MOS extended-vector installation without occupying Tube workspace.
+  Tube-off hosts also receive an interrupt-safe standard-vector gateway at
+  `&0780`, below the observed `&0900-&10FF` cassette-loader overwrite range.
 - [x] Reset-safe WiCFS teardown. MOS rebuilds its vectors before ROM reset
   service calls, so 1MHzWifi clears its saved ownership record without
   restoring stale cassette predecessors over ADFS, DFS or MMFS.
@@ -31,7 +33,9 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   Tube channel or use a parasite as a Pi, JIM or title-load destination.
 - [x] Filing-system-neutral local UEF import through OSFIND/OSBGET, with JIM
   selector restoration, bounded storage, Escape handling, and a two-stage
-  automatic queue for the stock WiCFS `*REWIND`, `CHAIN ""` launch sequence.
+  automatic queue. The first cassette file is structurally classified through
+  the CR at its declared BASIC line boundary for `CHAIN ""`; all other loaders
+  use `*RUN ""`.
 - [x] DFS-neutral source import and ownership-checked DFS vector restoration.
   The ROM does not inspect DFS structures or retain state in DFS workspace.
 - [x] Content-based raw, gzip and single-entry ZIP UEF normalization in the
@@ -54,8 +58,8 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   older kernel returns `Unsupported`, causing the ROM to use the established
   byte-at-a-time path.
 - [x] Apply the same command 58 transport to untransformed paged WGET output,
-  including MENU title data and UEF images. Text and host-memory WGET modes
-  retain their byte-at-a-time transformations. Unsupported kernels fall back
+  including UEF images. Text and MOS-file WGET modes retain their byte-at-a-time
+  transformations. Unsupported kernels fall back
   without changing the public command behavior.
 - [x] Original-compatible OSWORD function 18 response limited to station IP,
   real station MAC, and `OK`; Pi-only status fields moved to `*ONLINE`.
@@ -68,6 +72,9 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   16 KiB image. The installer is repeatable after updating its final WiCFS
   patch detectors and retaining the install-failure guard in `uef.asm`.
 - [x] Both Pi kernels compile and link from a clean current Pi1MHz checkout.
+- [x] Incremental UEF window generation survives a complete overwrite of
+  `&0900-&10FF`; the authoritative generation is stored in Pi-private JIM and
+  restored before REFILL or APPEND requests.
 - [x] ROM contract tests and upstream Pi1MHz services, net and web parser tests
   pass. The Pi host tests run under ASan and UBSan.
 
@@ -92,11 +99,11 @@ The following work would expand the declared product rather than complete a
 half-written path in this release:
 
 - [ ] Add a maintained bare-metal TLS stack, certificate store, hostname and
-  time validation, then enable HTTPS for WGET and MENU.
+  time validation, then enable HTTPS for WGET.
 - [x] Provide a separate Pi1MHz secure-service ABI and native SSH client with
   verified host keys, known-host persistence, authentication and cancellation.
-- [x] Rebase the imported secure service to commands 94-100, with 94-113
-  reserved. Commands 92 and 93 remain `*ONLINE` and UEF normalisation.
+- [x] Use secure-service commands 94-100 for SSH and 101-113 for SFTP.
+  Commands 92 and 93 remain `*ONLINE` and UEF normalisation.
 - [ ] Add AP/APSTA support only with a DHCP server, client-list contract and
   complete teardown semantics.
 - [ ] Add a paged scan-result ABI if more than four BSS records must be exposed
@@ -168,8 +175,10 @@ ElkWiFi 0.23 cartridge and on 1MHzWifi.
 The former 1mhzNetTools backlog is part of this repository and must not be
 tracked elsewhere.
 
-- [x] Ship completed PING and NSLOOK clients with functional tests. Keep FTP,
-  HGET and Viewdata out of NETMENU and the released SSD until implemented.
+- [x] Move PING and NSLOOK into the ROM and remove their duplicate NetTools
+  programs.
+- [x] Add ROM-resident passive FTP and a separate NetTools SFTP application.
+  Both use the active MOS filing system for local GET and PUT files.
 - [ ] Complete VT100 insert, delete and erase character operations, line
   insert/delete, scroll margins, terminal modes, tab clearing, DA/DSR replies,
   cursor-position replies, Home/Delete/function-key mappings and reply-queue
@@ -195,7 +204,7 @@ tracked elsewhere.
 - [x] Implement native PING and NSLOOK clients and service calls, with build
   and emulated-mailbox coverage.
 - [ ] Implement HGET HTTPS with certificate and hostname validation plus
-  power-failure-safe output replacement. Implement FTP passive transfers.
+  power-failure-safe output replacement.
 - [ ] Qualify TELNET and SSH on physical BBC Micro, Master and Electron systems,
   including DFS, ADFS, MMFS and Tube coexistence where applicable.
 - [ ] Run the common ROM command and OSWORD matrix on BBC B, B+, Master,
@@ -274,6 +283,193 @@ tracked elsewhere.
 
 ## Release gate
 
+### Vector gateway relocation, 27 August 2026
+
+`*UEF LOAD REPTON` stalls because Repton's second stage executes at `&0700`
+and its decryption loop spans `&0700-&07A8`, replacing the 0.1.61 gateway while
+FILEV, FINDV and FSCV still point into it. See the gateway location study in
+[`docs/hardware-validation.md`](docs/hardware-validation.md).
+
+- [x] Reproduce the failure and identify the overwritten gateway from a host
+  RAM dump rather than from source reasoning.
+- [x] Test the obvious fix. Removing the gateway reaches sustained Repton
+  gameplay and leaves Thrust, Arcadians, Repton 2, Bumble Bee, Mr Wiz and
+  Repton Infinity unchanged, but returns Last of the Free to the BASIC prompt.
+  The extended-vector repair is load bearing, so the gateway must move, not go.
+- [x] Quantify every candidate location across the 727 parseable corpus images
+  and record that load-address analysis understates the risk, because Repton
+  reaches `&0700` through a run-time copy.
+- [x] Measure whether a BYTEV-driven repair can replace the resident gateway.
+  `PI1MHZ_TUPLE_TRACE` shows exactly one OSBYTE call between the last write
+  that corrupts the table and the gateway's first repair write, so the premise
+  holds for Last of the Free, with a margin of one call.
+- [x] Test repair at OSBGET refill granularity. A 26-line candidate kept the
+  MOS extended entries as the vector target and called
+  `wicfs_publish_extended_vectors` from `fillget`. It fixes Repton and still
+  returns Last of the Free to the BASIC prompt: the table is overwritten and
+  the next filing call follows inside the same 256-byte window. Any repair
+  reached through the extended-vector table has this flaw, because once all
+  four tuples are dead no ROM entry point remains.
+- [x] Compare against the original ElkWiFi 0.23 WiCFS, which streams and runs
+  UEFs on the real cartridge. It points FILEV, FINDV, BGETV and FSCV at an
+  eighty-byte RAM trampoline at `&07A4` which pages the ROM in and jumps
+  straight to the handler. It never reads `&0D9F-&0DEF`. Last of the Free works
+  there because the table it overwrites is never consulted. This project rewired
+  WiCFS onto the MOS extended vectors and then added the gateway to repair the
+  table that rewiring had made load bearing.
+- [x] Shrink the gateway to a paging trampoline and move the repair, offset
+  tables and dispatcher selection into ROM. This reached 63 RAM bytes against
+  the previous 103 and was placed flush against the top of the page at `&07C1`.
+  Last of the Free passes and Repton fails with `Bad program`: Repton's filler
+  runs to `&07FF`, so the whole page is consumed and no address in it is safe.
+  The corpus agrees, 82 titles write `&07C1-&07FF` against 86 for `&0780`.
+- [x] Quantify the signature-checked helper design. The filing vectors point at
+  the MOS extended entries, the repair helper stays in `&07xx`, and the BYTEV
+  trap verifies a signature before calling it. Across the 727 parseable corpus
+  images: 531 titles touch neither region, 49 destroy the helper without
+  needing repair and are saved by the signature check, 104 need the repair and
+  leave the helper intact, and 43 do both and still fail. Repton is in the
+  second group and Last of the Free the third, so both halves of the
+  `WICFS-016` gate are satisfied and the failure set falls from 92 to 43.
+- [x] Establish that the state cache cannot move. `wicfs_state_load` restores
+  the persisted checkpoint, not the live stream cursor, so reloading mid-file
+  would rewind it. Evicting the cache to make room is therefore not available.
+- [x] Implement the signature-checked design and gate it. Repton reaches
+  sustained gameplay with the helper at `&0780` overwritten and the trap
+  intact, which is the case every earlier design failed. The mechanism is
+  therefore validated. Last of the Free stalls because the 6502 stack descended
+  into the trap at `&0100` and destroyed it. The placement is wrong, not the
+  design; the candidate is preserved unbuilt in `rom-side/candidates/`.
+- [x] Record that the repair must never call OSBYTE. BYTEV is the trap which
+  reaches it, so `OSBYTE &A8` from inside the repair recurses without bound.
+  The extended-vector table address is captured at install time instead.
+- [x] Measure the cassette workspace instead of inferring it. `--write-watch`
+  logs every byte change with the PC which caused it. `&03D1` is the only
+  MOS-owned byte in `&03A0-&03DF`, written from `PC=F091`, and it sat inside
+  two earlier trap placements. The map reports changes rather than writes, so
+  bytes rewritten with the same value look free and are not.
+- [x] Establish that the signature must be compared in full. A `BIT` test of
+  bits 7 and 6 saves the push and pull pair but matches `A9`, `AD`, `A5`, `A2`
+  and `A0`, which are among the commonest opcodes. Repton's decryptor starts
+  `A9 00`, so the trap called game code.
+- [x] Find the twenty second byte. The chunk header state moved to `&07A8` in
+  the loader-exposed page, on Peter's decision that shortening the CFS filename
+  limit is not acceptable because game filenames are outside our control. That
+  freed `&0398-&039F`, and the trap now splits into an eight byte entry there
+  and an eighteen byte body at `&03CB`, with the MOS byte at `&03D1` absorbed
+  as the operand of a harmless zero-page `BIT`.
+- [x] Establish that the MOS disarms the helper. The write watcher shows
+  `PC=D902` writing zero to `&0780` during a load, after which every OSBYTE
+  skips the repair. The vectors and the helper now restore each other: the
+  helper repairs the table from the BYTEV trap, and `fillget` repairs the
+  helper from the vectors, behind a single compare so an intact helper is free.
+- [x] Find why Last of the Free stops after `B-CODE`. The vectors are healthy
+  at the stop: all four are still the MOS extended entries and the repair is
+  working. It is not a vector failure. The title loads file data across
+  `&0D9F-&0DEF`, so those bytes are the vector table and the game's data at the
+  same time and every repair is also damage. The retired gateway wrote three
+  bytes once per filing call; reaching the repair from BYTEV writes twelve on
+  every OSBYTE.
+- [x] Correct the earlier reading that the MOS disarms the helper mid-load. It
+  clears `&0780-&07A7` from `PC=D902`, but at line 9277 of 9318, after the load
+  has stopped. The `fillget` self-heal is cheap and harmless but is not the fix
+  it was taken for.
+- [x] Measure the `hchunk` exposure: 83 titles, 11.4%. Unlike the helper, whose
+  loss the signature check detects, chunk header corruption misparses silently.
+- [x] Measure what actually works today. Sixteen titles spanning the risk
+  groups were run on the shipped ROM: six of six clean titles load, none of
+  three `&07xx` titles, one of four `&0D9F` titles. About three quarters of the
+  corpus loads, and every failure is in one of the two identified groups.
+- [x] Establish that the 6502 can execute code the Pi serves at `&FD00`. A
+  temporary probe called into JIM and its routine wrote its marker into zero
+  page. `--probe-command` was added to the runner to measure it.
+- [x] Prove the JIM selector discipline. It does not hold: the selector tracks
+  the stream cursor and was observed at &1A, &00, &02 and &FF at filing-vector
+  entries during one load. Restoring it on every exit would cost a bus settle
+  per OSBGET byte. The Pi serves JIM, so it mirrors a region into every page
+  instead, which makes the selector irrelevant at no hot-path cost. Measured:
+  a probe called the mirrored routine at three different selector values and it
+  ran all three times.
+- [ ] Build the trampoline. Four vector stubs and a pager, about 48 bytes,
+  synthesising the stack frame the MOS dispatcher builds so the four handlers
+  need no change.
+- [ ] Give the mirrored bytes up in the window arithmetic. `getbyte` must wrap
+  at `&E0` rather than on `INY` reaching zero, `uef_stream_publish` becomes a
+  scatter copy of 224 bytes per page, and the length trailer moves out of the
+  mirrored region. Costs an eighth of the window, which only affects images
+  above about 57 KB.
+- [ ] Mirror in the Pi kernel as the emulator adapter now does, and fall back
+  cleanly on a kernel which does not serve a mirror.
+- [ ] Rerun the joint gate and the sixteen title probe against the measured
+  three quarter baseline.
+- [ ] Superseded: prove the JIM selector discipline. `&FCFF` chooses the page at `&FD00`,
+  WiCFS moves it while streaming, and it is write only. A vector firing while it
+  points at a data page would execute UEF data. Establish that WiCFS can always
+  restore it before returning to a caller, and decide what happens when another
+  JIM user moves it.
+- [ ] Move the filing trampoline into Pi RAM once the selector discipline holds.
+  That removes the host footprint both failure groups attack, and should take
+  the working set well above the measured three quarters.
+- [ ] Add SSD streaming as the reliable path. Disc software cannot use
+  `&0D9F-&0DEF` because DFS lives there, so an extended-vector filing system in
+  the DFS style needs no trampoline at all. Structural argument only; confirm
+  against real disc images.
+- [ ] Superseded: decide whether to keep pursuing a BYTEV-driven repair. The
+  frequency tradeoff rules it out. No such design can
+  improve on the frequency tradeoff, because BYTEV cannot know which vector is
+  about to be used. The original cartridge shape avoids the problem entirely by
+  consulting no table, and the ownership map now shows the cassette page is the
+  right home for its trampoline at 3.4% against 11.8%. The obstacle is size:
+  eighty bytes needed against about twenty six available. It now loads `FREE`,
+  `SCREEN0`, `SCREEN1`, `A-CODE` and `B-CODE`, but not `C-CODE` or `FREE2`.
+  Repton reaches sustained gameplay on the same ROM. The shipped 0.1.66 ROM
+  reaches that title's start prompt, so this remains a regression for it.
+- [ ] Measure the `hchunk` exposure against the corpus. The Repton dump shows
+  `&07A8` filled with game data during a load, so chunk parsing can be
+  corrupted mid-stream. Count the titles which write `&07A8-&07AD`.
+- [ ] Superseded: find the twenty second byte. The trap needs twenty two bytes once the
+  MOS byte at `&03D1` is consumed as a discarded operand, and `&03CB-&03DF` is
+  twenty one. Splitting the entry into `&0398-&039F` works arithmetically but
+  that space holds the chunk header state, which is live during streaming and
+  has no safe home. This is a decision about which workspace to expose.
+- [ ] Superseded: repack the cassette page to give the trap twenty contiguous bytes.
+  It is the only materially safer region at about 3.4% of the corpus, and has
+  about nine free bytes scattered. The CFS filename buffer at `&03D2-&03DF` and
+  the chunk header state at `&03CB-&03D0` are the relocation candidates, and
+  together need slightly more room than the trap frees, so one of them must
+  also shrink.
+- [ ] Superseded: choose where the enlarged BYTEV trap lives. It needs about twenty bytes
+  against the present eight, because the OSBYTE reason code must be preserved
+  across the signature comparison. The cassette trap area is the safest at 3.4%
+  of the corpus but `chain_exec` starts at `&03A0` and repacking the page costs
+  more room than it frees. The deep stack at `&0100-&0113` needs no repacking
+  and is 4.1%, but that counts tape loads only and not run-time stack depth, so
+  it introduces a new failure mode. This is a judgement about which risk to
+  accept, not a measurement.
+- [ ] Implement the chosen placement and gate it on Repton reaching sustained
+  gameplay and Last of the Free reaching its start prompt from one ROM, then
+  re-run the staged set and a sample of the 43-title both-regions set to
+  confirm they fail no worse than today.
+- [ ] Whichever route is taken, gate it on Repton reaching sustained gameplay
+  and Last of the Free reaching its start prompt from the same ROM, then re-run
+  the full staged set before proposing it for hardware.
+- [ ] Make `upbgetv` reload state on a failed magic check instead of reporting
+  an invalid state. OSBGET is the only vector entry which does not call
+  `wicfs_state_load`, so until it recovers, the 22-byte state cache cannot
+  leave `&0380` for a loader-exposed page. Measure the hot-path cost against
+  the existing transfer-speed gate.
+- [ ] Free the cassette workspace. Only about nine scattered bytes are free:
+  `&03D2-&03DF` is the CFS filename buffer and `&03E0` begins the keyboard
+  buffer. The state cache is the only eviction candidate of useful size.
+- [ ] Shrink the gateway. It is currently 103 bytes because it calls OSBYTE
+  `&A8` on every entry; caching the extended-vector table pointer at install
+  time removes about 13 bytes, and the four entry stubs can be tightened.
+- [ ] Re-run the differential with the relocated gateway. Repton must reach
+  sustained gameplay and Last of the Free must still reach its start prompt
+  from the same ROM. Both are required; either alone is not a fix.
+- [ ] Trace `WICFS-017`. Repton Infinity stops at `Searching` with 63,886 of
+  65,280 stream bytes unread, identically with and without the gateway.
+
 ### Physical Tube-off milestone, 21 August 2026
 
 The matched 0.1.58 ROM and Pi Zero 2 kernel make further measurable progress on
@@ -295,6 +491,15 @@ system teardown investigation. Do not add title-specific production paths.
 The Mr Wiz stop is at the normalization-to-launch boundary and is distinct from
 the earlier final-file hypothesis. Repton is now a successful gameplay gate;
 retain its startup latency as a performance issue.
+
+The 0.1.59 baseline passes the exact Tube-off Thrust emulator journey to
+input-responsive, sustained gameplay with a live bus trace and zero Tube
+register accesses. The complete extracted BeebSCSI UEF corpus passes structural
+chunk, block-sequence and CRC validation. Repton 3, Repton Around the World and
+Repton Infinity exceed the legacy 64 KiB stream. The current candidate now
+implements the generic command-93 incremental protocol and passes raw, gzip,
+ZIP, exact-window, public-JIM-reuse and retry tests. Physical validation of
+these multi-window titles remains outstanding.
 
 ### Physical Tube-off milestone, 18 August 2026
 
@@ -351,8 +556,8 @@ separately from a stable application run.
   `elkwifi_uef_trim_tail=1`. Record the final live page, offset, remaining
   length, CFS block status, OSFILE execution address and vector ownership.
 - [x] Reconcile the clean-source ROM with the maintained patch series. A clean
-  build reproduces the 0.1.58 candidate ROM at SHA-256
-  `339609afa38bc3fed486fb78b7ba6be236d7419fc0d80f3653e692c3fb366877`.
+  build reproduces the 0.1.62 candidate ROM at SHA-256
+  `d74863484c6e52bc6a2c497d7c83210232c19844af2c6d729e87db4f49d346fa`.
   Physical compatibility gates remain required before promotion.
 - [x] Move HWDTEST's JIM write/read probe from reserved WiCFS state at
   `&FFEF00` to `&FFEE00`. D4 verifies the 26-byte state record is unchanged and
@@ -375,8 +580,11 @@ separately from a stable application run.
 
 - [x] Stop the NetTools loader from unconditionally selecting MODE 4. It now
   preserves a caller mode whose host HIMEM covers the exact tool image and uses
-  MODE 4 only for an insufficient boundary or active Tube fallback. Assembled
-  6502 tests cover both paths. Physical Tube-off confirmation remains required.
+  MODE 4 only for an insufficient boundary. The terminal renderer reads the
+  active MOS text window and supports 20 through 80 columns. Assembled 6502
+  tests prove a suitable 80-column mode survives password authentication and
+  an insufficient stock MODE 0 falls back exactly once at entry. Physical
+  Tube-off confirmation remains required.
   Any future 80-column or enhanced terminal mode must be an explicit user
   option and must restore the previous mode on exit where the MOS permits it.
 - [ ] Measure the accelerated physical mailbox/JIM transfer path. `*MENU`
@@ -384,7 +592,7 @@ separately from a stable application run.
   unacceptably slow. The current physical run took about two minutes to WGET
   each of Frak and Arcadians, followed by slow cassette playback. Record exact
   byte counts and elapsed times before changing bus settling or polling. Do
-  not remove delays merely because a synchronous emulator passes. The 0.1.58
+  not remove delays merely because a synchronous emulator passes. The 0.1.59
   bundle removes the host byte loop for raw paged WGET and OSWORD receive, but
   its improvement still requires elapsed-time measurements on hardware.
 - [ ] Complete physical ElkChat validation in the relocated `8bit-net`

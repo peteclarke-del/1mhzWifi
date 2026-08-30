@@ -29,7 +29,7 @@ patches, while the repository-level Makefile runs their common validation.
 - `SSH`: SSH v2 client with host-key confirmation, Pi-resident keys and hidden
   password fallback.
 - `PING` and `NSLOOK` are implemented and shipped.
-- `FTP`, `HGET` and `VIEWDAT` are planned but are not shipped until their
+- `HGET` and `VIEWDAT` are planned but are not shipped until their
   implementations and functional tests are complete. DFS limits names to
   seven characters, hence the planned `VIEWDAT` name.
 
@@ -118,7 +118,8 @@ Status: implemented. Physical hardware qualification remains outstanding.
 
 - Implement PING and NSLOOK using native Pi services.
 - Implement HGET with TLS validation and transactional file output.
-- Implement FTP control and passive data connections.
+- Plain interactive FTP is implemented by the 1MHzWifi ROM and Pi service.
+  NetTools supplies SFTP through wolfSSH.
 
 ### Milestone 5: release and hardware
 

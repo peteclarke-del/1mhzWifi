@@ -21,6 +21,9 @@ net_result_http_status = &30
 net_result_unsupported = &27
 net_cmd_copy_public = 58
 
+wget_OSFIND = &FFCE
+wget_OSBPUT = &FFD4
+
 net_count = heap+&E8
 net_cli_y = heap+&E9
 net_wait_lo = heap+&EA
@@ -32,18 +35,18 @@ net_empty_hi = drv_svc_workspace+25
 net_result = heap+&EE
 net_transfer_ok = heap+&EF
 net_received = heap+&F0
-net_load_lo = heap+&F1
-net_load_hi = heap+&F2
 net_bytes_lo = heap+&F3
 net_bytes_hi = heap+&F4
 net_paged_page = heap+&E4
 net_paged_offset = heap+&E5
-\ heap+&E6 collides with menu.asm's menu_basic_slot (same shared "heap"
-\ workspace) - use &E7, which nothing else in the ROM build allocates.
+\ heap+&E6 belongs to the host BASIC transition workspace. Use &E7.
 net_primary_page = heap+&E7
-\ heap+&E0-&E3 and &E7 are otherwise unused across the whole ROM build.
-\ &F5-&F7 collide with wget.asm's proto/newln/clptr, and &E6 collides with
-\ menu.asm's menu_basic_slot - both share the same "heap" workspace.
+net_file_handle = heap+&E0
+net_file_mode = heap+&E1
+net_bytes_bank = heap+&E2
+\ heap+&E3 and &E7 are otherwise unused across the whole ROM build.
+\ &F5-&F7 collide with wget.asm's proto/newln/clptr, and &E6 belongs to the
+\ host BASIC transition workspace. Both share the same "heap" workspace.
 net_cursor_lo = drv_svc_workspace+21
 net_cursor_mid = drv_svc_workspace+22
 net_cursor_hi = drv_svc_workspace+23
@@ -59,13 +62,14 @@ net_cursor_hi = drv_svc_workspace+23
  lda #0
  sta net_transfer_ok
  sta net_received
- sta net_load_lo
- sta net_load_hi
  sta net_bytes_lo
  sta net_bytes_hi
  sta net_paged_page
  sta net_paged_offset
  sta net_primary_page
+ sta net_file_handle
+ sta net_file_mode
+ sta net_bytes_bank
  sta tflag
  sta sflag
  sta aflag
@@ -84,9 +88,7 @@ net_cursor_hi = drv_svc_workspace+23
  jsr read_cli_param
  cpx #0
  bne pi_wget_have_param
- jsr printtext
- equs "Usage: WGET [-TXUS] <url> [address]",&0D,&EA
- jmp call_claimed
+ jmp pi_wget_usage
 
 .pi_wget_have_param
  lda strbuf
@@ -123,7 +125,7 @@ net_cursor_hi = drv_svc_workspace+23
 .pi_wget_text
  lda #1
  sta tflag
- bne pi_wget_param
+ jmp pi_wget_param
 
 .pi_wget_url
  \ Preserve the MOS command-line index while building the service request.
@@ -151,11 +153,30 @@ net_cursor_hi = drv_svc_workspace+23
  jmp error
 
 .pi_wget_url_done
- \ Optional load address.  Text mode deliberately ignores it, matching the
- \ ElkWiFi command; binary mode requires it when no container header exists.
+ \ Ordinary WGET writes a named file through the active MOS filing system.
+ \ Text mode needs no destination, -U owns the public JIM window, and -S uses
+ \ its final parameter as the sideways RAM slot number.
  ldy net_cli_y
  jsr skipspace1
  jsr read_cli_param
+ lda tflag
+ bne pi_wget_address_ok
+ lda uflag
+ bne pi_wget_address_ok
+ lda sflag
+ bne pi_wget_parse_slot
+ cpx #0
+ bne pi_wget_file_name
+ jmp pi_wget_usage
+.pi_wget_file_name
+ lda #&FF
+ sta net_file_mode
+ jmp pi_wget_address_ok
+.pi_wget_parse_slot
+ cpx #0
+ bne pi_wget_have_slot
+ jmp pi_wget_usage
+.pi_wget_have_slot
  ldx #load_addr
  jsr string2hex
  sta net_result
@@ -163,32 +184,27 @@ net_cursor_hi = drv_svc_workspace+23
  sta laddr
  lda load_addr+1
  sta laddr+1
- lda tflag
- bne pi_wget_address_ok
- lda uflag
- bne pi_wget_address_ok
- lda sflag
- bne pi_wget_address_ok
- lda net_result
- bne pi_wget_address_ready
- jsr wget_set_default_load
- lda laddr
- sta load_addr
- lda laddr+1
- sta load_addr+1
 .pi_wget_address_ok
 .pi_wget_address_ready
- lda load_addr
- sta net_load_lo
- lda load_addr+1
- sta net_load_hi
-
  jsr net_dispatch_wait
  cmp #0
  beq pi_wget_opened
  jsr pi_wget_network_error
 
 .pi_wget_opened
+ lda net_file_mode
+ beq pi_wget_output_ready
+ lda #&80                  \ open output file through the current filing system
+ ldx #<strbuf
+ ldy #>strbuf
+ jsr wget_OSFIND
+ sta net_file_handle
+ bne pi_wget_output_ready
+ jsr pi_wget_close
+ jsr printtext
+ equs "Cannot create file",&0D,&EA
+ jmp call_claimed
+.pi_wget_output_ready
  lda #0
  sta net_empty_lo
  sta pr_r
@@ -288,44 +304,24 @@ net_cursor_hi = drv_svc_workspace+23
  jmp pi_wget_copied
 .pi_wget_store
  pha
- lda uflag
- ora sflag
- beq pi_wget_store_main
+ lda net_file_mode
+ bne pi_wget_store_file
  pla
  jsr pi_wget_store_paged
  jmp pi_wget_copied
-.pi_wget_store_main
- lda net_load_lo
- ora net_load_hi
- bne pi_wget_main_has_space
- lda net_bytes_lo
- ora net_bytes_hi
- beq pi_wget_main_has_space
- jsr pi_wget_close
- ldx #(error_buffer_full-error_table)
- jmp error
-.pi_wget_main_has_space
- lda net_load_lo
- sta load_addr
- lda net_load_hi
- sta load_addr+1
+.pi_wget_store_file
  pla
- ldy #0
- sta (load_addr),y
- inc load_addr
- bne pi_wget_save_main_pointer
- inc load_addr+1
-.pi_wget_save_main_pointer
- lda load_addr
- sta net_load_lo
- lda load_addr+1
- sta net_load_hi
+ ldy net_file_handle
+ jsr wget_OSBPUT
+ jmp pi_wget_copied
 .pi_wget_copied
  lda #&FF
  sta net_received
  inc net_bytes_lo
  bne pi_wget_counted
  inc net_bytes_hi
+ bne pi_wget_counted
+ inc net_bytes_bank
 .pi_wget_counted
  dec net_count
  bne pi_wget_copy
@@ -412,8 +408,8 @@ net_cursor_hi = drv_svc_workspace+23
  lda uflag
  beq pi_wget_normalized
  \ ElkWiFi -U means "store in paged RAM"; it does not promise that the
- \ payload is a UEF.  The published MENU downloads its raw TITLES catalogue
- \ with -U.  Only ask the Pi to expand inputs carrying a gzip or ZIP signature.
+ \ payload is a UEF. Only ask the Pi to expand inputs carrying a gzip or ZIP
+ \ signature; ordinary raw paged-RAM downloads must remain byte-exact.
  \ This also keeps ordinary -U transfers compatible with kernels predating
  \ the optional normalisation service.
  lda #'R'
@@ -513,6 +509,11 @@ net_cursor_hi = drv_svc_workspace+23
 .pi_wget_report_format_done
  jsr printtext
  equs "OK &",&EA
+ lda net_file_mode
+ beq pi_wget_report_16bit_size
+ lda net_bytes_bank
+ jsr printhex
+.pi_wget_report_16bit_size
  lda net_bytes_hi
  jsr printhex
  lda net_bytes_lo
@@ -521,43 +522,12 @@ net_cursor_hi = drv_svc_workspace+23
  equs " bytes",&EA
  lda tflag
  bne pi_wget_report_end
- lda uflag
- ora sflag
- bne pi_wget_report_jim
+ lda net_file_mode
+ bne pi_wget_report_file
+ jmp pi_wget_report_jim
+.pi_wget_report_file
  jsr printtext
- equs " at &",&EA
- lda laddr+1
- jsr printhex
- lda laddr
- jsr printhex
- jsr printtext
- equs "-&",&EA
- lda net_load_hi
- jsr printhex
- lda net_load_lo
- jsr printhex
- lda net_bytes_hi
- bne pi_wget_report_head
- lda net_bytes_lo
- cmp #4
- bcc pi_wget_report_end
-.pi_wget_report_head
- jsr printtext
- equs " head &",&EA
- lda #0
- sta net_count
-.pi_wget_report_head_byte
- lda laddr
- sta load_addr
- lda laddr+1
- sta load_addr+1
- ldy net_count
- lda (load_addr),y
- jsr printhex
- inc net_count
- lda net_count
- cmp #4
- bne pi_wget_report_head_byte
+ equs " saved",&EA
  jmp pi_wget_report_end
 .pi_wget_report_jim
  jsr printtext
@@ -609,11 +579,26 @@ net_cursor_hi = drv_svc_workspace+23
  jmp error
 
 .pi_wget_close
+ pha
+ lda net_file_handle
+ beq pi_wget_file_closed
+ tay
+ lda #0
+ sta net_file_handle
+ jsr wget_OSFIND
+.pi_wget_file_closed
+ pla
  jsr net_command_address
  lda #net_cmd_url_close
  jsr net_write_a
  jsr net_dispatch_wait
  rts
+
+.pi_wget_usage
+ jsr printtext
+ equs "Usage: WGET <url> <file>",&0D
+ equs "       WGET [-TXUS] <url> [slot]",&0D,&EA
+ jmp call_claimed
 
 \ Select logical JIM &FFF000: Pi1MHz maps it into the reserved service RAM.
 .net_command_address
@@ -783,12 +768,7 @@ net_cursor_hi = drv_svc_workspace+23
  jmp pi_wget_close_claimed
 
 .pi_wget_network_error
- sta net_result
- jsr printtext
- equs "Network error &",&EA
- lda net_result
- jsr printhex
- jsr osnewl
+ jsr print_network_error
  lda net_result
  cmp #net_result_http_status
  bne pi_wget_close_claimed
@@ -804,16 +784,24 @@ net_cursor_hi = drv_svc_workspace+23
  lda #7
  jsr net_address_low
  jsr net_read_a
- sta net_load_lo
+ sta load_addr
  jsr net_read_a
- sta net_load_hi
+ sta load_addr+1
  jsr printtext
  equs "HTTP status &",&EA
- lda net_load_hi
+ lda load_addr+1
  jsr printhex
- lda net_load_lo
+ lda load_addr
  jsr printhex
  jsr osnewl
 .pi_wget_close_claimed
  jsr pi_wget_close
  jmp call_claimed
+
+.print_network_error
+ sta net_result
+ jsr printtext
+ equs "Network error &",&EA
+ lda net_result
+ jsr printhex
+ jmp osnewl

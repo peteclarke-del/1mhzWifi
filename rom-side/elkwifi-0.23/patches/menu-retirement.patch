@@ -1,0 +1,54 @@
+diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
+index 43d5909..e638a19 100644
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -189,13 +189,9 @@ include "electron.asm"
+                     equs "QAUTO"
+                     equb >uef_auto_cmd, <uef_auto_cmd
+                     equs "QHOST"
+-                    equb >menu_host_cmd, <menu_host_cmd
++                    equb >host_basic_cmd, <host_basic_cmd
+                     equs "UEF"
+                     equb >uef_cmd, <uef_cmd
+-                    equs "MENUSRC"
+-                    equb >menusrc_cmd, <menusrc_cmd
+-                    equs "MENU"
+-                    equb >menu_cmd, <menu_cmd
+                     equs "WIFI" 
+                     equb >wifi_cmd, <wifi_cmd 
+                     equs "VERSION"
+@@ -220,6 +216,8 @@ include "electron.asm"
+                     equb >leave_cmd, <leave_cmd
+                     equs "PING"
+                     equb >ping_cmd, <ping_cmd
++                    equs "NSLOOK"
++                    equb >nslook_cmd, <nslook_cmd
+                     equs "MODE"
+                     equb >mode_cmd, <mode_cmd
+                     equs "DISCONNECT"
+@@ -255,11 +253,10 @@ include "electron.asm"
+                     equs " LAP       List access points",&0D
+                     equs " LAPOPT    Set LAP options",&0D
+                     equs " LEAVE     Disconnect from network",&0D
+-                    equs " MENU      start the menu program",&0D   
+-                    equs " MENUSRC   Show/set menu URL",&0D
+                     equs " MODE      Set device mode",&0D
+                     equs " ONLINE    Show network readiness",&0D
+                     equs " PING      ping a host on network",&0D
++                    equs " NSLOOK    Resolve an IPv4 address",&0D
+                     equs " PRD       Paged Ram Dump",&0D
+                     equs " TIME      Print current time",&0D
+                     equs " VERSION   Print firmware version",&0D
+@@ -314,10 +311,10 @@ include "mode.asm"
+ include "wicfs.asm"
+ include "wget.asm"
+ include "net_wget.asm"
++include "host_launch.asm"
+ include "uef.asm"
+-include "menu.asm"
+-include "menusrc.asm"
+ include "ping.asm"
++include "nslook.asm"
+ 
+ equs "This is the end!"
+ 

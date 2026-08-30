@@ -32,12 +32,14 @@ static void secure_refresh_capabilities(void)
     capability_features = (uint8_t)((random_ready ? 1u : 0u) |
         (ssh_ready ? 2u : 0u) |
         (ssh_ready && service.port != NULL &&
-         service.port->ssh_password != NULL ? 4u : 0u));
+         service.port->ssh_password != NULL ? 4u : 0u) |
+        (ssh_ready && service.port != NULL &&
+         service.port->sftp_open != NULL ? 8u : 0u));
 }
 
 _Static_assert(NTS_SEC_CAPS == SERVICE_CMD_SECURE_FIRST,
                "secure service first command mismatch");
-_Static_assert(NTS_SEC_SSH_PASSWORD <= SERVICE_CMD_SECURE_LAST,
+_Static_assert(NTS_SEC_SFTP_CLOSE == SERVICE_CMD_SECURE_LAST,
                "secure service command exceeds reserved range");
 
 static void secure_write_capabilities(uint8_t *command)

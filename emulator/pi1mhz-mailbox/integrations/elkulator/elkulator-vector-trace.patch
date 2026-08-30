@@ -1,0 +1,45 @@
+--- a/src/6502.c
++++ b/src/6502.c
+@@ -176,4 +176,6 @@
+ int output=0;
+ uint16_t oldpc2,oldpc;
++static FILE *vector_trace;
++static const char *vector_trace_path;
+ void exec6502()
+ {
+@@ -188,3 +190,36 @@
+ 		oldpc2=oldpc;
+ 		oldpc=pc;
++                if (!vector_trace_path)
++                {
++                        vector_trace_path=getenv("PI1MHZ_VECTOR_TRACE");
++                        if (vector_trace_path && *vector_trace_path)
++                                vector_trace=fopen(vector_trace_path,"w");
++                }
++                if (vector_trace)
++                {
++                        uint16_t fscv=ram[0x21E] | ((uint16_t)ram[0x21F] << 8);
++                        uint16_t filev=ram[0x212] | ((uint16_t)ram[0x213] << 8);
++                        uint16_t findv=ram[0x21C] | ((uint16_t)ram[0x21D] << 8);
++                        if (pc == 0xFFF7 || pc == fscv || pc == filev || pc == findv)
++                        {
++                                fprintf(vector_trace,
++                                        "PC=%04X RB=%X ER=%X A=%02X X=%02X Y=%02X S=%02X "
++                                        "FSC=%04X FILE=%04X FIND=%04X CUR=%02X:%02X LEN=%02X%02X",
++                                        pc,rombank,extrom,a,x,y,s,fscv,filev,findv,
++                                        ram[0xC8],ram[0xC7],ram[0xF9],ram[0xF8]);
++                                if (pc == 0xFFF7 && (((uint16_t)y << 8) | x) < 0x8000)
++                                {
++                                        uint16_t cli=((uint16_t)y << 8) | x;
++                                        fputs(" CLI=",vector_trace);
++                                        for (unsigned i=0;i<80 && ram[cli+i]!=13;i++)
++                                                fputc(ram[cli+i],vector_trace);
++                                }
++                                fputs(" STACK=",vector_trace);
++                                for (unsigned i=1;i<=12 && s+i<=0xFF;i++)
++                                        fprintf(vector_trace,"%02X",ram[0x100+s+i]);
++                                fputc('\n',vector_trace);
++                                fflush(vector_trace);
++                        }
++                }
+ 		oldcycs=cycles;

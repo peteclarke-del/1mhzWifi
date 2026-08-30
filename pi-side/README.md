@@ -8,7 +8,7 @@ Linux service is installed or required.
 
 The directory name records the original package baseline and is retained to
 avoid churn in downstream patch scripts. `upstream.env`, the installer and the
-package README are authoritative; they currently require commit `d08242e`.
+package README are authoritative; they currently require commit `e949f2d`.
 
 The implementation record is
 [`pi1mhz-516a267/TECHNICAL.md`](pi1mhz-516a267/TECHNICAL.md). The complete
@@ -23,7 +23,7 @@ needed by the retained ElkWiFi commands.
 
 ## Upstream requirements
 
-Use Pi1MHz commit `d08242ee1b35cf1285b72c9ec1869e98081a8c3e`.
+Use Pi1MHz commit `e949f2d2714b15f314df375e52db5febb6c40e6d`.
 This was the tip of the official `master` branch when checked on 19 August
 2026. Pi1MHz does not have a `main` branch. The commit is 84 commits after the
 V1.30 tag and includes the later net service required by WGET and OSWORD TCP.
@@ -76,7 +76,7 @@ revision before firmware download.
 The BCM43455 image is pinned to firmware 7.45.241 from upstream revision
 `8468a38`. The later 7.45.265 image associates on the Pi 3A+ validation
 hardware but does not complete DHCP. Pi1MHz source remains based on the
-reviewed `d08242e` revision.
+reviewed `e949f2d` revision.
 
 Set `ARM_GCC` to the compiler path when `arm-none-eabi-gcc` is not on `PATH`.
 
@@ -125,14 +125,10 @@ open is registered only as a reserved ABI value and returns unsupported.
 Command 93 performs CPU-only decompression and CRC checks in the main poll,
 never in FIQ context.
 
-## MENU compatibility
+## Retired MENU services
 
-Menu URL persistence is implemented by service commands 84-86. The downloaded
-upstream MENU is also adapted by the host ROM because it contains a direct
-`&FC34` cartridge bank-selection sequence. The ROM replaces that exact
-eight-byte sequence with an AP5-compatible no-bank helper before entering
-host `&E00`. No Pi-side binary rewrite occurs. See
-[the byte-level runtime contract](../docs/menu-runtime-patch.md).
+Service commands 84-86 are unregistered. ROM 0.1.63 removes MENU URL
+persistence and caching. Generic WGET and UEF services are unchanged.
 
 ## Pi1MHz.cfg
 
@@ -154,15 +150,12 @@ Optional initial ElkWiFi settings are:
 wifi_ssid=MyNetwork
 wifi_password=secret
 wifi_security=auto
-elkwifi_menu_url=http://acornelectron.nl/uefarchive/MENU
 elkwifi_utc_offset_minutes=0
 # elkwifi_uef_trim_tail=0
 ```
 
 `wifi_security` accepts `auto`, `open`, `wep`, `wpa`, and `wpa2`. A valid
-saved profile takes precedence over the initial WiFi settings. A valid saved
-menu URL takes precedence over `elkwifi_menu_url`; the compiled default is used
-when neither value is valid.
+saved profile takes precedence over the initial WiFi settings.
 
 `elkwifi_uef_trim_tail` is a diagnostic A/B switch, not a normal deployment
 setting. Leave it absent or set to `0` to pass the complete normalized UEF to

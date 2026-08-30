@@ -83,6 +83,10 @@ typedef struct pi1mhz_mailbox {
     int legacy_busy_observation;
     pi1mhz_dispatch_fn dispatch;
     void *dispatch_opaque;
+    /* Trampoline mirrored into every JIM page; see the read path. */
+    uint8_t  mirror[160];
+    uint8_t  mirror_offset;
+    uint8_t  mirror_length;
 } pi1mhz_mailbox;
 
 int pi1mhz_mailbox_init(pi1mhz_mailbox *mailbox,
@@ -94,6 +98,12 @@ void pi1mhz_mailbox_set_timing(pi1mhz_mailbox *mailbox,
                                unsigned capture_ticks,
                                unsigned callback_ticks,
                                unsigned service_ticks);
+/* Publish a region the Pi serves at the same offset in every JIM page, so a
+ * host trampoline placed there is reachable whatever the page selector holds.
+ * Passing a zero or oversized length disables the mirror. */
+void pi1mhz_mailbox_set_mirror(pi1mhz_mailbox *mailbox, uint8_t offset,
+                               const uint8_t *data, uint8_t length);
+
 void pi1mhz_mailbox_set_callback_timing(pi1mhz_mailbox *mailbox,
                                         unsigned simple_ticks,
                                         unsigned page_copy_ticks,

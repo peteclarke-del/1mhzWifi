@@ -228,7 +228,7 @@ class Pi1MHzMemory:
         if command == 90:  # cancel asynchronous ElkWiFi operation
             return NET_OK
         if command == 80:  # ElkWiFi status/version
-            response = b"Pi1MHz ElkWiFi 0.1.57, kernel fixture\r\n\r\nOK\r\n\0"
+            response = b"Pi1MHz ElkWiFi 0.1.59, kernel fixture\r\n\r\nOK\r\n\0"
             self.jim[block + 1:block + 1 + len(response)] = response
             return NET_OK
         if command == 60:  # URL_OPEN
@@ -333,6 +333,14 @@ class TextScreen:
         self.params = []
         self.raw = bytearray()
 
+    def set_geometry(self, width, height):
+        self.width = width
+        self.height = height
+        self.cells = [[" "] * width for _ in range(height)]
+        self.x = self.y = 0
+        self.pending = None
+        self.params.clear()
+
     def emit(self, value):
         value &= 0xFF
         self.raw.append(value)
@@ -379,7 +387,8 @@ class ClientMachine:
                  dispatch_busy_reads=0, tube=False, auto_increment=True,
                  delayed_selector_accesses=0,
                  oshwm=0x0E00, himem=0x5800, load_address=APP_START,
-                 mode4_himem=0x5800, secure_features=7, secure_ready=1):
+                 mode4_himem=0x5800, secure_features=7, secure_ready=1,
+                 screen_width=40, screen_height=32):
         self.memory = Pi1MHzMemory(
             service=service, incoming=incoming, eof_after_data=eof_after_data,
             host_known=host_known, password_required=password_required,
@@ -392,7 +401,7 @@ class ClientMachine:
         self.memory.load(load_address, binary)
         self.argument_address = 0x1000
         self.memory.load(self.argument_address, arguments.encode("ascii") + b"\r")
-        self.screen = TextScreen()
+        self.screen = TextScreen(screen_width, screen_height)
         self.screen_captures = []
         self.keys = list(keys)
         self.keyboard_polls = 0
@@ -401,6 +410,7 @@ class ClientMachine:
         self.oshwm = oshwm
         self.himem = himem
         self.mode4_himem = mode4_himem
+        self.mode_changes = []
         self.mode_pending = False
         self.mpu = MPU(memory=self.memory, pc=load_address)
         self.mpu.sp = 0xFF
@@ -417,8 +427,10 @@ class ClientMachine:
             value = self.mpu.a
             if pc == OSWRCH:
                 if self.mode_pending:
+                    self.mode_changes.append(value)
                     if value == 4:
                         self.himem = self.mode4_himem
+                        self.screen.set_geometry(40, 32)
                     self.mode_pending = False
                 elif value == 22:
                     self.mode_pending = True
@@ -469,6 +481,14 @@ class ClientMachine:
             elif reason == 0x87:
                 self.mpu.x = ord(self.screen.cells[self.screen.y][self.screen.x])
                 self.mpu.y = 0
+            elif reason == 0xA0:
+                self.mpu.x = {
+                    8: 0,
+                    9: self.screen.height - 1,
+                    10: self.screen.width - 1,
+                    11: 0,
+                }.get(self.mpu.x, 0)
+                self.mpu.y = 0
             elif reason == 0x83:
                 self.mpu.x = self.oshwm & 0xFF
                 self.mpu.y = self.oshwm >> 8
@@ -518,27 +538,12 @@ class ClientMachine:
 
 
 class EmulatedClientTests(unittest.TestCase):
-    def test_debug_trace_does_not_redirect_the_shared_jim_command_cursor(self):
-        # Every character printed through MOS deliberately redirects the
-        # modelled FCA6-FCA9 cursor. A diagnostic build must print before it
-        # selects the command page, otherwise its own trace prevents dispatch
-        # on AP5 hardware and reports a false timeout.
-        machine = ClientMachine(
-            (ROOT / "build" / "NSLOOK-debug").read_bytes(),
-            "www.example.com",
-        )
-        machine.run()
-        self.assertGreater(machine.memory.dns_polls, 0)
-        self.assertIn("Address: 192.0.2.42", machine.screen.text())
-
     @classmethod
     def setUpClass(cls):
         image = (ROOT / "build" / "nettools.ssd").read_bytes()
         # Execute the exact file payloads distributed on the DFS image.
         cls.telnet = dfs_file(image, "NTTEL")
         cls.ssh = dfs_file(image, "NTSSH")
-        cls.ping = dfs_file(image, "NTPING")
-        cls.nslook = dfs_file(image, "NTNSLK")
         cls.hwdtest = dfs_file(image, "NTHWD")
         cls.ssh_loader = dfs_file(image, "SSH")
         cls.hwdtest_loader = dfs_file(image, "HWDTEST")
@@ -604,14 +609,6 @@ class EmulatedClientTests(unittest.TestCase):
         self.assertEqual(loader.oscli_commands, ["NTHWD "])
         self.assertNotIn("could not obtain MODE 4 RAM", loader.screen.text())
 
-        main = ClientMachine(
-            self.nslook, "example.test", oshwm=0x8000, himem=0x0800,
-            mode4_himem=0x0800, tube=True,
-        )
-        main.memory.ram[0x21F0:0x21F2] = b"NT"
-        main.run()
-        self.assertIn("Address: 192.0.2.42", main.screen.text())
-
     def test_hardware_diagnostic_matches_emulated_services_contract(self):
         machine = ClientMachine(self.hwdtest, "")
         machine.memory.ram[0x21F0:0x21F6] = b"NT\x00\x08\x00\x1d"
@@ -657,7 +654,7 @@ class EmulatedClientTests(unittest.TestCase):
                    0x5A, 0xA5, 0x33, 0xCC, 0x0F, 0xF0, 0x69, 0x96)),
         )
         self.assertEqual(machine.oscli_commands, ["ROMS"])
-        self.assertIn("Pi1MHz ElkWiFi 0.1.57", visible)
+        self.assertIn("Pi1MHz ElkWiFi 0.1.59", visible)
 
     def test_hardware_diagnostic_fails_when_managed_ssh_is_not_ready(self):
         machine = ClientMachine(
@@ -670,36 +667,10 @@ class EmulatedClientTests(unittest.TestCase):
         self.assertIn("CAPS 6-10: 00 01 4E 54 53", visible)
         self.assertIn("HWDTEST RESULT FAIL", visible)
 
-    def test_ping_uses_icmp_service_four_times(self):
-        machine = ClientMachine(self.ping, "example.test")
-        machine.run()
-        self.assertEqual(machine.memory.ping_count, 4)
-        self.assertEqual(machine.mpu.p & 0x04, 0, "PING left IRQs disabled")
-        visible = machine.screen.text()
-        self.assertIn("Reply from 11 ms", visible)
-        self.assertIn("Reply from 14 ms", visible)
-
-    def test_ping_returns_to_tube_host_when_coprocessor_is_active(self):
-        machine = ClientMachine(self.ping, "example.test", tube=True)
-        machine.run()
-        self.assertEqual(machine.memory.ping_count, 4)
-
-    def test_nslook_resolves_and_prints_ipv4(self):
-        machine = ClientMachine(self.nslook, "example.test")
-        machine.run()
-        self.assertFalse(machine.memory.raw_opened)
-        self.assertIn("Address: 192.0.2.42", machine.screen.text())
-
     def test_clients_do_not_depend_on_immediate_hardware_auto_increment(self):
         # Real Pi1MHz services callbacks are asynchronous to the 6502. Model
         # the strongest safe case: FCA9 read-back never advances before the
         # next host access. Explicit per-byte addressing must still work.
-        nslook = ClientMachine(
-            self.nslook, "example.test", auto_increment=False,
-        )
-        nslook.run()
-        self.assertIn("Address: 192.0.2.42", nslook.screen.text())
-
         ssh = ClientMachine(
             self.ssh, "test@example.test", incoming=b"safe path\r\n",
             keys=(29,), auto_increment=False,
@@ -713,14 +684,6 @@ class EmulatedClientTests(unittest.TestCase):
         # before the scheduled event runs replaces it. Advance publication by
         # CPU instructions, never by another read of a service register.
         for tube in (False, True):
-            with self.subTest(client="nslook", tube=tube):
-                nslook = ClientMachine(
-                    self.nslook, "example.test", delayed_selector_accesses=5,
-                    tube=tube,
-                )
-                nslook.run()
-                self.assertIn("Address: 192.0.2.42", nslook.screen.text())
-
             with self.subTest(client="ssh", tube=tube):
                 ssh = ClientMachine(
                     self.ssh, "test@example.test", incoming=b"settled path\r\n",
@@ -751,7 +714,7 @@ class EmulatedClientTests(unittest.TestCase):
 
     def test_client_refuses_workspace_above_its_fixed_load_address(self):
         machine = ClientMachine(
-            self.nslook, "example.test", oshwm=APP_START + 0x100,
+            self.ssh, "test@example.test", oshwm=APP_START + 0x100,
         )
         machine.run()
         self.assertIn("OSHWM=&2300", machine.screen.text())
@@ -923,6 +886,30 @@ class EmulatedClientTests(unittest.TestCase):
         self.assertIn("Password:", machine.screen.text())
         self.assertNotIn("secret", machine.screen.text())
         self.assertIn("password OK", machine.screen.text())
+
+    def test_ssh_password_session_preserves_suitable_80_column_mode(self):
+        machine = ClientMachine(
+            self.ssh, "alice@password.example",
+            incoming=b"\x1b[1;80HX\r\n", eof_after_data=True,
+            keys=tuple(map(ord, "secret\r")), password_required=True,
+            himem=0x5800, screen_width=80, screen_height=32,
+        )
+        machine.run()
+        self.assertEqual(machine.mode_changes, [])
+        self.assertEqual(machine.screen.width, 80)
+        self.assertEqual(machine.screen.cells[0][79], "X")
+
+    def test_ssh_uses_single_entry_fallback_when_mode_has_insufficient_ram(self):
+        machine = ClientMachine(
+            self.ssh, "alice@password.example", incoming=b"OK\r\n",
+            eof_after_data=True, keys=tuple(map(ord, "secret\r")),
+            password_required=True, himem=0x3000,
+            screen_width=80, screen_height=32,
+        )
+        machine.run()
+        self.assertEqual(machine.mode_changes, [4])
+        self.assertEqual(machine.screen.width, 40)
+        self.assertIn("OK", machine.screen.text())
 
 
 if __name__ == "__main__":

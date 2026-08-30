@@ -468,6 +468,21 @@ uint8_t pi1mhz_mailbox_bus_access(pi1mhz_mailbox *mailbox,
         return bus_value;
     }
     if (address >= PI1MHZ_PAGE_BASE && address <= PI1MHZ_PAGE_END) {
+        /* A filing-system trampoline cannot live at a fixed JIM page, because
+         * the selector tracks the stream cursor and is whatever the last
+         * transfer left it. Mirroring a small region into every page makes the
+         * trampoline reachable regardless of the selector, which is what lets
+         * the host put its filing vectors somewhere no game can overwrite.
+         * The mirror is off unless a trampoline has been published. */
+        if (mailbox->mirror_length &&
+            (address & 0xFFu) >= mailbox->mirror_offset) {
+            size_t index = (size_t)(address & 0xFFu) - mailbox->mirror_offset;
+            if (index < mailbox->mirror_length) {
+                value = mailbox->mirror[index];
+                post_fiq_event(mailbox, address, value, 0);
+                return value;
+            }
+        }
         value = mailbox->page_window[address & 0xFFu];
         post_fiq_event(mailbox, address, value, 0);
         return value;
@@ -535,4 +550,19 @@ void pi1mhz_mailbox_write(pi1mhz_mailbox *mailbox, uint16_t address,
                           uint8_t value)
 {
     (void)pi1mhz_mailbox_bus_access(mailbox, address, value, 1);
+}
+
+void pi1mhz_mailbox_set_mirror(pi1mhz_mailbox *mailbox, uint8_t offset,
+                               const uint8_t *data, uint8_t length)
+{
+    if (!mailbox)
+        return;
+    if (!data || !length || (unsigned)offset + length > 256u ||
+        length > sizeof(mailbox->mirror)) {
+        mailbox->mirror_length = 0;
+        return;
+    }
+    memcpy(mailbox->mirror, data, length);
+    mailbox->mirror_offset = offset;
+    mailbox->mirror_length = length;
 }

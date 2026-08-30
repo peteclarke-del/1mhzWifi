@@ -1,7 +1,7 @@
 # 1MHzWifi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.58` candidate ROM presents the
+Micro through Pi1MHz. The `1MHzWifi 0.1.66` candidate ROM presents the
 ElkWiFi 0.23 command and OSWORD interface. The same 16 KiB ROM is built for
 Electron, BBC B, BBC B+ and Master hosts. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
@@ -21,7 +21,7 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-Version 0.1.58 is the current compatibility candidate. Version 0.1.55 is the last
+Version 0.1.66 is the current compatibility candidate. Version 0.1.55 is the last
 physically exercised Tube-off baseline. Earlier 0.1.50 and
 0.1.51 timing and WiCFS cursor changes caused physical MENU and local UEF
 regressions, so they are not release baselines. Version 0.1.55 retains the
@@ -32,23 +32,47 @@ delayed-FIQ model. The published TITLES transfer takes about 42 seconds in the
 conservative emulator profile, during which `Loading title data` remains on
 screen. Physical timing remains an acceptance gate.
 
+Version 0.1.63 retires `*MENU`, `*MENUSRC`, their endpoint persistence, binary
+patcher and Pi-side cache. This leaves the generic WGET, UEF and WiCFS paths as
+the only ROM download mechanisms and recovers about 1 KiB of additional ROM
+space. `*PING` and `*NSLOOK` are resident ROM commands. Their former NetTools
+copies are no longer included on the SSD.
+
+Version 0.1.65 adds an interactive plain FTP client to the ROM. Control and
+passive data sockets remain on the Pi, while GET and PUT use MOS filing calls
+on the host. The same release adds SFTP to the NetTools package through the
+managed wolfSSH service. Ordinary WGET now requires a destination filename
+and writes it through the active MOS filing system.
+
+Version 0.1.66 repairs `*PRD` selection of Pi1MHz JIM windows. It also replaces
+repeated command dispatch and text with shared tables and enforces at least 455
+unused bytes in the ROM image for the next bounded feature.
+
 This release fixes two independently observed diagnostics. The Pi hardware RNG
 wait now uses a 750 ms system-timer deadline instead of a CPU-speed-dependent
 iteration count which could permanently disable wolfSSH on a Pi 3. HWDTEST now
 fails unless both secure random and managed SSH are ready. WGET error `&30`
 also prints the parsed HTTP status before closing the handle.
 
-Version 0.1.58 retains the 0.1.56 OPENUP and vector-lifecycle corrections,
-prevents reset-time restoration of stale filing-system vectors, and adds a
-private Pi-side scratch-to-public-JIM copy behind the unchanged public ABI.
-OSWORD receive and raw paged WGET use that copy to remove the host byte loop;
-older kernels receive an `Unsupported` result and use the compatible byte path.
-It also restores the observable pinned ElkWiFi 0.23 entries which do not need
-cartridge hardware, implements connected TCP and UDP through function 8, and
-rejects unsupported SSL without silently downgrading it. On the latest physical
-Tube-off run, Repton reached gameplay for the first time. Mr Wiz remains a
-failed launch gate. Neither title has, or will receive, a production
-title-specific path.
+Version 0.1.61 retains the 0.1.59 OPENUP and vector-lifecycle corrections and
+adds a generic low-loader compatibility gateway for Tube-off hosts. Exact
+instruction tracing showed that normal cassette loaders can occupy
+`&0900-&10FF`, overwriting the Electron MOS extended-vector table at
+`&0D9F-&0DEF` and the ROM's transient network workspace. The gateway resides
+at `&0780`, repairs the applicable MOS extended-vector tuple atomically, and
+then enters the standard MOS dispatcher with the caller's registers and flags
+intact. Incremental-stream generations are now kept in Pi-private JIM state,
+so the same loader overwrite cannot invalidate a later refill. No production
+path tests for a title name.
+
+Version 0.1.61 adds a negotiated incremental UEF transport without changing
+the public ElkWiFi command allocation. Local raw, gzip and single-entry ZIP
+sources are uploaded through the AP5-visible JIM aperture, normalized into a
+16 MiB Pi-private stream, and supplied to WiCFS in `&FF00`-byte windows.
+Legacy ROM/kernel pairings retain the previous single-window path. The matched
+candidate passes exact-window, multi-window, retry, ZIP and public-JIM-reuse
+tests, plus a traced end-to-end Thrust gameplay run. Multi-window physical
+gameplay and Tube-enabled operation remain acceptance gates.
 
 The 0.1.55 image, SHA-256
 `ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb`, has a
@@ -66,9 +90,11 @@ An experimental host-workspace snapshot made the exact staged BeebSCSI image
 pass a load, Break, ADFS remount and reload emulator sequence. Peer review
 rejected that design because restoring arbitrary filing-system workspace during
 reset is ROM-order dependent and can overwrite a newer filing-system owner.
-That rejected experiment is not in the build. The 0.1.58 candidate instead
-uses ownership-safe vector and BYTEV lifecycle handling. ADFS recovery after
-gameplay remains a physical release gate.
+That rejected experiment is not in the build. The 0.1.59 candidate instead
+captures BYTEV with the pre-TAPE filing vectors and restores the complete set
+only while WiCFS still owns it. It also refuses to install over a partially
+owned prior WiCFS session. ADFS recovery after gameplay remains a physical
+release gate.
 
 The 21 August Tube-off milestone confirms that MENU launches Frak and Arcadians
 to gameplay, and local `*UEF LOAD REPTON` reaches gameplay after a long startup.
@@ -80,6 +106,21 @@ its password from MODE 0 incorrectly changes the display to MODE 4. These
 results are the current physical baseline; Tube-on validation remains
 outstanding.
 
+Version 0.1.59 is the unpromoted correction for that lifecycle fault. It saves
+BYTEV with the pre-TAPE extended-vector snapshot and restores the set only at
+an ownership-checked retirement boundary. Executable 6502 tests cover the
+inactive MENU transition, balanced stack return, and delayed Pi mailbox
+publication. Thrust, Mr Wiz and Repton 2 remain generic acceptance cases, not
+names or branches in production code. The exact 0.1.59 image still requires
+physical confirmation before these failures can be closed.
+
+The exact 0.1.59 ROM reaches input-responsive Thrust gameplay in the strict
+Tube-off Electron/AP5/ADFS/BeebSCSI emulator profile. The evidence includes a
+live 184,780-event bus trace, zero Tube-register accesses and unchanged media
+and configuration. This is an emulator acceptance result. Repeated MENU and
+ADFS recovery, Mr Wiz, Repton 2 and Tube-enabled operation still require the
+physical checks listed in the hardware plan.
+
 The NetTools applications load at `&1D00` and validate OSHWM and HIMEM at every
 entry. Their bootstrap preserves a suitable caller mode and selects MODE 4
 only when the available host memory is insufficient. Machine
@@ -88,6 +129,13 @@ application workspace and cannot hold a reset-time cache. The bundle retains
 the BCM43455 7.45.241 firmware used before the Pi 3A+ DHCP regression. Version
 1.0 still requires the public ElkWiFi OSWORD comparison and the ADFS, DFS,
 MMFS and TAPE coexistence gates.
+
+SSH also reads the active MOS text-window dimensions and renders at widths from
+20 to 80 columns. A mode with sufficient host memory is preserved through the
+password and session path. Stock non-shadow MODE 0 has `HIMEM=&3000`, below
+the current SSH image end near `&3906`, so it still selects MODE 4 once at
+entry. Supporting that memory envelope requires a separate relocatable or SWR
+architecture rather than a password-path display workaround.
 
 The following command paths are implemented. Pi and JIM traffic stays on the
 1MHz bus. WiCFS loads into Electron host memory. The launcher uses MOS OSBYTE
@@ -98,16 +146,12 @@ Tube itself:
 | Area | Implemented behavior |
 | --- | --- |
 | WiFi | `*WIFI ON`, `*WIFI OFF`, `*LAP`, `*JOIN`, `*JOIN ?`, `*LEAVE`, `*ONLINE`, `*IFCFG`, `*LAPOPT` |
-| Network | `*PING`, HTTP `*WGET`, OSWORD `&65` TCP/UDP open, send, receive and close |
+| Network | `*PING`, `*NSLOOK`, HTTP `*WGET`, OSWORD `&65` TCP/UDP open, send, receive and close |
 | Time | NTP-backed `*DATE` and `*TIME` |
-| Menu | Persistent `*MENUSRC`; `*MENU` downloads, validates, adapts, and runs the published payload on the I/O processor |
-| Storage | `*WGET -U`, `*UEF LOAD`, `*WICFS`, `*REWIND`, `*PRD`, and `*WGET -S` through Pi1MHz JIM windows |
+| Storage | `*WGET <url> <filename>` through the active filing system; `*WGET -U`, `*UEF LOAD`, `*WICFS`, `*REWIND`, `*PRD`, and `*WGET -S` through explicit Pi1MHz JIM windows |
 | Diagnostics | `*HELP WIFI`, `*VERSION`, station `*MODE`, bounded missing-service errors |
 
-The compiled `*MENU` source is Electron-only. On BBC B, B+, Master and
-Compact, `*MENU` explains this and asks for a machine-appropriate `*MENUSRC`.
-This restriction applies to the default payload, not to WiFi, OSWORD, WGET,
-custom menus or NetTools. Platform-sensitive ROM paging uses the documented
+Platform-sensitive ROM paging uses the documented
 OSBYTE `&81` machine query before the driver touches the high JIM selectors.
 The result is transient and is not assumed to survive application execution.
 
@@ -136,14 +180,8 @@ recorded in [TODO.md](TODO.md). Asynchronous scan, DNS, ICMP, NTP, WGET and raw
 socket waits are Escape-aware. Cancellation closes active PCBs, invalidates
 late callbacks and clears scan state before returning to MOS.
 
-The published ElkWiFi menu contains a direct `&FC34` cartridge bank-selection
-sequence. At runtime, `*MENU` replaces that exact eight-byte sequence with an
-equal-length call to a Pi1MHz JIM address selector after WGET succeeds and
-before it enters host `&E00` through a RAM return trampoline. The menu itself
-and all WiCFS transfers remain Electron host code. The ROM does not select,
-disable, or transfer data to a fitted Tube. See
-[the MENU runtime adaptation](docs/menu-runtime-patch.md) for the byte-level
-contract and failure behavior.
+The removal and the retained generic facilities are recorded in
+[the MENU retirement note](docs/menu-retirement.md).
 
 ## Hardware-test bundle
 
@@ -204,6 +242,13 @@ page-select and data transaction. The data byte is recovered before
 the saved processor flags because both values occupy the 6502 hardware stack
 during the transaction.
 
+The current candidate retains that AP5-visible window but no longer limits the
+authoritative UEF to one window. Command 93 negotiates stream ABI 1, uploads
+the source in `&FF00`-byte windows, normalizes it into Pi-private storage, and
+publishes the next window only when WiCFS exhausts the current one. Window
+generation numbers make retries idempotent. Older kernels continue through the
+unchanged single-window path and retain the `&FFFE` limit.
+
 Release 0.1.55 retains the removal of the incorrect Tube-transfer path exposed
 by physical testing. 1MHzWifi is an Electron 1MHz-bus filing system and always
 places UEF data in host memory. The patched menu uses OSBYTE `&EA` only to
@@ -249,11 +294,11 @@ retaining the current Pi1MHz source revision.
 Release hashes:
 
 ```text
-1MHzWifi ROM 339609afa38bc3fed486fb78b7ba6be236d7419fc0d80f3653e692c3fb366877
-kernel.img   fad559ca1e3840e5487ac44c0753c78251ea208e95c9fd42edb1e66370dce39a
-kernel7.img  3c9a99898bb9c83ae113ddc4f6896b0187155854221d946d180e313d2b2aaec1
-nettools.ssd 7bca283a8ede47868576150a8db17cfb1943cd3dc14de4e06547683d1b084f2f
-bundle ZIP   2127a2a9cf9c5084ccdea4ca86e36152eb7fe0952010f5e21da1959c7b584956
+1MHzWifi ROM 82c0e0e49491b163d6cce324b123300dcf1ee56a3708a20dd850965d43a440fc
+kernel.img   c8910a1ea94d72647a45b6d61c9dbd197865371e1b8662327d9a0e9c798e496d
+kernel7.img  20b3439503d574a73304b86fbd124efe6301e39ee3190a20711b3c78919770f1
+nettools.ssd 7bfe26b2c8f3212466bd3bdbc7f40e6f1d72722a3dbcc7a9f25fd3858dc8d883
+bundle ZIP   65702f87e59fd3fddc819e8712df4146278754ad32b23d49e26e040e4060f110
 ```
 
 The same values are provided in `SHA256SUMS` for automated verification.
@@ -269,27 +314,25 @@ Rampage_addr=0xFD
 wifi_ssid=MyNetwork
 wifi_password=secret
 wifi_security=auto
-elkwifi_menu_url=http://acornelectron.nl/uefarchive/MENU
 elkwifi_utc_offset_minutes=0
 ```
 
 `wifi_security` accepts `auto`, `open`, `wep`, `wpa`, or `wpa2`. A profile
-saved by `*JOIN` takes precedence over the initial WiFi settings. A URL saved
-by `*MENUSRC` takes precedence over `elkwifi_menu_url`, which in turn takes
-precedence over the compiled default URL. The UTC offset is expressed in
+saved by `*JOIN` takes precedence over the initial WiFi settings. The UTC offset is expressed in
 minutes east of UTC. Use `0` for GMT and `60` for BST.
 
 `*UEF LOAD <filename>` reads a UEF image from the currently selected MOS filing
-system, including ADFS, DFS, or MMFS, into the WiCFS JIM window. Raw UEF,
+system, including ADFS, DFS, or MMFS, through the WiCFS JIM window. Raw UEF,
 gzip-compressed UEF, single-entry ZIP containing UEF, and ZIP containing a
 gzip-compressed UEF are recognized by their contents. CRC and expanded-size
 checks run on the Pi before launch. The normalizer uses the host-visible JIM
 window at `&000000`, not Pi1MHz's private disc-memory base. It then selects
 the tape filing system, installs WiCFS, runs `*REWIND`, and executes `CHAIN ""`
 without further input. The setup and launch are queued in two stages so they
-fit the Electron keyboard buffer. The expanded UEF may contain at most `&FFFE`
-bytes because the last two bytes of the 64 KiB window hold its length.
-The same normalization is applied to `*WGET -U`, including MENU title
+fit the Electron keyboard buffer. With a matched stream-ABI kernel, expanded
+images may be up to 16 MiB and are exposed to WiCFS as `&FF00`-byte windows.
+An older kernel is detected safely and retains the `&FFFE`-byte limit.
+The same normalization is applied to `*WGET -U`
 downloads, and the success line identifies the detected format.
 
 Credentials and saved settings are plaintext files on the FAT partition.
@@ -302,8 +345,8 @@ The complete, reproducible procedure is in
 upstream source trees are required:
 
 - ElkWiFi commit `7bf366c97bec18bd238963c95e6f2aa6893cdb3a`
-- Pi1MHz commit `d08242ee1b35cf1285b72c9ec1869e98081a8c3e`, the official
-  `master` tip verified on 19 August 2026
+- Pi1MHz commit `e949f2d2714b15f314df375e52db5febb6c40e6d`, the official
+  `master` tip verified on 23 August 2026
 
 Pi1MHz has no `main` branch. Run `./pi-side/check_upstream.sh` before a release;
 it fails if the official default branch or its tip has changed.
@@ -321,7 +364,7 @@ Build both Pi kernel families with Arm GCC 13 or later:
 ```sh
 git clone --recursive https://github.com/dp111/Pi1MHz.git
 git -C Pi1MHz submodule update --init --recursive
-git -C Pi1MHz checkout d08242ee1b35cf1285b72c9ec1869e98081a8c3e
+git -C Pi1MHz checkout e949f2d2714b15f314df375e52db5febb6c40e6d
 ./pi-side/install_bundle.sh /path/to/Pi1MHz all
 ```
 
@@ -399,9 +442,10 @@ emulator result.
 - [Architecture](docs/architecture.md)
 - [Building and release hygiene](docs/building.md)
 - [Command reference](docs/commands.md)
-- [MENU runtime adaptation](docs/menu-runtime-patch.md)
+- [MENU retirement](docs/menu-retirement.md)
 - [Pi1MHz integration](pi-side/README.md)
 - [Hardware validation](docs/hardware-validation.md)
+- [Regression ownership](docs/regression-testing.md)
 - [Implementation backlog](TODO.md)
 - [ElkWiFi ROM patch kit](rom-side/README.md)
 - [Pi1MHz patch kit](pi-side/README.md)

@@ -4,7 +4,7 @@
 
 The host-facing contract is based on ElkWiFi 0.23. It includes the service ROM
 header, retained star commands, OSWORD `&65`, response framing, and error
-conventions. `*MENUSRC` and `*ONLINE` are additive extensions. Original driver
+conventions. `*ONLINE` is an additive extension. Original driver
 functions 29 to 31 remain reserved, as in pinned ElkWiFi 0.23. DATE, TIME and ONLINE use
 private ROM selectors 32-34, outside the original 0-31 driver table, so their
 star commands do not repurpose a published ElkWiFi call.
@@ -66,9 +66,7 @@ does not perform a matching cold boot.
 | 81 | CYW43 enhanced access-point scan |
 | 82 | Join query, profile save, association, and leave |
 | 83 | Live lwIP interface and MAC information |
-| 84 | Read active menu URL |
-| 85 | Validate and save menu URL |
-| 86 | Restore and save the default menu URL |
+| 84-86 | Retired; no service is registered |
 | 87 | Read or save LAPOPT selection |
 | 88 | DNS resolution and ICMP echo |
 | 89 | DNS and NTP date/time request |
@@ -88,7 +86,8 @@ relative to `DISC_RAM_BASE`. The destination is an unbased offset into
 pages, response length and trailing zero.
 ROMs paired with an older kernel receive `Unsupported` and fall back to the
 original byte-at-a-time copy. Raw paged WGET output uses the same private copy
-operation; text and host-memory output retain their required per-byte handling.
+operation. Text output and ordinary file downloads retain their required
+per-byte MOS handling.
 Host or parasite pointers are never passed to the Pi.
 
 NetTools uses a separate secure-service range. Commands 94-100 provide
@@ -130,16 +129,28 @@ connector, so an Electron can access one standard 64K window. The ROM keeps
 responses, UEF data and sideways-RAM downloads in that window. It never relies
 on `&FCFD` or `&FCFE` reaching the Pi.
 
+For local stream ABI 1 imports, that 64K aperture is a transport window rather
+than the authoritative UEF store. Command 93 uses an exact `IUEF`, version and
+operation header for begin, append, finalize, rewind, refill and close. The Pi
+retains up to 16 MiB privately and publishes at most `&FF00` bytes at a time,
+reserving page `&FF` for the public trailer and service data. WiCFS refills
+only when both remaining-byte counters reach zero and does not reset its UEF or
+CFS parser between windows. A 16-bit generation at Pi-private JIM addresses
+`&FFEF1A-&FFEF1B` makes refill retries idempotent for the full supported stream
+size. The ROM reloads that value before every refill because cassette loaders
+may overwrite the retired printer workspace used for transient request data.
+
 After a successful `*WGET -U`, WGET updates the JIM length trailer. `*REWIND`
 reloads that authoritative value and resets the WiCFS cursor. It does not keep
 the length in the ROM's `&0900` heap because that workspace is volatile and can
-be overwritten by the menu or BASIC before a title is selected.
+be overwritten by BASIC or a cassette loader before a title is selected.
 
 The MOS keyboard input buffer occupies `&03E0-&03FF`; WiCFS never writes it.
 The active stream cursor and counters use the original WiCFS cassette zero-page
 ABI while parsing and are round-tripped with vector ownership on every claimed
 vector operation. The state is copied through `&FCA6-&FCA9` to
-`&FFEF00-&FFEF15` in the Pi1MHz services buffer. This range
+`&FFEF00-&FFEF15` in the Pi1MHz services buffer. The adjacent generation bytes
+use `&FFEF1A-&FFEF1B`. These ranges
 sits directly below the command pages at `&FFF000` and outside the AP5-visible
 UEF window. The state copier reuses the bounded network cursor routines, so
 selector publication and each FCA9 auto-increment are acknowledged before the
@@ -154,19 +165,23 @@ record without restoring its predecessor entries. Restoring those stale
 entries during the service-ROM pass can overwrite ADFS, DFS, MMFS or another
 ROM which has already reclaimed a vector.
 
-`*UEF LOAD` produces the same JIM image from a file on the current MOS filing
-system. It uses OSFIND and OSBGET rather than reading ADFS or DFS structures
+`*UEF LOAD` produces the same normalized stream from a file on the current MOS
+filing system. It uses OSFIND and OSBGET rather than reading ADFS or DFS structures
 directly. No importer state is kept in `&0900`: the OSFIND handle is kept in a
 private stack frame and recovered into Y before every OSBGET. It is not kept in
-X because the import loop uses TSX for its length frame. The byte count remains
-in the final JIM page.
+X because the import loop uses TSX for its length frame. The current public
+window count remains in the final JIM page; the full length and stream cursor
+remain private to the Pi.
 After each source byte, the ROM reselects its `&FCFF` page, so an ADFS, DFS or
 MMFS read cannot redirect the destination by changing the shared selector.
 Once the source file is closed, the command queues the normal tape, PAGE, NEW,
 and WiCFS setup sequence. A hidden second-stage command performs the same
-callable WiCFS vector installation as `*QUPCFS`, then queues only `*REWIND` and
-`CHAIN ""`. This split keeps each insertion below the Electron keyboard-buffer
-limit while retaining the published launch sequence.
+callable WiCFS vector installation as `*QUPCFS`, probes the first file, and
+rewinds the stream. It chooses `CHAIN ""` only for a structurally valid
+tokenised BASIC first line whose declared length points to its terminating CR;
+other loaders use `*RUN ""`. This split keeps each
+insertion below the Electron keyboard-buffer limit without title-specific
+logic.
 
 Before entering the CFS data-copy loop, WiCFS tests the block length. A
 zero-byte block skips the data read, accounts for the already-consumed header
@@ -174,17 +189,25 @@ and CRC, and returns success. This is required by applications which end a
 multi-file tape with a zero-byte version or capability marker.
 
 WiCFS is host-only. It writes downloaded UEF files directly to Electron
-I/O-processor memory and never probes or accesses Tube registers. The menu
-retains the stock `REWIND` and `CHAIN ""` sequence. A fitted Tube remains
-enabled and available to software which chooses to use it after launch.
+I/O-processor memory and never probes or accesses Tube registers. A fitted Tube
+remains enabled and available to software which chooses to use it after launch.
 
-With a Tube active, the patched menu invokes the private `QHOST` service before
-the stock cassette launch. `QHOST` enters BASIC directly on the I/O processor
+With a Tube active, the generic UEF launcher invokes the private `QHOST`
+service. `QHOST` enters BASIC directly on the I/O processor
 and queues `PAGE=&E00` followed by the short internal `QR` command. `QR`
-installs WiCFS and queues the published `*REWIND`, `CHAIN ""` pair. The PAGE
-assignment is required because cold host BASIC otherwise derives a `&23xx`
-workspace from the active Tube environment while the Electron program is
-loaded at `&0Exx`.
+installs WiCFS and invokes the same first-file classifier used without a Tube.
+The PAGE assignment is required because cold host BASIC otherwise derives a
+`&23xx` workspace from the active Tube environment while the Electron program
+is loaded at `&0Exx`.
+
+On a Tube-off Electron, cassette loaders can overwrite `&0900-&10FF`, including
+the MOS extended-vector table and ROM workspace at `&0D9F-&0DFF`. WiCFS
+therefore installs a 99-byte gateway at `&0780`. Each standard filing vector
+enters that gateway, which masks interrupts, republishes the corresponding
+extended-vector tuple, restores the caller's registers and flags, and enters
+the normal MOS dispatcher. The gateway is not installed while a Tube is active
+because `&0400-&07FF` is Tube host workspace. Tube-on resilience remains a
+separate acceptance item and must not be inferred from the Tube-off gateway.
 
 WiCFS records the handler address and owning ROM behind each MOS extended
 filing vector before installing its own entries. Unsupported operations are
@@ -202,10 +225,9 @@ While WiCFS is active it claims its own `*REWIND` during the FSCV OSCLI pass,
 before sideways-ROM command dispatch. Its original OSBYTE `&8C` trap remains
 installed while a virtual tape is active. This prevents a protected
 multi-stage loader's internal `*TAPE` command from disconnecting WiCFS between
-files. `*MENU` is the controlled transition back to cassette state: it first
-restores the BYTEV entry saved by WiCFS and then issues the normal `*TAPE`
-command. Repeated MENU invocations therefore remain possible without weakening
-the active virtual-tape contract.
+files. `*UEF LOAD` performs the controlled transition back to cassette state:
+it restores the BYTEV entry saved by WiCFS and then issues the normal `*TAPE`
+command.
 
 The service command page, URL scratch data and WiCFS vector state remain inside
 the Pi1MHz service allocation. WiCFS content occupies the standard JIM range
@@ -213,65 +235,18 @@ the Pi1MHz service allocation. WiCFS content occupies the standard JIM range
 independent low-page shadow and never reads AP5's write-only `&FCFF` register.
 Large transfers and simultaneous-service use remain hardware stress tests.
 
-## Menu operation
+## Host launch support
 
-`*MENUSRC` reads or writes `/Pi1MHz/ElkWiFi.menu`. The active URL follows this
-precedence:
+The generic UEF loader must sometimes re-enter host BASIC while a Tube language
+is active. `host_launch.asm` performs that transition using the machine type
+reported by OSBYTE `&81`. Electron selects ROMs through `&FE05`; BBC B, B+,
+Master and Compact use `&FE30`. The helper queues `PAGE=&E00` and the internal
+WiCFS start command, but does not access Tube registers or transfer data to a
+parasite.
 
-1. Valid saved `ElkWiFi.menu` value
-2. Valid `elkwifi_menu_url` value from `Pi1MHz.cfg`
-3. Compiled default URL
-
-The compiled URL serves the published Electron menu. Before downloading it,
-the ROM identifies the host with OSBYTE `&81`. Electron continues normally.
-BBC B, B+, Master and Compact return a bounded explanation and require a
-machine-appropriate custom `*MENUSRC`. This check does not restrict custom
-menu sources or any WiFi, TCP, WGET, OSWORD or NetTools operation.
-
-The ROM lists `MENUSRC` before `MENU` because the inherited command matcher
-claims a command when the table spelling ends. Reversing that order causes
-`*MENUSRC` to execute `*MENU`.
-
-`*MENU` constructs `*WGET <url> E00` in ROM workspace and executes it through
-OSCLI. WGET exposes an internal completed/non-empty flag. The ROM queues
-execution of host `&E00` only when that flag indicates success. A failed,
-cancelled, or empty transfer cannot execute stale memory at `&E00`.
-
-The ROM copies a return trampoline to host RAM and enters host `&E00` directly.
-It does not queue a BASIC `CALL`, because that would execute parasite memory
-when a Tube processor is active. The RAM trampoline also permits the menu to
-change ROMSEL without making its eventual return depend on the ElkWiFi ROM
-remaining selected.
-
-Host-only ROM selection is performed by RAM trampolines after the same OSBYTE
-`&81` query. Electron uses its `&FE05` deselect/select sequence. BBC B, B+,
-Master and Compact use `&FE30`. The distinction is confined to host BASIC
-entry, WiCFS's successful `*RUN` return and `*WGET -S`; the 1MHz mailbox and
-JIM protocols are machine-independent.
-
-When a Tube language is active, the cold host BASIC default PAGE is not the
-normal Electron value. The private `QHOST` transition therefore queues the
-fourteen-byte `PAGE=&E00` and `*QR` sequence. `QR` is an internal alias for
-the normal `QUPRUN` second stage. It installs WiCFS and retains the published
-`*REWIND`, `CHAIN ""` launch. This corrects host BASIC state only; it does not
-inspect a title, transfer data through the Tube or reserve a Tube channel.
-
-The published menu is itself cartridge-specific. It selects the second paged
-RAM bank through an inlined `&FC34` sequence. After download, the ROM scans
-`&0E00-&1FFF` and replaces that exact eight-byte sequence with an equal-length
-Pi1MHz helper call that removes the cartridge bank operation. Equal length
-preserves the downloaded program's addresses and relative branches. Custom
-payloads without the exact signature are unchanged. The complete contract is
-documented in
-[MENU runtime adaptation](menu-runtime-patch.md).
-
-One published title contains a second-stage loader at `&0400` which copies the
-Electron MOS filing vectors back into page two before issuing `*TAPE`. That
-would bypass every virtual filing system, including original WiCFS. After an
-execution load, 1MHzWifi compares the complete 24-byte reset loop and the
-following `TAPE` command at `&04A8`. Only when both signatures match does it
-replace the loop entry with `JMP &0418`, leaving the loader's remaining code
-and the official `*REWIND`, `CHAIN ""` launch sequence unchanged.
+This is the only code retained from the former MENU launcher. The ROM contains
+no menu endpoint, catalogue parser, downloaded-menu patcher or cache protocol.
+See [the retirement note](menu-retirement.md).
 
 ## Failure policy
 
@@ -284,7 +259,7 @@ The ROM distinguishes transport failures where the hardware permits it:
 | `No response from device` | A claimed command remained busy past its deadline |
 
 HTTP EOF is accepted only after the declared `Content-Length` has been read.
-An early close returns `&2E` so truncated MENU and UEF payloads never become a
+An early close returns `&2E` so truncated UEF payloads never become a
 successful WGET. UEF normalization operates on absolute JIM `&000000-&00FFFF`;
 Pi1MHz's private disc-memory base is deliberately not involved.
 

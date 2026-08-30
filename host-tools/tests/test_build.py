@@ -37,18 +37,18 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(
             set(entries),
             {
-                "!BOOT", "NETMENU", "TELNET", "SSH", "PING", "NSLOOK", "HWDTEST",
-                "NTMENU", "NTTEL", "NTSSH", "NTPING", "NTNSLK", "NTHWD",
+                "!BOOT", "NETMENU", "TELNET", "SSH", "SFTP", "HWDTEST",
+                "NTMENU", "NTTEL", "NTSSH", "NTSFTP", "NTHWD",
             },
         )
 
     def test_executables_are_tagged_for_io_processor(self):
         entries = catalogue((BUILD / "nettools.ssd").read_bytes())
-        for name in ("NETMENU", "TELNET", "SSH", "PING", "NSLOOK", "HWDTEST"):
+        for name in ("NETMENU", "TELNET", "SSH", "SFTP", "HWDTEST"):
             load, execute, _, _ = entries[name]
             self.assertEqual(load, 0x32000, name)
             self.assertEqual(execute, 0x32000, name)
-        for name in ("NTMENU", "NTTEL", "NTSSH", "NTPING", "NTNSLK", "NTHWD"):
+        for name in ("NTMENU", "NTTEL", "NTSSH", "NTHWD"):
             load, execute, _, _ = entries[name]
             self.assertEqual(load, 0x32200, name)
             self.assertEqual(execute, 0x32200, name)
@@ -62,7 +62,7 @@ class BuildTests(unittest.TestCase):
         image = (BUILD / "nettools.ssd").read_bytes()
         targets = {
             "NETMENU": b"NTMENU ", "TELNET": b"NTTEL ", "SSH": b"NTSSH ",
-            "PING": b"NTPING ", "NSLOOK": b"NTNSLK ", "HWDTEST": b"NTHWD ",
+            "SFTP": b"NTSFTP ", "HWDTEST": b"NTHWD ",
         }
         for public, target in targets.items():
             loader = dfs_file(image, public)
@@ -72,7 +72,7 @@ class BuildTests(unittest.TestCase):
             self.assertIn(bytes.fromhex("A9 16 20 EE FF A9 04 20 EE FF"), loader, public)
 
     def test_programs_fit_stock_electron_mode4_envelope(self):
-        for name in ("NETMENU", "TELNET", "SSH", "PING", "NSLOOK", "HWDTEST"):
+        for name in ("NETMENU", "TELNET", "SSH", "SFTP", "HWDTEST"):
             size = (BUILD / name).stat().st_size
             self.assertLessEqual(size, 0x5800 - 0x2200, name)
 
@@ -80,18 +80,17 @@ class BuildTests(unittest.TestCase):
         image = (BUILD / "nettools.ssd").read_bytes()
         telnet = dfs_file(image, "NTTEL")
         ssh = dfs_file(image, "NTSSH")
+        sftp = dfs_file(image, "NTSFTP")
         self.assertIn(b"TELNET://", telnet)
         self.assertIn(b"Ctrl-] disconnects", telnet)
         self.assertIn(b"Usage: *SSH user@host", ssh)
         self.assertIn(b"Unknown host key", ssh)
         self.assertIn(b"Password: ", ssh)
         self.assertIn(b"Authenticating with password", ssh)
-        self.assertIn(b"SSH 0.1.57 error &", ssh)
-        self.assertIn(b"Usage: *PING host", dfs_file(image, "NTPING"))
-        self.assertIn(b"Usage: *NSLOOK host", dfs_file(image, "NTNSLK"))
-        nslook = dfs_file(image, "NTNSLK")
-        self.assertIn(b"Address: ", nslook)
-        self.assertIn(b"NetTools 0.1.57 network error &", nslook)
+        self.assertIn(b"SSH 0.1.59 error &", ssh)
+        self.assertIn(b"Usage: *SFTP user@host", sftp)
+        self.assertIn(b"GET remote [local]", sftp)
+        self.assertIn(b"PUT local [remote]", sftp)
         hwdtest = dfs_file(image, "NTHWD")
         self.assertIn(b"1MHzWifi HWDTEST D4", hwdtest)
         self.assertIn(b"Loader OSHWM=&", hwdtest)
@@ -116,8 +115,8 @@ class BuildTests(unittest.TestCase):
         # turn an ordinary tool error into BASIC's `Bad program` diagnostic.
         bad_sequence = bytes.fromhex("A9 8E 4C F4 FF")
         for name in (
-            "NETMENU", "TELNET", "SSH", "PING", "NSLOOK", "HWDTEST",
-            "NTMENU", "NTTEL", "NTSSH", "NTPING", "NTNSLK", "NTHWD",
+            "NETMENU", "TELNET", "SSH", "SFTP", "HWDTEST",
+            "NTMENU", "NTTEL", "NTSSH", "NTSFTP", "NTHWD",
         ):
             self.assertNotIn(bad_sequence, dfs_file(image, name), name)
         application = (ROOT / "src/common/application.asm").read_text()
@@ -134,7 +133,7 @@ class BuildTests(unittest.TestCase):
         self.assertIn("LDA LOADER_COOKIE", application)
         self.assertIn("CPY #HI(APP_START)", application)
         self.assertIn("CPY #HI(end)", application)
-        for source in ("netmenu.asm", "telnet.asm", "ssh.asm", "ping.asm", "nslook.asm", "hwdtest.asm"):
+        for source in ("netmenu.asm", "telnet.asm", "ssh.asm", "sftp.asm", "hwdtest.asm"):
             text = (ROOT / "src" / source).read_text()
             entry = text.split(".start", 1)[1].split("\n", 6)[:6]
             self.assertIn("JSR application_check_workspace", "\n".join(entry), source)
@@ -147,13 +146,41 @@ class BuildTests(unittest.TestCase):
         self.assertIn("NOP", settle)
         self.assertIn("DEX", settle)
 
+    def test_sftp_uses_the_mos_file_handle_register(self):
+        source = (ROOT / "src/sftp.asm").read_text()
+        # OSBGET and OSBPUT take the open-file handle in Y. Using X happens
+        # to survive the fixture tests but accesses an unrelated handle on a
+        # real MOS filing system.
+        self.assertIn("LDY file_handle\n    JSR OSBPUT", source)
+        self.assertIn("LDY file_handle\n    JSR OSBGET", source)
+        self.assertEqual(source.count("LDY file_handle\n    JSR OSFIND"), 2)
+        self.assertNotIn("LDX file_handle\n    JSR OSBPUT", source)
+        self.assertNotIn("LDX file_handle\n    JSR OSBGET", source)
+        self.assertNotIn("LDX file_handle\n    JSR OSFIND", source)
+
+    def test_sftp_does_not_report_success_after_close_error(self):
+        source = (ROOT / "src/sftp.asm").read_text()
+        close_result = source.split(".transfer_done", 1)[1].split(
+            ".transfer_success", 1
+        )[0]
+        self.assertIn("CMP #NET_OK\n    BEQ transfer_success", close_result)
+        self.assertIn("JSR show_error\n    SEC\n    RTS", close_result)
+
+    def test_sftp_get_opens_remote_before_truncating_local_file(self):
+        source = (ROOT / "src/sftp.asm").read_text()
+        get_path = source.split(".sftp_get", 1)[1].split(".sftp_put", 1)[0]
+        self.assertLess(
+            get_path.index("JSR secure_sftp_transfer_open"),
+            get_path.index("JSR OSFIND"),
+        )
+
     def test_ssd_contains_the_assembled_programs_byte_for_byte(self):
         image = (BUILD / "nettools.ssd").read_bytes()
         files = {
             "NETMENU": "NETMENUL", "TELNET": "TELNETL", "SSH": "SSHL",
-            "PING": "PINGL", "NSLOOK": "NSLOOKL", "HWDTEST": "HWDTESTL",
+            "SFTP": "SFTPL", "HWDTEST": "HWDTESTL",
             "NTMENU": "NETMENU", "NTTEL": "TELNET", "NTSSH": "SSH",
-            "NTPING": "PING", "NTNSLK": "NSLOOK", "NTHWD": "HWDTEST",
+            "NTSFTP": "SFTP", "NTHWD": "HWDTEST",
         }
         for disc_name, build_name in files.items():
             self.assertEqual(

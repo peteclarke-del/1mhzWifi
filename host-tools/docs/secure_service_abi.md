@@ -16,7 +16,7 @@ No input. On success the command block contains:
 | 0 | 1 | command, 94 |
 | 1 | 1 | ABI major, currently 1 |
 | 2 | 1 | ABI minor, currently 1 |
-| 3 | 1 | feature bits (`bit 0`: secure random, `bit 1`: managed SSH, `bit 2`: password fallback) |
+| 3 | 1 | feature bits (`bit 0`: secure random, `bit 1`: managed SSH, `bit 2`: password fallback, `bit 3`: SFTP) |
 | 4 | 2 | maximum SSH packet size, little endian |
 | 6 | 1 | available secure contexts |
 | 7 | 1 | algorithm feature bits |
@@ -97,6 +97,12 @@ service copies the credential into its secure context and wipes the JIM source
 before returning. The provider wipes its copy after authentication, failure,
 close or reset. Passwords are never persisted or included in traces.
 
-Commands 101-113 remain reserved for later keyboard-interactive auth, key
-management, SFTP and HTTPS primitives. They must not be advertised until
-their known-answer and end-to-end tests pass.
+## Managed SFTP commands
+
+Commands 101-113 provide a single real SFTP session using wolfSSH's SFTP v3
+implementation. Command 101 uses the SSH open layout. Commands 102-107 provide
+`PWD`, `CD`, `LS`, `DELETE`, `MKDIR` and `RMDIR`. Commands 108-112 open, move
+and close bounded GET/PUT transfers. Command 113 closes the SFTP session.
+Remote paths are NUL-terminated strings in JIM. File bytes are copied through
+the standard 240-byte RX/TX windows, so host clients can use the active MOS
+filing system without exposing a host pointer to Pi firmware.

@@ -1,5 +1,6 @@
 #include "pi1mhz_net_backend.h"
 #include "pi1mhz_mailbox.h"
+#include "pi1mhz_ftp.h"
 #ifdef PI1MHZ_WOLFSSH
 #include "pi1mhz_wolfssh.h"
 #endif
@@ -32,9 +33,6 @@
 #define ELKWIFI_CMD_SCAN         81u
 #define ELKWIFI_CMD_JOIN         82u
 #define ELKWIFI_CMD_IFCFG        83u
-#define ELKWIFI_CMD_MENU_GET     84u
-#define ELKWIFI_CMD_MENU_SET     85u
-#define ELKWIFI_CMD_MENU_DEFAULT 86u
 #define ELKWIFI_CMD_LAPOPT       87u
 #define ELKWIFI_CMD_PING         88u
 #define ELKWIFI_CMD_DATETIME     89u
@@ -42,6 +40,15 @@
 #define ELKWIFI_CMD_RADIO        91u
 #define ELKWIFI_CMD_ONLINE       92u
 #define ELKWIFI_CMD_UEF_NORMALIZE 93u
+#define UEF_STREAM_VERSION 1u
+#define UEF_OP_PROBE 0u
+#define UEF_OP_BEGIN 1u
+#define UEF_OP_APPEND 2u
+#define UEF_OP_FINALIZE 3u
+#define UEF_OP_REWIND 4u
+#define UEF_OP_REFILL 5u
+#define UEF_OP_CLOSE 6u
+#define UEF_OP_REPUBLISH 7u
 #define SEC_CMD_CAPS       94u
 #define SEC_CMD_RANDOM     95u
 #define SEC_CMD_SSH_OPEN   96u
@@ -49,19 +56,52 @@
 #define SEC_CMD_SSH_WRITE  98u
 #define SEC_CMD_SSH_CLOSE  99u
 #define SEC_CMD_SSH_PASSWORD 100u
+#define SEC_CMD_SFTP_OPEN 101u
+#define SEC_CMD_SFTP_PWD 102u
+#define SEC_CMD_SFTP_CD 103u
+#define SEC_CMD_SFTP_LS 104u
+#define SEC_CMD_SFTP_DELETE 105u
+#define SEC_CMD_SFTP_MKDIR 106u
+#define SEC_CMD_SFTP_RMDIR 107u
+#define SEC_CMD_SFTP_GET_OPEN 108u
+#define SEC_CMD_SFTP_GET_READ 109u
+#define SEC_CMD_SFTP_PUT_OPEN 110u
+#define SEC_CMD_SFTP_PUT_WRITE 111u
+#define SEC_CMD_SFTP_TRANSFER_CLOSE 112u
+#define SEC_CMD_SFTP_CLOSE 113u
 #define NET_ERR_INUSE     0x21u
 #define NET_ERR_NOTOPEN   0x22u
 #define NET_ERR_PARAM     0x23u
 #define NET_ERR_DNS       0x24u
 #define NET_ERR_CONN      0x25u
+#define NET_ERR_TCP_CLOSED 0x2bu
 #define ELKWIFI_ERR_PARAM 0x40u
 #define ELKWIFI_ERR_NO_WIFI 0x44u
 #define ELKWIFI_ERR_IO 0x45u
 #define NET_MAX_HANDLES   8u
-#define MENU_MAX          220u
-#define MENU_DEFAULT "http://acornelectron.nl/uefarchive/MENU"
+#define ELKWIFI_TEXT_MAX  220u
 #define UEF_BASE       0u
 #define UEF_CAPACITY   0x00fffeu
+/* Every JIM page carries the vector trampoline at offset &A0, so the published
+ * stream stops there: 160 usable bytes across 256 pages. &FDF0-&FDFF is left
+ * alone because the stream length trailer lives in the last two bytes of page
+ * &FF. Titles below 40 KB see no extra refills; larger ones pay one more
+ * mailbox round trip per 40 KB, which is the price of vectors a cassette
+ * loader cannot reach. Uploads are host writes into a contiguous window and
+ * are unaffected, so they keep their own larger bound. */
+/* JIM page 0 belongs to the host's service reply buffer, which ElkChat and
+ * other OSWORD &65 clients read as up to 241 contiguous bytes. Publishing
+ * the stream from page 1 keeps the two apart, so a reply arriving while a
+ * UEF is being read can no longer overwrite bytes WiCFS has not reached:
+ * an "ERR" reply used to be read back as chunk type &5245. */
+#define UEF_FIRST_PAGE 1u
+#define UEF_WINDOW_SIZE 0x00ff00u
+/* The flat window reserves page 0 for the service reply buffer, which the
+ * OSWORD &65 clients read in full, and the last page for the length trailer
+ * at UEF_CAPACITY. */
+#define UEF_FLAT_WINDOW ((256u - UEF_FIRST_PAGE - 1u) * 256u)
+#define UEF_UPLOAD_MAX  UEF_WINDOW_SIZE
+#define UEF_STREAM_CAPACITY 0x01000000u
 #define FAT_CMD_READ_SECTORS  0u
 #define FAT_CMD_WRITE_SECTORS 1u
 #define FAT_SECTOR_SIZE       512u
@@ -91,14 +131,31 @@ typedef struct net_handle {
     size_t response_size;
     size_t response_pos;
     int headers_done;
+    int http_has_length;
+    size_t http_content_length;
+    size_t http_body_read;
 } net_handle;
 
 struct pi1mhz_net_backend {
     int live;
     int exit_on_close;
     int uef_trim_tail;
+    uint8_t *uef_stream;
+    uint8_t *uef_scratch;
+    size_t uef_stream_length;
+    size_t uef_stream_cursor;
+    size_t uef_published_offset;
+    uint16_t uef_published_length;
+    uint32_t uef_stream_token;
+    uint32_t uef_window_generation;
+    uint32_t uef_last_append_sequence;
+    uint32_t uef_last_append_crc;
+    uint16_t uef_last_append_length;
+    int uef_published_final;
+    int uef_stream_ready;
+    int uef_upload_active;
+    uint8_t uef_stream_format;
     FILE *trace;
-    char menu_url[MENU_MAX + 1u];
     char wifi_ssid[33];
     char wifi_password[65];
     char wifi_security[6];
@@ -117,6 +174,7 @@ struct pi1mhz_net_backend {
     size_t sd_image_size;
     int sd_image_writable;
     net_handle handles[NET_MAX_HANDLES];
+    pi1mhz_ftp *ftp;
 #ifdef PI1MHZ_WOLFSSH
     pi1mhz_wolfssh *ssh;
 #endif
@@ -285,8 +343,8 @@ static int wifi_credentials_valid(const char *ssid, const char *password,
 static void elkwifi_response(uint8_t *command, const char *response)
 {
     size_t length = strlen(response);
-    if (length > MENU_MAX)
-        length = MENU_MAX;
+    if (length > ELKWIFI_TEXT_MAX)
+        length = ELKWIFI_TEXT_MAX;
     memcpy(command + 1, response, length);
     command[1 + length] = 0;
 }
@@ -294,7 +352,7 @@ static void elkwifi_response(uint8_t *command, const char *response)
 static uint8_t do_elkwifi_control(pi1mhz_net_backend *backend,
                                   uint8_t *command)
 {
-    char response[MENU_MAX + 1u];
+    char response[ELKWIFI_TEXT_MAX + 1u];
     wifi_update(backend);
     switch (command[0]) {
     case ELKWIFI_CMD_STATUS:
@@ -304,7 +362,7 @@ static uint8_t do_elkwifi_control(pi1mhz_net_backend *backend,
         }
         if (!backend->wifi_enabled)
             backend->wifi_enabled = 1;
-        elkwifi_response(command, "Pi1MHz ElkWiFi 0.1.57\r\n\r\nOK\r\n");
+        elkwifi_response(command, "Pi1MHz ElkWiFi 0.1.59\r\n\r\nOK\r\n");
         trace_line(backend, "WIFI_STATUS", 0, "ready");
         return PI1MHZ_NET_OK;
     case ELKWIFI_CMD_RADIO:
@@ -674,9 +732,288 @@ static uint8_t normalize_uef_control(pi1mhz_net_backend *backend,
 normalized:
     if (backend->uef_trim_tail)
         output_length = wicfs_stream_length(window, output_length);
+    memcpy(backend->uef_stream, window, output_length);
+    backend->uef_stream_length = output_length;
+    backend->uef_stream_cursor = 0u;
+    backend->uef_stream_ready = 1;
+    backend->uef_upload_active = 0;
+    if (++backend->uef_stream_token == 0u)
+        ++backend->uef_stream_token;
+    backend->uef_stream_format = format[0];
     window[UEF_CAPACITY] = (uint8_t)output_length;
     window[UEF_CAPACITY + 1u] = (uint8_t)(output_length >> 8);
     memcpy(command + 1, format, strlen(format) + 1u);
+    command[17] = '1';
+    return PI1MHZ_NET_OK;
+}
+
+static void uef_stream_reply(pi1mhz_net_backend *backend, uint8_t *command)
+{
+    uint8_t *p = command + 1;
+    memcpy(p, "IUEF", 4u);
+    p[4] = UEF_STREAM_VERSION;
+    p[5] = (uint8_t)backend->uef_stream_token;
+    p[6] = (uint8_t)(backend->uef_stream_token >> 8);
+    p[7] = (uint8_t)(backend->uef_stream_token >> 16);
+    p[8] = (uint8_t)(backend->uef_stream_token >> 24);
+    p[9] = (uint8_t)backend->uef_window_generation;
+    p[10] = (uint8_t)(backend->uef_window_generation >> 8);
+    p[11] = (uint8_t)(backend->uef_window_generation >> 16);
+    p[12] = (uint8_t)(backend->uef_window_generation >> 24);
+    p[13] = (uint8_t)backend->uef_published_length;
+    p[14] = (uint8_t)(backend->uef_published_length >> 8);
+    p[15] = backend->uef_published_final ? 1u : 0u;
+    p[16] = backend->uef_stream_format;
+    p[17] = 0u;
+}
+
+/* Copy a published window into JIM, skipping the mirrored tail of each page so
+ * the host's page-and-offset walk lands on exactly these bytes. */
+static void uef_stream_publish(pi1mhz_net_backend *backend, uint8_t *jim)
+{
+    size_t available = backend->uef_stream_length - backend->uef_stream_cursor;
+    size_t count = available < UEF_FLAT_WINDOW ? available : UEF_FLAT_WINDOW;
+    backend->uef_published_offset = backend->uef_stream_cursor;
+    if (count)
+        memcpy(jim + UEF_BASE + (UEF_FIRST_PAGE << 8),
+               backend->uef_stream + backend->uef_stream_cursor, count);
+    backend->uef_stream_cursor += count;
+    backend->uef_published_length = (uint16_t)count;
+    backend->uef_published_final =
+        backend->uef_stream_cursor == backend->uef_stream_length;
+    jim[UEF_CAPACITY] = (uint8_t)count;
+    jim[UEF_CAPACITY + 1u] = (uint8_t)(count >> 8);
+}
+
+static void uef_stream_republish(pi1mhz_net_backend *backend, uint8_t *jim)
+{
+    if (!backend->uef_published_length)
+        return;
+    memcpy(jim + UEF_BASE + (UEF_FIRST_PAGE << 8),
+           backend->uef_stream + backend->uef_published_offset,
+           backend->uef_published_length);
+    jim[UEF_CAPACITY] = (uint8_t)backend->uef_published_length;
+    jim[UEF_CAPACITY + 1u] = (uint8_t)(backend->uef_published_length >> 8);
+}
+
+static void uef_stream_clear(pi1mhz_net_backend *backend, uint8_t *jim)
+{
+    backend->uef_stream_length = 0u;
+    backend->uef_stream_cursor = 0u;
+    backend->uef_published_offset = 0u;
+    backend->uef_published_length = 0u;
+    backend->uef_window_generation = 0u;
+    backend->uef_last_append_sequence = UINT32_MAX;
+    backend->uef_last_append_crc = 0u;
+    backend->uef_last_append_length = 0u;
+    backend->uef_published_final = 0;
+    backend->uef_stream_ready = 0;
+    backend->uef_upload_active = 0;
+    backend->uef_stream_format = 0u;
+    jim[UEF_CAPACITY] = 0u;
+    jim[UEF_CAPACITY + 1u] = 0u;
+}
+
+static uint8_t uef_stream_normalize_reply(uint8_t *command,
+                                          const char *message)
+{
+    size_t length = strlen(message);
+    memcpy(command + 1u, message, length + 1u);
+    return PI1MHZ_NET_OK;
+}
+
+static uint8_t incremental_uef_control(pi1mhz_net_backend *backend,
+                                       uint8_t *command, uint8_t *jim)
+{
+    uint8_t *p = command + 1;
+    uint8_t operation = p[5];
+    uint32_t token = rd32(p + 6);
+    uint32_t value = rd32(p + 10);
+    uint16_t length = uef_rd16(p + 14);
+    uint32_t crc = rd32(p + 16);
+    static const char *const operation_names[] = {
+        "PROBE", "BEGIN", "APPEND", "FINALIZE", "REWIND", "REFILL", "CLOSE"
+    };
+    char trace_detail[96];
+
+    snprintf(trace_detail, sizeof(trace_detail),
+             "%s token=%08X value=%u length=%u generation=%u",
+             operation < sizeof(operation_names) / sizeof(operation_names[0])
+                 ? operation_names[operation] : "UNKNOWN",
+             token, value, length, backend->uef_window_generation);
+    trace_line(backend, "UEF_STREAM", operation, trace_detail);
+
+    switch (operation) {
+    case UEF_OP_PROBE:
+        break;
+    case UEF_OP_BEGIN:
+        uef_stream_clear(backend, jim);
+        backend->uef_upload_active = 1;
+        if (++backend->uef_stream_token == 0u)
+            ++backend->uef_stream_token;
+        break;
+    case UEF_OP_APPEND:
+    {
+        uint32_t actual_crc;
+        if (!token) token = backend->uef_stream_token;
+        if (!length)
+            length = (uint16_t)(jim[UEF_CAPACITY] |
+                                ((uint16_t)jim[UEF_CAPACITY + 1u] << 8));
+        if (!backend->uef_upload_active || token != backend->uef_stream_token ||
+            !length || length > UEF_UPLOAD_MAX)
+            return NET_ERR_PARAM;
+        actual_crc = (uint32_t)crc32(0L, jim, length);
+        if (value == backend->uef_window_generation) {
+            if (length > UEF_STREAM_CAPACITY - backend->uef_stream_length)
+                return NET_ERR_PARAM;
+            if (crc && crc != actual_crc)
+                return NET_ERR_PARAM;
+            memcpy(backend->uef_stream + backend->uef_stream_length, jim, length);
+            backend->uef_stream_length += length;
+            backend->uef_last_append_sequence = value;
+            backend->uef_last_append_length = length;
+            backend->uef_last_append_crc = actual_crc;
+            backend->uef_window_generation++;
+        } else if (value + 1u != backend->uef_window_generation ||
+                   value != backend->uef_last_append_sequence ||
+                   length != backend->uef_last_append_length ||
+                   actual_crc != backend->uef_last_append_crc ||
+                   (crc && crc != actual_crc)) {
+            return NET_ERR_PARAM;
+        }
+        break;
+    }
+    case UEF_OP_FINALIZE:
+    {
+        size_t normalized = backend->uef_stream_length;
+        size_t output = 0u;
+        int result;
+        if (!token) token = backend->uef_stream_token;
+        if (!backend->uef_upload_active || token != backend->uef_stream_token ||
+            !normalized)
+            return NET_ERR_PARAM;
+        memcpy(backend->uef_scratch, backend->uef_stream, normalized);
+        if (is_raw_uef(backend->uef_scratch, normalized)) {
+            backend->uef_stream_format = 'R';
+        } else if (normalized >= 2u && backend->uef_scratch[0] == 0x1fu &&
+                   backend->uef_scratch[1] == 0x8bu) {
+            result = inflate_bytes(backend->uef_stream, UEF_STREAM_CAPACITY,
+                                   backend->uef_scratch, normalized,
+                                   MAX_WBITS + 16, &output);
+            if (result == Z_BUF_ERROR)
+                return uef_stream_normalize_reply(command, "TOO LARGE\r\n");
+            if (result || !is_raw_uef(backend->uef_stream, output))
+                return uef_stream_normalize_reply(command, "INVALID\r\n");
+            normalized = output;
+            backend->uef_stream_format = 'G';
+        } else if (normalized >= 30u &&
+                   rd32(backend->uef_scratch) == 0x04034b50u &&
+                   zip_has_one_entry(backend->uef_scratch, normalized)) {
+            uint16_t flags = uef_rd16(backend->uef_scratch + 6u);
+            uint16_t method = uef_rd16(backend->uef_scratch + 8u);
+            uint32_t expected_crc = rd32(backend->uef_scratch + 14u);
+            uint32_t compressed_length = rd32(backend->uef_scratch + 18u);
+            uint32_t expected_length = rd32(backend->uef_scratch + 22u);
+            size_t data = 30u +
+                          (size_t)uef_rd16(backend->uef_scratch + 26u) +
+                          (size_t)uef_rd16(backend->uef_scratch + 28u);
+            if (expected_length > UEF_STREAM_CAPACITY)
+                return uef_stream_normalize_reply(command, "TOO LARGE\r\n");
+            if ((flags & 9u) || (method != 0u && method != 8u) ||
+                data > normalized ||
+                compressed_length > normalized - data)
+                return uef_stream_normalize_reply(command, "INVALID\r\n");
+            if (method == 0u) {
+                output = compressed_length;
+                memcpy(backend->uef_stream, backend->uef_scratch + data, output);
+                result = output == expected_length ? 0 : -1;
+            } else {
+                result = inflate_bytes(backend->uef_stream,
+                                       UEF_STREAM_CAPACITY,
+                                       backend->uef_scratch + data,
+                                       compressed_length, -MAX_WBITS, &output);
+            }
+            if (result == Z_BUF_ERROR)
+                return uef_stream_normalize_reply(command, "TOO LARGE\r\n");
+            if (result || output != expected_length ||
+                crc32(0L, backend->uef_stream, (uInt)output) != expected_crc)
+                return uef_stream_normalize_reply(command, "INVALID\r\n");
+            if (is_raw_uef(backend->uef_stream, output)) {
+                normalized = output;
+            } else if (output >= 2u && backend->uef_stream[0] == 0x1fu &&
+                       backend->uef_stream[1] == 0x8bu) {
+                memcpy(backend->uef_scratch, backend->uef_stream, output);
+                result = inflate_bytes(backend->uef_stream,
+                                       UEF_STREAM_CAPACITY,
+                                       backend->uef_scratch, output,
+                                       MAX_WBITS + 16, &normalized);
+                if (result == Z_BUF_ERROR)
+                    return uef_stream_normalize_reply(command, "TOO LARGE\r\n");
+                if (result || !is_raw_uef(backend->uef_stream, normalized))
+                    return uef_stream_normalize_reply(command, "INVALID\r\n");
+            } else {
+                return uef_stream_normalize_reply(command, "INVALID\r\n");
+            }
+            backend->uef_stream_format = 'Z';
+        } else {
+            return uef_stream_normalize_reply(command, "INVALID\r\n");
+        }
+        backend->uef_stream_length = normalized;
+        backend->uef_stream_cursor = 0u;
+        backend->uef_stream_ready = 1;
+        backend->uef_upload_active = 0;
+        backend->uef_window_generation++;
+        uef_stream_publish(backend, jim);
+        break;
+    }
+    case UEF_OP_REWIND:
+        if (!backend->uef_stream_ready ||
+            (token && token != backend->uef_stream_token))
+            return NET_ERR_PARAM;
+        backend->uef_stream_cursor = 0u;
+        backend->uef_window_generation++;
+        uef_stream_publish(backend, jim);
+        break;
+    case UEF_OP_REFILL:
+        if (!backend->uef_stream_ready ||
+            (token && token != backend->uef_stream_token))
+            return NET_ERR_PARAM;
+        if ((token == 0u && value == 0u) || value == 0xffffffffu ||
+            value == backend->uef_window_generation) {
+            backend->uef_window_generation++;
+            uef_stream_publish(backend, jim);
+        } else if (value + 1u == backend->uef_window_generation) {
+            uef_stream_republish(backend, jim);
+        } else {
+            return NET_ERR_PARAM;
+        }
+        break;
+    case UEF_OP_REPUBLISH:
+        /* The host's reply buffer is the first bytes of JIM page 0, which is
+         * also where the published window starts, so a command that copies a
+         * reply while a stream is open treads on the window. Lay the same
+         * bytes down again without moving the cursor or the generation. */
+        if (!backend->uef_stream_ready ||
+            (token && token != backend->uef_stream_token))
+            return NET_ERR_PARAM;
+        uef_stream_republish(backend, jim);
+        break;
+    case UEF_OP_CLOSE:
+        if (token && token != backend->uef_stream_token)
+            return NET_ERR_PARAM;
+        uef_stream_clear(backend, jim);
+        break;
+    default:
+        return NET_ERR_PARAM;
+    }
+    snprintf(trace_detail, sizeof(trace_detail),
+             "total=%zu cursor=%zu window=%u final=%u generation=%u",
+             backend->uef_stream_length, backend->uef_stream_cursor,
+             (unsigned)backend->uef_published_length,
+             backend->uef_published_final ? 1u : 0u,
+             backend->uef_window_generation);
+    trace_line(backend, "UEF_WINDOW", operation, trace_detail);
+    uef_stream_reply(backend, command);
     return PI1MHZ_NET_OK;
 }
 
@@ -849,7 +1186,7 @@ static uint8_t do_secure(pi1mhz_net_backend *backend, net_handle *handle,
         if (!backend->live)
             command[3] |= 0x02;
         if (command[3] & 0x02)
-            command[3] |= 0x04; /* ephemeral password fallback */
+            command[3] |= 0x0c; /* password fallback and SFTP */
         command[4] = 0xB8;    /* maximum SSH packet: 35000 */
         command[5] = 0x88;
         command[6] = 1;       /* contexts */
@@ -989,6 +1326,58 @@ static uint8_t do_secure(pi1mhz_net_backend *backend, net_handle *handle,
         memset(jim + password_address, 0, password_length);
         return result;
     }
+    case SEC_CMD_SFTP_OPEN:
+        url_address = rd32(command + 2);
+        user_address = rd32(command + 6);
+        if (url_address >= jim_size || user_address >= jim_size ||
+            !memchr(jim + url_address, 0, jim_size - url_address) ||
+            !memchr(jim + user_address, 0, jim_size - user_address))
+            return NET_ERR_PARAM;
+        if (backend->live) return PI1MHZ_NET_UNSUPPORTED;
+        handle->opened = 1;
+        snprintf(handle->url, sizeof(handle->url), "%s",
+                 (const char *)jim + url_address);
+        trace_line(backend, "SFTP_OPEN", index, handle->url);
+        return PI1MHZ_NET_OK;
+    case SEC_CMD_SFTP_PWD:
+    case SEC_CMD_SFTP_CD:
+    case SEC_CMD_SFTP_LS:
+    case SEC_CMD_SFTP_DELETE:
+    case SEC_CMD_SFTP_MKDIR:
+    case SEC_CMD_SFTP_RMDIR: {
+        uint32_t maximum = rd24(command + 1);
+        uint32_t path_address = rd32(command + 4);
+        uint32_t output = rd32(command + 8);
+        const char *reply = command[0] == SEC_CMD_SFTP_PWD ? "/fixture\n" :
+                            (command[0] == SEC_CMD_SFTP_LS ?
+                             "fixture.txt\n" : "");
+        size_t count = strlen(reply);
+        if (!handle->opened || path_address >= jim_size ||
+            !memchr(jim + path_address, 0, jim_size - path_address) ||
+            output >= jim_size || maximum > jim_size - output ||
+            count > maximum)
+            return NET_ERR_PARAM;
+        memcpy(jim + output, reply, count);
+        wr24(command + 1, (uint32_t)count);
+        return PI1MHZ_NET_OK;
+    }
+    case SEC_CMD_SFTP_GET_OPEN:
+    case SEC_CMD_SFTP_PUT_OPEN:
+        if (!handle->opened) return NET_ERR_NOTOPEN;
+        handle->fixture_data = (const uint8_t *)"SFTP fixture\n";
+        handle->fixture_size = 13u;
+        handle->fixture_pos = 0u;
+        return PI1MHZ_NET_OK;
+    case SEC_CMD_SFTP_GET_READ:
+        return do_read(backend, handle, index, command, jim, jim_size);
+    case SEC_CMD_SFTP_PUT_WRITE:
+        return do_write(backend, handle, index, command, jim, jim_size);
+    case SEC_CMD_SFTP_TRANSFER_CLOSE:
+        handle->fixture_data = NULL;
+        handle->fixture_size = handle->fixture_pos = 0u;
+        return PI1MHZ_NET_OK;
+    case SEC_CMD_SFTP_CLOSE:
+        return do_close(backend, handle, index);
     default:
         return PI1MHZ_NET_UNSUPPORTED;
     }
@@ -1180,6 +1569,14 @@ pi1mhz_net_backend *pi1mhz_net_backend_create(const char *mode,
         (pi1mhz_net_backend *)calloc(1, sizeof(*backend));
     if (!backend)
         return NULL;
+    backend->uef_stream = (uint8_t *)malloc(UEF_STREAM_CAPACITY);
+    backend->uef_scratch = (uint8_t *)malloc(UEF_STREAM_CAPACITY);
+    if (!backend->uef_stream || !backend->uef_scratch) {
+        free(backend->uef_scratch);
+        free(backend->uef_stream);
+        free(backend);
+        return NULL;
+    }
     backend->live = mode && !strcasecmp(mode, "live");
     backend->exit_on_close = exit_on_close;
     {
@@ -1188,7 +1585,6 @@ pi1mhz_net_backend *pi1mhz_net_backend_create(const char *mode,
             (!strcmp(trim, "1") || !strcasecmp(trim, "yes") ||
              !strcasecmp(trim, "true") || !strcasecmp(trim, "on"));
     }
-    strcpy(backend->menu_url, MENU_DEFAULT);
     strcpy(backend->wifi_security, "AUTO");
     backend->wifi_present = 1;
     backend->wifi_enabled = 1;
@@ -1203,6 +1599,8 @@ pi1mhz_net_backend *pi1mhz_net_backend_create(const char *mode,
     profile_path = getenv("PI1MHZ_WIFI_PROFILE");
     if (profile_path && *profile_path) {
         if (strlen(profile_path) >= sizeof(backend->wifi_profile_path)) {
+            free(backend->uef_scratch);
+            free(backend->uef_stream);
             free(backend);
             return NULL;
         }
@@ -1235,6 +1633,8 @@ pi1mhz_net_backend *pi1mhz_net_backend_create(const char *mode,
                     sd_image_path);
             if (backend->sd_image)
                 fclose(backend->sd_image);
+            free(backend->uef_scratch);
+            free(backend->uef_stream);
             free(backend);
             return NULL;
         }
@@ -1256,10 +1656,17 @@ pi1mhz_net_backend *pi1mhz_net_backend_create(const char *mode,
             if (backend->ssh)
                 pi1mhz_wolfssh_destroy(backend->ssh);
 #endif
+            free(backend->uef_scratch);
+            free(backend->uef_stream);
             free(backend);
             return NULL;
         }
         setvbuf(backend->trace, NULL, _IOLBF, 0);
+    }
+    backend->ftp = pi1mhz_ftp_create(backend->live);
+    if (!backend->ftp) {
+        pi1mhz_net_backend_destroy(backend);
+        return NULL;
     }
     trace_line(backend, "MODE", 0, backend->live ? "live" : "fixture");
     return backend;
@@ -1273,6 +1680,7 @@ void pi1mhz_net_backend_destroy(pi1mhz_net_backend *backend)
     for (i = 0; i < NET_MAX_HANDLES; i++)
         if (backend->handles[i].fd >= 0)
             close(backend->handles[i].fd);
+    pi1mhz_ftp_destroy(backend->ftp);
 #ifdef PI1MHZ_WOLFSSH
     if (backend->ssh)
         pi1mhz_wolfssh_destroy(backend->ssh);
@@ -1281,6 +1689,8 @@ void pi1mhz_net_backend_destroy(pi1mhz_net_backend *backend)
         fclose(backend->trace);
     if (backend->sd_image)
         fclose(backend->sd_image);
+    free(backend->uef_scratch);
+    free(backend->uef_stream);
     free(backend);
 }
 
@@ -1295,8 +1705,10 @@ static uint8_t do_open(pi1mhz_net_backend *backend, net_handle *handle,
         memcpy(handle->url, command + 2, length + 1);
         trace_line(backend, "OPEN", index, handle->url);
     }
-    if (backend->live)
-        return live_open(handle);
+    if (backend->live) {
+        result = live_open(handle);
+        return result;
+    }
     if (!handle->open_polls++)
         return PI1MHZ_NET_PENDING;
     handle->opened = 1;
@@ -1344,8 +1756,9 @@ static uint8_t do_read(pi1mhz_net_backend *backend, net_handle *handle,
                 return (errno == EAGAIN || errno == EWOULDBLOCK)
                            ? PI1MHZ_NET_OK : NET_ERR_CONN;
             }
-            if (!count)
+            if (!count) {
                 return NET_ERR_CONN;
+            }
             handle->response_size += (size_t)count;
             handle->response[handle->response_size] = 0;
             separator = (uint8_t *)strstr((char *)handle->response,
@@ -1356,8 +1769,21 @@ static uint8_t do_read(pi1mhz_net_backend *backend, net_handle *handle,
             }
             if (handle->response_size < 12u ||
                 memcmp(handle->response, "HTTP/1.", 7u) ||
-                handle->response[9] != '2')
+                handle->response[9] != '2') {
                 return NET_ERR_CONN;
+            }
+            {
+                const char *field = strstr((const char *)handle->response,
+                                           "\r\nContent-Length:");
+                if (field && (const uint8_t *)field < separator) {
+                    char *end;
+                    unsigned long value = strtoul(field + 17, &end, 10);
+                    if (end != field + 17 && value <= SIZE_MAX) {
+                        handle->http_has_length = 1;
+                        handle->http_content_length = (size_t)value;
+                    }
+                }
+            }
             header_length = (size_t)(separator - handle->response) + 4u;
             memmove(handle->response, handle->response + header_length,
                     handle->response_size - header_length);
@@ -1370,22 +1796,32 @@ static uint8_t do_read(pi1mhz_net_backend *backend, net_handle *handle,
             memcpy(jim + destination, handle->response + handle->response_pos,
                    copied);
             handle->response_pos += copied;
+            handle->http_body_read += copied;
             trace_bytes(backend, "READ", index, jim + destination, copied);
             wr24(command + 1, (uint32_t)copied);
             return PI1MHZ_NET_OK;
         }
         count = recv(handle->fd, jim + destination, maximum, 0);
         if (count > 0) {
+            if (handle->http) {
+                handle->http_body_read += (size_t)count;
+            }
             trace_bytes(backend, "READ", index, jim + destination,
                         (size_t)count);
             wr24(command + 1, (uint32_t)count);
             return PI1MHZ_NET_OK;
         }
         wr24(command + 1, 0);
-        if (!count)
+        if (!count) {
+            if (handle->http_has_length &&
+                handle->http_body_read < handle->http_content_length) {
+                return NET_ERR_TCP_CLOSED;
+            }
             return PI1MHZ_NET_EOF;
-        return (errno == EAGAIN || errno == EWOULDBLOCK)
-                   ? PI1MHZ_NET_OK : NET_ERR_CONN;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return PI1MHZ_NET_OK;
+        return NET_ERR_CONN;
     }
     if (handle->fixture_pos >= handle->fixture_size) {
         wr24(command + 1, 0);
@@ -1443,6 +1879,9 @@ static uint8_t do_close(pi1mhz_net_backend *backend, net_handle *handle,
     handle->response_size = 0;
     handle->response_pos = 0;
     handle->headers_done = 0;
+    handle->http_has_length = 0;
+    handle->http_content_length = 0u;
+    handle->http_body_read = 0u;
     handle->raw_allocated = 0;
     handle->raw_type = 0;
     trace_line(backend, "CLOSE", index, handle->url);
@@ -1481,8 +1920,12 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     if (command[0] == FAT_CMD_READ_SECTORS ||
         command[0] == FAT_CMD_WRITE_SECTORS)
         return do_fat_sectors(backend, command, service_jim, service_size);
-    if (selector == 0xFFu && command[0] == ELKWIFI_CMD_UEF_NORMALIZE)
+    if (selector == 0xFFu && command[0] == ELKWIFI_CMD_UEF_NORMALIZE) {
+        if (command[1] == 'I' && command[2] == 'U' && command[3] == 'E' &&
+            command[4] == 'F' && command[5] == UEF_STREAM_VERSION)
+            return incremental_uef_control(backend, command, jim);
         return normalize_uef_control(backend, command, jim, jim_size);
+    }
     switch (command[0]) {
     case ELKWIFI_CMD_STATUS:
     case ELKWIFI_CMD_SCAN:
@@ -1495,23 +1938,12 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     case ELKWIFI_CMD_RADIO:
     case ELKWIFI_CMD_ONLINE:
         return do_elkwifi_control(backend, command);
-    case ELKWIFI_CMD_MENU_GET:
-        memcpy(command + 1, backend->menu_url, strlen(backend->menu_url) + 1u);
-        return PI1MHZ_NET_OK;
-    case ELKWIFI_CMD_MENU_SET:
-        if (strnlen((const char *)command + 1, MENU_MAX + 1u) > MENU_MAX ||
-            strncasecmp((const char *)command + 1, "http://", 7))
-            return NET_ERR_PARAM;
-        snprintf(backend->menu_url, sizeof(backend->menu_url), "%s",
-                 (const char *)command + 1);
-        return PI1MHZ_NET_OK;
-    case ELKWIFI_CMD_MENU_DEFAULT:
-        strcpy(backend->menu_url, MENU_DEFAULT);
-        memcpy(command + 1, backend->menu_url, strlen(backend->menu_url) + 1u);
-        return PI1MHZ_NET_OK;
     default:
         break;
     }
+    if (command[0] >= 114u && command[0] <= 119u)
+        return pi1mhz_ftp_dispatch(backend->ftp, command, service_jim,
+                                   service_size);
     if (index >= NET_MAX_HANDLES)
         return NET_ERR_PARAM;
     handle = &backend->handles[index];
@@ -1559,6 +1991,19 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     case SEC_CMD_SSH_WRITE:
     case SEC_CMD_SSH_CLOSE:
     case SEC_CMD_SSH_PASSWORD:
+    case SEC_CMD_SFTP_OPEN:
+    case SEC_CMD_SFTP_PWD:
+    case SEC_CMD_SFTP_CD:
+    case SEC_CMD_SFTP_LS:
+    case SEC_CMD_SFTP_DELETE:
+    case SEC_CMD_SFTP_MKDIR:
+    case SEC_CMD_SFTP_RMDIR:
+    case SEC_CMD_SFTP_GET_OPEN:
+    case SEC_CMD_SFTP_GET_READ:
+    case SEC_CMD_SFTP_PUT_OPEN:
+    case SEC_CMD_SFTP_PUT_WRITE:
+    case SEC_CMD_SFTP_TRANSFER_CLOSE:
+    case SEC_CMD_SFTP_CLOSE:
         return do_secure(backend, handle, index, command, service_jim, service_size);
     case SEC_CMD_RANDOM:
         return do_secure(backend, handle, index, command, service_jim, service_size);

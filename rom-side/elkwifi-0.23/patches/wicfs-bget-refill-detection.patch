@@ -1,0 +1,21 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -2177,7 +2177,6 @@
+ \Handles BGET (single byte read from sequential access file)
+ 
+ .upbgetv
+-    JSR wicfs_detect_machine
+     LDA wicfs_magic
+     CMP #&A5
+     BNE upbgetv_invalid
+@@ -2672,6 +2671,10 @@
+     equs "in fillget",&0D,&EA
+     plp
+     endif
++\Machine selection matters only while transferring the next JIM block.
++\Detect it once per 256-byte refill, not once for every buffered OSBGET byte.
++\This remains safe if a loader changes zero-page workspace between refills.
++	JSR	wicfs_detect_machine
+ 	LDA	#0		\reset buffer address to &0A00
+ 	STA	CFSload
+ 	LDA	#&A

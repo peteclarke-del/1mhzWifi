@@ -1,0 +1,22 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -72,6 +72,8 @@
+ wicfs_record_valid_value = &A5
+ 
+ serbuf	=	&06E0		\serial input buffer
++jim_page_usable = &E0	\the Pi mirrors a trampoline into the top of every
++			\JIM page, so the stream stops short of it
+ notape	=	&0398		\location of external *TAPE trap
+ romsel	=	&0780		\Tube-off resilient vector guard, below &0800
+ hchunk	=	&03CB		\Chunk header type(2) + length(4)
+@@ -3266,7 +3268,9 @@
+     lda pageram,y   \load data
+     pha             \save data
+     iny             \increment pointer
+-    bne getbyte1    \jump if not end of page
++    cpy #jim_page_usable
++    bne getbyte1    \jump if not at the mirrored tail of the page
++    ldy #0
+     inc pr_r        \advance the software shadow; FCFF is write-only through AP5/Pi1MHz
+ .getbyte1
+     sty pr_y        \save pointer

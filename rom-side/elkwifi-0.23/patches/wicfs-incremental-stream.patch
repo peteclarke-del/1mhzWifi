@@ -1,0 +1,131 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -981,10 +981,14 @@
+ .wicfs_finish_if_exhausted
+ 	LDA	sbufl
+ 	ORA	sbufh
+-	BEQ	wicfs_finish_retire
+-	RTS
++	BNE	wicfs_finish_active
++	BIT	sbuft
++	BPL	wicfs_finish_retire
++	BVC	wicfs_finish_active	\another Pi window remains
+ .wicfs_finish_retire
+ 	JMP	wicfs_reset
++.wicfs_finish_active
++	RTS
+ 
+ \ Report live WiCFS extended-vector ownership without consulting persisted JIM
+ \ state. Reset can call this during ROM scan without requiring a Pi response.
+@@ -3049,10 +3053,13 @@
+ \Returns one byte in A from the paged RAM. Returns C=0 if byte in A else returns C=1 if no further
+ \bytes available (end of UEF). The pointer is forwarded and the number of bytes left is decreased.
+ 
+-.getbyte	
+-    lda sbufl       \check if end-of-tape is reached
+-    ora sbufh       \when empty this will result to &00
+-    beq nodata      \jump if &00, end-of-tape is reached
++.getbyte
++    lda sbufl       \check if end-of-tape is reached
++    ora sbufh       \when empty this will result to &00
++    bne getbyte_have_data
++    jsr wicfs_refill_if_available
++    bcs nodata
++.getbyte_have_data
+     php             \the AP5 JIM selectors are shared with other services
+     sei             \keep bank, page and data read one atomic transaction
+     ldy pr_y        \load pointer to paged ram
+@@ -3080,16 +3087,38 @@
+ 
+ .nodata	SEC			\return flagging no data (C=1)
+ 
+-.bcx	RTS
++.bcx	RTS
++
++\ Publish the next Pi-private window without resetting any UEF or CFS parser
++\ state. Carry set means genuine end of stream. A non-final empty window is a
++\ protocol failure and is treated as bounded EOF rather than spinning.
++.wicfs_refill_if_available
++    bit sbuft
++    bpl wicfs_refill_eof
++    bvs wicfs_refill_eof
++    jsr service_driver_uef_stream_refill
++    bcs wicfs_refill_eof
++    lda sbufl
++    ora sbufh
++    beq wicfs_refill_eof
++    jsr wicfs_state_save
++    clc
++    rts
++.wicfs_refill_eof
++    sec
++    rts
+ 
+ \-------------------------------------------------------------------------------
+ \Returns one byte in A from the paged RAM. Returns C=0 if byte in A else returns C=1 if no further
+ \bytes available (end of UEF). The pointer and the number of bytes are unchanged.
+ 
+-.getbyte_nofwd	
+-    lda sbufl       \check if end-of-tape is reached
+-    ora sbufh       \when empty this will result to &00
+-    beq nodata      \jump if &00, end-of-tape is reached
++.getbyte_nofwd
++    lda sbufl       \check if end-of-tape is reached
++    ora sbufh       \when empty this will result to &00
++    bne getbyte_nofwd_have_data
++    jsr wicfs_refill_if_available
++    bcs nodata
++.getbyte_nofwd_have_data
+     php             \protect the shared selector for the non-forwarding peek too
+     sei
+     ldy pr_y        \load pointer to paged ram
+@@ -3123,8 +3152,29 @@
+     equs "in cfsinit",&0D,&EA
+     plp
+     endif
+-	LDA	#1		    \set CFS active flags true
+-	STA	CFSact2
++	LDA	#1		    \set CFS active flags true
++	STA	CFSact2
++	LDA	drv_uef_stream_pending
++	BMI	cfsinit_incremental
++	BIT	sbuft
++	BPL	cfsinit_legacy
++.cfsinit_incremental
++	LDA	#0
++	STA	drv_uef_stream_pending
++	LDA	#&80
++	STA	sbuft
++	JSR	service_driver_uef_stream_rewind
++	BCS	cfsinit_stream_failed
++	JMP	cfsinit_cursor
++.cfsinit_stream_failed
++	LDA	#0
++	STA	sbufl
++	STA	sbufh
++	STA	sbuft
++	BEQ	cfsinit_cursor
++.cfsinit_legacy
++    lda #0
++    sta sbuft
+     php             \read the Pi length trailer without a shared-JIM race
+     sei
+     JSR wicfs_select_public_zero
+@@ -3137,13 +3187,16 @@
+     STA sbufh
+     JSR wicfs_select_public_zero
+     plp
++.cfsinit_cursor
+ 	LDA	#0
+ 	STA	host_basic_pending	\clear any stale host continuation request
+     STA pr_y        \reset pointer to paged ram
+     sta pr_r
+ 	STA	sfopen		\reset sequential file control bytes
+ 	STA	sfptr
+-	STA	sbuft		\set start-of-tape indicator
++	LDA	sbuft
++	AND	#&C0		\preserve incremental/final flags, clear start marker
++	STA	sbuft
+ 	RTS			    \and return
+ 
+ \-------------------------------------------------------------------------------

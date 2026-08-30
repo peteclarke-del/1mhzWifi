@@ -6,14 +6,14 @@ diff --git a/src/scripts/gitversion.cmake b/src/scripts/gitversion.cmake
     # generated header itself (its BUILD_DATE would otherwise feed back in).
     execute_process(
 -      COMMAND git -C "${SRC_DIR}" diff HEAD -- . ":(exclude)scripts/gitversion.h"
-+      COMMAND git -C "${SRC_DIR}" diff HEAD -- . ":(exclude)scripts/gitversion.h" ":(exclude)third_party/**"
++      COMMAND git -C "${SRC_DIR}" diff --ignore-submodules=dirty HEAD -- . ":(exclude)scripts/gitversion.h" ":(exclude)third_party/**"
        OUTPUT_VARIABLE GIT_DIFF
        RESULT_VARIABLE DIFF_RESULT
        ERROR_QUIET
     )
     execute_process(
 -      COMMAND git -C "${SRC_DIR}" status --porcelain -- . ":(exclude)scripts/gitversion.h"
-+      COMMAND git -C "${SRC_DIR}" status --porcelain -- . ":(exclude)scripts/gitversion.h" ":(exclude)third_party/**"
++      COMMAND git -C "${SRC_DIR}" status --porcelain --ignore-submodules=dirty -- . ":(exclude)scripts/gitversion.h" ":(exclude)third_party/**"
        OUTPUT_VARIABLE GIT_STATUS
        ERROR_QUIET
     )

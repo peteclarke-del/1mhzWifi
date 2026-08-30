@@ -1,0 +1,41 @@
+--- a/src/main.c
++++ b/src/main.c
+@@ -301,7 +301,19 @@
+ int oldbreak=0;
+ int resetit=0;
+ int runelkframe=0;
+ int ramdumpframes=0;
++
++static void dump_cpu_state_to(const char *path)
++{
++        FILE *state;
++        if (!path || !*path) return;
++        state=fopen(path,"w");
++        if (!state) return;
++        fprintf(state,
++                "PC=%04X A=%02X X=%02X Y=%02X S=%02X P=%d%d%d%d%d%d ROM=%X EXT=%X CYC=%d\n",
++                pc,a,x,y,s,p.c,p.z,p.i,p.d,p.v,p.n,rombank,extrom,cycles);
++        fclose(state);
++}
+ 
+ void runelk()
+ {
+@@ -321,5 +333,8 @@
+                         if (ram_dump && *ram_dump)
+                                 dumpram_to(ram_dump);
++                        const char *cpu_dump = getenv("PI1MHZ_CPU_DUMP");
++                        if (cpu_dump && *cpu_dump)
++                                dump_cpu_state_to(cpu_dump);
+                 }
+                 if (resetit)
+                 {
+@@ -374,6 +391,9 @@
+         const char *ram_dump = getenv("PI1MHZ_RAM_DUMP");
+         if (ram_dump && *ram_dump)
+                 dumpram_to(ram_dump);
++        const char *cpu_dump = getenv("PI1MHZ_CPU_DUMP");
++        if (cpu_dump && *cpu_dump)
++                dump_cpu_state_to(cpu_dump);
+         ap5_tube_close();
+         stopmovie();
+         saveconfig();

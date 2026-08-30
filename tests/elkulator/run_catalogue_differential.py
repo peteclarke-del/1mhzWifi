@@ -56,6 +56,11 @@ def parse_arguments() -> argparse.Namespace:
                         default="catalogue")
     parser.add_argument("--tube-mode", choices=("off", "both"), default="both",
                         help="use off while establishing the non-Tube baseline")
+    parser.add_argument(
+        "--repeat-after-break", action="store_true",
+        help=("after gameplay, press Break and prove *MENU plus the same title "
+              "reach gameplay again without restarting Elkulator"),
+    )
     parser.add_argument("--sd-image", type=Path,
                         help="raw Pi1MHz FAT image used by the MMFS profile")
     parser.add_argument("--mmfs-rom", type=Path,
@@ -381,6 +386,26 @@ def wait_for_game_close(trace: Path, expected_path: str, process: subprocess.Pop
     return False
 
 
+def close_count(trace: Path, expected_path: str) -> int:
+    if not trace.exists():
+        return 0
+    needle = expected_path.lstrip("./")
+    return sum(line.startswith("CLOSE\t") and needle in line
+               for line in trace.read_text(errors="replace").splitlines())
+
+
+def wait_for_close_count(trace: Path, expected_path: str, required: int,
+                         process: subprocess.Popen, timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            return False
+        if close_count(trace, expected_path) >= required:
+            return True
+        time.sleep(0.1)
+    return False
+
+
 def capture(display: str, output: Path) -> None:
     xwd = subprocess.run(
         ["xwd", "-display", display, "-root", "-silent"],
@@ -482,6 +507,12 @@ def run_one(args: argparse.Namespace, entry: dict[str, object], tube: bool,
         control_screenshots = []
         ready_scores = []
         ready_seen = False
+        repeat_menu_ready = not args.repeat_after_break
+        repeat_game_closed = not args.repeat_after_break
+        repeat_ready_seen = not args.repeat_after_break
+        repeat_gameplay_scores = []
+        repeat_motion_pixels = []
+        repeat_screenshots = []
         try:
             menu_ready = wait_for_game_close(trace, "TITLES", process,
                                              args.timeout)
@@ -523,6 +554,57 @@ def run_one(args: argparse.Namespace, entry: dict[str, object], tube: bool,
                         screenshots.append(screenshot)
                         if number + 1 < args.samples:
                             time.sleep(args.sample_interval)
+                    if args.repeat_after_break:
+                        titles_before = close_count(trace, "TITLES")
+                        game_before = close_count(trace, str(entry["path"]))
+                        inject_x11_keys(display, ["F12"])
+                        time.sleep(2.0)
+                        inject_x11_keys(display,
+                                        ["at", "m", "e", "n", "u", "Return"])
+                        repeat_menu_ready = wait_for_close_count(
+                            trace, "TITLES", titles_before + 1, process,
+                            args.timeout,
+                        )
+                        if repeat_menu_ready:
+                            inject_x11_keys(
+                                display,
+                                catalogue_selection_keys(int(entry["index"])),
+                            )
+                            repeat_game_closed = wait_for_close_count(
+                                trace, str(entry["path"]), game_before + 1,
+                                process, args.timeout,
+                            )
+                        if repeat_game_closed:
+                            deadline = time.monotonic() + args.launch_timeout
+                            while (time.monotonic() < deadline and
+                                   process.poll() is None):
+                                shot = directory / (
+                                    f"repeat-ready-{len(repeat_screenshots)}.png"
+                                )
+                                capture(display, shot)
+                                repeat_screenshots.append(shot)
+                                if similarity(shot, ready_reference) >= args.similarity:
+                                    repeat_ready_seen = True
+                                    break
+                                time.sleep(args.probe_interval)
+                        if repeat_ready_seen:
+                            inject_x11_keys(display, gameplay_input)
+                            time.sleep(args.settle)
+                            for number in range(args.samples):
+                                shot = directory / f"repeat-game-{number}.png"
+                                capture(display, shot)
+                                repeat_screenshots.append(shot)
+                                repeat_gameplay_scores.append(
+                                    similarity(shot, gameplay_reference)
+                                )
+                                if number:
+                                    repeat_motion_pixels.append(
+                                        frame_change_pixels(
+                                            repeat_screenshots[-2], shot
+                                        )
+                                    )
+                                if number + 1 < args.samples:
+                                    time.sleep(args.sample_interval)
             alive_after_capture = process.poll() is None
         finally:
             try:
@@ -551,6 +633,11 @@ def run_one(args: argparse.Namespace, entry: dict[str, object], tube: bool,
         control_gameplay_scores, post_gameplay_scores,
         args.gameplay_similarity, args.transition_margin,
     )
+    repeat_passed = bool(
+        repeat_menu_ready and repeat_game_closed and repeat_ready_seen and
+        max(repeat_gameplay_scores, default=0.0) >= args.gameplay_similarity and
+        max(repeat_motion_pixels, default=0) > 100
+    ) if args.repeat_after_break else True
     return {
         "closed": closed,
         "menu_ready": menu_ready,
@@ -567,6 +654,14 @@ def run_one(args: argparse.Namespace, entry: dict[str, object], tube: bool,
         "gameplay_transition": gameplay_transition,
         "ready_reference_scores": ready_scores,
         "ready_seen": ready_seen,
+        "repeat_after_break": args.repeat_after_break,
+        "repeat_menu_ready": repeat_menu_ready,
+        "repeat_game_closed": repeat_game_closed,
+        "repeat_ready_seen": repeat_ready_seen,
+        "repeat_gameplay_scores": repeat_gameplay_scores,
+        "repeat_motion_pixels": repeat_motion_pixels,
+        "repeat_screenshots": [str(path) for path in repeat_screenshots],
+        "repeat_passed": repeat_passed,
         "input_correlated_change_pixels": correlated_changes,
         "input_correlated_change": max(correlated_changes, default=0) >= 1000,
         "post_input_motion_pixels": post_motion_changes,
@@ -764,7 +859,8 @@ def main() -> int:
                 off["alive_after_capture"] and
                 off_gameplay >= args.gameplay_similarity and off["ready_seen"] and
                 off["gameplay_transition"] and off["input_correlated_change"] and
-                off["post_input_motion"] and not failure_seen and
+                off["post_input_motion"] and off["repeat_passed"] and
+                not failure_seen and
                 not off["mos_errors_in_log"] and
                 (args.profile != "adfs-beebscsi" or off["beebscsi_mounted"])
             )
@@ -776,7 +872,8 @@ def main() -> int:
                     on_gameplay is not None and
                     on_gameplay >= args.gameplay_similarity and on["ready_seen"] and
                     on["gameplay_transition"] and on["input_correlated_change"] and
-                    on["post_input_motion"] and not on["mos_errors_in_log"] and
+                    on["post_input_motion"] and on["repeat_passed"] and
+                    not on["mos_errors_in_log"] and
                     (args.profile != "adfs-beebscsi" or on["beebscsi_mounted"])
                 )
             comparison = args.output / f"{int(entry['index']):04d}-{entry['name']}" / "comparison.png"

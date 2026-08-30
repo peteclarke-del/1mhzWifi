@@ -125,7 +125,11 @@ class IntegrationContractTest(unittest.TestCase):
         version_patch = (
             ROOT / "pi-side/pi1mhz-516a267/patches/gitversion-untracked-content.patch"
         ).read_text()
+        third_party_patch = (
+            ROOT / "pi-side/pi1mhz-516a267/patches/gitversion-third-party.patch"
+        ).read_text()
         self.assertIn("gitversion-untracked-content.patch", installer)
+        self.assertIn("--ignore-submodules=dirty", third_party_patch)
         self.assertIn("ls-files --others --exclude-standard", version_patch)
         self.assertIn("file(SHA256", version_patch)
         self.assertIn("GIT_UNTRACKED_CONTENT", version_patch)
@@ -161,6 +165,7 @@ class IntegrationContractTest(unittest.TestCase):
         service = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c").read_text()
         service_header = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.h").read_text()
         service_driver = (ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm").read_text()
+        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
         wget = (ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm").read_text()
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         security_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-security.patch").read_text()
@@ -248,6 +253,32 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ELKWIFI_CMD_ONLINE       92u", service_header)
         self.assertIn("ELKWIFI_CMD_UEF_NORMALIZE 93u", service_header)
         self.assertIn("ELKWIFI_CMD_LAST         ELKWIFI_CMD_UEF_NORMALIZE", service_header)
+        self.assertIn("ELKWIFI_UEF_STREAM_CAPACITY (16u * 1024u * 1024u)", service)
+        self.assertIn("uef_stream_publish_window", service)
+        self.assertIn("ELKWIFI_UEF_OP_REFILL", service)
+        self.assertIn("value + 1u == uef_window_generation", service)
+        self.assertIn("value + 1u != uef_window_generation", service)
+        self.assertIn("actual_crc != uef_last_append_crc", service)
+        self.assertIn("drv_uef_generation_lo = drv_svc_workspace+30", service_driver)
+        self.assertIn("drv_uef_generation_hi = drv_svc_workspace+31", service_driver)
+        self.assertIn("drv_uef_generation_record_lo = 26", service_driver)
+        self.assertIn("drv_uef_generation_record_hi = 27", service_driver)
+        generation_load = service_driver.split(
+            ".service_driver_uef_generation_load", 1
+        )[1].split(".service_driver_uef_generation_save", 1)[0]
+        generation_save = service_driver.split(
+            ".service_driver_uef_generation_save", 1
+        )[1].split(".service_driver_uef_stream_template", 1)[0]
+        for helper in (generation_load, generation_save):
+            self.assertIn("php\n sei", helper)
+            self.assertIn("jsr wicfs_state_address_x", helper)
+            self.assertIn("&FCA9", helper)
+        self.assertIn("jsr service_driver_uef_generation_load", service_driver)
+        self.assertIn("jsr service_driver_uef_generation_save", service_driver)
+        self.assertIn("cmp #drv_svc_uef_op_refill", service_driver)
+        self.assertIn("cmp #drv_svc_uef_op_append", service_driver)
+        self.assertIn("lda #17\n sta drv_svc_cursor", service_driver)
+        self.assertIn("jsr service_driver_uef_stream_close", uef)
         self.assertIn('response_printf(cp, "ONLINE %u.%u.%u.%u\\r\\n"', service)
         self.assertIn('response_string(cp, "OFFLINE CONNECTING\\r\\n")', service)
         self.assertIn('response_string(cp, "OFFLINE WIFI OFF\\r\\n")', service)
@@ -364,7 +395,7 @@ class IntegrationContractTest(unittest.TestCase):
         )[0]
         self.assertNotIn("wifi_get_state", status_case)
         self.assertIn("response_string(cp, ELKWIFI_VERSION_RESPONSE)", status_case)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.58, kernel " GITVERSION', service)
+        self.assertIn('"Pi1MHz ElkWiFi 0.1.67, kernel " GITVERSION', service)
         self.assertIn("drv_svc_radio = 91", service_driver)
         wifi_control = service_driver.split(".service_driver_wifi_control", 1)[1].split(
             ".service_driver_ping", 1
@@ -422,12 +453,16 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("lda #&93", driver)
         dispatch = (ROOT / "rom-side/elkwifi-0.23/overlay/driver.asm").read_text()
         wifi_response = (ROOT / "rom-side/elkwifi-0.23/overlay/wificmd.asm").read_text()
-        self.assertIn("cmp #29", dispatch)
+        table = dispatch.split(".public_driver_dispatch", 1)[1].split(
+            "\\ Initialize the data buffer", 1
+        )[0]
+        self.assertEqual(table.count("equw service_driver_unsupported-1"), 4)
+        self.assertIn("and #&1F\n asl a\n tax", dispatch)
         self.assertIn("and #&1F", dispatch)
         self.assertNotIn("service_driver_timeout_setting", dispatch)
-        self.assertIn("jmp service_driver_connection_status", dispatch)
-        self.assertIn("jmp service_driver_set_buffer", dispatch)
-        self.assertIn("jmp service_driver_baud_compat", dispatch)
+        self.assertEqual(table.count("equw service_driver_connection_status-1"), 2)
+        self.assertIn("equw service_driver_set_buffer-1", table)
+        self.assertEqual(table.count("equw service_driver_baud_compat-1"), 3)
         self.assertIn(".service_driver_unsupported", driver)
         self.assertIn("jmp generic_cmd", wifi_response)
         self.assertIn("WIFI OFF/ready state and final OK", wifi_response)
@@ -462,6 +497,41 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertLess(trailer.index("jsr set_bank_1"), trailer.index("sta pagereg"))
         self.assertNotIn(".pi_wget_store_paged\n pha\n jsr wget_context_switch_in", wget)
         self.assertNotIn("&FC30", executable)
+        self.assertIn('equs "Usage: WGET <url> <file>"', wget)
+        self.assertIn("lda #&80", wget)
+        self.assertIn("jsr wget_OSFIND", wget)
+        self.assertIn("jsr wget_OSBPUT", wget)
+        self.assertIn("sta net_file_handle", wget)
+        self.assertIn("sta net_file_mode", wget)
+        self.assertNotIn("pi_wget_store_main", wget)
+        file_store = wget.split(".pi_wget_store_file", 1)[1].split(
+            ".pi_wget_copied", 1
+        )[0]
+        self.assertIn("ldy net_file_handle", file_store)
+        self.assertIn("jsr wget_OSBPUT", file_store)
+
+        ftp = (ROOT / "rom-side/elkwifi-0.23/overlay/ftp.asm").read_text()
+        self.assertIn("ftp_cmd_open   = 114", ftp)
+        self.assertIn("ftp_cmd_cancel = 119", ftp)
+        self.assertIn("jsr ftp_OSBPUT", ftp)
+        self.assertIn("jsr ftp_OSBGET", ftp)
+        self.assertIn("jsr ftp_OSFIND", ftp)
+        self.assertIn("jsr net_scratch_address", ftp)
+        self.assertIn(".ftp_command_table", ftp)
+        for row in (
+            'equs "quit"', 'equs "bye"', 'equs "help"',
+            'equs "get"', 'equs "put"', 'equs "dir"', 'equs "ls"',
+        ):
+            self.assertIn(row, ftp)
+        self.assertIn("cmp (ftp_ptr_lo),y", ftp)
+        self.assertIn("jmp ftp_exec_plain", ftp)
+        self.assertIn("jsr check_esc", wget)
+        self.assertNotIn("&FEE0", ftp.upper())
+        self.assertNotIn("&FEE5", ftp.upper())
+        close = wget.split(".pi_wget_close\n", 1)[1].split(
+            ".pi_wget_usage", 1
+        )[0]
+        self.assertLess(close.index("jsr wget_OSFIND"), close.index("jsr net_dispatch_wait"))
         self.assertIn('equs "WICFS"', surface)
         self.assertIn('include "wicfs.asm"', surface)
         wicfs_patch = (ROOT / "rom-side/elkwifi-0.23/patches/wicfs-page-shadow.patch").read_text()
@@ -672,40 +742,43 @@ class IntegrationContractTest(unittest.TestCase):
                           "tube_prepare", "tube_release", "tube_active"):
             self.assertNotIn(forbidden, build_script)
 
-        menu = (ROOT / "rom-side/elkwifi-0.23/overlay/menu.asm").read_text()
+        host_launch = (
+            ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm"
+        ).read_text()
         self.assertFalse(
             (ROOT / "rom-side/elkwifi-0.23/patches/menu-host-reset.patch").exists()
         )
-        self.assertIn("menu_return_addr = &1FD0", menu)
-        self.assertIn(".menu_return_stub", menu)
-        self.assertIn("jmp &0E00", menu)
-        self.assertIn("lda #>(menu_return_addr-1)", menu)
+        self.assertIn("host_return_addr = &1FD0", host_launch)
+        self.assertIn(".host_select_tape", host_launch)
+        self.assertIn(".host_enter_basic", host_launch)
         for forbidden in ("&FCE4", "&FCE5", "TubeCode",
                           "tube_prepare", "tube_release", "tube_active"):
-            self.assertNotIn(forbidden, menu)
-        self.assertNotIn("sta &FCE", menu)
-        self.assertNotIn("lda &FCE", menu)
-
-        menusrc = (ROOT / "rom-side/elkwifi-0.23/overlay/menusrc.asm").read_text()
-        self.assertIn('equs "*REWIND|MCHAIN "', menusrc)
-        self.assertIn('equs "*QHOST           |M"', menusrc)
-        self.assertIn("sta &137B,x", menusrc)
-        self.assertIn("lda #&EA", menusrc)
+            self.assertNotIn(forbidden, host_launch)
+        self.assertNotIn("sta &FCE", host_launch)
+        self.assertNotIn("lda &FCE", host_launch)
         uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        self.assertIn(".uef_select_launch", uef)
+        self.assertIn("cmp #&0D", uef)
+        self.assertIn("cmp #5", uef)
+        self.assertIn("dec &0101,x", uef)
+        self.assertIn("cmp #&0D                    \\ declared line boundary", uef)
+        self.assertIn('equs "*RUN "', uef)
+        self.assertIn('equs "CHAIN "', uef)
+        self.assertIn(".uef_auto_cmd", uef)
+        self.assertIn("lda #&EA", uef)
         self.assertIn('equs "*QUPRUN",&0D', uef)
-        self.assertIn('equs "PAGE=&E00",&0D', menu)
-        self.assertIn('equs "*QR",&0D', menu)
-        self.assertIn("jmp menu_host_cmd", uef)
+        self.assertIn('equs "PAGE=&E00",&0D', host_launch)
+        self.assertIn('equs "*QR",&0D', host_launch)
+        self.assertIn("jmp host_basic_cmd", uef)
         command_patch = (
             ROOT / "rom-side/elkwifi-0.23/patches/uef-command.patch"
         ).read_text()
         self.assertIn('equs "QHOST"', command_patch)
-        self.assertIn(".menu_host_cmd", menu)
-        self.assertIn("jmp &8000", menu)
+        self.assertIn(".host_basic_cmd", host_launch)
+        self.assertIn("jmp &8000", host_launch)
         for forbidden in ('equs "TUBE OFF"', "&FEE0", "&FEE1", "&FEE2", "&FEE3",
                           "&FEE4", "&FEE5", "&FEE6", "&FEE7"):
-            self.assertNotIn(forbidden, menu)
-            self.assertNotIn(forbidden, menusrc)
+            self.assertNotIn(forbidden, host_launch)
             self.assertNotIn(forbidden, uef)
 
         vector_capture_patch = (
@@ -747,17 +820,17 @@ class IntegrationContractTest(unittest.TestCase):
 
         for tube_register in ("&FCE0", "&FCE1", "&FCE2", "&FCE3",
                               "&FCE4", "&FCE5", "&FCE6", "&FCE7"):
-            self.assertNotIn(tube_register, menu)
+            self.assertNotIn(tube_register, host_launch)
         # Host entry avoids OSBYTE &8E, whose normal Tube-aware path copies
         # the language to the parasite. The Tube hardware remains untouched.
-        self.assertIn("sta &028C", menu)
-        self.assertIn("lda #&0C\n    sta &FE05", menu)
-        self.assertIn("sta &025D", menu)
-        self.assertNotIn("jmp &0400", menu.lower())
-        self.assertIn("lda #&81", menu)
-        self.assertIn("cpx #1", menu)
-        self.assertIn("sta &FE05", menu)
-        self.assertIn("sta &FE30", menu)
+        self.assertIn("sta &028C", host_launch)
+        self.assertIn("lda #&0C\n    sta &FE05", host_launch)
+        self.assertIn("sta &025D", host_launch)
+        self.assertNotIn("jmp &0400", host_launch.lower())
+        self.assertIn("lda #&81", host_launch)
+        self.assertIn("cpx #1", host_launch)
+        self.assertIn("sta &FE05", host_launch)
+        self.assertIn("sta &FE30", host_launch)
 
         rewind_patch = (
             ROOT / "rom-side/elkwifi-0.23/patches/wicfs-rewind.patch"
@@ -767,22 +840,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("authoritative UEF length from Pi1MHz JIM", rewind_patch)
         self.assertNotIn("tape_len", rewind_patch)
         self.assertNotIn("tape_len", wget)
-        menusrc = (ROOT / "rom-side/elkwifi-0.23/overlay/menusrc.asm").read_text()
-        # Preserve the published menu's exact no-Tube launch sequence.  When
-        # a Tube is active, replace that same fixed-width command in place
-        # with QHOST so BASIC interprets the launch on the Electron host.
-        self.assertIn('equs "*REWIND|MCHAIN "', menusrc)
-        self.assertIn('equb &22,&22\n equs "|M"\n equb &0D', menusrc)
-        self.assertIn("cmp menusrc_stock_launch,x", menusrc)
-        self.assertIn("lda #&EA", menusrc)
-        self.assertIn("sta &137B,x", menusrc)
-        self.assertIn('equs "*QHOST           |M"', menusrc)
-        self.assertNotIn("menusrc_rewind_macro", menusrc)
-        self.assertNotIn('equs "*RUN "', menusrc)
-        self.assertIn("sta &1FC5,x", menusrc)
-        self.assertIn("equb &20,&C5,&1F,&EA,&EA,&EA,&EA,&EA", menusrc)
-        self.assertNotIn("&FCFD", menusrc)
-        self.assertNotIn("&FCFE", menusrc)
+        self.assertIn("lda #&EA", uef)
         serial = (ROOT / "rom-side/elkwifi-0.23/overlay/serial.asm").read_text()
         self.assertIn("cpx #1\n beq set_bank_0_page", serial)
         self.assertIn("sta &FCFD\n jsr wicfs_bus_delay\n sta &FCFE", serial)
@@ -792,7 +850,6 @@ class IntegrationContractTest(unittest.TestCase):
 
     def test_rom_startup_and_absent_service_are_fail_safe(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm").read_text()
-        menusrc = (ROOT / "rom-side/elkwifi-0.23/overlay/menusrc.asm").read_text()
         serial = (ROOT / "rom-side/elkwifi-0.23/overlay/serial.asm").read_text()
         wifi = (ROOT / "rom-side/elkwifi-0.23/overlay/wificmd.asm").read_text()
         public_driver = (ROOT / "rom-side/elkwifi-0.23/overlay/driver.asm").read_text()
@@ -804,12 +861,12 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("lda #19", driver)
         self.assertIn("cmp #&21\n bcs service_driver_response_visible", driver)
         self.assertIn("cmp #&7F\n bcc service_driver_response_ascii", driver)
-        self.assertIn("jmp service_driver_version", public_driver)
+        self.assertIn("equw service_driver_version-1", public_driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/patches/identity.patch").read_text()
         self.assertIn('romtitle           equs "1MHzWifi"', identity)
-        self.assertIn('romversion         equs "0.1.58"', identity)
+        self.assertIn('romversion         equs "0.1.67"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/overlay/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.58 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHzWifi 0.1.67 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
         self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
@@ -844,116 +901,61 @@ class IntegrationContractTest(unittest.TestCase):
         no_response = driver.split(".service_driver_no_response", 1)[1]
         self.assertIn("ldx #(error_no_response-error_table)\n jmp error", no_response)
         self.assertNotIn("stx pageram", no_response)
-        self.assertIn("lda #240\n sta menusrc_index", menusrc)
         self.assertIn("-                    jsr wifidriver", rom_patch)
-        self.assertIn(".test_wifi_ena\n lda #0\n and #&01\n rts", serial)
+        self.assertNotIn("test_wifi_ena", serial)
         self.assertNotIn("uart_mcr", serial)
         self.assertIn("                ldx #1", wifi)
         self.assertIn("+ lda #23", rom_patch)
         self.assertIn("+ lda #255", rom_patch)
         self.assertIn("- sta &60A0,x", rom_patch)
 
-    def test_menu_source_is_persistent_and_used_by_menu(self) -> None:
-        service = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c").read_text()
-        rom_patch = (ROOT / "rom-side/elkwifi-0.23/patches/integration.patch").read_text()
-        self.assertIn('MENU_FILE "/Pi1MHz/ElkWiFi.menu"', service)
-        self.assertIn('#include "scripts/gitversion.h"', service)
-        self.assertIn('GITVERSION', service)
-        self.assertIn("filesystemWriteFile", service)
-        self.assertIn('config_get("elkwifi_menu_url")', service)
-        self.assertIn("if (valid_menu_url(configured))", service)
-        self.assertLess(service.index("filesystemReadFile(MENU_FILE"),
-                        service.index('config_get("elkwifi_menu_url")'))
-        # The matcher claims a command as soon as the table spelling ends.
-        # MENUSRC therefore has to precede its MENU prefix.
-        self.assertLess(rom_patch.index('+                    equs "MENUSRC"'),
-                        rom_patch.index('+                    equs "MENU"'))
-        wget = (ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm").read_text()
-        self.assertIn("net_transfer_ok = heap+&EF", wget)
-        self.assertIn("net_received = heap+&F0", wget)
-        self.assertIn("net_bytes_lo = heap+&F3", wget)
-        self.assertIn('equs "WGET "', wget)
-        self.assertIn('equs "OK &"', wget)
-        self.assertIn('equs " head &"', wget)
-        self.assertIn('equs "Empty response"', wget)
-        self.assertIn('ElkWiFi -U means "store in paged RAM"', wget)
-        self.assertIn("cmp #&1F", wget)
-        self.assertIn("cmp #&8B", wget)
-        self.assertIn("cmp #'P'", wget)
-        self.assertIn("cmp #'K'", wget)
-        self.assertIn(".pi_wget_raw_paged", wget)
-        menu = (ROOT / "rom-side/elkwifi-0.23/overlay/menu.asm").read_text()
-        menusrc = (ROOT / "rom-side/elkwifi-0.23/overlay/menusrc.asm").read_text()
-        self.assertIn("sta &0E00", menu)
-        self.assertIn("lda &0E00", menu)
-        self.assertIn("jsr menusrc_patch_menu", menu)
-        self.assertIn("jsr menusrc_check_menu_platform", menu)
-        self.assertIn(
-            'equs "Some titles may require the Tube to be",&0D', menu
-        )
-        self.assertIn(
-            'equs "disabled before attempting to load.",&0D', menu
-        )
-        self.assertIn("lda #&EA\n    ldx #0\n    ldy #&FF", menu)
-        self.assertLess(menu.index("jsr menusrc_check_menu_platform"),
-                        menu.index("jsr oscli"))
-        self.assertIn(".menusrc_check_menu_platform", menusrc)
-        self.assertIn("lda #&81\n ldx #0\n ldy #&FF", menusrc)
-        self.assertIn("cpx #1", menusrc)
-        self.assertIn("Default MENU is Electron only", menusrc)
-        self.assertIn("Use *MENUSRC <url>", menusrc)
-        service_source = (
+    def test_prd_uses_write_only_safe_jim_selection(self) -> None:
+        pdump = (ROOT / "rom-side/elkwifi-0.23/overlay/pdump.asm").read_text()
+        build = (ROOT / "rom-side/build_rom.sh").read_text()
+        self.assertIn('install -m 0644 "$overlay_dir/pdump.asm"', build)
+        self.assertNotRegex(pdump, r"(?im)^\s*lda\s+(?:&FCF[DEF]|pagereg)\s*$")
+        read = pdump.split(".pdump_read_y", 1)[1]
+        self.assertIn("sta &FCFD", read)
+        self.assertIn("sta &FCFE", read)
+        self.assertIn("sta pagereg", read)
+        self.assertLess(read.index("sta pagereg"), read.index("lda pageram,y"))
+        self.assertIn("cmp #1\n bne pdump_start\n jmp pdump_bad_bank", pdump)
+        self.assertIn(".pdump_end\n jsr set_bank_0", pdump)
+
+    def test_rom_reserves_space_for_the_next_feature(self) -> None:
+        patch = (
+            ROOT / "rom-side/elkwifi-0.23/patches/rom-headroom.patch"
+        ).read_text()
+        self.assertIn("rom_content_end = P%", patch)
+        self.assertIn("ASSERT rom_content_end <= &BF00", patch)
+        self.assertNotIn(b"This is the end!", (ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom").read_bytes())
+
+    def test_menu_surface_is_fully_retired(self) -> None:
+        service = (
             ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c"
         ).read_text()
-        default_url = re.search(r'#define MENU_DEFAULT "([^"]+)"',
-                                service_source).group(1)
-        self.assertIn(f'equs "{default_url}",0', menusrc)
-        wget_helpers = (
-            ROOT / "rom-side/elkwifi-0.23/overlay/wget_helpers.asm"
+        service_header = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.h"
         ).read_text()
-        self.assertIn("lda #&81", wget_helpers)
-        self.assertIn("cpx #1", wget_helpers)
-        self.assertIn("sta &FE05", wget_helpers)
-        self.assertIn("sta &FE30", wget_helpers)
-        self.assertIn('equs "TAPE",&0D', menu)
-        self.assertIn("jsr oscli", menu)
-        self.assertNotIn("lda #&8C", menu)
-        self.assertIn("menu_tape_addr = &1FC0", menu)
-        self.assertIn("sta menu_tape_addr,x", menu)
-        self.assertIn("jsr wicfs_release_tape_trap", menu)
-        self.assertIn("jsr wicfs_state_load", menu)
-        self.assertIn("lda bytev_rtn", menu)
-        self.assertIn("lda bytev_rtn+1", menu)
-        self.assertNotIn("lda notape+(osb_j-osb_s)+1", menu)
-        self.assertIn("sta BYTEV", menu)
-        self.assertLess(menu.index("jsr menu_select_tape"), menu.index("jsr menusrc_make_wget"))
-        tape_helper = menu.split(".menu_select_tape", 1)[1].split(
-            ".menu_tape_command", 1
-        )[0]
-        self.assertIn("jsr oscli", tape_helper)
-        self.assertIn("jsr menusrc_patch_catalogue", menusrc)
-        self.assertIn("equw &1059,&1079,&10AB", menusrc)
-        self.assertIn("sta &1FF0,x", menusrc)
-        self.assertIn("sta &1FE0,x", menusrc)
-        self.assertIn("menu_return_addr = &1FD0", menu)
-        self.assertIn("sta menu_return_addr,x", menu)
-        self.assertIn("lda &FD00,y", menusrc)
-        self.assertIn("jmp &0E00", menu)
-        self.assertNotIn("sta heap,x", menu)
-        self.assertIn("#>(menu_return_addr-1)", menu)
-        self.assertNotIn('equs "CALL &E00"', menu)
-        self.assertIn('equs "Menu download failed"', menu)
-        self.assertIn('equs "WGET "', wget)
-        self.assertIn('equs "OK &"', wget)
-        self.assertIn("equb &AD,&34,&FC,&09,&08,&8D,&34,&FC", menusrc)
-        self.assertIn("equb &20,&C5,&1F,&EA,&EA,&EA,&EA,&EA", menusrc)
-        menu_doc = (ROOT / "docs/menu-runtime-patch.md").read_text()
-        self.assertIn("AD 34 FC", menu_doc)
-        self.assertIn("8D 34 FC", menu_doc)
-        self.assertIn("20 C5 1F", menu_doc)
-        self.assertIn("&FCFF", menu_doc)
-        self.assertIn("AP5", menu_doc)
-        self.assertIn("&0E00-&1FFF", menu_doc)
+        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        build_script = (ROOT / "rom-side/build_rom.sh").read_text()
+        retirement = (
+            ROOT / "rom-side/elkwifi-0.23/patches/menu-retirement.patch"
+        ).read_text()
+        wget = (
+            ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm"
+        ).read_text()
+        self.assertNotIn("ELKWIFI_CMD_MENU", service)
+        self.assertNotIn("ELKWIFI_CMD_MENU", service_header)
+        self.assertNotIn("elkwifi_menu", installer)
+        self.assertNotIn("menu-cache.patch", installer)
+        self.assertNotIn("overlay/menu.asm", build_script)
+        self.assertNotIn("overlay/menusrc.asm", build_script)
+        self.assertIn('equs "MENU"', retirement)
+        self.assertIn('equs "MENUSRC"', retirement)
+        self.assertNotIn("pi_wget_menu_cache", wget)
+        self.assertNotIn("pi_wget_cached_paged", wget)
+        self.assertNotIn("NET_OPEN_READ plus Pi MENU cache mode", wget)
 
     def test_ping_escape_dispatches_pi_cancellation(self) -> None:
         driver = (ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm").read_text()
@@ -999,11 +1001,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("expected_upstream=$PI1MHZ_UPSTREAM_COMMIT", installer)
         self.assertIn("PI1MHZ_VERIFY_REMOTE:-1", installer)
         self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=d08242ee1b35cf1285b72c9ec1869e98081a8c3e",
+            "PI1MHZ_UPSTREAM_COMMIT=499f940df42ca69e8bfc5be315333f5d271e6c37",
             upstream,
         )
         self.assertIn("PI1MHZ_UPSTREAM_BRANCH=master", upstream)
-        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-19", upstream)
+        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-28", upstream)
         self.assertIn("git ls-remote --symref", verifier)
 
         rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()
@@ -1071,12 +1073,12 @@ class IntegrationContractTest(unittest.TestCase):
         # OSBYTE &EA is only a Tube-presence query.  Loading remains entirely
         # host-side and must never touch the Tube data-transfer registers.
         self.assertIn("lda #&EA", source)
-        self.assertIn("jmp menu_host_cmd", source)
+        self.assertIn("jmp host_basic_cmd", source)
         basic_host = (
             ROOT / "rom-side/elkwifi-0.23/patches/wicfs-basic-host.patch"
         ).read_text()
         self.assertIn(".upv_basic_match", basic_host)
-        self.assertIn("JMP\tmenu_enter_host_basic", basic_host)
+        self.assertIn("JMP\thost_enter_basic", basic_host)
         self.assertNotIn('equs "TUBE OFF"', source)
         for register in range(0xFEE0, 0xFEE8):
             self.assertNotIn(f"&{register:04X}", source.upper())
