@@ -139,5 +139,5 @@ void secure_service_init(uint8_t instance, uint8_t address)
     (void)services_register(SERVICE_CMD_SECURE_FIRST,
                             SERVICE_CMD_SECURE_LAST,
                             secure_service_command);
-    Pi1MHz_Register_Poll(secure_poll);
+    Pi1MHz_Register_Poll(secure_poll, "secure");
 }

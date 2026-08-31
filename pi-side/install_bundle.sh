@@ -74,7 +74,12 @@ if [ ! -f "$upstream/src/net_service.c" ]; then
 fi
 
 wolfssl_commit=65836b40693f8ea8d04daac0b1019d8e2e9394dd
-wolfssh_commit=c2d169872e410251a6967fc47d4fc0c6f318b79c
+# wolfSSH is taken from our fork, which carries two commits on top of the
+# reviewed upstream commit c2d1698: a portability fix offered to wolfSSH
+# upstream, and the Acorn 40-column vt100 defaults which are local to this
+# project. The patch applications below remain as a fallback so a build given
+# WOLFSSH_SOURCE pointing at stock wolfSSH still produces the same tree.
+wolfssh_commit=d17bdb211075fa4349cba524b95eb1f6408ddd11
 third_party_dir="$upstream/src/third_party"
 mkdir -p "$third_party_dir"
 
@@ -107,7 +112,7 @@ install_dependency() {
 
 install_dependency wolfSSL https://github.com/wolfSSL/wolfssl.git \
     "$wolfssl_commit" "${WOLFSSL_SOURCE:-}" "$third_party_dir/wolfssl"
-install_dependency wolfSSH https://github.com/wolfSSL/wolfssh.git \
+install_dependency wolfSSH https://github.com/peteclarke-del/wolfssh.git \
     "$wolfssh_commit" "${WOLFSSH_SOURCE:-}" "$third_party_dir/wolfssh"
 if ! grep -q 'BBC/Electron display' \
         "$third_party_dir/wolfssh/wolfssh/internal.h"; then

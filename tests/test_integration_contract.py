@@ -1001,11 +1001,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("expected_upstream=$PI1MHZ_UPSTREAM_COMMIT", installer)
         self.assertIn("PI1MHZ_VERIFY_REMOTE:-1", installer)
         self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=499f940df42ca69e8bfc5be315333f5d271e6c37",
+            "PI1MHZ_UPSTREAM_COMMIT=6b3b88df34172fbaeee927c24d9d5c937710400c",
             upstream,
         )
         self.assertIn("PI1MHZ_UPSTREAM_BRANCH=master", upstream)
-        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-28", upstream)
+        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-30", upstream)
         self.assertIn("git ls-remote --symref", verifier)
 
         rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()
