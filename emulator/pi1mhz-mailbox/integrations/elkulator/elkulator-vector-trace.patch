@@ -1,15 +1,18 @@
 --- a/src/6502.c
 +++ b/src/6502.c
-@@ -176,4 +176,6 @@
+@@ -175,6 +175,8 @@
+ 
  int output=0;
  uint16_t oldpc2,oldpc;
 +static FILE *vector_trace;
 +static const char *vector_trace_path;
  void exec6502()
  {
-@@ -188,3 +190,36 @@
- 		oldpc2=oldpc;
- 		oldpc=pc;
+         uint16_t addr,addr2;
+@@ -185,6 +187,38 @@
+         {
+                 oldpc2=oldpc;
+                 oldpc=pc;
 +                if (!vector_trace_path)
 +                {
 +                        vector_trace_path=getenv("PI1MHZ_VECTOR_TRACE");
@@ -42,4 +45,6 @@
 +                                fflush(vector_trace);
 +                        }
 +                }
- 		oldcycs=cycles;
+                 oldcycs=cycles;
+ //                if (pc==0x1000) output=1;
+ //                if (pc>0xE00 && pc<0x5000) output=1;

@@ -15,6 +15,28 @@ injector with the same logical Electron-key implementation used for a clean
 Elkulator tree. This is required for configured key maps, including the
 Electron `@` key used to enter `*` commands.
 
+## Getting a built Elkulator
+
+The supported source is our fork, which already carries everything in this
+directory as a branch:
+
+```sh
+git clone -b pi1mhz-integration https://github.com/peteclarke-del/elkulator.git
+cd elkulator && git checkout d5ef26c
+autoreconf -fi && ./configure && make
+```
+
+Prefer the fork. A branch is always consistent with itself, whereas the patch
+kit below has to be applied in a fixed order into shared anchors and has twice
+gone stale without anyone noticing, because the tests that would catch it skip
+when no Elkulator source is present.
+
+The fork tracks Stardot `master`; the patches are offered upstream from it, and
+if they are taken the fork goes away and we build stock Elkulator again.
+
+## Applying the patch kit by hand
+
+Still supported, for an ElkChat tree or any base the fork does not match.
 Install into a disposable checkout:
 
 ```sh

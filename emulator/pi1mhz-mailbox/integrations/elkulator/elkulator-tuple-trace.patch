@@ -1,28 +1,28 @@
 --- a/src/6502.c
 +++ b/src/6502.c
-@@ -2,6 +2,7 @@
-   6502 emulation*/
- #include <allegro.h>
- #include <stdio.h>
-+#include <string.h>
+@@ -5,6 +5,7 @@
  #include "elk.h"
  #include "ap5_tube.h"
  #include "pi1mhz_elkulator.h"
-@@ -178,6 +179,10 @@
-                         }
++#include <string.h>
  
- int output=0;
+ int timetolive;
+ int ins=0;
+@@ -202,6 +203,10 @@
+         return (p.n ? 0x80 : 0) | (p.v ? 0x40 : 0) | (p.d ? 8 : 0) |
+                (p.i ? 4 : 0) | (p.z ? 2 : 0) | (p.c ? 1 : 0);
+ }
 +static FILE *tuple_trace;
 +static const char *tuple_trace_path;
 +static unsigned long tuple_osbyte_calls;
 +static unsigned char tuple_last[12];
- uint16_t oldpc2,oldpc;
- static FILE *vector_trace;
- static const char *vector_trace_path;
-@@ -196,6 +201,44 @@
-         {
-                 oldpc2=oldpc;
-                 oldpc=pc;
+ void exec6502()
+ {
+         uint16_t addr,addr2;
+@@ -335,6 +340,44 @@
+ pc_history_recorded:
+                         ;
+                 }
 +                /* Diagnostic for the WiCFS vector gateway relocation. The
 +                 * replacement repairs the MOS extended-vector table from the
 +                 * BYTEV *TAPE trap instead of from a resident gateway a loader
@@ -62,5 +62,5 @@
 +                        }
 +                }
                  oldcycs=cycles;
-                 if (!post_entry_trace_initialised)
-                 {
+ //                if (pc==0x1000) output=1;
+ //                if (pc>0xE00 && pc<0x5000) output=1;
