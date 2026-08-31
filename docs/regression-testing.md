@@ -47,7 +47,7 @@ A UEF or MENU test does not pass because a file downloaded, a title appeared,
 or the emulator remained open. It must demonstrate the expected program state,
 input-correlated transition, sustained execution, no known MOS failure, and the
 required post-Break filing-system behavior. When Tube coexistence is in scope,
-the bus trace must also prove that 1MHzWifi did not use Tube registers.
+the bus trace must also prove that 1MHz-WiFi did not use Tube registers.
 
 Some loaders display their final-looking instruction screen before later tape
 files have loaded. The UEF runner therefore requires both the reviewed screen

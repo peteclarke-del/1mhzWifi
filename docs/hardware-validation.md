@@ -12,7 +12,7 @@ or protocol change that can affect it.
 
 ```text
 Pi1MHz       6b3b88df34172fbaeee927c24d9d5c937710400c
-1MHzWifi ROM 25472db8c5cc22e09bf6b9a5531bba0cc334cdec3ba0af459d3bfc6fa82082ef
+1MHz-WiFi ROM 720a180dc2e9d924c08b8728a729059798a45915aaad3f768f6ec8c71f0ebff1
 kernel.img   c8910a1ea94d72647a45b6d61c9dbd197865371e1b8662327d9a0e9c798e496d
 kernel7.img  20b3439503d574a73304b86fbd124efe6301e39ee3190a20711b3c78919770f1
 nettools.ssd 7bfe26b2c8f3212466bd3bdbc7f40e6f1d72722a3dbcc7a9f25fd3858dc8d883
@@ -24,7 +24,7 @@ The Pi1MHz commit was the official `master` tip verified on 23 August 2026. Run
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
 files. Replace `kernel.img` or `kernel7.img` for the fitted Pi, the host
-`ElkWiFi.rom`, and the separately mounted `nettools.ssd`. The universal ZIP is
+`1mhz-wifi.rom`, and the separately mounted `nettools.ssd`. The universal ZIP is
 for a clean card and may contain a fresh configuration template.
 
 Also preserve `/BeebSCSI0` and its `scsi*.dat` images. The bundle supplies the
@@ -764,7 +764,7 @@ remain open.
 ## Confirmed physical Tube-off milestone, 18 August 2026
 
 The tested host ROM was
-`build/pi1mhz-all/Pi1MHz/ElkWiFi.rom`, version 0.1.55, SHA-256
+`build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom`, version 0.1.55, SHA-256
 `ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb`.
 The machine used the Electron, Plus 1, Plus 2, AP5, Pi1MHz, RAM expansion,
 ADFS/BeebSCSI and MMFS installation with the Tube disabled.
@@ -882,9 +882,9 @@ CYW43455 firmware at runtime.
   return. Elkulator's expansion ROM becomes unavailable after `*TAPE`, so this
   transition must be proved on AP5 hardware.
 - [ ] Run uppercase `*HELP WIFI` and `*VERSION`; verify the ROM identifies as
-  `1MHzWifi 0.1.55` before recording any further hardware test result.
+  `1MHz-WiFi 0.1.55` before recording any further hardware test result.
 - [ ] Boot the minimum supported layout in Elkulator: 32K Electron, Plus 1,
-  AP5-constrained Pi1MHz mailbox, 1MHzWifi 0.1.55 and a user-supplied MMFS ROM.
+  AP5-constrained Pi1MHz mailbox, 1MHz-WiFi 0.1.55 and a user-supplied MMFS ROM.
   No Plus 2, sideways RAM, ADFS or Tube is present.
   Mount a FAT32 Pi SD-card image containing `BEEB.MMB`, select fixture disc
   507, catalogue `DESK`, run `*UEF LOAD DESK`, and satisfy an application-state
@@ -904,13 +904,13 @@ current gameplay acceptance rule. Physical hardware remains the final gate.
 ## Filing-system matrix
 
 Use the same ROM and matched Pi kernel for every row. Changing the filing
-system must not require a 1MHzWifi ROM rebuild, a different command path, or a
+system must not require a 1MHz-WiFi ROM rebuild, a different command path, or a
 fixed sideways-bank allocation. For every source filing system, run `*UEF
 LOAD` on the same raw UEF and compressed Desk Diary fixture, reach the
 application rather than the BASIC prompt, then reselect and catalogue the
 source filing system after WiCFS finishes or after Break.
 
-Repeat the ROM-level smoke test with 1MHzWifi in at least three materially
+Repeat the ROM-level smoke test with 1MHz-WiFi in at least three materially
 different banks, including one below bank 8 and one above it. The automated
 OSWORD harness exercises all sixteen MOS-supplied ROM numbers. Full emulator
 runs select the bank with `--wifi-rom-slot`; relocate any displaced profile ROM
@@ -923,7 +923,7 @@ each writable bank under test and reject a ROM bank without damaging it.
 | Normal ADFS | Plus 3 or equivalent 1770 ADFS media | `*ADFS`, `*CAT`, load, Break, `*ADFS`, `*CAT` | Pending with a MOS-valid writable fixture |
 | DFS | 1770 DFS media containing the fixture | `*DISC`, `*.` (`@.` in Elkulator), load, Break, `*DISC`, `*.` | Desk Diary launch passed; recovery pending |
 | MMFS | Electron MMFS in any suitable ROM or sideways-RAM bank with its normal SD/MMB backing | select image, `*CAT`, load, Break, reselect image, `*CAT` | Minimum-profile emulator launch passed; recovery and physical runs pending |
-| TAPE/CFS | Native cassette UEF selected before 1MHzWifi use | `*TAPE`, catalogue/load, MENU or UEF launch, Break, `*TAPE` | Pending exact-profile rerun |
+| TAPE/CFS | Native cassette UEF selected before 1MHz-WiFi use | `*TAPE`, catalogue/load, MENU or UEF launch, Break, `*TAPE` | Pending exact-profile rerun |
 
 The ROM-side import is deliberately filing-system neutral. It opens the
 caller's filename with MOS `OSFIND`, consumes it with `OSBGET`, and reselects
@@ -933,19 +933,19 @@ usage. A DFS pass is not evidence for either ADFS variant or MMFS.
 
 The first normal-ADFS fixture created with the legacy host `fstool` is not
 valid acceptance evidence. Acorn ADFS itself reports `Bad FS map` from a plain
-`*TYPE DESK`, before 1MHzWifi is entered. Keep that image out of regression
+`*TYPE DESK`, before 1MHz-WiFi is entered. Keep that image out of regression
 results and use media which passes a native ADFS open/read check first.
 
 ## Supported configuration profiles
 
 The minimum release profile is a 32K Electron with a Plus 1, AP5, Pi1MHz on
-the 1MHz bus, 1MHzWifi and a user-supplied compatible filing-system ROM. This
+the 1MHz bus, 1MHz-WiFi and a user-supplied compatible filing-system ROM. This
 profile must not require a Plus 2, sideways RAM, ADFS or Tube. Filing-system
 ROMs are test inputs and are not distributed by this project.
 
 The stress profile reproduces the photographed machine: Plus 2, Plus 1, AP5,
 Pi1MHz, BeebSCSI ADFS, MMFS, 32K sideways RAM and an optional Tube. Its ROM
-order is useful regression evidence but is not an ABI. 1MHzWifi must discover
+order is useful regression evidence but is not an ABI. 1MHz-WiFi must discover
 and coexist with the installed filing systems and expansion ROMs regardless
 of their bank numbers.
 
@@ -1043,7 +1043,7 @@ The 7 August 2026 photographs record these ROM 0.1.22 results:
 
 - `20260807_180750.jpg`: raw Zalaga downloads as `&7462` bytes, WiCFS starts,
   `CHAIN ""` loads `ZALAGA 05 05EE`, then returns to the Tube BASIC prompt.
-- `20260807_180801.jpg`: `*ROMS` and `*VERSION` identify 1MHzWifi 0.1.22,
+- `20260807_180801.jpg`: `*ROMS` and `*VERSION` identify 1MHz-WiFi 0.1.22,
   Acorn Tube 6502 64K, Acorn ADFS, RH Plus 1 and BASIC. The Pi reports kernel
   `V1.30-80-g8468a38-dirty.5cd08bdf`.
 - `20260807_181024.jpg`: `*ONLINE` succeeds, but the native `*SSH` capability
@@ -1124,7 +1124,7 @@ a Tube register.
 
 - [ ] Confirm `Pi1MHz.cfg` contains active `Rampage_addr=0xFD`. Boot with ADFS,
   DFS, MMFS/SWRAM and other JIM users present; verify each can reselect its own
-  address after 1MHzWifi commands.
+  address after 1MHz-WiFi commands.
 - [ ] Download a known UEF with `*WGET -U` and verify the stored length metadata.
 - [ ] Run `*WICFS`, `*CAT`, `*LOAD`, and `*RUN` against that UEF. Confirm the
   selected program reaches its execution address rather than returning to the
@@ -1145,7 +1145,7 @@ a Tube register.
 - [ ] After a title finishes or an explicit catalogue operation reaches the
   physical end of its UEF, press Break and
   confirm `*ADFS` is immediately available. Repeat with `*DISC`, Ctrl-Break
-  and with a Tube enabled. MOS must rebuild the vectors and 1MHzWifi must not
+  and with a Tube enabled. MOS must rebuild the vectors and 1MHz-WiFi must not
   restore stale cassette predecessors over the filing system selected during
   the reset service pass.
 - [ ] Run `*MENU`, press `L` for Zalaga, and confirm the private host entry
@@ -1235,10 +1235,10 @@ a Tube register.
 - [ ] Run `*HELP WIFI`, `*PING`, `*NSLOOK`, `*WGET`, and `*WICFS` from the I/O processor.
 - [ ] Repeat applicable commands while each supported Tube is fitted and active.
   Any Pi, network or JIM traffic must remain on the 1MHz bus. Tube traffic is
-  permitted only for application activity outside 1MHzWifi.
+  permitted only for application activity outside 1MHz-WiFi.
 - [ ] Trace calls and confirm only the I/O processor accesses `&FCxx` and `&FDxx`.
 - [ ] Exercise every pointer-bearing OSWORD `&65` call with buffers in parasite memory.
-- [ ] Trace a complete UEF load. Confirm 1MHzWifi never accesses Tube
+- [ ] Trace a complete UEF load. Confirm 1MHz-WiFi never accesses Tube
   registers, claims a Tube channel or disables the Tube. Confirm the loader
   executes in Electron host memory and a Tube-aware game can still use the
   fitted processor itself.
@@ -1255,7 +1255,7 @@ a Tube register.
   deterministic bridge fixture tests. This checks the client and reference
   protocol fixtures, but does not replace entry through the Pi ROM's OSWORD
   service handler.
-- [x] Enter 1MHzWifi through MOS service reason 8 and execute ElkChat-shaped
+- [x] Enter 1MHz-WiFi through MOS service reason 8 and execute ElkChat-shaped
   OSWORD `&65` calls for functions 9, 18, 4, 8, 13 and 14. The executable
   test forces zero and partial TCP sends, waits through empty receive gaps and
   receives a response spanning several public JIM pages. It also checks
@@ -1264,7 +1264,7 @@ a Tube register.
 - [ ] Run ElkChat's `ELKNET` diagnostic with `*RUN ELKNET` against the original
   ElkWiFi 0.23 ROM. Record function 18 IFCFG, function 4 JOIN query and
   function 8 TCP-open responses.
-- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with the 1MHzWifi
+- [ ] Repeat the unchanged original-ElkWiFi ElkChat path with the 1MHz-WiFi
   0.1.55 hardware-test ROM
   and the kernel revision reported by the bundled `*VERSION`. None of the
   calls may block or

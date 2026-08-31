@@ -1,4 +1,4 @@
-# 1MHzWifi ElkWiFi ROM patch kit
+# 1MHz-WiFi 1MHz-WiFi ROM patch kit
 
 This directory is the independently distributable host-ROM patch kit. It
 targets the original ElkWiFi source at commit
@@ -18,7 +18,7 @@ Build from a clean upstream checkout:
 ./build_rom.sh /path/to/ElkWiFi
 ```
 
-The ROM is written to `../build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` relative to this
+The ROM is written to `../build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom` relative to this
 directory. `../build/elkwifi_pi1mhz.rom` is a compatibility symbolic link to
 the same file. The monorepo release build verifies its size and recorded SHA-256.
 The source build is deterministic, but physical Electron, filing-system and

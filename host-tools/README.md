@@ -1,9 +1,9 @@
-# 1MHzWifi host network tools
+# 1MHz-WiFi host network tools
 
 Native 6502 network programs for BBC Micro, Acorn Electron and compatible
 Acorn MOS machines fitted with Pi1MHz. The programs are distributed together
 on a bootable 200 KiB DFS `.ssd` image and call Pi1MHz's services mailbox
-directly. They do not require the 1MHzWifi/ElkWiFi service ROM.
+directly. They do not require the 1MHz-WiFi/ElkWiFi service ROM.
 
 ## Current programs
 
@@ -90,7 +90,7 @@ and the
 
 ## Requirements
 
-- The combined 1MHzWifi Pi1MHz firmware, containing the native net service
+- The combined 1MHz-WiFi Pi1MHz firmware, containing the native net service
   and managed secure service commands 94-113.
 - `net_enable=1` in `Pi1MHz.cfg`.
 - Configured, associated WiFi.
@@ -168,7 +168,7 @@ suite is only expected to pass against the default build.
 The reusable Elkulator integration under
 `../emulator/pi1mhz-mailbox/integrations/elkulator` adds the Pi1MHz services
 mailbox at `&FCA6`-`&FCAA` and the shared JIM aperture at `&FCFD`-`&FDFF`.
-Its control selector implements 1MHzWifi menu settings and UEF command 93.
+Its control selector implements 1MHz-WiFi menu settings and UEF command 93.
 The UEF path recognizes raw, gzip and single-entry ZIP inputs, validates the
 container and CRC, updates the JIM length trailer and keeps command 93 distinct
 from secure random on socket selectors.

@@ -10,7 +10,7 @@ diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
 -                    equb &00                    \ version 0.0x
 -.romtitle           equs "Electron Wifi"
 +                    equb &30                    \ legacy binary version byte
-+.romtitle           equs "1MHzWifi"
++.romtitle           equs "1MHz-WiFi"
                      equb 0
 -.romversion         equs "0.23"                 \ Rom version string
 +.romversion         equs "0.1.67"               \ project test version
@@ -20,4 +20,4 @@ diff --git a/rom/ElkWifi.asm b/rom/ElkWifi.asm
                      equb 0
 @@ -137 +137 @@ include "electron.asm"
 -                    equs "Acorn Electron WiFi",&EA
-+                    equs "1MHzWifi 0.1.67",&EA
++                    equs "1MHz-WiFi 0.1.67",&EA

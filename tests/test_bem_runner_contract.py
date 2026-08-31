@@ -10,25 +10,25 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class BEmRunnerContractTests(unittest.TestCase):
     def test_minimum_model_b_profile_is_explicit_and_tube_free(self) -> None:
-        config = config_text(Path("/tmp/ElkWiFi.rom"), "bbc-b-32k")
+        config = config_text(Path("/tmp/1mhz-wifi.rom"), "bbc-b-32k")
         self.assertIn("name=BBC B 32K Pi1MHz minimum", config)
         self.assertIn("fdc=none", config)
         self.assertIn("tube=none", config)
         self.assertIn("vdfsenable=false", config)
         self.assertIn("rom15=basic2", config)
-        self.assertIn("rom14=/tmp/ElkWiFi.rom", config)
+        self.assertIn("rom14=/tmp/1mhz-wifi.rom", config)
 
     def test_b_plus_and_master_use_the_same_rom_image(self) -> None:
-        rom = Path("/tmp/ElkWiFi.rom")
+        rom = Path("/tmp/1mhz-wifi.rom")
         b_plus = config_text(rom, "bbc-b-plus")
         master = config_text(rom, "master-128")
         self.assertIn("b+=true", b_plus)
         self.assertIn("os=bpos", b_plus)
-        self.assertIn("rom14=/tmp/ElkWiFi.rom", b_plus)
+        self.assertIn("rom14=/tmp/1mhz-wifi.rom", b_plus)
         self.assertIn("master=true", master)
         self.assertIn("65c02=true", master)
         self.assertIn("os=mos320", master)
-        self.assertIn("rom07=/tmp/ElkWiFi.rom", master)
+        self.assertIn("rom07=/tmp/1mhz-wifi.rom", master)
 
     def test_capture_selects_main_bem_window_by_area(self) -> None:
         tree = '''
