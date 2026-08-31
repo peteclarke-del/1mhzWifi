@@ -17,7 +17,7 @@ The host BASIC and cassette transition formerly embedded in the MENU module
 is retained in `overlay/host_launch.asm` because `*UEF LOAD` needs it. That
 module contains no URL, catalogue, menu download or menu-cache behavior.
 
-The original ElkWiFi ROM still contains its own `*MENU` implementation. The
+The original 1MHz-WiFi ROM still contains its own `*MENU` implementation. The
 final `menu-retirement.patch` removes that command and its source include from
-the 1MHzWifi build. Earlier ordered patches may mention the upstream labels as
+the 1MHz-WiFi build. Earlier ordered patches may mention the upstream labels as
 patch context, but the assembled ROM contains neither command nor endpoint.

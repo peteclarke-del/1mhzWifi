@@ -267,14 +267,14 @@ class MergedRepositoryTest(unittest.TestCase):
         built = ROOT / "host-tools/build/nettools.ssd"
         self.assertTrue(bundled.is_file())
         self.assertEqual(bundled.read_bytes(), built.read_bytes())
-        bundled_rom = ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
+        bundled_rom = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom"
         compatibility_link = ROOT / "build/elkwifi_pi1mhz.rom"
         self.assertTrue(bundled_rom.is_file())
         self.assertTrue(compatibility_link.is_symlink())
         self.assertEqual(compatibility_link.resolve(), bundled_rom.resolve())
         with zipfile.ZipFile(ROOT / "build/pi1mhz-all-hardware-test.zip") as archive:
             self.assertEqual(
-                archive.read("pi1mhz-all/Pi1MHz/ElkWiFi.rom"),
+                archive.read("pi1mhz-all/Pi1MHz/1mhz-wifi.rom"),
                 bundled_rom.read_bytes(),
             )
 
@@ -303,11 +303,14 @@ class MergedRepositoryTest(unittest.TestCase):
         patch = (ROOT / "pi-side/upstream/1mhzwifi-pi1mhz.patch").read_text(
             errors="replace"
         )
-        self.assertIn("firmware/Pi1MHz/ElkWiFi.rom", patch)
+        self.assertIn("firmware/Pi1MHz/1mhz-wifi.rom", patch)
         self.assertIn("GIT binary patch", patch)
         self.assertIn("Pi1MHz ElkWiFi 0.1.67, kernel", patch)
         self.assertNotIn("Pi1MHz ElkWiFi 0.1.52, kernel", patch)
-        self.assertIn("RPI_GetSystemTime() - started_us >= 750000u", patch)
+        # The RNG word wait is bounded by a named deadline rather than a
+        # literal, so this pins the mechanism and not one magic number.
+        self.assertIn("RNG_WORD_DEADLINE_US", patch)
+        self.assertIn("RPI_GetSystemTime() - started_us >= RNG_WORD_DEADLINE_US", patch)
         self.assertIn("exact MENU TITLES transfer shape", patch)
         self.assertIn("TITLES reaches bounded EOF", patch)
 
@@ -438,7 +441,7 @@ class MergedRepositoryTest(unittest.TestCase):
 
     def test_release_artifacts_have_no_retired_menu_runtime(self) -> None:
         bundle = ROOT / "build/pi1mhz-all"
-        rom = (bundle / "Pi1MHz/ElkWiFi.rom").read_bytes()
+        rom = (bundle / "Pi1MHz/1mhz-wifi.rom").read_bytes()
         config = (bundle / "Pi1MHz/Pi1MHz.cfg").read_text().lower()
         for kernel_name in ("kernel.img", "kernel7.img"):
             kernel = (bundle / kernel_name).read_bytes().lower()

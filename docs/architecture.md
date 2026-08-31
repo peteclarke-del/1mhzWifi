@@ -219,7 +219,7 @@ sideways-ROM predecessor, WiCFS copies a short tail-call to host filing
 workspace, selects the saved ROM there and jumps to the saved handler. The
 handler returns through the existing MOS extended-vector frame. The RAM tail
 is necessary because the instruction after ROM selection cannot be fetched
-from the displaced 1MHzWifi ROM.
+from the displaced 1MHz-WiFi ROM.
 
 While WiCFS is active it claims its own `*REWIND` during the FSCV OSCLI pass,
 before sideways-ROM command dispatch. Its original OSBYTE `&8C` trap remains

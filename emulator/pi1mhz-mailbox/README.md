@@ -43,7 +43,7 @@ fixture models managed SSH deterministically; when installed with
 wolfSSH, including public-key and ephemeral password authentication. The
 dispatch callback keeps the device independent of either backend.
 
-Control selector `&FF` implements 1MHzWifi control services and command 93 UEF
+Control selector `&FF` implements 1MHz-WiFi control services and command 93 UEF
 normalization. Raw, gzip, ZIP and ZIP-contained gzip inputs are normalized
 through the AP5-visible JIM window at `&000000`, with length and CRC validation
 matching the Pi-side contract. An exact `IUEF` version-1 subprotocol retains up
@@ -105,7 +105,7 @@ The integration also makes command-line ROM selection deterministic before
 the MOS service-ROM scan. Explicit ROMs in banks 0 and 1 take precedence over
 Elkulator's legacy cartridge mapping. Any sideways bank can be made writable
 with `-ram <bank>`, for example `-ram 6 -ram 7` for a 32 KB expansion. These
-are emulator configuration controls. The 1MHzWifi ROM does not assume fixed
+are emulator configuration controls. The 1MHz-WiFi ROM does not assume fixed
 ROM or RAM bank numbers.
 
 The installer also adds `-autokeys <sequence>` for repeatable hardware-level

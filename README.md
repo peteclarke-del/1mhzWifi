@@ -1,7 +1,7 @@
-# 1MHzWifi
+# 1MHz-WiFi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHzWifi 0.1.66` candidate ROM presents the
+Micro through Pi1MHz. The `1MHz-WiFi 0.1.66` candidate ROM presents the
 ElkWiFi 0.23 command and OSWORD interface. The same 16 KiB ROM is built for
 Electron, BBC B, BBC B+ and Master hosts. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
@@ -188,7 +188,7 @@ The removal and the retained generic facilities are recorded in
 The ready-to-copy SD-card image tree is `build/pi1mhz-all/`. The equivalent ZIP
 archive is [build/pi1mhz-all-hardware-test.zip](build/pi1mhz-all-hardware-test.zip).
 Copy the contents of `pi1mhz-all/` to a FAT-formatted Pi boot partition, then
-fit or load `Pi1MHz/ElkWiFi.rom` as an Acorn sideways ROM.
+fit or load `Pi1MHz/1mhz-wifi.rom` as an Acorn sideways ROM.
 The same tree includes `host-tools/nettools.ssd`. Install or select that SSD
 through DFS/MMFS when testing `*SSH` or `*TELNET`; replacing the Pi files alone
 does not replace host programs already held on another disc image.
@@ -250,7 +250,7 @@ generation numbers make retries idempotent. Older kernels continue through the
 unchanged single-window path and retain the `&FFFE` limit.
 
 Release 0.1.55 retains the removal of the incorrect Tube-transfer path exposed
-by physical testing. 1MHzWifi is an Electron 1MHz-bus filing system and always
+by physical testing. 1MHz-WiFi is an Electron 1MHz-bus filing system and always
 places UEF data in host memory. The patched menu uses OSBYTE `&EA` only to
 detect an active Tube. It then enters the installed BASIC ROM directly on the
 Electron and queues `PAGE=&E00` before the internal WiCFS launch command. It
@@ -294,7 +294,7 @@ retaining the current Pi1MHz source revision.
 Release hashes:
 
 ```text
-1MHzWifi ROM 25472db8c5cc22e09bf6b9a5531bba0cc334cdec3ba0af459d3bfc6fa82082ef
+1MHz-WiFi ROM 720a180dc2e9d924c08b8728a729059798a45915aaad3f768f6ec8c71f0ebff1
 kernel.img   c8910a1ea94d72647a45b6d61c9dbd197865371e1b8662327d9a0e9c798e496d
 kernel7.img  20b3439503d574a73304b86fbd124efe6301e39ee3190a20711b3c78919770f1
 nettools.ssd 7bfe26b2c8f3212466bd3bdbc7f40e6f1d72722a3dbcc7a9f25fd3858dc8d883
@@ -447,7 +447,7 @@ emulator result.
 - [Hardware validation](docs/hardware-validation.md)
 - [Regression ownership](docs/regression-testing.md)
 - [Implementation backlog](TODO.md)
-- [ElkWiFi ROM patch kit](rom-side/README.md)
+- [1MHz-WiFi ROM patch kit](rom-side/README.md)
 - [Pi1MHz patch kit](pi-side/README.md)
 - [Elkulator mailbox patch kit](emulator/pi1mhz-mailbox/README.md)
 - [Contributing](CONTRIBUTING.md)

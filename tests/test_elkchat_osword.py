@@ -386,7 +386,7 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
     def setUpClass(cls):
         rom_path = Path(os.environ.get(
             "ELKWIFI_TEST_ROM",
-            ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom",
+            ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom",
         ))
         cls.rom = rom_path.read_bytes()
         default_source = (

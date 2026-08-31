@@ -415,7 +415,7 @@ labels_file="$upstream/rom/1mhzwifi-labels.json"
 (cd "$upstream/rom" && "$beebasm_command" -i ElkWifi.asm -dd -labels "$labels_file")
 python3 "$script_dir/check_combined_ram_layout.py" "$upstream/rom" "$labels_file"
 mkdir -p "$root_dir/build"
-rom_output=${ELKWIFI_ROM_OUTPUT:-"$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"}
+rom_output=${ELKWIFI_ROM_OUTPUT:-"$root_dir/build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom"}
 mkdir -p "$(dirname -- "$rom_output")"
 install -m 0644 "$upstream/rom/bbcwifi.rom" "$rom_output"
 sha256sum "$rom_output"
