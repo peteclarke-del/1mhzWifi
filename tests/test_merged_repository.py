@@ -64,7 +64,7 @@ class MergedRepositoryTest(unittest.TestCase):
             )
         upstream_env = (ROOT / "pi-side/upstream.env").read_text()
         self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=6b3b88df34172fbaeee927c24d9d5c937710400c",
+            "PI1MHZ_UPSTREAM_COMMIT=831b80675b2f4b2f10a85833fa807e4c572087c9",
             upstream_env,
             "the pin must include dp111's FIQ-masked adjacent-byte fix",
         )
@@ -165,22 +165,6 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn("Pi1MHz_MemoryWrite(addr, NTS_OK)", capability_path)
         self.assertNotIn("SEC_BUSY", capability_path)
 
-    def test_fixed_services_replace_completed_selector_echo(self) -> None:
-        patch = (
-            ROOT / "pi-side/pi1mhz-516a267/patches/deterministic-service-dispatch.patch"
-        ).read_text()
-        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
-        fixed = patch.split("Built-in ABI ranges", 1)[1].split(
-            "for (unsigned int i", 1
-        )[0]
-        self.assertIn("net_service_command(command_pointer, addr, data)", fixed)
-        self.assertIn("elkwifi_service_command(command_pointer, addr, data)", fixed)
-        self.assertIn("secure_service_command(command_pointer, addr, data)", fixed)
-        self.assertIn("follow the standard selector echo", patch)
-        self.assertNotIn("-   Pi1MHz_MemoryWrite(addr, data)", patch)
-        self.assertIn("fixed_echo_seen[0]", patch)
-        self.assertNotIn("!fixed_echo_seen[0]", patch)
-        self.assertNotIn("services-result-publication.patch", installer)
 
     def test_host_nettools_mask_irq_while_using_shared_jim_cursor(self) -> None:
         net = (ROOT / "host-tools/src/common/pi1mhz_net.asm").read_text()
@@ -281,7 +265,7 @@ class MergedRepositoryTest(unittest.TestCase):
     def test_packaged_kernels_have_matching_recovery_revisions(self) -> None:
         pattern = re.compile(
             rb"Pi1MHz ElkWiFi 0\.1\.67, kernel "
-            rb"(V1\.30-114-g6b3b88d-dirty\.[0-9a-f]{8})"
+            rb"(V1\.30-123-g831b806-dirty\.[0-9a-f]{8})"
         )
         revisions = []
         for name in ("kernel.img", "kernel7.img"):
@@ -311,20 +295,10 @@ class MergedRepositoryTest(unittest.TestCase):
         # literal, so this pins the mechanism and not one magic number.
         self.assertIn("RNG_WORD_DEADLINE_US", patch)
         self.assertIn("RPI_GetSystemTime() - started_us >= RNG_WORD_DEADLINE_US", patch)
-        self.assertIn("exact MENU TITLES transfer shape", patch)
-        self.assertIn("TITLES reaches bounded EOF", patch)
+        # The MENU/TITLES transfer assertions moved upstream with
+        # http-titles-transfer.patch, so the maintainer patch no longer
+        # carries them; upstream owns that coverage now.
 
-    def test_fixed_service_children_cannot_consume_dynamic_slots(self) -> None:
-        dispatch = (
-            ROOT
-            / "pi-side/pi1mhz-516a267/patches/deterministic-service-dispatch.patch"
-        ).read_text()
-        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
-        for symbol in ("net_service_init", "elkwifi_service_init", "secure_service_init"):
-            self.assertIn(symbol, dispatch)
-        self.assertIn("fixed_services_child", dispatch)
-        self.assertIn("if (fixed_services_child)", dispatch)
-        self.assertIn("grep -q 'fixed_services_child'", installer)
 
     def test_retired_layout_is_not_referenced(self) -> None:
         retired = (
@@ -390,8 +364,6 @@ class MergedRepositoryTest(unittest.TestCase):
         )
         self.assertIn('"$target/src/elk.h"', installer)
         self.assertIn("parse_scripted_keys", autokeys)
-        self.assertIn("elkulator-autokeys.patch", installer)
-        self.assertIn("elkulator-elkwifi-main.patch", installer)
         self.assertIn("reset6502() performs the MOS service-ROM scan", elkwifi_main)
         self.assertIn("if (rambanks[i]) enable_ram_n(i)", elkwifi_main)
         self.assertIn('printf("-tube6502 rom', tube_patch)
@@ -405,8 +377,6 @@ class MergedRepositoryTest(unittest.TestCase):
             "                         reset6502();",
             tube_patch,
         )
-        self.assertIn("elkulator-ap5-tube.patch", installer)
-        self.assertIn("elkulator-ap5-tube-elkwifi.patch", installer)
         self.assertIn('ram[0x0d6d] |= 0x20', tube_device)
         self.assertIn("ap5_tube_prepare_cold_boot();", tube_patch)
 

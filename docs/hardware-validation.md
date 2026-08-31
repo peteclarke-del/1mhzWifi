@@ -11,12 +11,12 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-Pi1MHz       6b3b88df34172fbaeee927c24d9d5c937710400c
+Pi1MHz       831b80675b2f4b2f10a85833fa807e4c572087c9
 1MHz-WiFi ROM 720a180dc2e9d924c08b8728a729059798a45915aaad3f768f6ec8c71f0ebff1
-kernel.img   c8910a1ea94d72647a45b6d61c9dbd197865371e1b8662327d9a0e9c798e496d
-kernel7.img  20b3439503d574a73304b86fbd124efe6301e39ee3190a20711b3c78919770f1
+kernel.img   8739cac5e271e4bacaef44f21328a99fb3027939699e8b10a4536759c16ece10
+kernel7.img  6151e20cab32954f4dda236fd40ccd44da27bcdef9f7e7845b5c3e0ec0575be9
 nettools.ssd 7bfe26b2c8f3212466bd3bdbc7f40e6f1d72722a3dbcc7a9f25fd3858dc8d883
-bundle ZIP   65702f87e59fd3fddc819e8712df4146278754ad32b23d49e26e040e4060f110
+bundle ZIP   79f50edccbadb18647db6510909abadfcd03e517f55e4288fab3ebe325ac0d97
 ```
 
 The Pi1MHz commit was the official `master` tip verified on 23 August 2026. Run
