@@ -7,6 +7,7 @@ drv_svc_addr_mid = &A7
 drv_svc_addr_hi = &A8
 drv_svc_data = &A9
 drv_svc_command = &AA
+drv_svc_guard_image = 86  \publish the host filing-vector guard
 drv_uef_sbuft = &F5
 drv_uef_sbufl = &F8
 drv_uef_sbufh = &F9

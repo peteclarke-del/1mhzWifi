@@ -62,6 +62,13 @@
  * OSWORD &65 clients read in full, and the last page for the length trailer. */
 #define ELKWIFI_UEF_FLAT_WINDOW \
    ((256u - ELKWIFI_UEF_FIRST_PAGE - 1u) * 256u)
+/* A published guard occupies the top of every page, so the stream gives those
+ * bytes up and is laid out in short runs instead. The guard ends exactly at
+ * the page top, which is what leaves the length trailer intact. */
+#define ELKWIFI_GUARD_OFFSET 0x97u
+#define ELKWIFI_GUARD_LENGTH (256u - ELKWIFI_GUARD_OFFSET)
+#define ELKWIFI_UEF_GUARD_WINDOW \
+   ((256u - ELKWIFI_UEF_FIRST_PAGE - 1u) * ELKWIFI_GUARD_OFFSET)
 #define ELKWIFI_UEF_STREAM_CAPACITY (16u * 1024u * 1024u)
 #define ELKWIFI_UEF_STREAM_VERSION 1u
 #define ELKWIFI_UEF_OP_PROBE 0u
@@ -228,28 +235,82 @@ static size_t uef_public_length_get(void)
         | ((size_t)Pi1MHz->JIM_ram[trailer + 1u] << 8);
 }
 
+static uint8_t guard_image[ELKWIFI_GUARD_LENGTH];
+static bool guard_image_valid;
+
+static void guard_stamp(void)
+{
+   unsigned page;
+   if (!guard_image_valid) return;
+   /* Page 0 is the service command and reply buffer, which OSWORD &65
+    * clients read as 241 contiguous bytes, so it cannot also hold the guard.
+    * The host keeps the selector off page 0 outside service calls. */
+   for (page = ELKWIFI_UEF_FIRST_PAGE; page < 256u; page++)
+      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE + (page << 8)
+                              + ELKWIFI_GUARD_OFFSET],
+             guard_image, ELKWIFI_GUARD_LENGTH);
+}
+
+/* Lay the stream out in ELKWIFI_GUARD_OFFSET runs, one per page, so it never
+ * covers the guard. */
+static void uef_window_scatter(const uint8_t *source, size_t count)
+{
+   size_t page = 0u;
+   while (count != 0u) {
+      size_t chunk = count < ELKWIFI_GUARD_OFFSET
+                   ? count : ELKWIFI_GUARD_OFFSET;
+      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE
+                              + ((page + ELKWIFI_UEF_FIRST_PAGE) << 8)],
+             source, chunk);
+      source += chunk;
+      count -= chunk;
+      page++;
+   }
+   guard_stamp();
+}
+
 static void uef_stream_publish_window(void)
 {
    size_t available = uef_stream_length - uef_stream_cursor;
-   size_t count = available < ELKWIFI_UEF_FLAT_WINDOW
-                ? available : ELKWIFI_UEF_FLAT_WINDOW;
+   size_t limit = guard_image_valid ? ELKWIFI_UEF_GUARD_WINDOW
+                                    : ELKWIFI_UEF_FLAT_WINDOW;
+   size_t count = available < limit ? available : limit;
    uef_published_offset = uef_stream_cursor;
-   if (count != 0u)
-      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE
-                              + (ELKWIFI_UEF_FIRST_PAGE << 8)],
-             uef_stream_data + uef_stream_cursor, count);
+   if (count != 0u) {
+      if (guard_image_valid)
+         uef_window_scatter(uef_stream_data + uef_stream_cursor, count);
+      else
+         memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE
+                                 + (ELKWIFI_UEF_FIRST_PAGE << 8)],
+                uef_stream_data + uef_stream_cursor, count);
+   }
    uef_stream_cursor += count;
    uef_published_length = (uint16_t)count;
    uef_published_final = uef_stream_cursor == uef_stream_length;
    uef_public_length_set(count);
 }
 
+/* Publishing or withdrawing the guard changes the shape of the window, so
+ * anything already published was laid out for the old shape and the host would
+ * read it misaligned. Lay the same bytes down again under the new rule. */
+static void uef_window_relayout(void)
+{
+   if (!uef_stream_ready) return;
+   uef_stream_cursor = uef_published_offset;
+   uef_stream_publish_window();
+}
+
 static void uef_stream_republish_window(void)
 {
-   if (uef_published_length != 0u)
-      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE
-                              + (ELKWIFI_UEF_FIRST_PAGE << 8)],
-             uef_stream_data + uef_published_offset, uef_published_length);
+   if (uef_published_length != 0u) {
+      if (guard_image_valid)
+         uef_window_scatter(uef_stream_data + uef_published_offset,
+                            uef_published_length);
+      else
+         memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE
+                                 + (ELKWIFI_UEF_FIRST_PAGE << 8)],
+                uef_stream_data + uef_published_offset, uef_published_length);
+   }
    uef_public_length_set(uef_published_length);
 }
 
@@ -1154,6 +1215,30 @@ static uint8_t process_request(uint32_t cp)
          return ELKWIFI_OK;
       }
 
+      case ELKWIFI_CMD_GUARD_IMAGE:
+      {
+         /* The host sends its assembled filing-vector guard and the Pi only
+          * replicates it into the top of every JIM page. A zero length
+          * withdraws it and hands the pages back to the stream. The Pi never
+          * interprets the image; only the host knows what it does. */
+         const uint8_t *p = &Pi1MHz->JIM_ram[cp + 1u];
+         if (p[0] == 0u) {
+            guard_image_valid = false;
+            memset(guard_image, 0, sizeof(guard_image));
+            uef_window_relayout();
+            response_string(cp, "OFF\r\n");
+            return ELKWIFI_OK;
+         }
+         if (p[0] != ELKWIFI_GUARD_LENGTH)
+            return ELKWIFI_ERR_PARAM;
+         memcpy(guard_image, p + 1, ELKWIFI_GUARD_LENGTH);
+         guard_image_valid = true;
+         guard_stamp();
+         uef_window_relayout();
+         response_string(cp, "OK\r\n");
+         return ELKWIFI_OK;
+      }
+
       case ELKWIFI_CMD_LAPOPT:
          if (Pi1MHz->JIM_ram[cp + 1u] != 7u
              && Pi1MHz->JIM_ram[cp + 1u] != 127u)
@@ -1273,5 +1358,5 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
    request_cancel = false;
    scan_waiting = false;
    _restore_cpsr(cpsr);
-   Pi1MHz_Register_Poll(elkwifi_poll);
+   Pi1MHz_Register_Poll(elkwifi_poll, "elkwifi");
 }

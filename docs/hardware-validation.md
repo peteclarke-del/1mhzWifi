@@ -11,8 +11,8 @@ or protocol change that can affect it.
 ## Current artifact identity
 
 ```text
-Pi1MHz       499f940df42ca69e8bfc5be315333f5d271e6c37
-1MHzWifi ROM b26423b695fd5ba8a7e5cf90b3ae06c43534fde806b104a9c791ab50ba4c1f6b
+Pi1MHz       6b3b88df34172fbaeee927c24d9d5c937710400c
+1MHzWifi ROM 25472db8c5cc22e09bf6b9a5531bba0cc334cdec3ba0af459d3bfc6fa82082ef
 kernel.img   c8910a1ea94d72647a45b6d61c9dbd197865371e1b8662327d9a0e9c798e496d
 kernel7.img  20b3439503d574a73304b86fbd124efe6301e39ee3190a20711b3c78919770f1
 nettools.ssd 7bfe26b2c8f3212466bd3bdbc7f40e6f1d72722a3dbcc7a9f25fd3858dc8d883
