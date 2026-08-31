@@ -3,7 +3,7 @@
 `run_catalogue_differential.py` runs the same published UEF with the AP5 Tube
 disabled and enabled. It uses the photographed Electron ROM order, including
 the +2 sideways RAM banks, RH Plus, AP5 support ROM, DFS and ADFS. The
-1MHzWifi ROM and Pi mailbox remain on the host in both runs.
+1MHz-WiFi ROM and Pi mailbox remain on the host in both runs.
 
 The runners use the integration's conservative timing fault injection by
 default. This is not a calibrated physical timing claim. `--fiq-delay`
@@ -57,7 +57,7 @@ python3 tests/elkulator/run_catalogue_differential.py \
   --elkulator /tmp/elkulator-native-audit.H4MofS/elkulator/elkulator \
   --runtime-dir /tmp/elkulator-current.cRHZ8Z \
   --index /path/to/ElkWiFi/menu/data/index.txt \
-  --wifi-rom build/pi1mhz-all/Pi1MHz/ElkWiFi.rom \
+  --wifi-rom build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom \
   --output /tmp/1mhzwifi-catalogue-gate \
   --range 0:20
 ```
@@ -85,7 +85,7 @@ check: it will hide an application loaded below the active ADFS workspace.
 ## NetTools hardware-profile diagnostic
 
 `run_nettools_hardware.py` records SHA-256 provenance for Elkulator, every ROM,
-the 1MHzWifi image, mounted media, the Tube ROM and configuration files. Mutable
+the 1MHz-WiFi image, mounted media, the Tube ROM and configuration files. Mutable
 media and configuration hashes are recorded separately before and after the
 run. The report also records the runtime source revision when it is a Git
 checkout and the exact filing-system setup commands.
@@ -115,10 +115,10 @@ events for commands which produce them. Frame references must be captures from
 the same emulator window geometry. Camera photographs are evidence for manual
 comparison, not valid pixel-level NCC references.
 
-`--wifi-rom-slot BANK` installs 1MHzWifi in any sideways bank from 0 through
+`--wifi-rom-slot BANK` installs 1MHz-WiFi in any sideways bank from 0 through
 15. It defaults to bank 3 only to reproduce the photographed machine. If that
 bank contains a profile ROM, relocate the displaced ROM explicitly with
-`--extra-rom OTHER_BANK=/path/to/rom`. The requested 1MHzWifi bank is applied
+`--extra-rom OTHER_BANK=/path/to/rom`. The requested 1MHz-WiFi bank is applied
 last. This makes bank relocation part of the test input rather than an
 assumption in the ROM or runner.
 
@@ -129,7 +129,7 @@ under test:
 python3 tests/elkulator/run_nettools_hardware.py \
   --elkulator /path/to/patched/elkulator \
   --runtime-dir /path/to/runtime \
-  --wifi-rom build/pi1mhz-all/Pi1MHz/ElkWiFi.rom \
+  --wifi-rom build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom \
   --sd-image /path/to/pi1mhz-sd.img \
   --extra-rom 2=/path/to/your-mmfs.rom \
   --setup-command "din 0" \

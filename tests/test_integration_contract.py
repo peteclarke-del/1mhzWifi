@@ -863,13 +863,13 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("cmp #&7F\n bcc service_driver_response_ascii", driver)
         self.assertIn("equw service_driver_version-1", public_driver)
         identity = (ROOT / "rom-side/elkwifi-0.23/patches/identity.patch").read_text()
-        self.assertIn('romtitle           equs "1MHzWifi"', identity)
+        self.assertIn('romtitle           equs "1MHz-WiFi"', identity)
         self.assertIn('romversion         equs "0.1.67"', identity)
         version = (ROOT / "rom-side/elkwifi-0.23/overlay/version.asm").read_text()
-        self.assertIn("1MHzWifi 0.1.67 (C) 2026 Peter Clarke", version)
+        self.assertIn("1MHz-WiFi 0.1.67 (C) 2026 Peter Clarke", version)
         self.assertIn("+                    equb &D,&EA", banner_patch)
         self.assertIn("-                    equb &D,&D,&EA", banner_patch)
-        self.assertIn("Original elkWifi (C) 2020 Roland Leurs", version)
+        self.assertIn("Parts from ElkWiFi (C) 2020 Roland Leurs", version)
         self.assertIn("cmp #&44\n beq service_driver_error_no_wifi", driver)
         self.assertIn(
             "lda &FC00+drv_svc_data\n cmp drv_svc_command_copy\n"
@@ -928,7 +928,7 @@ class IntegrationContractTest(unittest.TestCase):
         ).read_text()
         self.assertIn("rom_content_end = P%", patch)
         self.assertIn("ASSERT rom_content_end <= &BF00", patch)
-        self.assertNotIn(b"This is the end!", (ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom").read_bytes())
+        self.assertNotIn(b"This is the end!", (ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom").read_bytes())
 
     def test_menu_surface_is_fully_retired(self) -> None:
         service = (

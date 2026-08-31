@@ -26,7 +26,7 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
   Tube-off hosts also receive an interrupt-safe standard-vector gateway at
   `&0780`, below the observed `&0900-&10FF` cassette-loader overwrite range.
 - [x] Reset-safe WiCFS teardown. MOS rebuilds its vectors before ROM reset
-  service calls, so 1MHzWifi clears its saved ownership record without
+  service calls, so 1MHz-WiFi clears its saved ownership record without
   restoring stale cassette predecessors over ADFS, DFS or MMFS.
 - [x] Full 32-bit WiCFS catalogue metadata returned through the caller-owned
   OSFILE control block, sequential reads and host-memory loads. WiCFS does not claim a
@@ -131,7 +131,7 @@ half-written path in this release:
 
 Compatibility is measured at the public OSWORD `&65` entry, not only through
 star commands. The target is one unchanged application binary on an original
-ElkWiFi 0.23 cartridge and on 1MHzWifi.
+ElkWiFi 0.23 cartridge and on 1MHz-WiFi.
 
 - [x] Implement bounded functions 0 and 1 as volatile TCP resets which preserve
   the Pi WiFi association and saved profile.
@@ -149,12 +149,12 @@ ElkWiFi 0.23 cartridge and on 1MHzWifi.
   Confirmed the original `call_claimed` epilogue (unchanged from upstream
   routines.asm) always restores the caller's own X/Y and reports only claim
   status through A=0, so function 23's internal `Y=&FF` write is never
-  observable to any caller on either the original cartridge or 1MHzWifi.
+  observable to any caller on either the original cartridge or 1MHz-WiFi.
 - [x] Preserve pinned ElkWiFi 0.23 functions 29 to 31 as reserved. DATE,
   TIME and ONLINE use private ROM selectors 32-34 rather than occupying an
   original ElkWiFi function number.
 - [ ] Run that harness against both the unmodified ElkWiFi 0.23 ROM and the
-  current 1MHzWifi ROM. Record byte-level response differences and either
+  current 1MHz-WiFi ROM. Record byte-level response differences and either
   remove them or document why an exact match is impossible on Pi1MHz.
 - [ ] Boot the unchanged `ELKNET` diagnostic from `../elkChat`, then the
   unchanged ElkChat SSD. ELKNET, Network Status, association query, TCP open to
@@ -167,7 +167,7 @@ ElkWiFi 0.23 cartridge and on 1MHzWifi.
   branch or function number is acceptable.
 - [ ] Compare all applicable star commands, help text, response framing and
   MOS errors with an original cartridge. Preserve deliberate differences such
-  as the 1MHzWifi identity, `*MENUSRC`, `*ONLINE`, compressed UEF support and
+  as the 1MHz-WiFi identity, `*MENUSRC`, `*ONLINE`, compressed UEF support and
   explicit rejection of cartridge-only hardware operations.
 
 ## Outstanding native network-tools work
@@ -198,7 +198,7 @@ tracked elsewhere.
   parasite CPUs as separate ports rather than assuming 6502 compatibility.
 - [ ] Apply the same optional host-gateway/parasite split to ElkChat without
   changing its public ElkWiFi OSWORD ABI. The normal ElkChat build must still
-  run on a 32K host and against both the original cartridge and 1MHzWifi.
+  run on a 32K host and against both the original cartridge and 1MHz-WiFi.
 - [ ] Implement the Viewdata/Prestel parser, MODE 7 renderer, input mapping and
   fragmented-page fixtures.
 - [x] Implement native PING and NSLOOK clients and service calls, with build
@@ -565,7 +565,7 @@ these multi-window titles remains outstanding.
 
 ### Physical Tube-off milestone, 18 August 2026
 
-`build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` version 0.1.55, SHA-256
+`build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom` version 0.1.55, SHA-256
 `ea79352f49ebf986004050cc630452b795a6ca75fe5870c2c46980e49b4100fb`,
 with the matched Pi Zero 2 kernel now has a working physical Tube-off baseline.
 WiFi association, WGET, `*MENU`, local `*UEF LOAD`, PING, TELNET, NSLOOK, SSH
@@ -662,7 +662,7 @@ separately from a stable application run.
   interrupt-masked transaction using the proven settling interval, sends all
   HTTP requests with a 16-bit length, and identifies itself so the local server
   returns bounded, pageable responses below its 4K parser window. The full Elkulator
-  journey passes through both Pi1MHz and the original ElkWiFi ROM, and its
+  journey passes through both Pi1MHz and the original 1MHz-WiFi ROM, and its
   OSWRCH trace proves Public Chat emits no Settings labels and Private Chat does
   not exit through `Bad program`. Physical hardware contradicts that result:
   latest hardware report has Public Chat working, while Private Chat opens but
@@ -678,7 +678,7 @@ separately from a stable application run.
 - [ ] Repeat this complete baseline with the Tube enabled only after the
   Tube-off screen-mode, performance and ElkChat defects are characterised.
 
-No implementation placeholder remains on the declared 1MHzWifi ROM
+No implementation placeholder remains on the declared 1MHz-WiFi ROM
 station-mode, plain-HTTP command surface. The native-tools SSD ships only the
 implemented TELNET, SSH and NETMENU programs. ROM 0.1.30 reached visible Zalaga,
 Arcadians, Last of the Free and E-Type gameplay in the AP5-accurate live
