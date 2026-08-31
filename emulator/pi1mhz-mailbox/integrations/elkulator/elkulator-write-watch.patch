@@ -1,21 +1,21 @@
 --- a/src/6502.c
 +++ b/src/6502.c
-@@ -180,6 +180,11 @@
-                         }
- 
- int output=0;
+@@ -207,6 +207,11 @@
+ static const char *tuple_trace_path;
+ static unsigned long tuple_osbyte_calls;
+ static unsigned char tuple_last[12];
 +static FILE *write_watch;
 +static const char *write_watch_path;
 +static unsigned write_watch_lo, write_watch_hi;
 +static unsigned char write_watch_last[0x40];
 +static int write_watch_primed;
- static FILE *tuple_trace;
- static const char *tuple_trace_path;
- static unsigned long tuple_osbyte_calls;
-@@ -202,6 +207,44 @@
-         {
-                 oldpc2=oldpc;
-                 oldpc=pc;
+ void exec6502()
+ {
+         uint16_t addr,addr2;
+@@ -378,6 +383,45 @@
+                                 tuple_osbyte_calls=0;
+                         }
+                 }
 +                /* Log every change to a watched RAM window with the PC which
 +                 * was executing. Used to map who really owns the cassette
 +                 * workspace, rather than inferring it from the ROM source. */
@@ -54,6 +54,7 @@
 +                                        fflush(write_watch);
 +                                }
 +                        }
-                 }
-                 /* Diagnostic for the WiCFS vector gateway relocation. The
-                  * replacement repairs the MOS extended-vector table from the
++                }
+                 oldcycs=cycles;
+ //                if (pc==0x1000) output=1;
+ //                if (pc>0xE00 && pc<0x5000) output=1;

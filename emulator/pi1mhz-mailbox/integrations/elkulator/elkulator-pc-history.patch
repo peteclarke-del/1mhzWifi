@@ -1,6 +1,6 @@
 --- a/src/6502.c
 +++ b/src/6502.c
-@@ -184,5 +184,25 @@
+@@ -182,6 +182,26 @@
  static uint16_t pc_dump_address;
  static int pc_dump_initialised;
  static int pc_dump_complete;
@@ -26,9 +26,11 @@
 +}
  void exec6502()
  {
-@@ -194,4 +214,66 @@
-                 oldpc=pc;
-                 oldcycs=cycles;
+         uint16_t addr,addr2;
+@@ -253,6 +273,68 @@
+                         }
+                         pc_dump_complete=1;
+                 }
 +                if (!pc_history_initialised)
 +                {
 +                        const char *trigger=getenv("PI1MHZ_PC_HISTORY_TRIGGER");
@@ -91,5 +93,6 @@
 +pc_history_recorded:
 +                        ;
 +                }
-                 if (!pc_dump_initialised)
-                 {
+                 oldcycs=cycles;
+ //                if (pc==0x1000) output=1;
+ //                if (pc>0xE00 && pc<0x5000) output=1;
