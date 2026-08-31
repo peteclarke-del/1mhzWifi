@@ -44,7 +44,7 @@ Required build tools:
 
 - Git with initialised Pi1MHz submodules
 - Arm GCC 13 or later
-- A verified `build/pi1mhz-all/Pi1MHz/ElkWiFi.rom` in this repository
+- A verified `build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom` in this repository
 
 The installer changes the supplied Pi1MHz checkout. Use a dedicated checkout,
 inspect its diff after installation, and retain the exact upstream commit in
@@ -85,7 +85,7 @@ The installer performs the following operations:
 1. Verifies the Pi1MHz checkout and compiler.
 2. Copies the maintained service and UEF normalisation sources into `src/`.
 3. Applies the Pi1MHz integration and CYW43 patches in a fixed order.
-4. Installs the matched host ROM as `firmware/Pi1MHz/ElkWiFi.rom`.
+4. Installs the matched host ROM as `firmware/Pi1MHz/1mhz-wifi.rom`.
 5. Enables the Services mailbox, ElkWiFi service, and net service defaults.
 6. Enables the three BeebSCSI defaults when no active value exists.
 7. Invokes the upstream Pi1MHz build script.

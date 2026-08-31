@@ -48,6 +48,6 @@ and commands 101-113 are reserved for that service.
 
 These tests establish merge and build integrity. A live Elkulator test with
 the photographed ROM order, AP5 Tube model and Internet mailbox bridge reached
-the Arcadians program under ROM 0.1.28. 1MHzWifi did not access or disable the
+the Arcadians program under ROM 0.1.28. 1MHz-WiFi did not access or disable the
 Tube. The physical Electron result remains a separate acceptance gate in the
 hardware checklist.

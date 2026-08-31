@@ -7,7 +7,7 @@ changes. A checked box records an observed setting, not an intention.
 ## Repository identity
 
 - [ ] Default branch is `main`.
-- [ ] Description identifies 1MHzWifi as an ElkWiFi-compatible Pi1MHz project.
+- [ ] Description identifies 1MHz-WiFi as an ElkWiFi-compatible Pi1MHz project.
 - [ ] Repository topics cover Acorn Electron, BBC Micro, Pi1MHz, 6502 and
   Raspberry Pi.
 - [ ] Issues are enabled and present the maintained issue forms.

@@ -29,7 +29,7 @@ fi
 git clone --quiet --no-checkout "$source_tree" "$checkout"
 git -C "$checkout" checkout --quiet "$expected"
 
-ELKWIFI_ROM=${ELKWIFI_ROM:-$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom} \
+ELKWIFI_ROM=${ELKWIFI_ROM:-$root_dir/build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom} \
 WOLFSSL_SOURCE=${WOLFSSL_SOURCE:-} \
 WOLFSSH_SOURCE=${WOLFSSH_SOURCE:-} \
     "$script_dir/install_bundle.sh" "$checkout" apply
@@ -40,7 +40,7 @@ WOLFSSH_SOURCE=${WOLFSSH_SOURCE:-} \
 # BCM43455 compatibility firmware pin.
 rm -rf -- "$checkout/src/third_party"
 git -C "$checkout" add -A src firmware/Pi1MHz/Pi1MHz.cfg \
-    firmware/Pi1MHz/ElkWiFi.rom \
+    firmware/Pi1MHz/1mhz-wifi.rom \
     firmware/Pi1MHz/wifi/brcmfmac43430-sdio.txt \
     firmware/Pi1MHz/wifi/brcmfmac43455-sdio.bin
 git -C "$checkout" diff --cached --binary HEAD > "$output"

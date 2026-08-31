@@ -6,8 +6,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
-ROM_SHA256 = "25472db8c5cc22e09bf6b9a5531bba0cc334cdec3ba0af459d3bfc6fa82082ef"
+ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom"
+ROM_SHA256 = "720a180dc2e9d924c08b8728a729059798a45915aaad3f768f6ec8c71f0ebff1"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -21,14 +21,14 @@ class RomCompatibilityTest(unittest.TestCase):
         if self.rom_path == ROM_PATH:
             self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
         self.assertEqual(
-            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x32, 0x80, 0x82, 0x18, 0x30))
+            self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x19, 0x30))
         )
         copyright_offset = self.rom[7]
         self.assertEqual(self.rom[copyright_offset:copyright_offset + 4], b"\0(C)")
-        self.assertEqual(self.rom[9:18], b"1MHzWifi\0")
-        self.assertEqual(self.rom[18:25], b"0.1.67\0")
-        self.assertIn(b"1MHzWifi 0.1.67 (C) 2026 Peter Clarke", self.rom)
-        self.assertIn(b"Original elkWifi (C) 2020 Roland Leurs", self.rom)
+        self.assertEqual(self.rom[9:19], b"1MHz-WiFi\0")
+        self.assertEqual(self.rom[19:26], b"0.1.67\0")
+        self.assertIn(b"1MHz-WiFi 0.1.67 (C) 2026 Peter Clarke", self.rom)
+        self.assertIn(b"Parts from ElkWiFi (C) 2020 Roland Leurs", self.rom)
 
     def test_uef_host_transition_is_present(self) -> None:
         self.assertIn(b"TAPE\r", self.rom)

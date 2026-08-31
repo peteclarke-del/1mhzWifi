@@ -1,6 +1,6 @@
 # Building and release hygiene
 
-This repository contains the maintained 1MHzWifi overlays, patches, tests, and
+This repository contains the maintained 1MHz-WiFi overlays, patches, tests, and
 release artifacts. It does not contain patched copies of ElkWiFi or Pi1MHz.
 Both upstream projects must be checked out separately at the pinned commits.
 
@@ -71,7 +71,7 @@ scripts deliberately modify their supplied upstream checkout.
 
 ## Build the host ROM
 
-Run this from the 1MHzWifi repository root:
+Run this from the 1MHz-WiFi repository root:
 
 ```sh
 ./rom-side/build_rom.sh "$build_root/ElkWiFi"
@@ -80,7 +80,7 @@ Run this from the 1MHzWifi repository root:
 The command verifies that the checkout contains the reviewed ElkWiFi commit,
 applies the ROM patch series in a fixed order, installs the maintained assembly
 overlays, and writes the canonical
-`build/pi1mhz-all/Pi1MHz/ElkWiFi.rom`. A repeat invocation must report every
+`build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom`. A repeat invocation must report every
 patch as already applied and produce the same 16 KiB ROM. The legacy
 `build/elkwifi_pi1mhz.rom` name is a relative symbolic link to this file, not a
 second ROM image.
@@ -128,7 +128,7 @@ timestamps. Use the SHA-256 values and the kernel revision reported by
 `*VERSION` as the authoritative image identity.
 
 The kernel revision shown by `*VERSION` fingerprints tracked Pi1MHz changes
-and the contents of the untracked 1MHzWifi overlay sources. Changing an
+and the contents of the untracked 1MHz-WiFi overlay sources. Changing an
 overlay source therefore produces a different revision suffix even before the
 Pi1MHz integration is committed upstream.
 

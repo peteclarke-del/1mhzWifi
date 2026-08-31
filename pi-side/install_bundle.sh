@@ -131,13 +131,13 @@ fi
 # or rebuild a ROM. A full repository build uses the canonical build output.
 rom_source=${ELKWIFI_ROM:-}
 if [ "$preset" != apply ]; then
-    if [ -z "$rom_source" ] && [ -f "$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom" ]; then
-        rom_source="$root_dir/build/pi1mhz-all/Pi1MHz/ElkWiFi.rom"
+    if [ -z "$rom_source" ] && [ -f "$root_dir/build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom" ]; then
+        rom_source="$root_dir/build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom"
         if [ -x "$root_dir/build.sh" ]; then
             "$root_dir/build.sh" --rom-only
         fi
-    elif [ -z "$rom_source" ] && [ -f "$script_dir/firmware/ElkWiFi.rom" ]; then
-        rom_source="$script_dir/firmware/ElkWiFi.rom"
+    elif [ -z "$rom_source" ] && [ -f "$script_dir/firmware/1mhz-wifi.rom" ]; then
+        rom_source="$script_dir/firmware/1mhz-wifi.rom"
     fi
     if [ -z "$rom_source" ]; then
         echo "a built 16 KiB host ROM is required; set ELKWIFI_ROM" >&2
@@ -418,7 +418,7 @@ printf '%s  %s\n' "$PI1MHZ_BCM43455_FIRMWARE_SHA256" "$bcm43455_tmp" \
 install_if_changed "$bcm43455_tmp" "$upstream/$bcm43455_path"
 
 if [ -n "$rom_source" ]; then
-    install_if_changed "$rom_source" "$upstream/firmware/Pi1MHz/ElkWiFi.rom"
+    install_if_changed "$rom_source" "$upstream/firmware/Pi1MHz/1mhz-wifi.rom"
 fi
 
 # The raw socket/URL service is deliberately opt-in upstream.  This adapter
@@ -532,5 +532,5 @@ echo "Hardware-test ZIP archive: $archive"
 echo "Copy the contents of that directory to a FAT SD-card boot partition."
 echo "Preserve /BeebSCSI*/scsi*.dat when updating an existing card."
 echo "This bundle does not include BeebSCSI hard-disc images."
-echo "Fit/load $upstream/firmware/Pi1MHz/ElkWiFi.rom as the host sideways ROM."
+echo "Fit/load $upstream/firmware/Pi1MHz/1mhz-wifi.rom as the host sideways ROM."
 echo "Install host-tools/nettools.ssd in the Electron's DFS/MMFS workflow."

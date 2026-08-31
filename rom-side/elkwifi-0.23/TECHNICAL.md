@@ -7,8 +7,8 @@ The patch set is based on ElkWiFi 0.23 commit
 driver and OSWORD `&65` entry model while replacing the cartridge UART transport
 with the Pi1MHz services and JIM interfaces on the 1 MHz bus.
 
-The ROM identifies as 1MHzWifi. It preserves Roland Leurs' original ElkWiFi
-credit in `*VERSION` and adds the 1MHzWifi revision and Pi kernel revision.
+The ROM identifies as 1MHz-WiFi. It preserves Roland Leurs' original ElkWiFi
+credit in `*VERSION` and adds the 1MHz-WiFi revision and Pi kernel revision.
 The generated image is exactly 16 KiB.
 
 ## Transport boundary

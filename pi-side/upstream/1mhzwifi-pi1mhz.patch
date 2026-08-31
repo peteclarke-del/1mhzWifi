@@ -1,207 +1,208 @@
-diff --git a/firmware/Pi1MHz/ElkWiFi.rom b/firmware/Pi1MHz/ElkWiFi.rom
+diff --git a/firmware/Pi1MHz/1mhz-wifi.rom b/firmware/Pi1MHz/1mhz-wifi.rom
 new file mode 100644
-index 0000000000000000000000000000000000000000..098f895392f1a20eb185e28a8138fe60d639dc07
+index 0000000000000000000000000000000000000000..6d4f345d1890402a93b7d2b3e9cc257f04a4ce04
 GIT binary patch
 literal 16384
-zcmdUWe|!{0wr|gLe)T{DibCXv6u7G)3I<%2=Xz0u#ECW}23TBO-)FL9bn+1rHVJ}z
-zy}RIMLO?nW2ncF)7?_X_be!-b1V{jP0n@m|)_d>Ub?>@nUBM7nY!wi8g}m>nnn{AX
-z_w9TCz4;_n-BqVfojT`K)u~gbB}vjIFMBpUYtl^b&*v3CUMyuzoHX%{+og=@<0ofL
-zzJulaEBs|_`hvo;C;d`xPVPJ_$r)-X&I6XqmbJahtTbfbtMqO3uJT5Dejk?D!piFQ
-zuD0u!XAOJj3+LQ%dK~h%uBI=niT0n{kH=01o7%=K55^Y6q(DQU-bmt2QLQ>dBXZLh
-z?@wH2U)O$o$T{}M<=Q)y?D%q)U8yoQ51p&syoth_m>##a(H>|Ha9gsS%zj@R%Qb!%
-zk-EFPt3pV^zhq~7&@?eHCI;3W?ukgoCDe6Fj$)*;Gd-OyTVnHr)Q!OJ^6_q5zIpd&
-z&)FW#nUlZs)`#Zi7tEb?VBkXq_@6d+PTqk(Jmk%rJ!kLfx!E}_Cy2VWCx4V(FgrJI
-z*4i7iY595ibJp%azIIz~&h(u7*ZyI~v^m*pH_yqPnZ5Sq{DK)T)aT98a%W|){osMT
-z+*#}H)3T@iD0|)S^K)n2-*)G$*;-!Sg9mS(nKvVQ-TO0gXHU<YH7k4iobAiz<xbC;
-zz5cd>?0LDfW;Cn-S@gbi*}p}kHf5RZHW>R$Pgmz)`*UA{b<{EAzx=Y|k_t9|aaoxk
-zc~N17Uu77bsARb%5Ov}FisGmI?D66SepXRdSW^DDzf5I(2>npx=Ci_*A~ti{bXHhY
-zROT-)R~ZdMV0xgmxP%q55`V>#(y}L21}?<A(2C0|SmFHnXuuW$ssil<uLxkazk<V-
-zE~+RlEukvn32!>1xO{$TNr``c1$(@#bYUNE;*da2t&99m70>sxg{4Ipncy!+94K9q
-zXu`_;g+;|BoMd9QXuPPn<Oz@*C<T3`B?(xS2|*A{fxo<T0XS1w!gBMU`a$2gAxnXS
-z<rhBTFJc9S3)zgt3m2)3WG$+$WPC;OLXa0%766Fa$BWArE-5VYv#0!J<ru%pNc}|n
-z`!TjcArwCRLbk;J({g_qKvf0>j1!=h78bDurSl6H@In$Iu#m=Zfb5dOpF*tjigSt?
-z%BU(QS2X2i;BZA*=>jnBnY^5wXS@Z^%q~#7ebLV>zatxIeAb1fCdb>}<TT*FKESqz
-zFh>KySRmLGmQKZN_o=3)SXK&jP<yZvQ=A=I<D}xvQth+8cFc0-T=aP#z>oc+GBAFy
-z<q5fqQ;M^+zw~VM8q#`cy=%R@exKyQaxj9mR>rRN;J3~lPV(F#-QlXXFYI==+aCn#
-z_qcslR%ozwS19dtYADsZHztoC?3*HHuH?fygq{by(`uh<KXSnSVu~-_=WUZNS$TGH
-zo9mMGV8G`Egq3Zdr>wyKjAsEKHA}HP_E(nb`(96$JKbme0*l2IpVt^l3(DD^fG;BP
-z<x0h1lv>Ht-qqP-e`=_B^i}Q(OQ62JR#LiX%v*Q)*!e1ZET-j|9%DEqJxDNFR|S!G
-zb*9<pc!_W7v{B>Iu94CVsa_AMhNQ1i+ja%PhSW`K)vk8?3q!(#7E)&j9WN=xR483s
-zQl!o*g-(|*!i>SZrO6>?fqLKK$1!=?<BJz8NId%&E~<E%8qnOomGlrz=le0^IhwfU
-z^)IVn#S0fL@Gr!I0hqZZPnMJ}DPdxU_P#DEE3GJ<U%Ei`&cSNpFDol8qfQp_`A}B4
-zP^F!P6_>N3;&M{KA{3BPmREobR$TH_;ez5Kb$Wb)i}v%%N--rD6{0z9L8{L;-sQt4
-z12tJ5k-{X2nyqS}9!s^)kXT2RAyKs<HEvZqUCu!L($}ndy?&We!00{n;M0y(;m?qO
-ziw)N!FNJmOLEXsL0yV}%l+32&CzL$KN@|R&^o=T1>9;j(&huXW#y+pHCfTXRGJU&h
-zCqqozRrH^Pg*RDmP_1Mq$#UB=ORnY!Am@jwJChwxr^gxCIl#Hj&NLfT?UfZs<FLcc
-z#w!a_%-5*^dVqerI<K)?(Ycjt&x=Ut{C$75J+rGb$^J5ugxBNt-;nB!Dy6Th?B;4b
-zh`-<k<iU$boRsJ}<z71}dT#t7Wm)i?AqC$IwxdEf)pX36w57Cpk6>S{Hx16TMl~|B
-z@9lLJ{LAPM)u`$mP(ZyNf8$WOSdCoLl|L#nBu!gkxF~T`B2$t=$viL`tI96xPJ2K*
-zGSwa*PPNDIqDl5>Dw=E$qwG$5umDKI=Kk9nZO-#rb%@}ct09wXMctsdP$Sh`wvpF(
-z##Y6QJJ_)po8M$fj;!6FQ;Cb!$JnJ9Oqu~!sxv6EO*Cl{nZ>ilI#o+r8~KAM6ABaW
-zGwWM@ej%VlpZ^dlIa~v+1MQIo+S*{aC*6lmoMhus(z^m;hb)E%^?Fq`9!5z-T2;?^
-z<2Iz4wJNDb<66~{V0_JazRUiQGs1C)UB-_AEm~9m<3F(GIH}fLXP`EA70}hI#&l?}
-ziymg^h6<jI|KNn7+Qa#im2VFcY)oxmy-w9KRwej1oHJ|!SZLO(-(uuMl<ZiiHtlK$
-zLDeBNg&099ib3PaE4iKou7i|KDp=pRNv(ZNJ+nzQH>p+<R#8b`uj(6Ajtq<6%qgd{
-zut$)<yyki}7&AAh!KOj$)rlKak)kx+A44nD_?ysF6bI550?~RkB%j%!o>`~bCg>uW
-z-wK-0%R04jo!a&q4F$C(2uAO~g?AuA+DCK5pHPH7Qt-eYSFm-DJJ`HO4({EP6l^hi
-zuu?~xllLaKVC*-nHXQv$HA-(vwApfEGQA$~Mq9nnW^Z(_H`?N5n_}jRDi{C>9Y9y7
-z4q)GGWq)1Mu}QT*2?SdL!M%ZCb0F9n2p%AsClggK5>=d~iQM>{o_Z3meH8c8ZNX;y
-zD)1V%@+Q?`CtifEagK7*uju>>?f&QZKG(5Eb!5C~b)kq<vqi0WNv(m(xS=wH{5I;-
-z>Fqd9*LTpvz!SIr?I{PQI8Op|Kb&^~ofxF~5*NdkJ~5<PH#sAq1L>$*2-dx%#$@fb
-z)n~S-&N$>?DCrWKO$~K{R6Ch!(mGyL?T=ASvwd_hcC8p$J&o+P)g6Y&(F#nR8p0%}
-z9bpNVHI4Ch&;ypjP8hBSI1`L)!jBn>lt1zQ60NIZl}#KBQjJk{J5>MNao~*`@2W@j
-z<UL5KG+oP^ojs#p!Ohd>ktKWAq(qrSkWzL*L0$p!*>k4NnLGQg$-TAlg4@1X@Ppoh
-zo2TdI-8XISjJqaHx_xq1R{!#R-qkmX=01E^Ux`?SXl0!gc40Mv;9pRC*C1?r9WSVT
-z%aHkk3Nh0<^e3$d3vzt%;wzb3ykJoR05%#-y}GZN_j%~vHp=ySO3k{j?K{nFUt2wP
-zmRV2P_<&wZ`wEt-jVin0`9wSHP$z0tdvKyW!xzZVUJ22E+ER0)`d!#J0?!$aCByd*
-zK-lo-f!QmdU>jmT9CF;gM8*ZkqgM$up4h0`g9MqWoJ>bPZhuTb{Trk$#o!ufSQ(%i
-zwwz0UMKx<x>mg^LRp6vq55q|Kv90pyXQZK03q5ZX*<|vW4POtrrz51==c&OX&R{5R
-z$OB011CP-5Kt?Dgr~SV=UV(;l6ljfR;F+v#4q?Lb*;W)H1dll-oSOQt!EM1Z*e_#a
-zNf`w9%Mi~Yli&d?TQ5VxnCb!2-Kql}FOyB-Tvd0V_uW22&FT(tjn9B$L!KsPX-8F{
-zR=Pyvg^>V~uIMepXWi$FwC;6AS<`I~5%ptdq^5_g8P0W)tFZs^O)&BdJ-tWCeUwPO
-z32l)aF1WL5cjYcUs@Bx0tGB8Btw2U5oxVjiqw4rEd{g{;757gdgEgiluYij{);ue$
-zBxJ*DtYl=5)>tXX2CuNL78!Xm{<snwm#p3VoHYoUs$16}yJ5AJitN|bmV)djD{(xK
-zwXSMw0J3o_t%2fgFtUu5))0|hC9-Rg-MZ2mCbHqkeznp{N48?6bse&2tE~~DZX~ih
-zR$8Nwy}HsGjqDdI@t3xg3uP6UoZ(}e*Q70_#~QG^dOfjQ@E<3e4ED|%Me=pQ_#CvB
-zjJ1A}0jT!Qnkmud)2?81bnj^?xHsB@v<16Xv#+YHaf@1Yu&&LAyvrE`9T2@_M5IpG
-z$=~v!FgS<Ux4c7YURm)I#U(g<`WHOO4gNS-7Aq)SK<)y~zqqVi?Ka#vHex7r)VlUK
-zQXGV$2TyEK?JqxSvp>UulFOUDy;6I6EqjYnn2S%XWhIsD_F$)E4>Km|l44BOU5at1
-z?p6#{mlZo1_HlkNqJ$;mIzSs&Q<G~}pfx|O4TfXN%7Z4(hOy^$WG(-Nh|6|IBs!HA
-z*baD25VM?dR*wB420eR8amD-q`308H>814X$JK7Qj?xM3w`)sK>9YTf8XTW-ruK`o
-zHZ_GOA_ph*_}PbJQ`zhS0MQw)|M7}>zpJ#H++Yn=y~9t#eBBq^kLk0IJy)41c07?7
-zUZXL#qbj;@{Dt7Y`sjX~dQ2RA7FQZ~fyo=a^h767{6*6CL5bq;?Z@rU1NFQp>qd)Z
-zjkA8~Tn`|W|CN2*L%XMPSh9DW>G|4jWZSDikueeV+L(2T{_XE$>~qU;<hx6_g6=La
-zFD{zO9$i#eUJgG{(PJtNgbT@(6zd*mX4UTA#<!wzHu;}$;uGL^v2NDc13E_GT<tY7
-z(OaM^D;3kT3l!DuhOD)>*TISR9%_yc`FAV;lES5*MAA<tF(nk{mOj!lxx?u0NzdFf
-zRppP9*o3K!wo^FnzCj^B-^G!p0-tu<dTr@?cpBNb4F>r*B2v{6V^ixR>$5x<*V&%B
-zBVG2VbR@-DG;_|h{A@LU+Wp!8a${CDHsD#=^VCe?uTy)NcVj3yaujPDTeSgfN%I=_
-zPC4ze|Bize_L6>w+^XM*GcG@*8B*PEzInJ6C)>Uw8iyDJc6`?XIK#J!cF5}W#%Hwu
-zBB$k=PR5DyPrp&l`vpDq@k4i2OXWTc*0TXUh(n;Ot!_ho6U<uAhJYyQ>QwFS$RHHJ
-zNgFSsmjUq?(LO3_`0(P#%Z=D)36LYUqP7&T964(A*l{;x-h9i1iMPs0$tkI6F1O+t
-zFfdLW8YRxIRuofv(~A*TUx|yC1dm1By=B3p*~d^I_Z6JLaXNv6>bg2d*k_{0j-C+c
-z`kEd+DoUhP>BUJ6y=}a!rkqY{2-Gf<yE=#2fB6oIzJ<bEBM09!*UG_m^94D0&Ri!4
-zFPQ7);6+1n+(u9Eh#0&#dc=_f@NA`vBlt#d^i6$@9BtRv%F%QB3v%>=zD|x_)Yr?r
-z*Iv2wb(mi43LZ6F*++xN!qUb#-TRiwLI5<}_QS*MQ=A{sW1^IE5GI3=G2x0HjlU4L
-zjVq<c)~#oUHiQOZX*!}mFY6)MNitl)Bhj<^GMR0AC4}kniZ)`?6>4N&?Y2hR*PBD#
-zFkXg-M>e%sZFIzMv0k>*keyg2gV&QcnZw-HSo=wHIKdT##{yup{S$(V*mDJ(J<}ZJ
-zwleJ;b2I_n6V62KyY`&|Symh<!@S;YO|ZwBV+d$gcmja(>>L8xY~K?Hl0l~S;3jZ=
-zg894*CA`rL$<`zG81~vrTJ=lp(o3;x#NC4oFn;|2D(7wj-}%6&_^ucvCRk9`t7Uzq
-ztgn_aWc^n%MyyxLAYp|0D;X>pN@GVkC_p)-K^cSAt7ME>Um+l?WH4bUjUMF$vx2A9
-zGDfa1moaetSpm6R1}BCR3s6pw&+>GojN$96WQ<;aPC%}b!H%KC2b2@!b39!w!?0K_
-zdn0P!oX%kNFG1+f%NS=!W{oeVErm#pk^0rpReh-27^@GXr{QiRQy)c7qus^?{d#&D
-z<IXUij||4i03OuzT3|wZ_CXxqBZM#4KoMV5VO>@<z%^6RknR(Z+6OO@8Pw+AQo9k;
-z3ocW^|5U;JfwaizGOaE(vZ>4ZtFl=m>#xb&9NnmU+=i?VaA)|U7m_d9%J<F<ap%k0
-zf7ObG7U%KkJ};@Lti@iwLUckuM+^NN7S~VsM@T<YksUqjlnUJ(Ep&5OTsJvPBmwiF
-zP|eXoHHXDj^GZB73C$cWG;>&7GdaxW1Rgm(<eCx)?jr{QcYDSs9V7zpw50Ep1KLL~
-zUs2dYg*6-G)i27o?3A&4_Ba_@`YSjg42DHsU@dcoS%;kmP_z+e5|>S;#lheqCr8^H
-zrd^1YY;i{JZ*#kXEp0AWa33ptg?&oGBLWPUFYzS#jDZlCGbnm+NGe<ec$C>!Tea-X
-zVOUsg2jw*_UG2ix9Zp))(!Qo8oW`^E=pN*zC8sYu2B3CBTKJ~O*R({E00##r`XNay
-zvu`6wq}sO-&sW&rC!VKb`M|`lv4<0PQ|%$d$Mv>Cd`z|7<o3Tpq-jgTBaODm%j~V%
-z@K|GWBtj3F#=D|qf{_>5jFJqW0aK6rm^*u%sTe^~ZSAtuuFfZ*dRR73rsABlj5I%$
-zG=BwYeky5x4QYNVY5scB{8Z9>Uz&HRAq^QynQO>E%G^VeDU<b6seG^RzqdA?N^Skm
-z)VB9h!Hu@}DK$?bZToYo{%)$+5!lEc-^j6<6WTVvoA+|$<<0agNq}5M(96I-AJjWd
-z*b!KeX=T1Hu{`1R-f&FT&b~(LGi89_3msOmv#;^B4jw~tlAe8yro}`|^R%V^^h9Sp
-zuVL}vce6wJ{Dj*HbJF9cIf+^LEpcEvwb}QJS#>Wmtors8G4&>ish1fZiFK03R>{*K
-zQZp!Lr5Gb4J$4G}8Y^W;qh_c(J^?wph~0;d?;w-JEX@p$HLEzH6+Epbbk&4zEJs%*
-zH?EK&(wgD!_+0%Kb$qXxBqnrbIMZCt5k1S(m4t33q08jxmdlOL%Fv6N(eC)P=IA!}
-zqmJ)Nlf>N53{NmuaYWDYbTy${P3R_YbgSgX=VT~X%^3GT<}wU{J_9Wwd0Jp0>kOep
-z(Ib`%H(C9ytx4GP6UJBT&JCN$mQn4$3PX<D0a#|cdO@(-`UD9-5`xY%H_Db}KVWW>
-zt=0B)^Cj7`?YqsFWvnc>o3F^0&z@-3%9du|WWFk^ugT6B<haC7HD8l0*|`de^D0-B
-z*SM<C-GsMsgS<nmUg;$B!NJ3jcknH!Lh!fR`{BR>Y^UHhl`p6AXA|Yi<v{Rg)v?MG
-z+Q(s|8{X)QzMG?}-$X{VWp1tw%g2X&70x1)*>;DMR~z!`Mmc&IZz)z<%xw(Rx5)v0
-zudIc!BSsGg&qfB;WL=IP){z{oJGS*iM)!iZB#;Q+f=XYSzDusMDv!q(;be0cHlh7(
-zNv`1Ab=KD7c;)dDf831G%GwVja1~k>e5CETZ_Kn^?M)UO_67D7@sMrbDjw$9H;RW`
-zx(^|kS@t#JVFq2ASaeN@+elgapAqb&kn(<QLBwp69dEyd%>LmwyTe5$kiEaD#b&s~
-zOtwGoqeit=HoYZ=4MA^%2c(7PG=}K@@xSEg;Y3OEvJu+?=*n_qBT2$FjLRMnk)j93
-zCplLgw+Cs9BW&kZJ4Lh+JBRjBgw%Ny<h4r<9<8&gj%__&c>+2Q;XOyf`y`AS>MCQw
-zDjA#<R#>W7nUV}?if?t3yviFrn3ZNEk(m%0g#P3yu~Zs3n;1>Q8u#f-8G(lAksVF4
-zZ|nXc|C#{<f{YoHt8wsfM)dFycl7PxVOY3ra<4B5dXe7tz?OeXFU()ddb4c)M*eR7
-z$S|aade+n9g9B`}?eb}o)XnMhY%>lA_p*n!vP033tex4y-iz9lgG(;w8uOrxTaH6=
-zu*p0u2X~rp$iZFg^DP|GJT8x4X5Sdy9c(_;%$C*1ve?^o&H#37TkJ-*u}-Vo!e-WU
-zNNvv+rqvO=3l~eW{;=DChQm-W+hrBbuv9jp9<V<4`}$aRSXvXq-M!~jlbv#EC+;G4
-zb+pR>gn=q|SaQb+**qa$I^=YeF9d?UK+t$Xc9PkY`k0a)N-@$PiYY!i9!B>ouHgP~
-zN>ht{b=ck1vZ+yOKb&Nr#{e&*T*6rq>pVAP!V+|_#Tw^~u>lA*9sxBThWD$jXPiN7
-zs?q6*rPjVH;{v?XknrGRf`8~^d2qitj1tEG3l!QjTL{U(;9hFZmTisnbhW)J*KU*T
-zuOO4y5C|kTAbJoT95h_%p)^Cr&`9s74U`+V%Shd%a#PsPqjiVc;Gu{ff^jvNmye0=
-z!CC(3A$u5v0z9tZ!STPcer2aBNx_2<%c(=@bY~rm8J=JhWE;B^FNe_da_}G*v6F^Y
-z?%+Xtbf2h)LezE|WENAjx+sa<mF|n4gS5`EaYk$q?)Z|dF$jcOA!`2e{k@LI@DSxH
-zTot4(kMyF**G_X3IBsL)&iJ;Sa`4Fe??Nwd>>1f*cY|<2i41y$uEa*7QB<HE(2I6s
-z9kB=|=oBBXyNCOi%wsZKOVK@)pvBR>_Bc^~h{~bj3C9zr4;B2H7Z9D`1hiY=x*3%7
-zSc#polY*x%`yB4kJseY4r^i0uuP^i%-0d^plI>f~-_nMY0oArLo$vQ*@9>Te+3X-a
-zRy*F7&9{X{+aTS+<nY0h16^Dn>*^e2U#vUg6I@%d4b!P=Tc6UovBE5)Ifg<A1YX*0
-zB#VC`N$)<|4C?qOQotZFTUE?dKG$N`X+PN3$ISus25HL3ebB(FH)t+?4<c0QVWjn(
-zJ=}2H*Veu9e(N@SAiUatgaczry>?)mkqqopd=&SSgAkvwQg8F=IC1YE?<O%~?%?G}
-z-5Z?)Vz<=pl!4$6T~)vC1x>GeqxPWOIne$LGdj2@lJbp-9Q}2A@injvPsmeF9??(8
-zF&X^BF7URj+p<qkn|kaG`>VdW-@6`UG<L|&Ko}QT8%CiS`gj{61lzTr)SEUvf^!S&
-zVVq0Bj$V@PsC(m7N9|iOcA`&7h&|3&D>*cpa}@8SC~t8^NyYfVq|o1E*QSSt^7?3p
-zon$Cj;>0q<k9x_>W5m9nwsh;8(RS9c9{x^mJLXG!<(q*F@39Nf3(y7kv5NsZSNU)(
-zyn4|P_P`2EeVh}qur<C&21p;K|GENGAS2yp6=tPa|2o7y{sSM3=}*k<YE}~Pj0Bsu
-zs|F%1Sk4LvI7B=0h2X{DIcE%>&f(<TK#n&al44%I1h-GmB}8g8tjDH-?TDf?=op50
-zjl;onJ|3IJh0Vjb)E~i1I%#57Hk*9=q)C$|tE2-IT=T@wix-V$OuYAo2aTmjoW}{I
-zbdkS=>Isz>L2&-Ednouzy$=y%PqK3V&ldYj=KJr#z8_dz@+7NxdXb+15ar`vx(JbX
-zh;7Tx%NeU?!<Aq9IFB&n?PvQ7%Y>txUYSZ!Xyi7J|J3P)B}C1Vvf>Iq^-mF94Q*Qu
-zFQ$8dqNKj`!DxXKRNU}<cQo0ihUm_^-CK7dri|`3K2|UfohmrNI1{%*qU0T`d=pne
-zaC?8O#J!>!zVOO@Uo~u!l<Fa0vE2<!QrK@Be0>}K9`mv?ez3Q04{W}Hu=kQL2k@_5
-zzdZmO4^D@w_L`ort9C+|yNr8-yTcN$TGs4*XQzD=wxlmlwI?Vzwd>e!`!CV698n6P
-z@NEZ%hkgBv%6X9_%>p~hmmso9G6s>K`gOX#`b^OsMgLOK&no&yihfd|QFJQ$pB4Q>
-zMgN<kUsUwJEBe=peo4{KDRc#(U&c7;`s2LP>+7D@=j-P2gLf}3TQHT~O&Ty2VYK|m
-zD;}LN=i#}tA7cXG(eeeQ6~aYtBKmFu40e}CVOE9nJ!>g$O%^+fRgO7L*Kx3!E-AK-
-z?4n{<86I?x=f5eMwSDzzh3?MprqF;SB)GilQm{St3kPuqG<GRn_Q#QrfoccfxtHGj
-zn_^Ekfp&rkq=RwGBWt+`Zou%h!#m=y{K7*&qeS;%<aE2C#A6=Vn@#4Q73XGS8IJ89
-z*3kpT*`wKn7?=@Pzxjy!M6en0fxG#^@p={W>`j`P7z0)j5dJSj_&*!i@S{cx$7J+P
-zE#t97dKcXh-qFa>bF?(F9E?o8s5n#8&6CQ)F2(#vDV9QMATTnX-vPvML4)vzE``#Q
-zJpG7LK0YAqF|C{IS@AfBzbTG-;yf*OwAX0wn_djwP7Sd4U&l*eN2kL6gNngDM>+GQ
-zVyB%s3#!h1sC0n3HoDEZQyXZ4a1Ift2^z=Ag7T%CUlNs2M)NEPg+@{vnc7T<VWQHd
-zw5(+{_6w*OXo`RefW(?ihnVo@>p=gRB8HClDX(Mk1H*wFE8bZpco7SsQw1Qg5JL4Y
-z)3qk5^d5e{iKfmki~>j;4hSg@CS8Jk?79?e%816WTc$*ttmj~m#Spu6Kb{}7r?Kl+
-zAYM)(@gv;tnpSI0@5|k-99jQvFJHnq`4WtA1}|o4V_!#aaiVZ;01hlSqVo(WCnWx1
-zgHSC#kGhG<O!JIl-ER+szTN)_qNBUD^4H-r9)S16D;^7`&BLu$c4gj!?8a_V*c9_a
-zg|;;?80nXkqMH5m=?Z^&Hz^Jy$;w*u>r`A`h&at|?G65d5bFnWXLjQ*j0A$)GYakO
-z4FrXXkKc&}5d(!#1@SvhDuGS>;<()&bmk+)8PQv{npCdeFnw3NCDhbwb}Eii4@p47
-zI(h=6_V)-SrCZ|o<=_9~sspz#!onQ36O&$Rr9daVex7*6wZFKx^67P|xS{gt+tm2o
-z73~NK05ef<CaU9?QfHznCPE#q_s?uo*&R)^Vf;6(#7WWn%~pX7i^rMrcn~P-31A&&
-z@~gBHz&!wAAym2z!9~aIKT>E2*ww8-pFSZab|^3e*YOnRadk(x0vnb`bbO-Nf7Q$;
-z*sa&mRJ&S~qW-N8R2@T=k?AwW6Pss=uzE((yQPaOxTK-f{c3msEom4^p-><9kaA|(
-zcayyC?OjwR;Nu4#{s_13r5Lu;>`ETKOF_Ad%h5c#AFZSN1d8~?|E?QV`hwtYikyGu
-z@rp%v-FhoMK6=-p(z1%jri!Juj6Jc(!EMQ2wrLN#0oYWA!>}G!utIKDjHP-+F_^wZ
-zF@B+MRbYpQ!wUPnCnRfuy$E}jJclLcO>9fpkA4RGo^MQxf$)`Grke_j#j`9nEMA`E
-z;blNz{nWleG<mvT6Mv#fFIXUfIbOvvFGzr)mqp?^fjQi4Jz<X$nEiHvprpdiHDwQ6
-zI`?TG??Q_Qts;1+Il;wnesP>-a9ztDM+4L-t$mlZz`j;Ml*3i(_BgkZM+g-LOgds)
-zHnB}B+bMt++aD*o`jhDDciODoSHPO}3Qp*0?5o|pHJY+LdqT4I*JjgD)CMdl%+vg>
-z7A^n-vas1$)@Ud@8fc2^QCfX&+KYL4#~z%_Rod{hoZW299_^;xEYvJ0^WrH$boO<l
-zZ&%C)Mc<*Yo;`%~-f!V#WzFVxMK=_4hoYmm$-N|fwi{?^5N;g%Ld`_gCW_gtQ+7lZ
-z_Pd@K1qPm}Q_MQWa_mo#v3Yy+dU|&})J}3bw9j_a6Zyn|?wf=r#&aD`MI$I26D>c%
-zEWmc!QK#6B^CwUMZ%Mpr5UQx_|KPQsA|wzqsRBd<Xf{>u;qM6ppiZH03jnY<4xkAD
-zg2i!L@*sE8x;me>zcg;}p_2CaOq}}AWC`J$Pjj8#5*X_h^zWpBIOO(uT2TyQSwtqw
-zirIH|@!Yw9f!|Ee&J8F%4}Xc|=~p!fH`dhB@E~hY=x}2s@pruWB1tvd$WlX$+O2kS
-z7haBc*`GCTQ?6{~Gr0;mSF>O<oHt2L&FI8Qf-!u~$k!#0F;{naj5)d+$8=rx_&8Wo
-zvjZ3BMMGWFoG5^+hrFJKgd(5}Hk%DfaIX(s#t|Cf{BQ(7`S`XnJG+48Pn$iP<<FbJ
-zrq5tAatoL?o6*NH`E%!}GqSa8eBd<mK`JkpN$IrN({pp#eYvxy75tbzG&gq+mLVun
-z?-oT(%lr#VVGlmaKbLtdVHpEq`~#Xt1pt}EylLEwq(f93B5q2e_MyE5gY=zBFM6Q`
-zF|h^*uzYHWpn*7_BH>o<q3s$UtEC}`g#Bi3=q5Dyj;|qpi0`A8;Gj4E>G@=^PJw*d
-z4(_czJO&Qy$l>r9_7%d$d5DQ{!H*O!_-k<26C*!*|0@@gG@Q91hOWHyh0}f0X6H_4
-z1$i@h1d{lQL<HyXc$QTy{o`386Wd;GskNzN^OU0h`<ULtQ_Ua7X!aOmuzpH0QiA7k
-zM*3>UDTVFp8GkQ6ty6;M+0R-+1JTGyhCeL!d%BGi0Cnfz54FJIcs_a_fp(t|fg)0d
-z0%bBEDo}ekiDdN!&+4mjhlr?`6r88DH(KDBPxbbm)ZmxXAA|oULz9+~*S!Q0MonM9
-zsePdpQ-4P*{Mt$O8UEoBy`r86`0Z%jnC}0gA^K&pRF6HeqX!FttgUVJ8j{yb-G(K0
-zvXzeGJ5*L&9rLh~>R2*%@g3^^R@sF`C?sq4zTgqM9EBUfgX>Z2GRi(Zz)$!4+hmup
-zx?0_?=n-LdU3R-{`LgWFFn6d<#(p%h$BE`6d6zxZB`dE6n$@lQF@0UGTDObCtx8)8
-zM7*9`;<xQ%Z?_VfH1==RoXS8T0L`*4J2%1m{dOxUJI?v^v0JY$!YRbf0Rft}lxU~H
-zoNQ(9wUQs=2>cNHYh@6OenFtyH5xPyKtDFzkFDB;1Jvbp2@<KBr9^E}t7)p*Pxn&+
-zx4mWUDzds|?SHg_n^#~@BJAKn0AvapyKxnDh3VY5{|eK&kxY{-OlP7DLm|%4h!Pev
-z6E?Bh&7RsDN)e+(+W!hf)=uw@M{RxG+F#3QR(dzWp}uN^xNqo<`Y1jS8$nI*0Y)rK
-ztv5EouO&jgKA}ec%<Lt&T!Wm5h`iL_mC4Ke2zi<3I<v{yHw!vBi5{{kxtEe3!t-_g
-zl+&`8UPkTz6Xb9XYi3eFYdsJ!u8FkS1B@FZZQ7d$0@{Bbz*R3gz(;s+o*-%>*TB-=
-z?*<zuw*weB!~=Hl6DM*|F3t?3C%wmFQIRV?$s!-mE!?lfO3N4>WWE8Hy>t-*JK-22
-z9R8*A{r)0YjyX9w+2Rbt%|Fr^8EOjDVm=A6msdbJ7skI9<1voVu%d+GQb*rdoj`E>
-zh>=O%X?fFT2){-NJ`od^=Kj`Xd})N~?Ca-Y!*2XuYe1YWH;R*`j~ahRY#u)GReLhU
-z$F=Ho?=*bTI&NHFNha!ff$&+tE733LF_V8y$_-&6h&Yy;FUX1{*EA^+Rx`sD@gO{P
-z6yjgaS5>=E1i@N2+m9d$7Os}3FvNoR_jtWWInwHG0ZCA*qu@da5wp97H~?o05m6hN
-zTodC*^uglX5L4{WJDL=GjZjd&=8Fv}qo|~uD2soaJ01c$)&?~FzadO~5hy+;Bx_zk
-zC2aq({R9#JKDKw%V!X85O~7skQ6yX#Pg5CvCIpYru5WsTJdL}^BV^oc&lC=i9D=6r
-zgfQ1G#cFpew2GfYzthCm#t04to}EhDZiQWSsBtINJ82>$we=uQJS_PT#_mNH_&=PD
-zh(+iu@wG=J%PI<`OgUZDWuNzUW;toA!0UiFa#tWsA0nZ~)6Q$`q{CTG(nhLH$M>se
-XdgcV+gT-G(z>nzPqOsEd55NBnq;Z_=
+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
+XG&^oP)h6TH(6jy0|Ns5J;K2U?$TV3d
 
 literal 0
 HcmV?d00001
@@ -7505,7 +7506,7 @@ zr<XUcN5!~_6+Om#`;MDCp_g~~yb0di?A&ghvwL*T?di?V>2+gHuk2iJN#Eh#JICkE
 ysGLBx_VVUrckk9EHzz;a+rMm3U*zjtk(Zxe(KDw)#Mt_dP*FK~m6h43?Ee9r9wGh!
 
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 36abb1b..4399674 100644
+index b6ef19b..ba91612 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
 @@ -36,7 +36,11 @@ project( Pi1MHz C ASM )
@@ -7533,7 +7534,7 @@ index 36abb1b..4399674 100644
  
  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Warith-conversion ")
  
-@@ -260,6 +267,14 @@ set(FrameBuffer_emulator_files
+@@ -261,6 +268,14 @@ set(FrameBuffer_emulator_files
  set(services_emulator_files
     services_emulator.c
     fat_service.c
@@ -7548,7 +7549,7 @@ index 36abb1b..4399674 100644
     net_service.c
     net_service.h
     net_tnfs.c
-@@ -313,6 +328,7 @@ set(lwip_files
+@@ -314,6 +329,7 @@ set(lwip_files
     ${LWIP_ROOT}/src/core/pbuf.c
     ${LWIP_ROOT}/src/core/stats.c
     ${LWIP_ROOT}/src/core/sys.c
@@ -7556,7 +7557,7 @@ index 36abb1b..4399674 100644
     ${LWIP_ROOT}/src/core/tcp.c
     ${LWIP_ROOT}/src/core/tcp_in.c
     ${LWIP_ROOT}/src/core/tcp_out.c
-@@ -352,6 +368,7 @@ set_source_files_properties(
+@@ -353,6 +369,7 @@ set_source_files_properties(
     ${LWIP_ROOT}/src/core/pbuf.c
     ${LWIP_ROOT}/src/core/stats.c
     ${LWIP_ROOT}/src/core/sys.c
@@ -7564,13 +7565,14 @@ index 36abb1b..4399674 100644
     ${LWIP_ROOT}/src/core/tcp.c
     ${LWIP_ROOT}/src/core/tcp_in.c
     ${LWIP_ROOT}/src/core/tcp_out.c
-@@ -390,11 +407,15 @@ set( Pi1MHz_sources
+@@ -390,12 +407,16 @@ set( Pi1MHz_sources
+     ${harddisc_emulator_files}
      ${M5000_emulator_files}
      ${BeebSID_emulator_files}
-     ${FrameBuffer_emulator_files}
 +    uef_normalize.c
 +    puff.c
 +    puff.h
+     ${FrameBuffer_emulator_files}
      ${services_emulator_files}
      ${teletext_emulator_files}
      ${mouse_redirect_files}
@@ -7580,7 +7582,7 @@ index 36abb1b..4399674 100644
  )
  
  # These are cold (config/filename handling, ~12 call sites). We recompile them
-@@ -409,9 +430,37 @@ set_source_files_properties(
+@@ -410,9 +431,37 @@ set_source_files_properties(
     lib/newlib-str/strcasestr.c
     PROPERTIES COMPILE_OPTIONS "-Os;-Wno-cast-qual;-Wno-conversion" )
  
@@ -7620,7 +7622,7 @@ index 36abb1b..4399674 100644
  # Kernel images always go to the top-level firmware/ directory, regardless of
  # where the build directory is (so out-of-source build/<config> dirs work).
 diff --git a/src/Pi1MHz.c b/src/Pi1MHz.c
-index 0a60ef8..e2d5820 100644
+index db1b588..9c5d8e1 100644
 --- a/src/Pi1MHz.c
 +++ b/src/Pi1MHz.c
 @@ -124,6 +124,8 @@ See mdfs.net/Docs/Comp/BBC/Hardware/JIMAddrs for full details
@@ -7641,73 +7643,7 @@ index 0a60ef8..e2d5820 100644
     {"Teletext",teletext_emulator_init, 0x10, 1 },  // Acorn Teletext Adapter at &FC10
     /* Last, so its poll callback re-arms the watchdog only after every other
        emulator has had its turn - a poll that stops responding still trips it. */
-@@ -183,48 +187,24 @@ _Static_assert(sizeof(Pi1MHz_t) <= 0x2000, "Pi1MHz_t must fit into low memory");
- 
- void Pi1MHz_MemoryWrite(uint32_t addr, uint8_t data)
- {
--   // One VPU word holds two adjacent bus addresses, so this used to read the
--   // word back to preserve the other half. Timed on hardware (ARM1176,
--   // 200k iterations, 1MHz system timer):
--   //
--   //    this function, with the read-back        200 ns
--   //    this function, as written below          126 ns
--   //    VPU word read alone                       76 ns
--   //    VPU word write alone                      16 ns
--   //
--   // The read-back is avoidable because Pi1MHz->Memory[] already shadows
--   // every byte, and every writer of the VPU window maintains it: this
--   // function, MemoryWrite16/32, and the assembly MemoryWritePage. So the
--   // other half is reconstructed from the shadow instead. That is not a cache
--   // that can go stale - it is the shadow the write path already keeps - but
--   // it does mean a new writer of the VPU window must maintain both, exactly
--   // as the existing ones do.
--   //
--   // The rest is ordering, and it is worth more than the read-back was. The
--   // shadow store must come AFTER the VPU store, not before:
--   //
--   //    shadow store then VPU store              126 ns
--   //    VPU store then shadow store               18 ns
--   //    VPU store alone                           17 ns
--   //    shadow store alone                         0 ns
--   //
--   // Pi1MHz_MEM_BASE is Strongly-Ordered, so a pending buffered write must
--   // drain before it can issue. Storing the shadow first parks a write in the
--   // buffer that the VPU store then has to wait out - 108ns of stall for a
--   // store that costs nothing on its own. Reversed, the shadow write is
--   // absorbed by the buffer and the function costs no more than the bus
--   // access it has to make anyway.
--   //
--   // The reversal also skews which side sees the update first, in the better
--   // direction: the bus now gets the new byte immediately and the CPU-side
--   // copy lags by a few ns, rather than the other way round.
--   uint32_t other = Pi1MHz->Memory[addr ^ 1u] | 0xff00u;
--   uint32_t mine  = 0xff00u | data;
--
--   Pi1MHz_Memory_VPU[addr>>1] = (addr & 1u) ? ((mine << 16) | other)
--                                            : (mine | (other << 16));
--
-+   /* Preserve the adjacent byte from the authoritative VPU bus window.
-+    * Host writes update that window independently of the ARM Memory[]
-+    * shadow, so rebuilding the adjacent half from Memory[] can restore a
-+    * stale selector byte. This matters for paired registers such as the
-+    * Services cursor at &FCA8/&FCA9 on a real 1MHz bus. */
-+   uint32_t da = 0xff00u | data;
-    Pi1MHz->Memory[addr] = data;
-+   switch (addr & 1u)
-+   {
-+   case 0:
-+      Pi1MHz_Memory_VPU[addr>>1] =
-+         da | (Pi1MHz_Memory_VPU[addr>>1] & 0xFFFFFF00u);
-+      break;
-+   default:
-+      Pi1MHz_Memory_VPU[addr>>1] =
-+         (da<<16) | (Pi1MHz_Memory_VPU[addr>>1] & 0xFF00FFFFu);
-+      break;
-+   }
- }
- 
- void Pi1MHz_MemoryWrite16(uint32_t addr, uint32_t data)
-@@ -425,11 +405,24 @@ static void init_emulator(void) {
+@@ -463,11 +467,24 @@ static void init_emulator(void) {
  
     for( uint8_t i=0; i <NUM_EMULATORS; i++)
        {
@@ -7734,10 +7670,10 @@ index 0a60ef8..e2d5820 100644
              }
 diff --git a/src/elkwifi_service.c b/src/elkwifi_service.c
 new file mode 100644
-index 0000000..1308c84
+index 0000000..5f4f9e2
 --- /dev/null
 +++ b/src/elkwifi_service.c
-@@ -0,0 +1,1243 @@
+@@ -0,0 +1,1362 @@
 +/* Pi1MHz-side service for the ElkWiFi-compatible ROM.
 + *
 + * The AP5 passes &FCA0-&FCAF, &FCFF and JIM to its 1 MHz connector. Pi1MHz's
@@ -7785,6 +7721,30 @@ index 0000000..1308c84
 +#define ELKWIFI_UEF_BASE 0u
 +#define ELKWIFI_UEF_LEGACY_CAPACITY 0xfffeu
 +#define ELKWIFI_UEF_WINDOW_SIZE 0xff00u
++/* Every JIM page carries the host's filing-vector trampoline at the same
++ * offset, so a vector entry point is reachable whatever the page selector
++ * holds. The host's RAM gateway below &0800 and the MOS extended vector
++ * table at &0D9F are both inside the region cassette loaders reuse; JIM is
++ * not, because the Pi serves it. The published stream therefore stops at
++ * the trampoline, leaving 160 bytes per page, and &FDF0-&FDFF stays clear
++ * for the stream length trailer in the last two bytes of page &FF. */
++/* JIM page 0 belongs to the host's service reply buffer, which ElkChat and
++ * other OSWORD &65 clients read as up to 241 contiguous bytes. Publishing
++ * the stream from page 1 keeps the two apart, so a reply arriving while a
++ * UEF is being read can no longer overwrite bytes WiCFS has not reached:
++ * an "ERR" reply used to be read back as chunk type &5245. */
++#define ELKWIFI_UEF_FIRST_PAGE 1u
++/* The flat window reserves page 0 for the service reply buffer, which the
++ * OSWORD &65 clients read in full, and the last page for the length trailer. */
++#define ELKWIFI_UEF_FLAT_WINDOW \
++   ((256u - ELKWIFI_UEF_FIRST_PAGE - 1u) * 256u)
++/* A published guard occupies the top of every page, so the stream gives those
++ * bytes up and is laid out in short runs instead. The guard ends exactly at
++ * the page top, which is what leaves the length trailer intact. */
++#define ELKWIFI_GUARD_OFFSET 0x97u
++#define ELKWIFI_GUARD_LENGTH (256u - ELKWIFI_GUARD_OFFSET)
++#define ELKWIFI_UEF_GUARD_WINDOW \
++   ((256u - ELKWIFI_UEF_FIRST_PAGE - 1u) * ELKWIFI_GUARD_OFFSET)
 +#define ELKWIFI_UEF_STREAM_CAPACITY (16u * 1024u * 1024u)
 +#define ELKWIFI_UEF_STREAM_VERSION 1u
 +#define ELKWIFI_UEF_OP_PROBE 0u
@@ -7794,6 +7754,7 @@ index 0000000..1308c84
 +#define ELKWIFI_UEF_OP_REWIND 4u
 +#define ELKWIFI_UEF_OP_REFILL 5u
 +#define ELKWIFI_UEF_OP_CLOSE 6u
++#define ELKWIFI_UEF_OP_REPUBLISH 7u
 +#define ELKWIFI_VERSION_RESPONSE \
 +   "Pi1MHz ElkWiFi 0.1.67, kernel " GITVERSION "\r\n\r\nOK\r\n"
 +
@@ -7950,26 +7911,82 @@ index 0000000..1308c84
 +        | ((size_t)Pi1MHz->JIM_ram[trailer + 1u] << 8);
 +}
 +
++static uint8_t guard_image[ELKWIFI_GUARD_LENGTH];
++static bool guard_image_valid;
++
++static void guard_stamp(void)
++{
++   unsigned page;
++   if (!guard_image_valid) return;
++   /* Page 0 is the service command and reply buffer, which OSWORD &65
++    * clients read as 241 contiguous bytes, so it cannot also hold the guard.
++    * The host keeps the selector off page 0 outside service calls. */
++   for (page = ELKWIFI_UEF_FIRST_PAGE; page < 256u; page++)
++      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE + (page << 8)
++                              + ELKWIFI_GUARD_OFFSET],
++             guard_image, ELKWIFI_GUARD_LENGTH);
++}
++
++/* Lay the stream out in ELKWIFI_GUARD_OFFSET runs, one per page, so it never
++ * covers the guard. */
++static void uef_window_scatter(const uint8_t *source, size_t count)
++{
++   size_t page = 0u;
++   while (count != 0u) {
++      size_t chunk = count < ELKWIFI_GUARD_OFFSET
++                   ? count : ELKWIFI_GUARD_OFFSET;
++      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE
++                              + ((page + ELKWIFI_UEF_FIRST_PAGE) << 8)],
++             source, chunk);
++      source += chunk;
++      count -= chunk;
++      page++;
++   }
++   guard_stamp();
++}
++
 +static void uef_stream_publish_window(void)
 +{
 +   size_t available = uef_stream_length - uef_stream_cursor;
-+   size_t count = available < ELKWIFI_UEF_WINDOW_SIZE
-+                ? available : ELKWIFI_UEF_WINDOW_SIZE;
++   size_t limit = guard_image_valid ? ELKWIFI_UEF_GUARD_WINDOW
++                                    : ELKWIFI_UEF_FLAT_WINDOW;
++   size_t count = available < limit ? available : limit;
 +   uef_published_offset = uef_stream_cursor;
-+   if (count != 0u)
-+      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE],
-+             uef_stream_data + uef_stream_cursor, count);
++   if (count != 0u) {
++      if (guard_image_valid)
++         uef_window_scatter(uef_stream_data + uef_stream_cursor, count);
++      else
++         memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE
++                                 + (ELKWIFI_UEF_FIRST_PAGE << 8)],
++                uef_stream_data + uef_stream_cursor, count);
++   }
 +   uef_stream_cursor += count;
 +   uef_published_length = (uint16_t)count;
 +   uef_published_final = uef_stream_cursor == uef_stream_length;
 +   uef_public_length_set(count);
 +}
 +
++/* Publishing or withdrawing the guard changes the shape of the window, so
++ * anything already published was laid out for the old shape and the host would
++ * read it misaligned. Lay the same bytes down again under the new rule. */
++static void uef_window_relayout(void)
++{
++   if (!uef_stream_ready) return;
++   uef_stream_cursor = uef_published_offset;
++   uef_stream_publish_window();
++}
++
 +static void uef_stream_republish_window(void)
 +{
-+   if (uef_published_length != 0u)
-+      memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE],
-+             uef_stream_data + uef_published_offset, uef_published_length);
++   if (uef_published_length != 0u) {
++      if (guard_image_valid)
++         uef_window_scatter(uef_stream_data + uef_published_offset,
++                            uef_published_length);
++      else
++         memcpy(&Pi1MHz->JIM_ram[ELKWIFI_UEF_BASE
++                                 + (ELKWIFI_UEF_FIRST_PAGE << 8)],
++                uef_stream_data + uef_published_offset, uef_published_length);
++   }
 +   uef_public_length_set(uef_published_length);
 +}
 +
@@ -8096,6 +8113,20 @@ index 0000000..1308c84
 +         } else {
 +            return ELKWIFI_ERR_PARAM;
 +         }
++         uef_incremental_response(cp);
++         return ELKWIFI_OK;
++
++      case ELKWIFI_UEF_OP_REPUBLISH:
++         /* The host's service reply buffer is the first bytes of JIM page 0,
++          * which is also where the published window starts, so any command
++          * that copies a reply while a stream is open overwrites the start of
++          * that window. Lay the same bytes down again without moving the
++          * cursor or the generation: the host has not consumed anything, it
++          * has only had part of the window trodden on. */
++         if (!uef_stream_ready
++             || (token != 0u && token != uef_stream_token))
++            return ELKWIFI_ERR_PARAM;
++         uef_stream_republish_window();
 +         uef_incremental_response(cp);
 +         return ELKWIFI_OK;
 +
@@ -8860,6 +8891,30 @@ index 0000000..1308c84
 +         return ELKWIFI_OK;
 +      }
 +
++      case ELKWIFI_CMD_GUARD_IMAGE:
++      {
++         /* The host sends its assembled filing-vector guard and the Pi only
++          * replicates it into the top of every JIM page. A zero length
++          * withdraws it and hands the pages back to the stream. The Pi never
++          * interprets the image; only the host knows what it does. */
++         const uint8_t *p = &Pi1MHz->JIM_ram[cp + 1u];
++         if (p[0] == 0u) {
++            guard_image_valid = false;
++            memset(guard_image, 0, sizeof(guard_image));
++            uef_window_relayout();
++            response_string(cp, "OFF\r\n");
++            return ELKWIFI_OK;
++         }
++         if (p[0] != ELKWIFI_GUARD_LENGTH)
++            return ELKWIFI_ERR_PARAM;
++         memcpy(guard_image, p + 1, ELKWIFI_GUARD_LENGTH);
++         guard_image_valid = true;
++         guard_stamp();
++         uef_window_relayout();
++         response_string(cp, "OK\r\n");
++         return ELKWIFI_OK;
++      }
++
 +      case ELKWIFI_CMD_LAPOPT:
 +         if (Pi1MHz->JIM_ram[cp + 1u] != 7u
 +             && Pi1MHz->JIM_ram[cp + 1u] != 127u)
@@ -8979,14 +9034,14 @@ index 0000000..1308c84
 +   request_cancel = false;
 +   scan_waiting = false;
 +   _restore_cpsr(cpsr);
-+   Pi1MHz_Register_Poll(elkwifi_poll);
++   Pi1MHz_Register_Poll(elkwifi_poll, "elkwifi");
 +}
 diff --git a/src/elkwifi_service.h b/src/elkwifi_service.h
 new file mode 100644
-index 0000000..f5ce9b0
+index 0000000..196dc80
 --- /dev/null
 +++ b/src/elkwifi_service.h
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,39 @@
 +#ifndef ELKWIFI_SERVICE_H
 +#define ELKWIFI_SERVICE_H
 +
@@ -9009,6 +9064,7 @@ index 0000000..f5ce9b0
 +#define ELKWIFI_CMD_RADIO        91u
 +#define ELKWIFI_CMD_ONLINE       92u
 +#define ELKWIFI_CMD_UEF_NORMALIZE 93u
++#define ELKWIFI_CMD_GUARD_IMAGE   86u
 +#define ELKWIFI_CMD_LAST         ELKWIFI_CMD_UEF_NORMALIZE
 +
 +#define ELKWIFI_OK               0x00u
@@ -9027,7 +9083,7 @@ index 0000000..f5ce9b0
 +#endif
 diff --git a/src/ftp_service.c b/src/ftp_service.c
 new file mode 100644
-index 0000000..1748ebf
+index 0000000..d328e4b
 --- /dev/null
 +++ b/src/ftp_service.c
 @@ -0,0 +1,921 @@
@@ -9950,7 +10006,7 @@ index 0000000..1748ebf
 +   request_pending = false;
 +   request_cancel = false;
 +   request_started = false;
-+   Pi1MHz_Register_Poll(ftp_service_poll);
++   Pi1MHz_Register_Poll(ftp_service_poll, "ftp");
 +}
 diff --git a/src/ftp_service.h b/src/ftp_service.h
 new file mode 100644
@@ -9992,8 +10048,888 @@ index 0000000..3670454
 +                         uint8_t data);
 +
 +#endif
+diff --git a/src/media_catalogue.c b/src/media_catalogue.c
+new file mode 100644
+index 0000000..4e0cb85
+--- /dev/null
++++ b/src/media_catalogue.c
+@@ -0,0 +1,504 @@
++#include "media_catalogue.h"
++
++#include <string.h>
++
++/* ------------------------------------------------------------------------- */
++/* Shared helpers                                                            */
++
++static uint16_t rd16(const uint8_t *p)
++{
++    return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
++}
++
++static uint32_t rd32(const uint8_t *p)
++{
++    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
++           ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
++}
++
++/* Acorn cassette CRC: CCITT with the polynomial applied high byte first. */
++static uint16_t tape_crc(const uint8_t *data, size_t length)
++{
++    uint16_t crc = 0;
++    size_t i;
++    unsigned bit;
++
++    for (i = 0; i < length; i++) {
++        crc ^= (uint16_t)((uint16_t)data[i] << 8);
++        for (bit = 0; bit < 8; bit++) {
++            if (crc & 0x8000u) {
++                crc = (uint16_t)((uint16_t)(crc << 1) ^ 0x1021u);
++            } else {
++                crc = (uint16_t)(crc << 1);
++            }
++        }
++    }
++    return crc;
++}
++
++/* ------------------------------------------------------------------------- */
++/* UEF cassette streams                                                      */
++
++#define UEF_MAGIC       "UEF File!"
++#define UEF_MAGIC_LEN   10u     /* includes the terminating NUL */
++#define UEF_HEADER_LEN  12u     /* magic plus two version bytes */
++#define UEF_CHUNK_DATA  0x0100u
++
++/* One decoded CFS block header. `data_offset` is relative to the image. */
++typedef struct {
++    char     name[MEDIA_NAME_MAX];
++    uint32_t load;
++    uint32_t exec;
++    uint16_t block;
++    uint16_t data_length;
++    uint8_t  flags;
++    size_t   data_offset;
++    int      crc_ok;
++} cfs_block_t;
++
++/* Decode the CFS block starting at `image[pos]`. Returns the offset just past
++ * the block, or 0 if the block is malformed or runs off the end. */
++static size_t cfs_decode_block(const uint8_t *image, size_t chunk_end,
++                               size_t pos, cfs_block_t *out)
++{
++    size_t name_start;
++    size_t name_len = 0;
++    size_t header_start;
++    size_t header_len;
++    uint16_t stored_crc;
++    uint16_t computed;
++
++    if (pos >= chunk_end || image[pos] != 0x2Au) return 0;
++    pos++;
++
++    /* Filename: up to ten characters then a NUL. */
++    name_start = pos;
++    while (pos < chunk_end && image[pos] != 0 && name_len < MEDIA_NAME_MAX - 1) {
++        name_len++;
++        pos++;
++    }
++    if (pos >= chunk_end || image[pos] != 0) return 0;
++    pos++;   /* consume the NUL */
++
++    /* Fixed header: load(4) exec(4) block(2) length(2) flags(1) next(4)
++     * followed by the header CRC(2). The CRC covers the name, its NUL and the
++     * nineteen fixed bytes. */
++    header_start = name_start;
++    if (pos + 17u + 2u > chunk_end) return 0;
++
++    memset(out, 0, sizeof(*out));
++    memcpy(out->name, image + name_start, name_len);
++    out->name[name_len] = '\0';
++    out->load        = rd32(image + pos);
++    out->exec        = rd32(image + pos + 4);
++    out->block       = rd16(image + pos + 8);
++    out->data_length = rd16(image + pos + 10);
++    out->flags       = image[pos + 12];
++    pos += 17u;
++
++    header_len = pos - header_start;
++    stored_crc = rd16(image + pos);
++    computed   = tape_crc(image + header_start, header_len);
++    out->crc_ok = (stored_crc == computed);
++    pos += 2u;
++
++    if (out->data_length == 0) {
++        out->data_offset = pos;
++        return pos;
++    }
++
++    if (pos + out->data_length + 2u > chunk_end) return 0;
++    out->data_offset = pos;
++    computed   = tape_crc(image + pos, out->data_length);
++    stored_crc = rd16(image + pos + out->data_length);
++    if (stored_crc != computed) out->crc_ok = 0;
++    pos += (size_t)out->data_length + 2u;
++    return pos;
++}
++
++/* Walk every &0100 chunk, decode its CFS blocks and group them into files.
++ * `visit` is called once per block in stream order. */
++typedef void (*cfs_visitor)(void *opaque, const cfs_block_t *block);
++
++static media_status_t uef_walk(const uint8_t *image, size_t length,
++                               cfs_visitor visit, void *opaque,
++                               uint32_t *issues)
++{
++    size_t pos;
++
++    if (length < UEF_HEADER_LEN) return MEDIA_ERR_FORMAT;
++    if (memcmp(image, UEF_MAGIC, UEF_MAGIC_LEN) != 0) return MEDIA_ERR_FORMAT;
++
++    pos = UEF_HEADER_LEN;
++    while (pos + 6u <= length) {
++        uint16_t type = rd16(image + pos);
++        uint32_t clen = rd32(image + pos + 2);
++        size_t data = pos + 6u;
++        size_t end;
++
++        if (clen > length || data + clen > length) {
++            (*issues)++;
++            return MEDIA_ERR_TRUNCATED;
++        }
++        end = data + clen;
++
++        if (type == UEF_CHUNK_DATA) {
++            size_t bp = data;
++            while (bp < end) {
++                cfs_block_t block;
++                size_t next = cfs_decode_block(image, end, bp, &block);
++                if (next == 0) {
++                    /* Legal residual bytes after a block CRC are skipped by the
++                     * original WiCFS, so stop scanning this chunk rather than
++                     * rejecting the whole stream. */
++                    if (bp != data) (*issues)++;
++                    break;
++                }
++                visit(opaque, &block);
++                bp = next;
++            }
++        }
++        pos = end;
++    }
++    return MEDIA_OK;
++}
++
++typedef struct {
++    media_entry_t *entries;
++    size_t         max_entries;
++    size_t         count;
++    size_t         total;
++    char           current[MEDIA_NAME_MAX];
++    int            have_current;
++    media_entry_t *open_entry;  /* entry receiving continuation blocks, or NULL */
++    uint32_t       issues;
++} uef_group_t;
++
++static void uef_group_block(void *opaque, const cfs_block_t *block)
++{
++    uef_group_t *g = opaque;
++    int is_new;
++
++    is_new = !g->have_current || strcmp(g->current, block->name) != 0 ||
++             block->block == 0;
++
++    if (is_new) {
++        g->total++;
++        memcpy(g->current, block->name, MEDIA_NAME_MAX);
++        g->have_current = 1;
++        g->open_entry = NULL;
++        if (g->entries && g->count < g->max_entries) {
++            media_entry_t *e = &g->entries[g->count];
++            memset(e, 0, sizeof(*e));
++            memcpy(e->name, block->name, MEDIA_NAME_MAX);
++            e->load   = block->load;
++            e->exec   = block->exec;
++            e->length = block->data_length;
++            e->blocks = 1;
++            e->locked = (uint8_t)(block->flags & 0x01u);
++            e->crc_ok = (uint8_t)(block->crc_ok ? 1 : 0);
++            g->count++;
++            g->open_entry = e;
++        }
++        /* Beyond `max_entries` the file is still counted in `total`, but no
++         * entry stays open, so its continuation blocks cannot be added to the
++         * previous file's length. */
++        return;
++    }
++
++    if (g->open_entry) {
++        g->open_entry->length += block->data_length;
++        g->open_entry->blocks++;
++        if (!block->crc_ok) g->open_entry->crc_ok = 0;
++    }
++}
++
++/* ------------------------------------------------------------------------- */
++/* DFS disc images                                                           */
++
++#define DFS_SECTOR        256u
++#define DFS_MAX_FILES     31u
++
++static int dfs_plausible(const uint8_t *image, size_t length)
++{
++    uint8_t file_bytes;
++    unsigned files;
++    unsigned i;
++
++    if (length < 2u * DFS_SECTOR) return 0;
++    if (length % DFS_SECTOR != 0) return 0;
++
++    file_bytes = image[DFS_SECTOR + 5u];
++    if (file_bytes % 8u != 0) return 0;
++    files = file_bytes / 8u;
++    if (files > DFS_MAX_FILES) return 0;
++
++    /* Catalogue names are printable and the directory byte's low seven bits
++     * must also be printable. A blank disc has zero files and still passes. */
++    for (i = 0; i < files; i++) {
++        const uint8_t *name = image + 8u + (size_t)i * 8u;
++        unsigned c;
++        for (c = 0; c < 8u; c++) {
++            uint8_t ch = (uint8_t)(name[c] & 0x7Fu);
++            if (ch < 0x20u || ch > 0x7Eu) return 0;
++        }
++    }
++    return 1;
++}
++
++static media_status_t dfs_catalogue(const uint8_t *image, size_t length,
++                                    media_entry_t *entries, size_t max_entries,
++                                    media_catalogue_t *summary)
++{
++    unsigned files;
++    unsigned i;
++    size_t sectors_total;
++
++    if (!dfs_plausible(image, length)) return MEDIA_ERR_FORMAT;
++
++    files = image[DFS_SECTOR + 5u] / 8u;
++    sectors_total = (size_t)image[DFS_SECTOR + 7u] |
++                    ((size_t)(image[DFS_SECTOR + 6u] & 0x03u) << 8);
++    summary->boot_option = (uint8_t)((image[DFS_SECTOR + 6u] >> 4) & 0x0Fu);
++
++    /* Title is eight bytes in sector 0 followed by four in sector 1. */
++    {
++        char title[MEDIA_TITLE_MAX];
++        size_t n = 0;
++        unsigned c;
++        for (c = 0; c < 8u && n < MEDIA_TITLE_MAX - 1u; c++) {
++            uint8_t ch = (uint8_t)(image[c] & 0x7Fu);
++            if (ch == 0 || ch == 0x20u) continue;
++            title[n++] = (char)ch;
++        }
++        for (c = 0; c < 4u && n < MEDIA_TITLE_MAX - 1u; c++) {
++            uint8_t ch = (uint8_t)(image[DFS_SECTOR + c] & 0x7Fu);
++            if (ch == 0 || ch == 0x20u) continue;
++            title[n++] = (char)ch;
++        }
++        title[n] = '\0';
++        memcpy(summary->title, title, n + 1u);
++    }
++
++    summary->total = files;
++    for (i = 0; i < files; i++) {
++        const uint8_t *nm = image + 8u + (size_t)i * 8u;
++        const uint8_t *md = image + DFS_SECTOR + 8u + (size_t)i * 8u;
++        media_entry_t entry;
++        uint8_t extra = md[6];
++        size_t start_sector;
++        size_t n = 0;
++        unsigned c;
++
++        memset(&entry, 0, sizeof(entry));
++        entry.name[n++] = (char)(nm[7] & 0x7Fu);   /* directory */
++        entry.name[n++] = '.';
++        for (c = 0; c < 7u; c++) {
++            uint8_t ch = (uint8_t)(nm[c] & 0x7Fu);
++            if (ch == 0x20u) break;
++            entry.name[n++] = (char)ch;
++        }
++        entry.name[n] = '\0';
++        entry.locked = (uint8_t)((nm[7] & 0x80u) ? 1u : 0u);
++
++        entry.load   = (uint32_t)rd16(md) |
++                       ((uint32_t)((extra >> 2) & 0x03u) << 16);
++        entry.exec   = (uint32_t)rd16(md + 2) |
++                       ((uint32_t)((extra >> 6) & 0x03u) << 16);
++        entry.length = (uint32_t)rd16(md + 4) |
++                       ((uint32_t)((extra >> 4) & 0x03u) << 16);
++        start_sector = (size_t)md[7] | ((size_t)(extra & 0x03u) << 8);
++        entry.offset = (uint32_t)(start_sector * DFS_SECTOR);
++        entry.crc_ok = 1u;
++
++        /* Sign extend the Acorn 18-bit host addresses the way DFS does. */
++        if ((entry.load & 0x30000u) == 0x30000u) entry.load |= 0xFFFC0000u;
++        if ((entry.exec & 0x30000u) == 0x30000u) entry.exec |= 0xFFFC0000u;
++
++        if ((size_t)entry.offset + entry.length > length) {
++            summary->issues++;
++            entry.crc_ok = 0u;
++        }
++        if (sectors_total && start_sector > sectors_total) summary->issues++;
++
++        if (entries && summary->count < max_entries) {
++            entries[summary->count++] = entry;
++        }
++    }
++    return MEDIA_OK;
++}
++
++/* ------------------------------------------------------------------------- */
++/* Public entry points                                                       */
++
++media_kind_t media_identify(const uint8_t *image, size_t length)
++{
++    if (!image) return MEDIA_KIND_UNKNOWN;
++    if (length >= UEF_HEADER_LEN &&
++        memcmp(image, UEF_MAGIC, UEF_MAGIC_LEN) == 0) {
++        return MEDIA_KIND_UEF;
++    }
++    if (dfs_plausible(image, length)) return MEDIA_KIND_SSD;
++    return MEDIA_KIND_UNKNOWN;
++}
++
++media_status_t media_catalogue(const uint8_t *image, size_t length,
++                               media_kind_t kind, media_entry_t *entries,
++                               size_t max_entries, media_catalogue_t *summary)
++{
++    if (!image || !summary) return MEDIA_ERR_PARAM;
++    if (entries && max_entries == 0) return MEDIA_ERR_PARAM;
++
++    memset(summary, 0, sizeof(*summary));
++    if (kind == MEDIA_KIND_UNKNOWN) kind = media_identify(image, length);
++    summary->kind = kind;
++
++    if (kind == MEDIA_KIND_UEF) {
++        uef_group_t group;
++        media_status_t status;
++
++        memset(&group, 0, sizeof(group));
++        group.entries = entries;
++        group.max_entries = entries ? max_entries : 0;
++
++        status = uef_walk(image, length, uef_group_block, &group,
++                          &group.issues);
++        summary->count  = group.count;
++        summary->total  = group.total;
++        summary->issues = group.issues;
++        if (status == MEDIA_ERR_FORMAT) return status;
++        return MEDIA_OK;
++    }
++
++    if (kind == MEDIA_KIND_SSD) return dfs_catalogue(image, length, entries,
++                                                     max_entries, summary);
++    return MEDIA_ERR_FORMAT;
++}
++
++typedef struct {
++    size_t   want;
++    size_t   seen;
++    char     current[MEDIA_NAME_MAX];
++    int      have_current;
++    uint8_t *out;
++    size_t   capacity;
++    size_t   written;
++    int      overflow;
++    const uint8_t *image;
++} uef_copy_t;
++
++static void uef_copy_block(void *opaque, const cfs_block_t *block)
++{
++    uef_copy_t *c = opaque;
++    int is_new = !c->have_current || strcmp(c->current, block->name) != 0 ||
++                 block->block == 0;
++
++    if (is_new) {
++        if (c->have_current) c->seen++;
++        memcpy(c->current, block->name, MEDIA_NAME_MAX);
++        c->have_current = 1;
++    }
++    if (c->seen != c->want || !c->have_current) return;
++    if (block->data_length == 0) return;
++    if (c->written + block->data_length > c->capacity) {
++        c->overflow = 1;
++        return;
++    }
++    memcpy(c->out + c->written, c->image + block->data_offset,
++           block->data_length);
++    c->written += block->data_length;
++}
++
++media_status_t media_extract(const uint8_t *image, size_t length,
++                             media_kind_t kind, size_t index, uint8_t *out,
++                             size_t out_capacity, size_t *out_length)
++{
++    if (!image || !out || !out_length) return MEDIA_ERR_PARAM;
++    *out_length = 0;
++    if (kind == MEDIA_KIND_UNKNOWN) kind = media_identify(image, length);
++
++    if (kind == MEDIA_KIND_UEF) {
++        uef_copy_t copy;
++        uint32_t issues = 0;
++        media_status_t status;
++
++        memset(&copy, 0, sizeof(copy));
++        copy.want = index;
++        copy.out = out;
++        copy.capacity = out_capacity;
++        copy.image = image;
++
++        status = uef_walk(image, length, uef_copy_block, &copy, &issues);
++        if (status == MEDIA_ERR_FORMAT) return status;
++        if (copy.overflow) return MEDIA_ERR_RANGE;
++        if (!copy.have_current || copy.seen < index) return MEDIA_ERR_RANGE;
++        *out_length = copy.written;
++        return MEDIA_OK;
++    }
++
++    if (kind == MEDIA_KIND_SSD) {
++        media_entry_t entries[MEDIA_MAX_ENTRIES];
++        media_catalogue_t summary;
++        media_status_t status;
++        const media_entry_t *e;
++
++        status = media_catalogue(image, length, kind, entries,
++                                 MEDIA_MAX_ENTRIES, &summary);
++        if (status != MEDIA_OK) return status;
++        if (index >= summary.count) return MEDIA_ERR_RANGE;
++        e = &entries[index];
++        if ((size_t)e->offset + e->length > length) return MEDIA_ERR_TRUNCATED;
++        if (e->length > out_capacity) return MEDIA_ERR_RANGE;
++        memcpy(out, image + e->offset, e->length);
++        *out_length = e->length;
++        return MEDIA_OK;
++    }
++    return MEDIA_ERR_FORMAT;
++}
++
++static char hex_digit(unsigned value)
++{
++    return (char)(value < 10u ? '0' + (int)value : 'A' + (int)value - 10);
++}
++
++static size_t put_hex(char *out, uint32_t value, unsigned digits)
++{
++    unsigned i;
++    for (i = 0; i < digits; i++) {
++        out[i] = hex_digit((value >> ((digits - 1u - i) * 4u)) & 0x0Fu);
++    }
++    return digits;
++}
++
++size_t media_format_entry(const media_entry_t *entry, char *out,
++                          size_t capacity)
++{
++    /* "NAME        FFFF1900 FFFF8023 0004A0 L" fits inside forty columns. */
++    size_t n = 0;
++    size_t i;
++
++    if (!entry || !out || capacity < 40u) return 0;
++
++    for (i = 0; i < 11u; i++) {
++        char ch = entry->name[i];
++        if (ch == '\0') break;
++        out[n++] = ch;
++    }
++    while (n < 12u) out[n++] = ' ';
++
++    n += put_hex(out + n, entry->load, 8);
++    out[n++] = ' ';
++    n += put_hex(out + n, entry->exec, 8);
++    out[n++] = ' ';
++    n += put_hex(out + n, entry->length, 6);
++    if (entry->locked) {
++        out[n++] = ' ';
++        out[n++] = 'L';
++    }
++    if (!entry->crc_ok) {
++        out[n++] = ' ';
++        out[n++] = '?';
++    }
++    out[n] = '\0';
++    return n;
++}
+diff --git a/src/media_catalogue.h b/src/media_catalogue.h
+new file mode 100644
+index 0000000..91f2912
+--- /dev/null
++++ b/src/media_catalogue.h
+@@ -0,0 +1,80 @@
++#ifndef MEDIA_CATALOGUE_H
++#define MEDIA_CATALOGUE_H
++
++#include <stddef.h>
++#include <stdint.h>
++
++/* Container parsing for the host `*UEF CAT`, `*UEF EXTRACT`, `*SSD CAT` and
++ * `*SSD EXTRACT` commands.
++ *
++ * The host ROM stays a thin client: it supplies a complete container image and
++ * renders whatever this module reports. Every catalogue and metadata decision
++ * for UEF cassette streams and DFS disc images is made here, on the Pi, where
++ * there is room to validate it. Nothing in this file touches Pi1MHz hardware,
++ * so it is unit tested on the build host.
++ *
++ * All entry points treat the image as untrusted input. A truncated or
++ * malformed container yields the entries that could be recovered plus a
++ * non-zero issue count; it never reads outside the supplied buffer. */
++
++#define MEDIA_NAME_MAX      16u
++#define MEDIA_TITLE_MAX     16u
++#define MEDIA_MAX_ENTRIES   128u
++
++typedef enum {
++    MEDIA_KIND_UNKNOWN = 0,
++    MEDIA_KIND_UEF,
++    MEDIA_KIND_SSD
++} media_kind_t;
++
++typedef enum {
++    MEDIA_OK = 0,
++    MEDIA_ERR_PARAM,
++    MEDIA_ERR_FORMAT,
++    MEDIA_ERR_RANGE,
++    MEDIA_ERR_TRUNCATED
++} media_status_t;
++
++typedef struct {
++    char     name[MEDIA_NAME_MAX];  /* NUL terminated; DFS entries are "D.NAME" */
++    uint32_t load;                  /* full 32-bit address as recorded */
++    uint32_t exec;
++    uint32_t length;                /* total data bytes for the file */
++    uint32_t offset;                /* byte offset of contiguous data, SSD only */
++    uint16_t blocks;                /* CFS blocks that make up a UEF file */
++    uint8_t  locked;                /* CFS/DFS lock attribute */
++    uint8_t  crc_ok;                /* UEF: every block header and data CRC verified */
++} media_entry_t;
++
++typedef struct {
++    char        title[MEDIA_TITLE_MAX]; /* DFS disc title; empty for UEF */
++    media_kind_t kind;
++    size_t      count;                  /* entries written to the caller array */
++    size_t      total;                  /* entries present, may exceed `count` */
++    uint32_t    issues;                 /* recoverable defects seen while parsing */
++    uint8_t     boot_option;            /* DFS *OPT 4 value; 0 for UEF */
++} media_catalogue_t;
++
++/* Identify a container from its leading bytes and length. A UEF must carry the
++ * "UEF File!" magic; anything else that is a whole number of 256-byte sectors
++ * and holds a plausible DFS catalogue is reported as SSD. */
++media_kind_t media_identify(const uint8_t *image, size_t length);
++
++/* Decode the catalogue. `entries` may be NULL to count only. */
++media_status_t media_catalogue(const uint8_t *image, size_t length,
++                               media_kind_t kind, media_entry_t *entries,
++                               size_t max_entries, media_catalogue_t *summary);
++
++/* Copy entry `index`'s file data into `out`. UEF data is gathered from its CFS
++ * blocks; DFS data is contiguous. `*out_length` receives the byte count. */
++media_status_t media_extract(const uint8_t *image, size_t length,
++                             media_kind_t kind, size_t index, uint8_t *out,
++                             size_t out_capacity, size_t *out_length);
++
++/* Render one catalogue line in the host's 40-column form. Returns the number of
++ * characters written excluding the terminator, or 0 if the buffer is too
++ * small. */
++size_t media_format_entry(const media_entry_t *entry, char *out,
++                          size_t capacity);
++
++#endif
+diff --git a/src/media_service_core.c b/src/media_service_core.c
+new file mode 100644
+index 0000000..6dbd610
+--- /dev/null
++++ b/src/media_service_core.c
+@@ -0,0 +1,206 @@
++#include "media_service_core.h"
++
++#include <string.h>
++
++/* The read window is the reply window less the four-byte header the host
++ * expects: remaining length high/low and the byte count in this window. */
++#define MEDIA_SVC_READ_WINDOW (MEDIA_SVC_REPLY_MAX - 4u)
++
++void media_service_reset(media_service *service)
++{
++    if (!service) return;
++    memset(service, 0, sizeof(*service));
++}
++
++uint8_t media_service_open(media_service *service, const uint8_t *image,
++                           size_t length)
++{
++    media_status_t status;
++
++    if (!service) return MEDIA_SVC_ERR_PARAM;
++    media_service_reset(service);
++    if (!image || length == 0) return MEDIA_SVC_ERR_PARAM;
++
++    service->kind = media_identify(image, length);
++    if (service->kind == MEDIA_KIND_UNKNOWN) return MEDIA_SVC_ERR_FORMAT;
++
++    status = media_catalogue(image, length, service->kind, service->entries,
++                             MEDIA_MAX_ENTRIES, &service->summary);
++    if (status != MEDIA_OK) return MEDIA_SVC_ERR_FORMAT;
++
++    service->image = image;
++    service->length = length;
++    service->open = 1;
++    return MEDIA_SVC_OK;
++}
++
++static uint8_t dispatch_open(media_service *service, uint8_t *reply,
++                             size_t capacity, size_t *reply_length)
++{
++    /* The host uploads the image separately and opens it with a bare command,
++     * so an open here only reports what the already-bound image contains. */
++    if (!service->open) return MEDIA_SVC_ERR_PARAM;
++    if (capacity < 4u) return MEDIA_SVC_ERR_RANGE;
++    reply[0] = (uint8_t)service->kind;
++    reply[1] = (uint8_t)(service->summary.count & 0xFFu);
++    reply[2] = (uint8_t)(service->summary.total & 0xFFu);
++    reply[3] = service->summary.boot_option;
++    *reply_length = 4u;
++    return MEDIA_SVC_OK;
++}
++
++static uint8_t dispatch_cat(media_service *service, uint8_t *reply,
++                            size_t capacity, size_t *reply_length)
++{
++    char line[64];
++    size_t n;
++
++    if (!service->open) return MEDIA_SVC_ERR_PARAM;
++    if (service->cat_cursor >= service->summary.count) return MEDIA_SVC_EOF;
++
++    n = media_format_entry(&service->entries[service->cat_cursor], line,
++                           sizeof(line));
++    if (n == 0) return MEDIA_SVC_ERR_RANGE;
++    if (n + 1u > capacity || n + 1u > MEDIA_SVC_REPLY_MAX) {
++        return MEDIA_SVC_ERR_RANGE;
++    }
++    memcpy(reply, line, n);
++    reply[n] = 0x0Du;              /* host prints a CR-terminated line */
++    *reply_length = n + 1u;
++    service->cat_cursor++;
++    return MEDIA_SVC_OK;
++}
++
++static uint8_t dispatch_info(media_service *service, const uint8_t *command,
++                             uint8_t *reply, size_t capacity,
++                             size_t *reply_length)
++{
++    size_t index;
++    const media_entry_t *entry;
++    size_t n = 0;
++    size_t i;
++
++    if (!service->open) return MEDIA_SVC_ERR_PARAM;
++    index = command[1];
++    if (index >= service->summary.count) return MEDIA_SVC_ERR_RANGE;
++    entry = &service->entries[index];
++
++    /* load(4) exec(4) length(4) flags(1) then the NUL terminated name. */
++    if (capacity < 13u + MEDIA_NAME_MAX) return MEDIA_SVC_ERR_RANGE;
++    reply[n++] = (uint8_t)(entry->load & 0xFFu);
++    reply[n++] = (uint8_t)((entry->load >> 8) & 0xFFu);
++    reply[n++] = (uint8_t)((entry->load >> 16) & 0xFFu);
++    reply[n++] = (uint8_t)((entry->load >> 24) & 0xFFu);
++    reply[n++] = (uint8_t)(entry->exec & 0xFFu);
++    reply[n++] = (uint8_t)((entry->exec >> 8) & 0xFFu);
++    reply[n++] = (uint8_t)((entry->exec >> 16) & 0xFFu);
++    reply[n++] = (uint8_t)((entry->exec >> 24) & 0xFFu);
++    reply[n++] = (uint8_t)(entry->length & 0xFFu);
++    reply[n++] = (uint8_t)((entry->length >> 8) & 0xFFu);
++    reply[n++] = (uint8_t)((entry->length >> 16) & 0xFFu);
++    reply[n++] = (uint8_t)((entry->length >> 24) & 0xFFu);
++    reply[n++] = (uint8_t)((entry->locked ? 1u : 0u) |
++                           (entry->crc_ok ? 0u : 2u));
++    for (i = 0; i < MEDIA_NAME_MAX && entry->name[i]; i++) {
++        reply[n++] = (uint8_t)entry->name[i];
++    }
++    reply[n++] = 0;
++    *reply_length = n;
++    return MEDIA_SVC_OK;
++}
++
++/* Extracted file data for the entry currently being streamed. Extraction
++ * gathers a UEF file from its CFS blocks, so it is done once when a stream
++ * starts rather than on every window. */
++static uint8_t  stream_data[65536];
++static size_t   stream_length;
++static size_t   stream_index;
++static int      stream_valid;
++
++static uint8_t dispatch_read(media_service *service, const uint8_t *command,
++                             uint8_t *reply, size_t capacity,
++                             size_t *reply_length)
++{
++    size_t index;
++    size_t remaining;
++    size_t window;
++
++    if (!service->open) return MEDIA_SVC_ERR_PARAM;
++    index = command[1];
++    if (index >= service->summary.count) return MEDIA_SVC_ERR_RANGE;
++    if (capacity < 4u) return MEDIA_SVC_ERR_RANGE;
++
++    /* A different index, or no live stream, starts a new one. */
++    if (!stream_valid || stream_index != index ||
++        service->read_index != index) {
++        media_status_t status = media_extract(service->image, service->length,
++                                              service->kind, index,
++                                              stream_data,
++                                              sizeof(stream_data),
++                                              &stream_length);
++        if (status == MEDIA_ERR_RANGE) return MEDIA_SVC_ERR_RANGE;
++        if (status != MEDIA_OK) return MEDIA_SVC_ERR_FORMAT;
++        stream_index = index;
++        stream_valid = 1;
++        service->read_index = index;
++        service->read_offset = 0;
++    }
++
++    if (service->read_offset >= stream_length) {
++        service->read_offset = 0;
++        stream_valid = 0;
++        *reply_length = 0;
++        return MEDIA_SVC_EOF;
++    }
++
++    remaining = stream_length - service->read_offset;
++    window = remaining < MEDIA_SVC_READ_WINDOW ? remaining
++                                               : MEDIA_SVC_READ_WINDOW;
++    if (window + 4u > capacity) window = capacity - 4u;
++
++    /* Three little-endian bytes of remaining length, then this window's size,
++     * matching the byte order the host already uses for stream lengths. */
++    reply[0] = (uint8_t)(remaining & 0xFFu);
++    reply[1] = (uint8_t)((remaining >> 8) & 0xFFu);
++    reply[2] = (uint8_t)((remaining >> 16) & 0xFFu);
++    reply[3] = (uint8_t)window;
++    memcpy(reply + 4, stream_data + service->read_offset, window);
++    service->read_offset += window;
++    *reply_length = window + 4u;
++    return MEDIA_SVC_OK;
++}
++
++uint8_t media_service_dispatch(media_service *service, const uint8_t *command,
++                               uint8_t *reply, size_t reply_capacity,
++                               size_t *reply_length)
++{
++    size_t local_length = 0;
++
++    if (!service || !command || !reply || !reply_length) {
++        return MEDIA_SVC_ERR_PARAM;
++    }
++    *reply_length = 0;
++    if (reply_capacity > MEDIA_SVC_REPLY_MAX) {
++        reply_capacity = MEDIA_SVC_REPLY_MAX;
++    }
++
++    switch (command[0]) {
++    case MEDIA_CMD_OPEN:
++        return dispatch_open(service, reply, reply_capacity, reply_length);
++    case MEDIA_CMD_CAT:
++        return dispatch_cat(service, reply, reply_capacity, reply_length);
++    case MEDIA_CMD_INFO:
++        return dispatch_info(service, command, reply, reply_capacity,
++                             reply_length);
++    case MEDIA_CMD_READ:
++        return dispatch_read(service, command, reply, reply_capacity,
++                             reply_length);
++    case MEDIA_CMD_CLOSE:
++        stream_valid = 0;
++        media_service_reset(service);
++        *reply_length = local_length;
++        return MEDIA_SVC_OK;
++    default:
++        return MEDIA_SVC_ERR_PARAM;
++    }
++}
+diff --git a/src/media_service_core.h b/src/media_service_core.h
+new file mode 100644
+index 0000000..46877d3
+--- /dev/null
++++ b/src/media_service_core.h
+@@ -0,0 +1,66 @@
++#ifndef MEDIA_SERVICE_CORE_H
++#define MEDIA_SERVICE_CORE_H
++
++#include <stddef.h>
++#include <stdint.h>
++
++#include "media_catalogue.h"
++
++/* Mailbox session for the host `*UEF CAT`, `*UEF EXTRACT`, `*SSD CAT` and
++ * `*SSD EXTRACT` commands.
++ *
++ * The host ROM stays a thin client. It uploads a container image, then asks
++ * for catalogue lines, entry metadata and file data one bounded reply at a
++ * time. Every parsing decision is made by media_catalogue.c and every session
++ * decision is made here, so neither costs host ROM space.
++ *
++ * This core performs no Pi1MHz register access. media_service.c binds it to
++ * the services mailbox, and the unit tests drive it directly. */
++
++enum {
++    MEDIA_CMD_OPEN  = 120,   /* identify the uploaded image, return kind/count */
++    MEDIA_CMD_CAT   = 121,   /* return one catalogue line, advancing a cursor  */
++    MEDIA_CMD_INFO  = 122,   /* return one entry's metadata by index           */
++    MEDIA_CMD_READ  = 123,   /* stream one entry's data in bounded windows     */
++    MEDIA_CMD_CLOSE = 124,   /* release the session                            */
++
++    MEDIA_SVC_OK        = 0x00,
++    MEDIA_SVC_EOF       = 0x20,
++    MEDIA_SVC_ERR_PARAM = 0x23,
++    MEDIA_SVC_ERR_FORMAT = 0x27,
++    MEDIA_SVC_ERR_RANGE = 0x2B
++};
++
++/* A reply never exceeds the stock 240-byte services response window. */
++#define MEDIA_SVC_REPLY_MAX 240u
++
++typedef struct media_service {
++    const uint8_t *image;      /* container supplied by the host, not owned */
++    size_t         length;
++    media_kind_t   kind;
++    media_catalogue_t summary;
++    media_entry_t  entries[MEDIA_MAX_ENTRIES];
++    size_t         cat_cursor;  /* next catalogue line to return */
++    size_t         read_index;  /* entry currently being streamed */
++    size_t         read_offset; /* byte offset reached within that entry */
++    int            open;
++} media_service;
++
++/* Reset a session. Does not free the caller's image. */
++void media_service_reset(media_service *service);
++
++/* Bind an uploaded container and decode its catalogue. */
++uint8_t media_service_open(media_service *service, const uint8_t *image,
++                           size_t length);
++
++/* Dispatch one mailbox command.
++ *
++ * `command` is the four-byte services command block: command number followed
++ * by up to three argument bytes. `reply` receives the response body and
++ * `*reply_length` its size, never exceeding MEDIA_SVC_REPLY_MAX. The returned
++ * byte is the status the host reads back. */
++uint8_t media_service_dispatch(media_service *service, const uint8_t *command,
++                               uint8_t *reply, size_t reply_capacity,
++                               size_t *reply_length);
++
++#endif
 diff --git a/src/net_service.c b/src/net_service.c
-index 92fac86..40cb3f8 100644
+index 862566e..a677525 100644
 --- a/src/net_service.c
 +++ b/src/net_service.c
 @@ -59,6 +59,9 @@ typedef struct {
@@ -11465,7 +12401,7 @@ index d0b2ea8..806d412 100644
     endif()
 diff --git a/src/secure_service.c b/src/secure_service.c
 new file mode 100644
-index 0000000..23bfe67
+index 0000000..57ca7ba
 --- /dev/null
 +++ b/src/secure_service.c
 @@ -0,0 +1,143 @@
@@ -11610,7 +12546,7 @@ index 0000000..23bfe67
 +    (void)services_register(SERVICE_CMD_SECURE_FIRST,
 +                            SERVICE_CMD_SECURE_LAST,
 +                            secure_service_command);
-+    Pi1MHz_Register_Poll(secure_poll);
++    Pi1MHz_Register_Poll(secure_poll, "secure");
 +}
 diff --git a/src/secure_service.h b/src/secure_service.h
 new file mode 100644
@@ -11954,10 +12890,10 @@ index 0000000..ad63d1e
 +#endif
 diff --git a/src/secure_service_wolfssh.c b/src/secure_service_wolfssh.c
 new file mode 100644
-index 0000000..f6dedac
+index 0000000..289f9d3
 --- /dev/null
 +++ b/src/secure_service_wolfssh.c
-@@ -0,0 +1,951 @@
+@@ -0,0 +1,959 @@
 +/* Bare-metal Pi1MHz wolfSSH provider.
 + *
 + * This file is copied into the Pi1MHz source tree by install.sh.  It keeps
@@ -12070,15 +13006,19 @@ index 0000000..f6dedac
 +static uint8_t rng_zero_count;
 +static uint8_t rng_ones_count;
 +
++/* Warm-up is not waited for here. rng_begin discards 0x40000 oscillator bits
++   and rng_poll samples the result from the cooperative poll loop, so by the
++   time a caller reaches this the generator is running at its hardware rate and
++   a word is due in microseconds. The bound is a safety net against a generator
++   that stops, not a settling time: at 750ms it was long enough to stall the
++   1MHz bus service for most of a second. */
++#define RNG_WORD_DEADLINE_US 5000u
++
 +static int rng_word(uint32_t *out)
 +{
-+    /* Initialisation discards 0x40000 oscillator bits. An iteration-count
-+       timeout expires much sooner on a Pi 3 than on a Pi Zero and can leave
-+       managed SSH disabled for the entire boot. Use a wall-clock deadline so
-+       every supported CPU receives the same hardware settling time. */
 +    uint32_t started_us = RPI_GetSystemTime();
 +    while ((BCM_RNG_STATUS >> 24) == 0u) {
-+        if (RPI_GetSystemTime() - started_us >= 750000u) return -1;
++        if (RPI_GetSystemTime() - started_us >= RNG_WORD_DEADLINE_US) return -1;
 +        RPI_WaitMicroSeconds(1u);
 +    }
 +    *out = BCM_RNG_DATA;
@@ -12093,7 +13033,11 @@ index 0000000..f6dedac
 +{
 +    uint32_t word = 0;
 +    unsigned int available = 0;
-+    if (!rng_started || out == NULL) return -1;
++    /* Fail fast rather than block. The settling wait belongs to rng_poll, and
++       a caller which arrives before the generator is ready must retry: the
++       capability byte reports readiness so the host can wait for it rather
++       than have the Pi stall inside a command. */
++    if (!rng_started || !rng_ready || out == NULL) return -1;
 +    while (length != 0u) {
 +        if (available == 0u) {
 +            if (rng_word(&word) != 0) return -1;
@@ -13459,10 +14403,10 @@ index cdcac69..2964782 100644
  }
 +#endif
 diff --git a/src/tests/services/fuzz_fat.c b/src/tests/services/fuzz_fat.c
-index 53a165d..b709af2 100644
+index b4bcce7..d8c99ed 100644
 --- a/src/tests/services/fuzz_fat.c
 +++ b/src/tests/services/fuzz_fat.c
-@@ -64,6 +64,15 @@ unsigned char disk_type(void) { return 1; }
+@@ -65,6 +65,15 @@ unsigned char disk_type(void) { return 1; }
  bool filesystemMount(void) { return true; }
  bool filesystemDismount(void) { return true; }
  
@@ -13479,10 +14423,10 @@ index 53a165d..b709af2 100644
  uint32_t filesystemReadFile(const char *f, uint8_t **a, unsigned int m)
  { (void)f; (void)a; (void)m; return 0; }
 diff --git a/src/tests/services/test_services.c b/src/tests/services/test_services.c
-index 8d58e8b..de8d81f 100644
+index 746230e..a73f6b2 100644
 --- a/src/tests/services/test_services.c
 +++ b/src/tests/services/test_services.c
-@@ -81,6 +81,25 @@ static uint8_t  aun_last_cmd;
+@@ -82,6 +82,25 @@ static uint8_t  aun_last_cmd;
  static void test_aun_handler(uint32_t cp, uint32_t addr, uint8_t data)
  { (void)addr; (void)data; aun_calls++; aun_last_cmd = Pi1MHz->JIM_ram[cp]; }
  
@@ -13508,7 +14452,7 @@ index 8d58e8b..de8d81f 100644
  /* ---- helpers driving the real dispatch ---- */
  #define CMD_PAGE 0xF3u
  static uint32_t cp_of(uint8_t page) { return DISC_RAM_BASE | 0xFF0000u | ((uint32_t)page << 8); }
-@@ -136,11 +155,17 @@ int main(void)
+@@ -137,11 +156,17 @@ int main(void)
     puts("== registration ==");
     ok(services_register(SERVICE_CMD_AUN_FIRST, SERVICE_CMD_AUN_LAST, test_aun_handler),
        "AUN range registers");
@@ -13527,7 +14471,7 @@ index 8d58e8b..de8d81f 100644
  
     puts("== dispatch ==");
     ok(do_simple(0, 20) == 42, "FAT command 20 reaches disk_type");
-@@ -150,8 +175,24 @@ int main(void)
+@@ -151,8 +176,24 @@ int main(void)
        (void)dispatch(CMD_PAGE);
        ok(aun_calls == 1 && aun_last_cmd == 31, "command 31 routed to the AUN handler");
        Pi1MHz->JIM_ram[cp] = 45;
@@ -14063,7 +15007,7 @@ index b57cced..a91bf51 100644
  #define LWIP_SOCKET                     0
  
 diff --git a/src/wifi/sdio.c b/src/wifi/sdio.c
-index 825fa73..281c18c 100644
+index d00ee47..a97632d 100644
 --- a/src/wifi/sdio.c
 +++ b/src/wifi/sdio.c
 @@ -129,6 +129,12 @@ static uint16_t g_runtime_rate_request_id;
@@ -14079,15 +15023,15 @@ index 825fa73..281c18c 100644
  /* MAC the caller (wifi.c) wants the chip to transmit with.  Pushed
     into the chip via WLC_SET_VAR("cur_etheraddr", mac) during the
     per-tick SET_MAC stage.  If invalid, SET_MAC is skipped and the
-@@ -174,6 +180,7 @@ static uint32_t g_runtime_tx_shut_since_us;
- static uint32_t g_runtime_tx_resync_count;
+@@ -235,6 +241,7 @@ static bool g_runtime_glom_ack_seen;
+ static uint32_t g_runtime_glom_ack_status;
  /* Association retries since boot - see sdio_runtime_rejoin_start(). */
  static uint32_t g_runtime_rejoin_count;
 +static bool g_runtime_rejoin_allowed = true;
  /* Set once the 4-bit data bus has been switched to and verified. */
  static bool g_runtime_bus_four_bit;
  /* Set once the bus has been verified running at 50 MHz high speed. */
-@@ -356,7 +363,9 @@ static uint32_t g_runtime_sdio_core_base = CYW43_SDIO_CORE_BASE;
+@@ -450,7 +457,9 @@ static _Alignas(4) uint8_t g_txglom_buf[SDPCM_TXGLOM_BUF_SIZE];
  #define WLC_IOCTL_MAGIC 0x14e46c77u
  #define TKIP_ENABLED 0x0002u
  #define AES_ENABLED 0x0004u
@@ -14097,7 +15041,7 @@ index 825fa73..281c18c 100644
  #define WPA2_AUTH_PSK 0x0080u
  #define WLC_GET_MAGIC 0u
  #define WLC_GET_VERSION 1u
-@@ -369,6 +378,7 @@ static uint32_t g_runtime_sdio_core_base = CYW43_SDIO_CORE_BASE;
+@@ -463,6 +472,7 @@ static _Alignas(4) uint8_t g_txglom_buf[SDPCM_TXGLOM_BUF_SIZE];
  #define WLC_SET_BAND 142u
  #define WLC_SET_SSID 26u
  #define WLC_SET_WSEC 134u
@@ -14105,7 +15049,7 @@ index 825fa73..281c18c 100644
  #define WLC_SET_WPA_AUTH 165u
  #define WLC_SET_VAR 263u
  #define WLC_GET_VAR 262u
-@@ -376,6 +386,7 @@ static uint32_t g_runtime_sdio_core_base = CYW43_SDIO_CORE_BASE;
+@@ -470,6 +480,7 @@ static _Alignas(4) uint8_t g_txglom_buf[SDPCM_TXGLOM_BUF_SIZE];
  #define WLC_SCAN 50u
  #define WLC_GET_BSSID 23u
  #define WLC_DOWN 3u
@@ -14113,7 +15057,7 @@ index 825fa73..281c18c 100644
  #define WLC_GET_SSID 25u
  #define WLC_GET_INFRA 19u
  #define WLC_GET_AUTH 21u
-@@ -405,6 +416,14 @@ static uint32_t g_runtime_sdio_core_base = CYW43_SDIO_CORE_BASE;
+@@ -499,6 +510,14 @@ static _Alignas(4) uint8_t g_txglom_buf[SDPCM_TXGLOM_BUF_SIZE];
  #define SDPCM_CONTROL_EVENT_HEADER_LENGTH 12u
  #define SDPCM_DATA_HEADER_LENGTH 14u
  #define SDPCM_PREFIX_LENGTH 4u
@@ -14128,7 +15072,7 @@ index 825fa73..281c18c 100644
  
  /* How long the chip's transmit credit window may stay shut before it is
     treated as a sequence desync rather than back-pressure.  Genuine credit
-@@ -422,7 +441,14 @@ static uint32_t g_runtime_sdio_core_base = CYW43_SDIO_CORE_BASE;
+@@ -516,7 +535,14 @@ static _Alignas(4) uint8_t g_txglom_buf[SDPCM_TXGLOM_BUF_SIZE];
  #define CDCF_IOC_ID_MASK 0xffff0000u
  #define CDCF_IOC_ID_SHIFT 16u
  #define TX_CONTROL_TEMPLATE_INTERFACE 0u
@@ -14144,7 +15088,7 @@ index 825fa73..281c18c 100644
  #define TX_CONTROL_PROBE_JOIN_COMMAND_COUNT 44u
  /* "join" iovar value is wl_extjoin_params_t which is 70 bytes:
       wlc_ssid_t      ssid;          // 4 + 32 = 36 bytes
-@@ -611,6 +637,8 @@ static const char *sdio_event_name(uint32_t event_type)
+@@ -705,6 +731,8 @@ static const char *sdio_event_name(uint32_t event_type)
        case 12u: return "DISASSOC_IND";
        case 16u: return "LINK";
        case 46u: return "PSK_SUP";
@@ -14153,7 +15097,7 @@ index 825fa73..281c18c 100644
        default: return "OTHER";
     }
  }
-@@ -670,6 +698,65 @@ static bool sdio_event_is_link_down(uint32_t event_type, uint32_t event_flags)
+@@ -764,6 +792,65 @@ static bool sdio_event_is_link_down(uint32_t event_type, uint32_t event_flags)
        || event_type == 11u || event_type == 12u;
  }
  
@@ -14219,7 +15163,7 @@ index 825fa73..281c18c 100644
  static void sdio_runtime_set_error(const char *message)
  {
     if (message == NULL) {
-@@ -2231,6 +2318,7 @@ static uint8_t sdio_tx_probe_join_commands(wifi_sdio_tx_probe_command_t *command
+@@ -2325,6 +2412,7 @@ static uint8_t sdio_tx_probe_join_commands(wifi_sdio_tx_probe_command_t *command
                                             size_t command_capacity)
  {
     const wifi_config_t *config = wifi_get_config();
@@ -14227,7 +15171,7 @@ index 825fa73..281c18c 100644
     uint8_t count = 0u;
  
     if (commands == NULL || command_capacity < TX_CONTROL_PROBE_JOIN_COMMAND_COUNT - 1u)
-@@ -2315,24 +2403,36 @@ static uint8_t sdio_tx_probe_join_commands(wifi_sdio_tx_probe_command_t *command
+@@ -2409,24 +2497,36 @@ static uint8_t sdio_tx_probe_join_commands(wifi_sdio_tx_probe_command_t *command
     commands[count++] = WIFI_SDIO_TX_PROBE_COMMAND_ASSOC_LISTEN;   /* assoc_listen = 0x0a */
     commands[count++] = WIFI_SDIO_TX_PROBE_COMMAND_INFRA;          /* WLC_SET_INFRA = 1 */
     commands[count++] = WIFI_SDIO_TX_PROBE_COMMAND_AUTH;           /* WLC_SET_AUTH = 0 (802.11 open) */
@@ -14273,7 +15217,7 @@ index 825fa73..281c18c 100644
     /* No explicit WLC_SCAN here: it was only ever a radio diagnostic,
        and now that the CLM is loaded and SET_SSID genuinely starts a
        join, a scan issued immediately afterwards just collides with it
-@@ -2401,6 +2501,8 @@ static uint32_t sdio_tx_probe_command_value(wifi_sdio_tx_probe_command_t command
+@@ -2497,6 +2597,8 @@ static uint32_t sdio_tx_probe_command_value(wifi_sdio_tx_probe_command_t command
           return WLC_SET_BAND;
        case WIFI_SDIO_TX_PROBE_COMMAND_PMK:
           return WLC_SET_WSEC_PMK;
@@ -14282,7 +15226,7 @@ index 825fa73..281c18c 100644
        case WIFI_SDIO_TX_PROBE_COMMAND_SUP_WPA:
        case WIFI_SDIO_TX_PROBE_COMMAND_SUP_WPA2_EAPVER:
        case WIFI_SDIO_TX_PROBE_COMMAND_SUP_WPA_TMO:
-@@ -2436,7 +2538,7 @@ static uint32_t sdio_tx_probe_command_value(wifi_sdio_tx_probe_command_t command
+@@ -2532,7 +2634,7 @@ static uint32_t sdio_tx_probe_command_value(wifi_sdio_tx_probe_command_t command
        case WIFI_SDIO_TX_PROBE_COMMAND_GET_RATE:
           return WLC_GET_RATE;
        case WIFI_SDIO_TX_PROBE_COMMAND_SCAN:
@@ -14291,7 +15235,7 @@ index 825fa73..281c18c 100644
        case WIFI_SDIO_TX_PROBE_COMMAND_WSEC:
           return WLC_SET_WSEC;
        case WIFI_SDIO_TX_PROBE_COMMAND_WPA_AUTH:
-@@ -2451,6 +2553,8 @@ static uint32_t sdio_tx_probe_command_value(wifi_sdio_tx_probe_command_t command
+@@ -2547,6 +2649,8 @@ static uint32_t sdio_tx_probe_command_value(wifi_sdio_tx_probe_command_t command
           return WLC_UP;
        case WIFI_SDIO_TX_PROBE_COMMAND_DOWN:
           return WLC_DOWN;
@@ -14300,7 +15244,7 @@ index 825fa73..281c18c 100644
        case WIFI_SDIO_TX_PROBE_COMMAND_GET_SSID:
           return WLC_GET_SSID;
        case WIFI_SDIO_TX_PROBE_COMMAND_MAGIC:
-@@ -2475,6 +2579,8 @@ static uint16_t sdio_tx_probe_payload_length(wifi_sdio_tx_probe_command_t comman
+@@ -2571,6 +2675,8 @@ static uint16_t sdio_tx_probe_payload_length(wifi_sdio_tx_probe_command_t comman
              with no key).  Previously this returned the 80-byte
              template maximum. */
           return (uint16_t)(4u + WSEC_MAX_PSK_LEN);
@@ -14309,7 +15253,7 @@ index 825fa73..281c18c 100644
        case WIFI_SDIO_TX_PROBE_COMMAND_SUP_WPA:
           return (uint16_t)(sizeof("bsscfg:sup_wpa") + 8u);
        case WIFI_SDIO_TX_PROBE_COMMAND_SUP_WPA2_EAPVER:
-@@ -2506,6 +2612,8 @@ static uint16_t sdio_tx_probe_payload_length(wifi_sdio_tx_probe_command_t comman
+@@ -2602,6 +2708,8 @@ static uint16_t sdio_tx_probe_payload_length(wifi_sdio_tx_probe_command_t comman
        case WIFI_SDIO_TX_PROBE_COMMAND_DOWN:
           /* WLC_DOWN takes no payload; send a single zero word. */
           return 4u;
@@ -14318,7 +15262,7 @@ index 825fa73..281c18c 100644
        case WIFI_SDIO_TX_PROBE_COMMAND_GET_BSSID:
           /* WLC_GET_BSSID returns a 6-byte BSSID.  Send a 6-byte zero
              buffer for the chip to fill. */
-@@ -2548,7 +2656,7 @@ static uint16_t sdio_tx_probe_payload_length(wifi_sdio_tx_probe_command_t comman
+@@ -2644,7 +2752,7 @@ static uint16_t sdio_tx_probe_payload_length(wifi_sdio_tx_probe_command_t comman
        case WIFI_SDIO_TX_PROBE_COMMAND_GET_PKTCNTS:
           return WLC_PKTCNTS_BYTES;   /* five u32 counters to be filled in */
        case WIFI_SDIO_TX_PROBE_COMMAND_SCAN:
@@ -14327,7 +15271,7 @@ index 825fa73..281c18c 100644
                wlc_ssid_t  ssid     36   (length=0 => broadcast scan)
                ether_addr  bssid     6   (FF:FF:FF:FF:FF:FF = any)
                int8_t      bss_type  1   (2 = ANY)
-@@ -2560,25 +2668,14 @@ static uint16_t sdio_tx_probe_payload_length(wifi_sdio_tx_probe_command_t comman
+@@ -2656,25 +2764,14 @@ static uint16_t sdio_tx_probe_payload_length(wifi_sdio_tx_probe_command_t comman
                int32_t     channel_n 4   (0 = scan all channels of the
                                            configured regulatory domain)
                chanspec_t  chans[1]  2   (unused when channel_num=0)
@@ -14360,7 +15304,7 @@ index 825fa73..281c18c 100644
        case WIFI_SDIO_TX_PROBE_COMMAND_WSEC:
        case WIFI_SDIO_TX_PROBE_COMMAND_WPA_AUTH:
        case WIFI_SDIO_TX_PROBE_COMMAND_AUTH:
-@@ -2642,11 +2739,13 @@ static bool sdio_tx_probe_is_set_ioctl(wifi_sdio_tx_probe_command_t command)
+@@ -2742,11 +2839,13 @@ static bool sdio_tx_probe_is_set_ioctl(wifi_sdio_tx_probe_command_t command)
           || command == WIFI_SDIO_TX_PROBE_COMMAND_GLOBAL_EVENT_MSGS
           || command == WIFI_SDIO_TX_PROBE_COMMAND_EVENT_MSGS_EXT
           || command == WIFI_SDIO_TX_PROBE_COMMAND_DOWN
@@ -14373,8 +15317,8 @@ index 825fa73..281c18c 100644
 +         || command == WIFI_SDIO_TX_PROBE_COMMAND_WEP_KEY
           || command == WIFI_SDIO_TX_PROBE_COMMAND_POWERSAVE_OFF
           || command == WIFI_SDIO_TX_PROBE_COMMAND_TXGLOM_OFF
-          || command == WIFI_SDIO_TX_PROBE_COMMAND_ROAM_OFF
-@@ -2689,8 +2788,15 @@ static uint32_t sdio_tx_probe_payload_word0(wifi_sdio_tx_probe_command_t command
+          || command == WIFI_SDIO_TX_PROBE_COMMAND_TXGLOMALIGN
+@@ -2791,8 +2890,15 @@ static uint32_t sdio_tx_probe_payload_word0(wifi_sdio_tx_probe_command_t command
        case WIFI_SDIO_TX_PROBE_COMMAND_WPA_AUTH:
        {
           const wifi_config_t *config = wifi_get_config();
@@ -14392,7 +15336,7 @@ index 825fa73..281c18c 100644
        }
        case WIFI_SDIO_TX_PROBE_COMMAND_WSEC:
        {
-@@ -2701,20 +2807,27 @@ static uint32_t sdio_tx_probe_payload_word0(wifi_sdio_tx_probe_command_t command
+@@ -2803,20 +2909,27 @@ static uint32_t sdio_tx_probe_payload_word0(wifi_sdio_tx_probe_command_t command
              builds reject mixed WPA/WPA2 (TKIP group cipher) APs. */
           const wifi_config_t *config = wifi_get_config();
  
@@ -14424,7 +15368,7 @@ index 825fa73..281c18c 100644
        }
        case WIFI_SDIO_TX_PROBE_COMMAND_PMK:
        {
-@@ -2842,6 +2955,42 @@ static void sdio_prepare_tx_control_join_payload(sdio_probe_result_t *probe_resu
+@@ -2944,6 +3057,42 @@ static void sdio_prepare_tx_control_join_payload(sdio_probe_result_t *probe_resu
     sdio_store_u32_le(&probe_result->tx_control_template_payload_bytes[name_length + 64u], 0u);
  }
  
@@ -14467,7 +15411,7 @@ index 825fa73..281c18c 100644
  static void sdio_prepare_tx_control_payload(sdio_probe_result_t *probe_result,
                                              wifi_sdio_tx_probe_command_t command)
  {
-@@ -2916,6 +3065,9 @@ static void sdio_prepare_tx_control_payload(sdio_probe_result_t *probe_result,
+@@ -3018,6 +3167,9 @@ static void sdio_prepare_tx_control_payload(sdio_probe_result_t *probe_result,
              memcpy(&probe_result->tx_control_template_payload_bytes[4], config->password, password_length);
           break;
        }
@@ -14477,7 +15421,7 @@ index 825fa73..281c18c 100644
        case WIFI_SDIO_TX_PROBE_COMMAND_SUP_WPA:
           sdio_prepare_tx_control_iovar_u32_u32_payload(probe_result,
                                                         "bsscfg:sup_wpa",
-@@ -3111,11 +3263,16 @@ static void sdio_prepare_tx_control_payload(sdio_probe_result_t *probe_result,
+@@ -3213,11 +3365,16 @@ static void sdio_prepare_tx_control_payload(sdio_probe_result_t *probe_result,
           break;
        case WIFI_SDIO_TX_PROBE_COMMAND_SCAN:
        {
@@ -14498,7 +15442,7 @@ index 825fa73..281c18c 100644
  
           /* wlc_ssid_t at [0..35]: length=0 => broadcast scan.
              All bytes already zero from the memset at function start. */
-@@ -3458,6 +3615,16 @@ static void sdio_runtime_note_event_bare(const uint8_t *payload, uint16_t payloa
+@@ -3607,6 +3764,16 @@ static void sdio_runtime_note_event_bare(const uint8_t *payload, uint16_t payloa
                    (unsigned long)event_status,
                    (unsigned long)event_reason);
  
@@ -14515,7 +15459,7 @@ index 825fa73..281c18c 100644
     if (sdio_event_is_psk_keyed(event_type, event_status))
        g_runtime_psk_keyed = true;
  
-@@ -3525,6 +3692,18 @@ static void sdio_runtime_note_event(const uint8_t *frame, uint16_t frame_length,
+@@ -3674,6 +3841,18 @@ static void sdio_runtime_note_event(const uint8_t *frame, uint16_t frame_length,
                    (unsigned long)event_status,
                    (unsigned long)event_reason);
  
@@ -14534,7 +15478,7 @@ index 825fa73..281c18c 100644
     if (sdio_event_is_psk_keyed(event_type, event_status))
        g_runtime_psk_keyed = true;
  
-@@ -4230,7 +4409,7 @@ static int sdio_runtime_query_mac_step(sdio_host_t *dev)
+@@ -4580,7 +4759,7 @@ static int sdio_runtime_query_mac_step(sdio_host_t *dev)
           sdio_runtime_set_error(NULL); /* tolerated - lwIP keeps its default MAC */
        }
        g_runtime_step_sent = true;
@@ -14543,7 +15487,7 @@ index 825fa73..281c18c 100644
        return 0;
     }
  
-@@ -5683,14 +5862,6 @@ bool sdio_runtime_tick(void)
+@@ -6040,14 +6219,6 @@ bool sdio_runtime_tick(void)
  
        case SDIO_RUNTIME_STAGE_PREPARE_JOIN:
           config = wifi_get_config();
@@ -14558,7 +15502,7 @@ index 825fa73..281c18c 100644
           if (g_runtime_emulator_mode) {
              g_runtime_stage = SDIO_RUNTIME_STAGE_DONE;
              sdio_debug_log("== STAGE_DONE: emulator mode, skipping join burst to keep polling responsive ==");
-@@ -5849,6 +6020,67 @@ bool sdio_runtime_ready(void)
+@@ -6221,6 +6392,67 @@ bool sdio_runtime_ready(void)
     return g_runtime_stage == SDIO_RUNTIME_STAGE_DONE;
  }
  
@@ -14626,7 +15570,7 @@ index 825fa73..281c18c 100644
  /* Re-arm the join sequence on a runtime that has already finished bring-up.
     The chip does not re-associate on its own once the association is lost, and
     the boot path runs the join exactly once, so without this a scan that comes
-@@ -5864,6 +6096,8 @@ bool sdio_runtime_rejoin_start(void)
+@@ -6236,6 +6468,8 @@ bool sdio_runtime_rejoin_start(void)
  {
     if (!g_runtime_started || g_runtime_emulator_mode)
        return false;
@@ -14635,7 +15579,7 @@ index 825fa73..281c18c 100644
     if (g_runtime_stage != SDIO_RUNTIME_STAGE_DONE)
        return false;
  
-@@ -5909,6 +6143,83 @@ bool sdio_runtime_rejoin_busy(void)
+@@ -6284,6 +6518,83 @@ bool sdio_runtime_rejoin_busy(void)
         || g_runtime_stage == SDIO_RUNTIME_STAGE_SWEEP_RX;
  }
  
@@ -14719,7 +15663,7 @@ index 825fa73..281c18c 100644
  bool sdio_runtime_link_is_up(void)
  {
     const wifi_config_t *config = wifi_get_config();
-@@ -5921,7 +6232,10 @@ bool sdio_runtime_link_is_up(void)
+@@ -6296,7 +6607,10 @@ bool sdio_runtime_link_is_up(void)
        Announcing it at WLC_E_LINK put a DHCP Discover into the handshake
        window, where the AP drops it. Open networks never emit the event, so
        they are not gated. */
@@ -14731,7 +15675,7 @@ index 825fa73..281c18c 100644
        /* Never let this gate be the reason there is no network. Only WPA-PSK
           was observed here; a setup that authorises without ever sending
           PSK_SUP/KEYED would otherwise stay offline forever, which is far
-@@ -5936,16 +6250,23 @@ bool sdio_runtime_link_is_up(void)
+@@ -6311,16 +6625,23 @@ bool sdio_runtime_link_is_up(void)
     return true;
  }
  
@@ -14761,7 +15705,7 @@ index 825fa73..281c18c 100644
  }
  
  /* Request a one-shot RSSI read.  Safe to call from any context - it only
-@@ -6823,5 +7144,9 @@ sdio_runtime_status_t sdio_runtime_get_status(void)
+@@ -7518,5 +7839,9 @@ sdio_runtime_status_t sdio_runtime_get_status(void)
     status.bus_four_bit = g_runtime_bus_four_bit;
     status.bus_high_speed = g_runtime_bus_high_speed;
     status.link_flag_trusted = g_runtime_link_flag_trusted;
@@ -14772,7 +15716,7 @@ index 825fa73..281c18c 100644
     return status;
  }
 diff --git a/src/wifi/sdio.h b/src/wifi/sdio.h
-index 1f43940..13960ef 100644
+index 400339b..cd837ec 100644
 --- a/src/wifi/sdio.h
 +++ b/src/wifi/sdio.h
 @@ -35,8 +35,23 @@ typedef struct {
@@ -14824,9 +15768,9 @@ index 1f43940..13960ef 100644
  /* Microseconds since the last frame arrived from the chip (0 before the
     first).  A link can stop carrying traffic without the firmware reporting
     anything, so this is the only evidence that it has. */
-@@ -285,6 +309,15 @@ void sdio_runtime_prepare_for_warm_reboot(void);
- void sdio_runtime_rx_gate_counts(uint32_t *skips, uint32_t *sweeps,
-                                  uint32_t *missed, bool *armed, uint32_t *high);
+@@ -334,6 +358,15 @@ void sdio_runtime_txglom_status(uint8_t *config, bool *active,
+    that advanced max_seq).  False while wifi_diag is off. */
+ bool sdio_runtime_txglom_diag(uint32_t batch_hist[5], uint32_t *credit_refills);
  bool sdio_runtime_get_chip_mac(uint8_t mac_out[6]);
 +/* Start a real CYW43 enhanced scan. Results arrive as WLC_E_ESCAN_RESULT
 +   events through the normal RX poller, so this API never blocks Pi1MHz's
@@ -14840,7 +15784,7 @@ index 1f43940..13960ef 100644
  /* On-demand signal-strength read.  sdio_runtime_request_rssi() just flags
     a read (safe from the /status TCP callback); sdio_runtime_rssi_poll()
     performs it on the cooperative poll path and must be called from
-@@ -317,4 +350,4 @@ bool sdio_runtime_poll_ethernet_frame(uint8_t *frame, uint16_t frame_capacity,
+@@ -366,4 +399,4 @@ bool sdio_runtime_poll_ethernet_frame(uint8_t *frame, uint16_t frame_capacity,
  const char *sdio_runtime_last_error(void);
  sdio_runtime_status_t sdio_runtime_get_status(void);
  
@@ -14848,7 +15792,7 @@ index 1f43940..13960ef 100644
 \ No newline at end of file
 +#endif
 diff --git a/src/wifi/wifi.c b/src/wifi/wifi.c
-index 1596768..6941991 100644
+index d0d547e..29eb492 100644
 --- a/src/wifi/wifi.c
 +++ b/src/wifi/wifi.c
 @@ -44,6 +44,52 @@ static bool g_wifi_init_done;
@@ -14931,7 +15875,7 @@ index 1596768..6941991 100644
     config->http_port = 80;
     config->ip_mode = WIFI_IP_MODE_DHCP;
     config->ip_config_valid = true;
-@@ -505,6 +560,16 @@ bool wifi_config_load(wifi_config_t *config)
+@@ -514,6 +569,16 @@ bool wifi_config_load(wifi_config_t *config)
        else
           strlcpy(config->country, "GB", sizeof(config->country));
     }
@@ -14948,7 +15892,7 @@ index 1596768..6941991 100644
     config->sdio_tx_probe_command = wifi_parse_sdio_tx_probe_command();
     config->sdio_rx_sweep_limit = wifi_parse_u8(config_get("wifi_sdio_rx_sweep_limit"),
                                                 config->sdio_rx_sweep_limit);
-@@ -662,7 +727,7 @@ void wifi_boot(void)
+@@ -673,7 +738,7 @@ void wifi_boot(void)
           /* tick() returned false: reached DONE or ERROR.  The SDIO runtime
              finishing DONE means the bus is up AND the firmware has been
              downloaded to the chip and is running, so both notes fire here. */
@@ -14957,7 +15901,7 @@ index 1596768..6941991 100644
              wifi_note_sdio_ready();
              wifi_note_firmware_ready();
              wifi_debug_log("sdio runtime started");
-@@ -748,6 +813,98 @@ void wifi_set_error(const char *message)
+@@ -759,6 +824,98 @@ void wifi_set_error(const char *message)
     wifi_debug_log("error: %s", g_wifi_error);
  }
  
@@ -15057,7 +16001,7 @@ index 1596768..6941991 100644
  {
     return &g_wifi_config;
 diff --git a/src/wifi/wifi.h b/src/wifi/wifi.h
-index fcf5db9..caab282 100644
+index a84802c..40294ba 100644
 --- a/src/wifi/wifi.h
 +++ b/src/wifi/wifi.h
 @@ -21,6 +21,14 @@ typedef enum {
@@ -15091,7 +16035,7 @@ index fcf5db9..caab282 100644
     WIFI_SDIO_TX_PROBE_COMMAND_PMK,
     WIFI_SDIO_TX_PROBE_COMMAND_POWERSAVE_OFF,
     WIFI_SDIO_TX_PROBE_COMMAND_TXGLOM_OFF,
-@@ -202,6 +212,7 @@ typedef struct {
+@@ -217,6 +227,7 @@ typedef struct {
     uint8_t sdio_rx_sweep_limit;
     char ssid[WIFI_SSID_MAX_LEN + 1];
     char password[WIFI_PASSWORD_MAX_LEN + 1];
@@ -15099,7 +16043,7 @@ index fcf5db9..caab282 100644
     char hostname[WIFI_HOSTNAME_MAX_LEN + 1];
     wifi_ip_mode_t ip_mode;
     char ip_address[WIFI_IPV4_TEXT_MAX_LEN + 1];
-@@ -254,6 +265,13 @@ void wifi_note_http_ready(void);
+@@ -269,6 +280,13 @@ void wifi_note_http_ready(void);
  void wifi_set_error(const char *message);
  
  const wifi_config_t *wifi_get_config(void);
@@ -15113,7 +16057,7 @@ index fcf5db9..caab282 100644
  const wifi_network_config_t *wifi_get_network_config(void);
  wifi_status_t wifi_get_status(void);
  wifi_state_t wifi_get_state(void);
-@@ -262,4 +280,4 @@ const char *wifi_ip_mode_name(wifi_ip_mode_t mode);
+@@ -277,4 +295,4 @@ const char *wifi_ip_mode_name(wifi_ip_mode_t mode);
  uint32_t wifi_ipv4_to_u32(const wifi_ipv4_addr_t *address);
  const char *wifi_last_error(void);
  
@@ -15121,10 +16065,10 @@ index fcf5db9..caab282 100644
 \ No newline at end of file
 +#endif
 diff --git a/src/wifi/wifi_lwip.c b/src/wifi/wifi_lwip.c
-index f389be4..1aec5b0 100644
+index f24239b..8e2525d 100644
 --- a/src/wifi/wifi_lwip.c
 +++ b/src/wifi/wifi_lwip.c
-@@ -136,10 +136,22 @@ static bool wifi_lwip_address_ready(const struct netif *netif)
+@@ -149,10 +149,22 @@ static bool wifi_lwip_address_ready(const struct netif *netif)
  static void wifi_lwip_update_runtime_state(void)
  {
     if (g_wifi_lwip_context.netif_added) {
@@ -15149,7 +16093,7 @@ index f389be4..1aec5b0 100644
     }
  
     g_wifi_lwip_context.link_up = g_wifi_lwip_context.netif_added
-@@ -182,6 +194,27 @@ static void wifi_lwip_update_runtime_state(void)
+@@ -197,6 +209,27 @@ static void wifi_lwip_update_runtime_state(void)
        wifi_note_network_ready();
  }
  
@@ -15178,7 +16122,7 @@ index f389be4..1aec5b0 100644
   *
   * Refusing to transmit is fine for TCP, which retransmits, but it is silent
 diff --git a/src/wifi/wifi_lwip.h b/src/wifi/wifi_lwip.h
-index 34966bf..91d1428 100644
+index 69e1ae9..5e9c88d 100644
 --- a/src/wifi/wifi_lwip.h
 +++ b/src/wifi/wifi_lwip.h
 @@ -32,6 +32,8 @@ void wifi_lwip_prepare(void);
