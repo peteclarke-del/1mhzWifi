@@ -2,30 +2,6 @@ diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 index 13e03eb..9a9d488 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -36,7 +36,11 @@ project( Pi1MHz C ASM )
- 
- set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
- 
--set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu2x" )
-+if(CMAKE_C_COMPILER_VERSION VERSION_LESS 16)
-+   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu2x" )
-+else()
-+   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu23" )
-+endif()
- 
- # Replace newlib's _ctype_ table lookups for toupper/tolower with 3-instruction
- # ASCII range checks. Force-included so that source files keep using plain
-@@ -88,6 +92,9 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wdeprecated-declarations -Wfloat-equal -Wm
- set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wdeprecated-declarations -Wfloat-equal -Wmissing-format-attribute " )
- 
--set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wenum-int-mismatch -Wxor-used-as-pow -fstrict-flex-arrays -Warray-bounds=2")
-+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstrict-flex-arrays -Warray-bounds=2")
-+if(NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 14)
-+   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wenum-int-mismatch -Wxor-used-as-pow")
-+endif()
- 
- set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Warith-conversion ")
- 
 @@ -388,6 +398,7 @@ set( Pi1MHz_sources
      ${mouse_redirect_files}
      ${wifi_files}
@@ -71,137 +47,17 @@ index 7544807..ea7888a 100644
  /* Handler for one service's command range.  FIQ context: called from the
     FRED write callback, so anything slow must be queued for the main loop
 diff --git a/src/services_emulator.c b/src/services_emulator.c
-index 7656f41..d1bca7f 100644
 --- a/src/services_emulator.c
 +++ b/src/services_emulator.c
-@@ -31,18 +31,25 @@ typedef struct {
+@@ -31,7 +31,10 @@
     service_command_fn handler;
  } service_range_t;
  
 -#define SERVICES_MAX 4u
++/* Four covered disc, FAT, AUN and net.  The 1MHz-WiFi ROM support adds ElkWiFi
++   and FTP, and SSH when built, so the table would overflow and a service would
++   silently fail to claim its range.  Eight entries cost 32 bytes of BSS. */
 +#define SERVICES_MAX 8u
  static service_range_t s_services[SERVICES_MAX];
  static unsigned int s_service_count;
  
- bool services_register(uint8_t first, uint8_t last, service_command_fn handler)
- {
--   if (handler == NULL || first > last || s_service_count >= SERVICES_MAX)
-+   if (handler == NULL || first > last)
-       return false;
- 
--   for (unsigned int i = 0; i < s_service_count; i++)
-+   for (unsigned int i = 0; i < s_service_count; i++) {
-+      if (first == s_services[i].first && last == s_services[i].last &&
-+          handler == s_services[i].handler)
-+         return true;             /* reset-time renewal of the same claim */
-       if (first <= s_services[i].last && last >= s_services[i].first)
-          return false;            /* overlaps a claimed range */
-+   }
-+
-+   if (s_service_count >= SERVICES_MAX)
-+      return false;
- 
-    s_services[s_service_count].first = first;
-    s_services[s_service_count].last = last;
-diff --git a/src/wifi/sdio.c b/src/wifi/sdio.c
-index 825fa73..9aa60bf 100644
---- a/src/wifi/sdio.c
-+++ b/src/wifi/sdio.c
-@@ -5909,6 +5909,29 @@ bool sdio_runtime_rejoin_busy(void)
-        || g_runtime_stage == SDIO_RUNTIME_STAGE_SWEEP_RX;
- }
- 
-+bool sdio_runtime_disconnect(void)
-+{
-+   bool sent;
-+
-+   if (!g_runtime_started)
-+      return true;
-+   if (g_runtime_emulator_mode || g_runtime_stage != SDIO_RUNTIME_STAGE_DONE)
-+      return false;
-+
-+   sdio_prepare_tx_control_template(&g_sdio_probe_result,
-+                                    WIFI_SDIO_TX_PROBE_COMMAND_DOWN);
-+   sent = sdio_probe_send_single_tx_control_template_timeout(
-+      &g_runtime_device, &g_sdio_probe_result, SDIO_RUNTIME_POLL_TIMEOUT_US);
-+   if (!sent)
-+      return false;
-+
-+   g_runtime_link_up = false;
-+   g_runtime_psk_keyed = false;
-+   g_runtime_link_up_us = 0u;
-+   sdio_debug_log("WLC_DOWN: station disconnected by host");
-+   return true;
-+}
-+
- bool sdio_runtime_link_is_up(void)
- {
-    const wifi_config_t *config = wifi_get_config();
-diff --git a/src/wifi/sdio.h b/src/wifi/sdio.h
-index 1f43940..71e7731 100644
---- a/src/wifi/sdio.h
-+++ b/src/wifi/sdio.h
-@@ -269,6 +269,9 @@ bool sdio_runtime_ready(void);
-    the caller then drives sdio_runtime_tick() while rejoin_busy() is true. */
- bool sdio_runtime_rejoin_start(void);
- bool sdio_runtime_rejoin_busy(void);
-+/* Issue WLC_DOWN after *LEAVE.  A later rejoin sends WLC_UP as part of the
-+   normal association sequence, so credentials remain reusable. */
-+bool sdio_runtime_disconnect(void);
- /* Microseconds since the last frame arrived from the chip (0 before the
-    first).  A link can stop carrying traffic without the firmware reporting
-    anything, so this is the only evidence that it has. */
-diff --git a/src/wifi/wifi.c b/src/wifi/wifi.c
-index 1596768..6156c12 100644
---- a/src/wifi/wifi.c
-+++ b/src/wifi/wifi.c
-@@ -748,6 +748,36 @@ void wifi_set_error(const char *message)
-    wifi_debug_log("error: %s", g_wifi_error);
- }
- 
-+bool wifi_reconfigure_and_rejoin(const char *ssid, const char *password)
-+{
-+   if (ssid == NULL || password == NULL || ssid[0] == '\0')
-+      return false;
-+   if (strnlen(ssid, sizeof(g_wifi_config.ssid)) >= sizeof(g_wifi_config.ssid)
-+       || strnlen(password, sizeof(g_wifi_config.password)) >= sizeof(g_wifi_config.password))
-+      return false;
-+
-+   strlcpy(g_wifi_config.ssid, ssid, sizeof(g_wifi_config.ssid));
-+   strlcpy(g_wifi_config.password, password, sizeof(g_wifi_config.password));
-+   g_wifi_config.enabled = true;
-+   g_wifi_config.config_present = true;
-+
-+   /* ElkWiFi credentials may come from the SD-card override after wifi_init()
-+      found no SSID in Pi1MHz.cfg but before wifi_boot() has polled.  Schedule
-+      the initial bring-up in that case; a running chip uses the rejoin path. */
-+   if (!sdio_runtime_started()) {
-+      g_wifi_state = WIFI_STATE_CONFIGURED;
-+      g_wifi_boot_stage = WIFI_BOOT_STAGE_START_SDIO;
-+      g_wifi_init_done = true;
-+      return true;
-+   }
-+   return sdio_runtime_rejoin_start();
-+}
-+
-+bool wifi_disconnect(void)
-+{
-+   return sdio_runtime_disconnect();
-+}
-+
- const wifi_config_t *wifi_get_config(void)
- {
-    return &g_wifi_config;
-diff --git a/src/wifi/wifi.h b/src/wifi/wifi.h
-index fcf5db9..31d0a05 100644
---- a/src/wifi/wifi.h
-+++ b/src/wifi/wifi.h
-@@ -254,6 +254,8 @@ void wifi_note_http_ready(void);
- void wifi_set_error(const char *message);
- 
- const wifi_config_t *wifi_get_config(void);
-+bool wifi_reconfigure_and_rejoin(const char *ssid, const char *password);
-+bool wifi_disconnect(void);
- const wifi_network_config_t *wifi_get_network_config(void);
- wifi_status_t wifi_get_status(void);
- wifi_state_t wifi_get_state(void);

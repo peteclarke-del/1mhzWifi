@@ -1,10 +1,16 @@
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -399,0 +400,3 @@ set( Pi1MHz_sources
+@@ -409,6 +409,9 @@
+     ${wifi_files}
+     ${lwip_files}
+     elkwifi_service.c
 +    uef_normalize.c
 +    puff.c
 +    puff.h
+ )
+ 
+ # These are cold (config/filename handling, ~12 call sites). We recompile them
 diff --git a/src/services.h b/src/services.h
 --- a/src/services.h
 +++ b/src/services.h

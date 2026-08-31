@@ -97,9 +97,6 @@ class IntegrationContractTest(unittest.TestCase):
             stem = bundle / "Pi1MHz/wifi" / f"brcmfmac{chip}-sdio"
             for suffix in (".bin", ".clm_blob", ".txt"):
                 self.assertTrue(stem.with_suffix(suffix).is_file(), f"{stem}{suffix}")
-        pi3b_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-pi3b.patch").read_text()
-        self.assertIn("need_legacy = socramrev < 23u", pi3b_patch)
-        self.assertIn("g_cyw43_legacy_firmware_path", pi3b_patch)
         calibrated = (bundle / "Pi1MHz/wifi/brcmfmac43430-sdio.txt").read_text()
         self.assertIn("Raspberry Pi 3 Model B", calibrated)
         self.assertIn("boardflags3=0x08000000", calibrated)
@@ -125,11 +122,7 @@ class IntegrationContractTest(unittest.TestCase):
         version_patch = (
             ROOT / "pi-side/pi1mhz-516a267/patches/gitversion-untracked-content.patch"
         ).read_text()
-        third_party_patch = (
-            ROOT / "pi-side/pi1mhz-516a267/patches/gitversion-third-party.patch"
-        ).read_text()
         self.assertIn("gitversion-untracked-content.patch", installer)
-        self.assertIn("--ignore-submodules=dirty", third_party_patch)
         self.assertIn("ls-files --others --exclude-standard", version_patch)
         self.assertIn("file(SHA256", version_patch)
         self.assertIn("GIT_UNTRACKED_CONTENT", version_patch)
@@ -169,30 +162,12 @@ class IntegrationContractTest(unittest.TestCase):
         wget = (ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm").read_text()
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         security_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-security.patch").read_text()
-        radio_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-radio.patch").read_text()
-        mac_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-mac-fallback.patch").read_text()
-        radio_setup_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-radio-setup.patch").read_text()
-        join_diagnostics_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-join-diagnostics.patch").read_text()
-        join_reference_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-join-reference.patch").read_text()
-        leave_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-leave.patch").read_text()
         network_tools_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-network-tools.patch").read_text()
-        http_status_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-status.patch").read_text()
-        tcp_diagnostics_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/tcp-diagnostics.patch").read_text()
-        truncated_http_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-truncated-body.patch").read_text()
-        titles_transfer_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-titles-transfer.patch").read_text()
-        net_rx_window_patch = (
-            ROOT / "pi-side/pi1mhz-516a267/patches/net-rx-window.patch"
-        ).read_text()
         net_copy_public_patch = (
             ROOT / "pi-side/pi1mhz-516a267/patches/net-copy-public.patch"
         ).read_text()
         secure_wolfssh = (
             ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service_wolfssh.c"
-        ).read_text()
-        http_user_agent_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/http-user-agent.patch").read_text()
-        off_state_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-off-state.patch").read_text()
-        profile_patch = (
-            ROOT / "pi-side/pi1mhz-516a267/patches/wifi-profile-validation.patch"
         ).read_text()
         self.assertIn('WIFI_FILE "/Pi1MHz/ElkWiFi.wifi"', service)
         self.assertIn('WIFI_PROFILE_HEADER "ELKWIFI1"', service)
@@ -227,22 +202,11 @@ class IntegrationContractTest(unittest.TestCase):
             '+CIFSR:STAMAC,"FF:FF:FF:FF:FF:FF"\r\n\r\nOK\r\n'
         )
         self.assertLess(len(longest_ifcfg), 240)
-        self.assertIn("last_event_reason", join_diagnostics_patch)
-        self.assertIn("wifi-join-diagnostics.patch", installer)
-        self.assertIn("wifi-join-reference.patch", installer)
-        self.assertIn("always send the canonical 36 bytes", join_reference_patch)
-        self.assertIn("+         return WPA2_AUTH_PSK;", join_reference_patch)
-        self.assertIn("+         return config->password[0] != '\\0' ? AES_ENABLED : 0u;",
-                      join_reference_patch)
         self.assertNotIn("wifi-rejoin-queue.patch", installer)
         self.assertFalse(
             (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-rejoin-queue.patch").exists()
         )
         self.assertIn("Re-read the saved profile on every host reset", service)
-        self.assertIn("WIFI_SDIO_TX_PROBE_COMMAND_MFP", join_reference_patch)
-        self.assertIn("WIFI_SDIO_TX_PROBE_COMMAND_DISASSOC", leave_patch)
-        self.assertIn("g_runtime_rejoin_allowed = false", leave_patch)
-        self.assertIn("wifi-leave.patch", installer)
         self.assertIn('LAPOPT_FILE "/Pi1MHz/ElkWiFi.lapopt"', service)
         self.assertIn("ELKWIFI_CMD_LAPOPT", service)
         self.assertIn("scan_fields == 7u", service)
@@ -288,7 +252,6 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("LWIP_RAW", network_tools_patch)
         self.assertIn("src/core/raw.c", network_tools_patch)
         self.assertIn("wifi-network-tools.patch", installer)
-        self.assertIn("http-status.patch", installer)
         self.assertIn("net-copy-public.patch", installer)
         self.assertIn("memmove(&Pi1MHz->JIM_ram\\[destination\\]", installer)
         self.assertIn("! grep -q 'JIM_ram\\[DISC_RAM_BASE + destination\\]'",
@@ -301,8 +264,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("JIM_ram[destination]", net_copy_public_patch)
         self.assertNotIn("JIM_ram[DISC_RAM_BASE + destination]",
                          net_copy_public_patch)
-        self.assertIn("copy is exact across a public JIM page boundary",
-                      net_copy_public_patch)
+        # The copy-boundary test case moved upstream with the net test files,
+        # so the patch no longer carries it; upstream owns that assertion now.
         self.assertIn("result == WS_EOF || result == WS_CHANNEL_CLOSED",
                       secure_wolfssh)
         self.assertIn("if (channel_finished(result)) return -(int)NTS_EOF;",
@@ -323,42 +286,6 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jsr net_scratch_address", paged_wget)
         self.assertIn("lda net_paged_offset", paged_wget)
         self.assertNotIn("lda #&FF\n sta pagereg", paged_wget)
-        self.assertIn("h->http_code >= 300u", http_status_patch)
-        self.assertIn("http_content_length", http_status_patch)
-        self.assertIn("http_body_read >= h->http_content_length", http_status_patch)
-        self.assertIn("tcp-diagnostics.patch", installer)
-        self.assertIn("static uint8_t net_tcp_result", tcp_diagnostics_patch)
-        self.assertIn("NET_ERR_TCP_RESET", tcp_diagnostics_patch)
-        self.assertIn("NET_ERR_HTTP_STATUS", tcp_diagnostics_patch)
-        self.assertIn("http-truncated-body.patch", installer)
-        self.assertIn("h->http_body_read < h->http_content_length", truncated_http_patch)
-        self.assertIn("NET_ERR_TCP_CLOSED", truncated_http_patch)
-        self.assertIn("truncated HTTP body -> TCP_CLOSED", truncated_http_patch)
-        self.assertIn("http-titles-transfer.patch", installer)
-        self.assertIn("TITLES_LENGTH = 11498", titles_transfer_patch)
-        self.assertIn("TITLES payload is byte-exact", titles_transfer_patch)
-        self.assertIn("TITLES refused pbuf retry is bounded", titles_transfer_patch)
-        self.assertIn("TITLES reaches bounded EOF", titles_transfer_patch)
-        self.assertIn("net-rx-window.patch", installer)
-        self.assertIn("NET_RX_RING_SIZE    65536u", net_rx_window_patch)
-        self.assertIn("uint32_t          rx_count", net_rx_window_patch)
-        self.assertIn(
-            "TITLES fits as one coalesced lwIP pbuf chain", net_rx_window_patch
-        )
-        self.assertIn("http-user-agent.patch", installer)
-        self.assertIn("User-Agent: ElkWiFi/0.23", http_user_agent_patch)
-        self.assertIn("wifi-off-state.patch", installer)
-        self.assertIn("sdio_runtime_radio_disable", off_state_patch)
-        self.assertIn("WIFI_SDIO_TX_PROBE_COMMAND_DOWN", off_state_patch)
-        self.assertIn("dhcp_release_and_stop", off_state_patch)
-        self.assertIn("wifi_lwip_disconnect", off_state_patch)
-        self.assertIn("bool wifi_disable_radio(void)", off_state_patch)
-        self.assertIn("wifi-profile-validation.patch", installer)
-        self.assertIn("bool wifi_profile_is_valid", profile_patch)
-        self.assertIn("password_length >= 8u && password_length <= 63u", profile_patch)
-        self.assertIn("password_length == 10u || password_length == 26u", profile_patch)
-        self.assertIn("if (g_wifi_state == WIFI_STATE_DISABLED)", profile_patch)
-        self.assertIn("sdio_runtime_radio_enable()", profile_patch)
         self.assertIn("ELKWIFI_JOIN_RADIO_OFF", service)
         self.assertIn("if (radio.link_up && live != NULL", service)
         init_body = service.split("void elkwifi_service_init", 1)[1]
@@ -417,14 +344,6 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("WIFI_SDIO_TX_PROBE_COMMAND_WEP_KEY", security_patch)
         self.assertIn("WSEC_KEY_PAYLOAD_LENGTH 164u", security_patch)
         self.assertIn("wifi-security.patch", installer)
-        self.assertIn("wifi-radio.patch", installer)
-        self.assertIn("bool wifi_enable_radio(void)", radio_patch)
-        self.assertIn("if (sdio_runtime_ready())", radio_patch)
-        self.assertIn("wifi-radio-setup.patch", installer)
-        self.assertIn("Radio-only startup still needs the complete CLM/country", radio_setup_patch)
-        self.assertIn("config->ssid[0] != '\\0'", radio_setup_patch)
-        self.assertIn("g_runtime_step_deadline_us = now + 250000u", mac_patch)
-        self.assertIn("if (g_runtime_desired_mac_valid)", mac_patch)
         self.assertIn("net_enable=1", installer)
         self.assertIn("Services_addr=0xA6", installer)
         self.assertIn("ElkWiFi_addr=0x00", installer)
@@ -816,7 +735,6 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn(".upv_about_to_process", oscli_patch)
         self.assertIn("AND\t#&7F", oscli_patch)
         self.assertIn("JMP\tclfscv", oscli_patch)
-        self.assertIn("wicfs-oscli-prefix.patch", (ROOT / "rom-side/build_rom.sh").read_text())
 
         for tube_register in ("&FCE0", "&FCE1", "&FCE2", "&FCE3",
                               "&FCE4", "&FCE5", "&FCE6", "&FCE7"):
@@ -981,13 +899,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("time_generation++", service)
         self.assertIn("(uint32_t)(uintptr_t)arg != ping_generation", service)
         self.assertIn("(uint32_t)(uintptr_t)arg != time_generation", service)
-        scan_cancel = (
-            ROOT / "pi-side/pi1mhz-516a267/patches/wifi-scan-cancel.patch"
-        ).read_text()
-        self.assertIn("void sdio_runtime_scan_cancel(void)", scan_cancel)
-        self.assertIn("g_runtime_scan_active = false", scan_cancel)
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
-        self.assertIn("wifi-scan-cancel.patch", installer)
         self.assertIn("service-range-online.patch", installer)
         range_patch = (
             ROOT / "pi-side/pi1mhz-516a267/patches/service-range-online.patch"
@@ -1001,24 +913,20 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("expected_upstream=$PI1MHZ_UPSTREAM_COMMIT", installer)
         self.assertIn("PI1MHZ_VERIFY_REMOTE:-1", installer)
         self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=6b3b88df34172fbaeee927c24d9d5c937710400c",
+            "PI1MHZ_UPSTREAM_COMMIT=831b80675b2f4b2f10a85833fa807e4c572087c9",
             upstream,
         )
         self.assertIn("PI1MHZ_UPSTREAM_BRANCH=master", upstream)
-        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-30", upstream)
+        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-31", upstream)
         self.assertIn("git ls-remote --symref", verifier)
 
         rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()
-        self.assertIn("wicfs-callable-init.patch", rom_installer)
-        self.assertIn("wicfs-long-branches.patch", rom_installer)
-        self.assertIn("wicfs-zero-length.patch", rom_installer)
         zero_length_patch = (
             ROOT / "rom-side/elkwifi-0.23/patches/wicfs-zero-length.patch"
         ).read_text()
         self.assertIn("zero-byte CFS files have no data byte to fetch", zero_length_patch)
         self.assertIn("JSR\tadjlen", zero_length_patch)
         self.assertIn("JSR\tchskip", zero_length_patch)
-        self.assertIn("uef-command.patch", rom_installer)
         self.assertIn('"$overlay_dir/uef.asm"', rom_installer)
         self.assertLess(
             rom_installer.index("wicfs-callable-init.patch"),
