@@ -24,7 +24,7 @@
          {
                  char *separator = strchr(item, ':');
                  int delay = 5;
-@@ -37,7 +37,9 @@ static void parse_scripted_keys(const char *spec)
+@@ -37,7 +37,10 @@ static void parse_scripted_keys(const char *spec)
                          code = atoi(separator + 1);
                  }
                  else code = atoi(item);
@@ -36,7 +36,7 @@
                  {
                          scripted_delays[scripted_key_count] = delay;
                          scripted_keys[scripted_key_count++] = code;
-@@ -386,11 +388,24 @@ void runelk()
+@@ -386,11 +389,29 @@ void runelk()
                          if (scripted_key_delay) {
                                  scripted_key_delay--;
                          } else if (scripted_key_frames < 6) {
