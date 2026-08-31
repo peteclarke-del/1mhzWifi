@@ -44,6 +44,12 @@ git -C "$checkout" add -A src firmware/Pi1MHz/Pi1MHz.cfg \
     firmware/Pi1MHz/wifi/brcmfmac43430-sdio.txt \
     firmware/Pi1MHz/wifi/brcmfmac43455-sdio.bin
 git -C "$checkout" diff --cached --binary HEAD > "$output"
+# A binary section is last when the host ROM is the final staged file, and
+# git ends that with a whitespace-only line. "git diff --check" rejects a
+# blank line at EOF, so drop trailing whitespace-only lines here rather
+# than leaving every regenerated patch failing the repository lint.
+printf '%s\n' "$(sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}' "$output")" > "$output.tmp"
+mv "$output.tmp" "$output"
 
 if [ ! -s "$output" ]; then
     echo "generated patch is empty" >&2

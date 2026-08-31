@@ -182,7 +182,7 @@ install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/se
 install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
 install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
 
-for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch deterministic-service-dispatch.patch gitversion-untracked-content.patch gitversion-third-party.patch secure-service.patch ftp-service.patch wifi-security.patch wifi-radio.patch wifi-mac-fallback.patch wifi-radio-setup.patch wifi-join-diagnostics.patch wifi-join-reference.patch wifi-leave.patch wifi-network-tools.patch wifi-pi3b.patch http-status.patch tcp-diagnostics.patch http-truncated-body.patch http-titles-transfer.patch net-rx-window.patch net-copy-public.patch net-connected-udp.patch http-user-agent.patch wifi-off-state.patch wifi-scan-cancel.patch wifi-profile-validation.patch net-debug-stage.patch net-debug-test-window.patch secure-debug-stage.patch; do
+for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch gitversion-untracked-content.patch secure-service.patch ftp-service.patch wifi-security.patch wifi-network-tools.patch net-copy-public.patch net-connected-udp.patch net-debug-stage.patch secure-debug-stage.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -233,33 +233,9 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
             grep -q 'identical reset-time claim renews' "$upstream/src/tests/services/test_services.c" &&
             patch_present=true
             ;;
-        deterministic-service-dispatch.patch)
-            grep -q 'Built-in ABI ranges follow the standard selector echo' \
-                "$upstream/src/services_emulator.c" &&
-            grep -q 'Private service headers are deliberately not' "$upstream/src/services_emulator.c" &&
-            grep -q 'net_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
-            grep -q 'elkwifi_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
-            grep -q 'secure_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
-            grep -q 'ftp_service_command(command_pointer' "$upstream/src/services_emulator.c" &&
-            grep -q 'void net_service_command' "$upstream/src/net_service.c" &&
-            grep -q 'void elkwifi_service_command' "$upstream/src/elkwifi_service.c" &&
-            grep -q 'void secure_service_command' "$upstream/src/secure_service.c" &&
-            grep -q 'command 114 routed directly to FTP service' \
-                "$upstream/src/tests/services/test_services.c" &&
-            grep -q 'command 94 routed directly to secure service' \
-                "$upstream/src/tests/services/test_services.c" &&
-            grep -q 'fixed_services_child' "$upstream/src/Pi1MHz.c" &&
-            grep -q 'fixed Services command range' "$upstream/src/Pi1MHz.c" &&
-            patch_present=true
-            ;;
         gitversion-untracked-content.patch)
             grep -q 'GIT_UNTRACKED_CONTENT' "$upstream/src/scripts/gitversion.cmake" &&
             grep -q 'file(SHA256.*UNTRACKED_FILE' "$upstream/src/scripts/gitversion.cmake" &&
-            patch_present=true
-            ;;
-        gitversion-third-party.patch)
-            grep -q ':(exclude)third_party/\*\*' "$upstream/src/scripts/gitversion.cmake" &&
-            grep -q -- '--ignore-submodules=dirty' "$upstream/src/scripts/gitversion.cmake" &&
             patch_present=true
             ;;
         secure-service.patch)
@@ -279,100 +255,13 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
             grep -q 'WSEC_KEY_PAYLOAD_LENGTH 164u' "$upstream/src/wifi/sdio.c" &&
             patch_present=true
             ;;
-        wifi-radio.patch)
-            grep -q 'bool wifi_enable_radio(void)' "$upstream/src/wifi/wifi.c" &&
-            grep -q 'bool wifi_enable_radio(void);' "$upstream/src/wifi/wifi.h" &&
-            patch_present=true
-            ;;
-        wifi-mac-fallback.patch)
-            grep -q 'g_runtime_step_deadline_us = now + 250000u' "$upstream/src/wifi/sdio.c" &&
-            grep -q 'if (g_runtime_desired_mac_valid)' "$upstream/src/wifi/sdio.c" &&
-            patch_present=true
-            ;;
-        wifi-radio-setup.patch)
-            grep -q 'Radio-only startup still needs the complete CLM/country' "$upstream/src/wifi/sdio.c" &&
-            grep -q "config->ssid\[0\] != '\\\\0'" "$upstream/src/wifi/sdio.c" &&
-            patch_present=true
-            ;;
-        wifi-join-diagnostics.patch)
-            grep -q 'last_event_reason' "$upstream/src/wifi/sdio.h" &&
-            grep -q 'status.join_busy = sdio_runtime_rejoin_busy' "$upstream/src/wifi/sdio.c" &&
-            patch_present=true
-            ;;
-        wifi-join-reference.patch)
-            grep -q 'always send the canonical 36 bytes' "$upstream/src/wifi/sdio.c" &&
-            grep -q 'commands\[count++\] = WIFI_SDIO_TX_PROBE_COMMAND_MFP' "$upstream/src/wifi/sdio.c" &&
-            patch_present=true
-            ;;
-        wifi-leave.patch)
-            grep -q 'WIFI_SDIO_TX_PROBE_COMMAND_DISASSOC' "$upstream/src/wifi/wifi.h" &&
-            grep -q 'auto-rejoin paused' "$upstream/src/wifi/sdio.c" &&
-            patch_present=true
-            ;;
         wifi-network-tools.patch)
             grep -q '#define LWIP_RAW[[:space:]]*1' "$upstream/src/wifi/lwipopts.h" &&
             grep -q 'src/core/raw.c' "$upstream/src/CMakeLists.txt" &&
             patch_present=true
             ;;
-        wifi-pi3b.patch)
-            grep -q 'original Pi 3B is ARMv8' "$upstream/src/wifi/cyw43.c" &&
-            grep -q 'need_legacy = socramrev < 23u' "$upstream/src/wifi/cyw43.c" &&
-            patch_present=true
-            ;;
-        http-status.patch)
-            grep -q 'A completed TCP request is not a successful WGET' "$upstream/src/net_service.c" &&
-            grep -q 'h->http_code >= 300u' "$upstream/src/net_service.c" &&
-            grep -q 'http_content_length' "$upstream/src/net_service.c" &&
-            grep -q 'http_body_read >= h->http_content_length' "$upstream/src/net_service.c" &&
-            patch_present=true
-            ;;
-        tcp-diagnostics.patch)
-            grep -q 'static uint8_t net_tcp_result' "$upstream/src/net_service.c" &&
-            grep -q 'NET_ERR_HTTP_STATUS' "$upstream/src/net_service.h" &&
-            patch_present=true
-            ;;
-        http-truncated-body.patch)
-            grep -q 'declared HTTP body ended early' "$upstream/src/net_service.c" &&
-            grep -q 'truncated HTTP body -> TCP_CLOSED' "$upstream/src/tests/net/test_net.c" &&
-            patch_present=true
-            ;;
-        http-titles-transfer.patch)
-            grep -q 'exact MENU TITLES transfer shape' "$upstream/src/tests/net/test_net.c" &&
-            grep -q 'TITLES returns exactly 11498 bytes' "$upstream/src/tests/net/test_net.c" &&
-            patch_present=true
-            ;;
-        net-rx-window.patch)
-            grep -q '#define NET_RX_RING_SIZE    65536u' "$upstream/src/net_service.h" &&
-            grep -q 'TITLES fits as one coalesced lwIP pbuf chain' "$upstream/src/tests/net/test_net.c" &&
-            patch_present=true
-            ;;
-        http-user-agent.patch)
-            grep -q 'User-Agent: ElkWiFi/0.23' "$upstream/src/net_service.c" &&
-            patch_present=true
-            ;;
-        wifi-off-state.patch)
-            grep -q 'bool wifi_disable_radio(void)' "$upstream/src/wifi/wifi.c" &&
-            grep -q 'association and address state cleared' "$upstream/src/wifi/wifi_lwip.c" &&
-            grep -q 'WLC_DOWN: radio disabled by ElkWiFi host' "$upstream/src/wifi/sdio.c" &&
-            patch_present=true
-            ;;
-        wifi-scan-cancel.patch)
-            grep -q 'void sdio_runtime_scan_cancel(void)' "$upstream/src/wifi/sdio.c" &&
-            grep -q 'void sdio_runtime_scan_cancel(void);' "$upstream/src/wifi/sdio.h" &&
-            patch_present=true
-            ;;
-        wifi-profile-validation.patch)
-            grep -q 'bool wifi_profile_is_valid' "$upstream/src/wifi/wifi.c" &&
-            grep -q 'g_wifi_state == WIFI_STATE_DISABLED' "$upstream/src/wifi/wifi.c" &&
-            patch_present=true
-            ;;
         net-debug-stage.patch)
             grep -q 'net_debug_mark' "$upstream/src/net_service.c" &&
-            patch_present=true
-            ;;
-        net-debug-test-window.patch)
-            grep -q '#define TEST_JIM_SIZE 0x1000000u' \
-                "$upstream/src/tests/net/stubs/Pi1MHz.h" &&
             patch_present=true
             ;;
         secure-debug-stage.patch)
@@ -382,7 +271,7 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
     esac
     if "$patch_present"; then
         echo "Pi1MHz $patch_name is already applied"
-    elif [ "$patch_name" = http-status.patch ] || [ "$patch_name" = service-range-online.patch ] || [ "$patch_name" = uef-normalize.patch ] || [ "$patch_name" = ftp-service.patch ]; then
+    elif [ "$patch_name" = service-range-online.patch ] || [ "$patch_name" = uef-normalize.patch ] || [ "$patch_name" = ftp-service.patch ]; then
         # These small migration patches use zero-context hunks so they can
         # update an already-integrated checkout as well as a clean one.
         git -C "$upstream" apply --unidiff-zero --check "$patch_file"

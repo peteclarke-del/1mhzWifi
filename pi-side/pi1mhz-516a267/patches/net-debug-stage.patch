@@ -2,7 +2,7 @@ diff --git a/src/net_service.c b/src/net_service.c
 index 92fac86..6aac28e 100644
 --- a/src/net_service.c
 +++ b/src/net_service.c
-@@ -1658,6 +1658,17 @@
+@@ -1783,6 +1783,17 @@
  
  /* ---- FIQ latch + main-loop poll ----------------------------------------- */
  
@@ -17,8 +17,8 @@ index 92fac86..6aac28e 100644
 +   Pi1MHz->JIM_ram[p] = stage;
 +}
 +
- void net_service_command(uint32_t command_pointer, uint32_t addr,
-                          uint8_t data)
+ static void net_service_command(uint32_t command_pointer, uint32_t addr,
+                                 uint8_t data)
  {
 @@ -1669,21 +1680,25 @@
     net_pending_data = data;
