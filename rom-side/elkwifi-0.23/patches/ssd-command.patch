@@ -1,0 +1,11 @@
+--- a/rom/ElkWifi.asm
++++ b/rom/ElkWifi.asm
+@@ -192,6 +192,8 @@
+                     equb >uef_auto_cmd, <uef_auto_cmd
+                     equs "QHOST"
+                     equb >host_basic_cmd, <host_basic_cmd
++                    equs "SSD"
++                    equb >uef_cmd, <uef_cmd
+                     equs "UEF"
+                     equb >uef_cmd, <uef_cmd
+                     equs "WIFI" 

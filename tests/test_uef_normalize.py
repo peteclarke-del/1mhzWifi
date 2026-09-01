@@ -191,6 +191,58 @@ class UefNormalizeTest(unittest.TestCase):
         finally:
             self.fixture.pi1mhz_net_backend_destroy(backend)
 
+    @staticmethod
+    def dfs_image(entries) -> bytes:
+        """A DFS disc image, which is not a UEF, gzip or ZIP container."""
+        names = bytearray(256)
+        meta = bytearray(256)
+        names[0:8] = b"SSDTEST "
+        meta[5] = len(entries) * 8
+        meta[6] = 0x30                     # *OPT 4,3, the boot every disc uses
+        data = bytearray()
+        sector = 2
+        for index, (name, load, payload) in enumerate(entries):
+            at = 8 + index * 8
+            names[at:at + 7] = name.encode().ljust(7)[:7]
+            names[at + 7] = ord("$")
+            meta[at + 0] = load & 0xFF
+            meta[at + 1] = (load >> 8) & 0xFF
+            meta[at + 4] = len(payload) & 0xFF
+            meta[at + 5] = (len(payload) >> 8) & 0xFF
+            meta[at + 7] = sector
+            sectors = max(1, (len(payload) + 255) // 256)
+            block = bytearray(sectors * 256)
+            block[0:len(payload)] = payload
+            data.extend(block)
+            sector += sectors
+        total = 2 + len(data) // 256
+        meta[6] = (meta[6] & 0xFC) | ((total >> 8) & 3)
+        meta[7] = total & 0xFF
+        return bytes(names + meta + data)
+
+    def test_a_disc_image_is_rendered_into_a_cassette_stream(self) -> None:
+        # *SSD LOAD relies on the Pi turning a disc into the stream WiCFS
+        # already reads. The rendering has to happen before normalisation
+        # classifies the upload, because a raw DFS image is none of the three
+        # container formats and would otherwise be rejected as INVALID.
+        image = self.dfs_image([
+            ("GAME", 0x1900, bytes(range(256)) * 2),
+            ("!BOOT", 0x0000, b'*B.\rCH."GAME"\r'),
+        ])
+        published, _ = self.run_incremental(image)
+        self.assertTrue(published.startswith(b"UEF File!\0"),
+                        published[:16])
+        # !BOOT is emitted first because that is what the host execs.
+        self.assertIn(b"!BOOT", published[:64])
+        first = published.index(b"!BOOT")
+        self.assertLess(first, published.index(b"GAME"))
+
+    def test_a_disc_without_a_boot_is_still_rendered(self) -> None:
+        image = self.dfs_image([("ONLY", 0x1900, b"abcdef")])
+        published, _ = self.run_incremental(image)
+        self.assertTrue(published.startswith(b"UEF File!\0"))
+        self.assertIn(b"ONLY", published)
+
     def test_incremental_exact_window_boundaries(self) -> None:
         for size, expected_windows in (
             (FLAT_WINDOW, [FLAT_WINDOW]),

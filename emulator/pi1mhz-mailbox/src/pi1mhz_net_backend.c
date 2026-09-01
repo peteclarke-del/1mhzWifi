@@ -2,6 +2,7 @@
 #include "pi1mhz_mailbox.h"
 #include "pi1mhz_ftp.h"
 #include "media_service_core.h"
+#include "media_catalogue.h"
 #ifdef PI1MHZ_WOLFSSH
 #include "pi1mhz_wolfssh.h"
 #endif
@@ -358,6 +359,31 @@ static int wifi_credentials_valid(const char *ssid, const char *password,
  * differently would make every acceptance run evidence about the wrong
  * machine. */
 static media_service media;
+
+/* Mirrors uef_stream_render_ssd in the Pi overlay: a disc image becomes the
+ * cassette stream WiCFS already reads, so *SSD LOAD needs no host filing code.
+ * The catalogue is emitted several times because WiCFS searches forward and
+ * does not rewind on a miss. */
+#define UEF_SSD_PASSES 3u
+
+static void uef_render_ssd(pi1mhz_net_backend *backend)
+{
+    size_t rendered = 0u;
+    uint8_t *scratch;
+    if (backend->uef_stream_length == 0u) return;
+    if (media_identify(backend->uef_stream, backend->uef_stream_length)
+        != MEDIA_KIND_SSD)
+        return;
+    scratch = backend->uef_scratch;
+    if (scratch == NULL) return;
+    if (media_ssd_to_uef(backend->uef_stream, backend->uef_stream_length,
+                         UEF_SSD_PASSES, scratch, UEF_STREAM_CAPACITY,
+                         &rendered) != MEDIA_OK)
+        return;
+    if (rendered == 0u || rendered > UEF_STREAM_CAPACITY) return;
+    memcpy(backend->uef_stream, scratch, rendered);
+    backend->uef_stream_length = rendered;
+}
 
 static uint8_t media_dispatch(pi1mhz_net_backend *backend, uint8_t *command)
 {
@@ -872,6 +898,7 @@ normalized:
         output_length = wicfs_stream_length(window, output_length);
     memcpy(backend->uef_stream, window, output_length);
     backend->uef_stream_length = output_length;
+    uef_render_ssd(backend);
     if (backend->uef_filev_repair)
         (void)uef_repair_filev_stamp(backend->uef_stream,
                                      backend->uef_stream_length);
@@ -1089,6 +1116,8 @@ static uint8_t incremental_uef_control(pi1mhz_net_backend *backend,
         if (!backend->uef_upload_active || token != backend->uef_stream_token ||
             !normalized)
             return NET_ERR_PARAM;
+        uef_render_ssd(backend);
+        normalized = backend->uef_stream_length;
         memcpy(backend->uef_scratch, backend->uef_stream, normalized);
         if (is_raw_uef(backend->uef_scratch, normalized)) {
             backend->uef_stream_format = 'R';

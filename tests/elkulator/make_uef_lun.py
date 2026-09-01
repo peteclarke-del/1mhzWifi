@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a small BeebSCSI LUN holding named UEF titles.
+"""Build a small BeebSCSI LUN holding named UEF or SSD titles.
 
 The acceptance sweeps ran against a photographed half-gigabyte hard-disc
 image. Reproducing one failing title does not need that, and depending on a
@@ -11,8 +11,8 @@ together with the .dsc geometry sidecar BeebSCSI needs.
     python3 tests/elkulator/make_uef_lun.py --out /tmp/repro EXILE:'*Exile*'
 
 Each argument is NAME:GLOB. NAME is the ADFS filename the host will load
-(so it must satisfy ADFS naming); GLOB selects the source .uef under the
-sample corpus. Requires oaknut-adfs, which is what Acorn File Forge uses.
+(so it must satisfy ADFS naming); GLOB selects the source .uef or .ssd under
+the sample corpus, or is a literal path to one. Requires oaknut-adfs, which is what Acorn File Forge uses.
 """
 
 from __future__ import annotations
@@ -76,11 +76,21 @@ def main() -> int:
         if not separator:
             print(f"expected NAME:GLOB, got {spec!r}", file=sys.stderr)
             return 2
-        matches = sorted(glob.glob(f"{args.samples}/**/{pattern}.uef", recursive=True))
+        # A literal path is taken as given, so a disc image outside the sample
+        # corpus can be staged without copying it in first.
+        literal = Path(pattern)
+        if literal.is_file():
+            entries[name] = literal
+            continue
+        matches = []
+        for suffix in (".uef", ".ssd"):
+            matches += glob.glob(f"{args.samples}/**/{pattern}{suffix}",
+                                 recursive=True)
         if not matches:
-            print(f"no .uef matched {pattern!r} under {args.samples}", file=sys.stderr)
+            print(f"no .uef or .ssd matched {pattern!r} under {args.samples}",
+                  file=sys.stderr)
             return 1
-        entries[name] = Path(matches[0])
+        entries[name] = Path(sorted(matches)[0])
 
     lun, dsc = build(entries, args.out, args.capacity)
     for name, source in entries.items():
