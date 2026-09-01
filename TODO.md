@@ -502,19 +502,40 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   no escape either, as measured above. The frame-preserving pager this needs is
   built and correct, including the nesting case a `currom` variable got wrong
   and which hung Repton Around the World.
-- [ ] Rework the `*RUN` transfer to be frame-agnostic. This is the only thing
-  standing between the settled mechanism and shipping it. `run_code` ends
-  `JSR <load address>` then `RTS`, returning through the MOS extended-vector
-  dispatch frame it assumes is intact underneath. The mirrored trampoline
-  supplies its own frame, so that `RTS` lands in the wrong place and every
-  multi-file title fails after its first file, which is why the trampoline was
-  withdrawn. The fix is to stop depending on what is underneath: capture the
-  caller's return address into workspace at vector entry, whichever dispatch
-  path was used, and have the exit `JMP` through it after restoring ROMSEL from
-  `chain_rom`, instead of unwinding a frame it did not build. Gate it on the
-  `*/` handover every multi-file cassette loader ends with, then restore the
-  trampoline and re-run the sixteen title probe against the three quarter
-  baseline.
+- [x] Rework the `*RUN` transfer to be frame-agnostic.
+  `wicfs-run-frame-agnostic.patch` captures the caller's return address out of
+  the dispatch frame in `.actioned`, while that frame is still the only thing
+  on the stack, and replaces `run_code`'s closing `RTS` with
+  `PLA / PLA / JMP (chain_target)`. Same destination and same caller stack
+  depth, but reached through a saved pointer rather than by unwinding a frame
+  the code did not build, so the transfer no longer depends on which dispatcher
+  entered the vector. Three constraints shaped it. `run_code` is copied into
+  `chain_exec`, which runs from `&03A0` to `host_basic_pending` at `&03BD`, so
+  29 bytes is a hard ceiling the source asserts; the rework lands on exactly
+  29, which rules out the `PHA / PHA / RTS` form at 31. No new workspace was
+  available, so it reuses `chain_target`, which is safe because that belongs to
+  the predecessor-forward paths, the case where WiCFS declines the call rather
+  than claiming it. The captured bytes pushed `ret_fscv` out of branch range,
+  so `BPL ret_fscv` became `BMI actioned_run` over a `JMP`, following the
+  existing `wicfs-long-branches` precedent.
+  Verified behaviour-preserving under MOS dispatch on two multi-file titles.
+  Baseline `720a180d` against `d15cafe5`, Repton Infinity and Exile: identical
+  FILEV write-watch traces, identical mailbox traces and byte-identical final
+  screens in both cases.
+- [ ] Regenerate the shipped artifacts when the trampoline lands. The source
+  now assembles to `d15cafe5` while `SHA256SUMS`, `test_rom_compat.py` and the
+  hardware-test zip still pin `720a180d`, so a rebuild from source no longer
+  matches the committed ROM. This is deliberate rather than an oversight. Every
+  shipped ROM change in this project bumps the version, and `0.1.67` also
+  appears in `elkwifi_service.c` and so in both Pi kernels, so a bump costs a
+  kernel rebuild and a bundle regeneration. Spending that on a change which is
+  provably invisible at run time, immediately before the trampoline wants a
+  version of its own, is the wrong trade. Bump to `0.1.68` and re-pin every
+  hash once the trampoline restoration lands with it.
+- [ ] Restore the trampoline on the frame-agnostic transfer. The ROM side was
+  removed, and so was the Pi kernel side of service command 86 which assembled
+  the stub, so both have to come back. Gate on the `*/` handover and re-run the
+  sixteen title probe against the three quarter baseline.
 - [ ] Design SSD mounting on that mechanism once it ships. A mounted container
   inherits the vector-survival problem in full and must reuse the trampoline
   rather than introduce a second scheme.
