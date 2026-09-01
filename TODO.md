@@ -535,7 +535,39 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   titles do not run the cassette loader idiom which stamps FILEV with the MOS
   cassette entry, so the direct-stamp failure class does not arise on the disc
   path even though the low-memory overwrite problem does. That, rather than the
-  refuted extended-vector argument, is the reason to prefer it.
+  refuted extended-vector argument, is the reason to prefer it. Vector survival
+  is no longer a prerequisite: the JIM guard already ships, so the SSD work can
+  start at the transport rather than waiting on a mechanism.
+  Most of the Pi side already exists and is tested, so this is smaller than it
+  looks. `media_catalogue.c` decodes both UEF and DFS containers and
+  `media_service_core.c` implements the entire session protocol, `MEDIA_OPEN`,
+  `MEDIA_CAT`, `MEDIA_INFO`, `MEDIA_READ` and `MEDIA_CLOSE` as commands 120 to
+  124, deliberately free of any Pi1MHz register access so it unit tests on the
+  build host. `tests/test_media_catalogue.py` already compiles and drives both
+  C harnesses against the corpus, including a truncation fuzz.
+  What is missing, in the order worth building it:
+- [ ] Write `media_service.c`, the binding its own header names and the only
+  Pi-side file absent. It registers 120 to 124 the way `ftp_service.c`
+  registers 114 to 119, but synchronously, because the session works on an
+  in-memory image and needs no poll or pending state. Read the command block
+  at `cp`, call `media_service_dispatch`, copy the reply to `cp + 1` within the
+  240-byte window, and write the status through `Pi1MHz_MemoryWrite`.
+  `media_service_open` is separate from the dispatcher by design: the host
+  uploads the container through the existing incremental window protocol, the
+  same one `*UEF LOAD` fills, and a bare `MEDIA_OPEN` then reports what the
+  bound image holds. That needs an accessor on the uploaded stream buffer,
+  which is currently static in `elkwifi_service.c`.
+- [ ] Mirror the same five commands in `pi1mhz_net_backend.c` and assert the
+  pair in `test_integration_contract.py`, as the FILEV repair does. Without
+  the emulator side there is no end-to-end gate, and a divergence would make
+  every acceptance run evidence about the wrong machine.
+- [ ] Add the host `*SSD CAT` command. It uploads the image through the
+  existing path, sends a bare `MEDIA_OPEN`, then repeats `MEDIA_CAT` and
+  renders each returned line. No container parsing on the host.
+- [ ] Link `media_catalogue.c`, `media_service_core.c` and `media_service.c`
+  into the kernel. They are staged by `install_bundle.sh` but deliberately not
+  named in `CMakeLists.txt`, so a patch has to add them, and that is what makes
+  this reach real hardware rather than only the emulator.
 - [ ] Superseded: decide whether to keep pursuing a BYTEV-driven repair. The
   frequency tradeoff rules it out. No such design can
   improve on the frequency tradeoff, because BYTEV cannot know which vector is
