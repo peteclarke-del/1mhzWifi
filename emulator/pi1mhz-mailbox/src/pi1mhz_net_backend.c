@@ -150,6 +150,7 @@ struct pi1mhz_net_backend {
     int live;
     int exit_on_close;
     int uef_trim_tail;
+    int uef_filev_repair;
     uint8_t *uef_stream;
     uint8_t *uef_scratch;
     size_t uef_stream_length;
@@ -618,6 +619,98 @@ static int zip_has_one_entry(const uint8_t *source, size_t length)
 }
 
 /* Return 0 on success, 1 for output overflow, or -1 for malformed data. */
+static uint16_t uef_tape_crc(const uint8_t *data, size_t length)
+{
+    uint16_t crc = 0u;
+    while (length-- != 0u) {
+        crc ^= (uint16_t)((uint16_t)*data++ << 8);
+        for (unsigned int bit = 0; bit < 8u; bit++)
+            crc = (crc & 0x8000u) ? (uint16_t)((uint16_t)(crc << 1) ^ 0x1021u)
+                                  : (uint16_t)(crc << 1);
+    }
+    return crc;
+}
+
+static int uef_hex_digit(uint8_t c)
+{
+    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F')
+        || (c >= 'a' && c <= 'f');
+}
+
+static unsigned uef_repair_payload(uint8_t *data, size_t length)
+{
+    unsigned repaired = 0u;
+    if (length < 4u) return 0u;
+    for (size_t at = 0u; at + 4u <= length; at++) {
+        if (data[at] != '&' || data[at + 1] != '2' || data[at + 2] != '1')
+            continue;
+        if (data[at + 3] != '2' && data[at + 3] != '3')
+            continue;
+        if (at + 4u < length && uef_hex_digit(data[at + 4]))
+            continue;
+        if (at == 0u || (data[at - 1] != '?' && data[at - 1] != '!'))
+            continue;
+        data[at + 1] = '9';
+        data[at + 2] = '0';
+        data[at + 3] = (data[at + 3] == '2') ? '0' : '1';
+        repaired++;
+    }
+    return repaired;
+}
+
+/* Mirror of uef_repair_filev_stamp in the Pi overlay. Published Electron
+ * loaders stamp FILEV blind with `?&212=&D6:?&213=&F1`, which overwrites the
+ * WiCFS guard and sends the next CHAIN"" to real MOS cassette code. The
+ * address token is redirected to scratch at &900/&901; the substitution is the
+ * same length, so only the block's payload CRC needs recomputing. */
+static unsigned uef_repair_filev_stamp(uint8_t *window, size_t length)
+{
+    size_t position = 12u;
+    unsigned repaired = 0u;
+    if (window == NULL || length < position) return 0u;
+    while (position + 6u <= length) {
+        uint16_t chunk = (uint16_t)(window[position] |
+                                    ((uint16_t)window[position + 1] << 8));
+        uint32_t chunk_length = (uint32_t)window[position + 2] |
+            ((uint32_t)window[position + 3] << 8) |
+            ((uint32_t)window[position + 4] << 16) |
+            ((uint32_t)window[position + 5] << 24);
+        size_t start = position + 6u;
+        if (chunk_length > length || start + chunk_length > length)
+            break;
+        if (chunk == 0x0100u && chunk_length > 1u && window[start] == '*') {
+            size_t limit = start + chunk_length;
+            size_t name_end = start + 1u;
+            while (name_end < limit && name_end - start <= 11u
+                   && window[name_end] != 0u)
+                name_end++;
+            if (name_end < limit && window[name_end] == 0u) {
+                size_t descriptor = name_end + 1u;
+                size_t data_at = descriptor + 19u;
+                if (data_at <= limit && descriptor + 13u <= limit) {
+                    uint16_t data_length =
+                        (uint16_t)(window[descriptor + 10] |
+                                   ((uint16_t)window[descriptor + 11] << 8));
+                    size_t data_crc = data_at + data_length;
+                    if (data_length != 0u && data_crc + 2u <= limit) {
+                        unsigned hits =
+                            uef_repair_payload(&window[data_at], data_length);
+                        if (hits != 0u) {
+                            uint16_t crc =
+                                uef_tape_crc(&window[data_at], data_length);
+                            window[data_crc] = (uint8_t)(crc >> 8);
+                            window[data_crc + 1u] = (uint8_t)(crc & 0xffu);
+                            repaired += hits;
+                        }
+                    }
+                }
+            }
+        }
+        position = start + chunk_length;
+    }
+    return repaired;
+}
+
 static int inflate_bytes(uint8_t *destination, size_t capacity,
                          const uint8_t *source, size_t source_length,
                          int window_bits, size_t *output_length)
@@ -744,6 +837,9 @@ normalized:
         output_length = wicfs_stream_length(window, output_length);
     memcpy(backend->uef_stream, window, output_length);
     backend->uef_stream_length = output_length;
+    if (backend->uef_filev_repair)
+        (void)uef_repair_filev_stamp(backend->uef_stream,
+                                     backend->uef_stream_length);
     backend->uef_stream_cursor = 0u;
     backend->uef_stream_ready = 1;
     backend->uef_upload_active = 0;
@@ -1025,6 +1121,9 @@ static uint8_t incremental_uef_control(pi1mhz_net_backend *backend,
             return uef_stream_normalize_reply(command, "INVALID\r\n");
         }
         backend->uef_stream_length = normalized;
+        if (backend->uef_filev_repair)
+            (void)uef_repair_filev_stamp(backend->uef_stream,
+                                         backend->uef_stream_length);
         backend->uef_stream_cursor = 0u;
         backend->uef_stream_ready = 1;
         backend->uef_upload_active = 0;
@@ -1650,6 +1749,13 @@ pi1mhz_net_backend *pi1mhz_net_backend_create(const char *mode,
         backend->uef_trim_tail = trim &&
             (!strcmp(trim, "1") || !strcasecmp(trim, "yes") ||
              !strcasecmp(trim, "true") || !strcasecmp(trim, "on"));
+    }
+    {
+        /* On unless explicitly disabled, matching the Pi service default. */
+        const char *repair = getenv("PI1MHZ_UEF_FILEV_REPAIR");
+        backend->uef_filev_repair = !(repair &&
+            (!strcmp(repair, "0") || !strcasecmp(repair, "no") ||
+             !strcasecmp(repair, "false") || !strcasecmp(repair, "off")));
     }
     strcpy(backend->wifi_security, "AUTO");
     backend->wifi_present = 1;

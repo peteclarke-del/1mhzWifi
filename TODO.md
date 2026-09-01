@@ -542,21 +542,53 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   1988): `*TAPE`, OSBYTE `163,128,1`, `?&2AC=0`, then `?&212=&D6:?&213=&F1`.
   Confirmed against the emulator write-watch, which caught `&0212` `97->D6`
   and `&0213` `FD->F1` at PC `&B4CA`, BASIC's four-byte indirection store.
-- [ ] Decide the response to the direct-FILEV-stamp idiom. It is not
+- [x] Respond to the direct-FILEV-stamp idiom in the Pi stream. It is not
   title-specific and not rare: 84 of the 728 corpus UEFs contain a literal
   `?&212=` stamp, 76 of them writing exactly `&F1D6`, and 64 also issue the
-  accompanying OSBYTE `163,128`. The list includes Exile, Repton 2, Repton 3,
-  Repton Infinity, Stryker's Run, Codename Droid, both Last Ninja titles,
-  both Barbarian titles, both Galaforce titles, Ravenskull, Imogen, Zalaga,
-  Sim City, Frak and Mr Wiz. These loaders cannot be changed, so any repair
-  has to reclaim FILEV after the stamp rather than try to prevent it. This
-  reopens the BYTEV-driven repair recorded as superseded above, and should be
-  judged against the corpus measurement rather than against one title.
+  accompanying OSBYTE `163,128`. `uef_repair_filev_stamp` redirects the
+  `&212`/`&213` address token to scratch at `&900`/`&901` as the Pi normalises
+  the stream. The substitution is the same length, so block layout and every
+  stored offset are untouched and only the affected block's payload CRC is
+  recomputed. Across the corpus it modifies 85 files with no CRC failure and
+  no length change, and the Pi and emulator implementations produce
+  byte-identical output on all 728. It costs no ROM space and nothing on any
+  host hot path, so it cannot affect the network tools.
+- [x] Prove the repair on the WICFS-017 title. A/B against the three-title
+  reproduction LUN, same emulator binary and media, only
+  `PI1MHZ_UEF_FILEV_REPAIR` differing: with the repair off, WiCFS installs its
+  guard (`&0212` `1B->97` at PC `&9D44`, bank 3) and the loader stamps it back
+  (`97->D6` at PC `&B4CA`, bank 11) and Repton Infinity stops on `Searching`.
+  With the repair on the stamp never happens, the guard survives, and the
+  title reaches its interactive menu, which requires `Screen`, `Menu` and
+  `Game` to have loaded in sequence. The loaders do not self-verify the
+  patched program: no title tested rejected it.
+- [ ] Handle the machine-code stamp, which the stream repair structurally
+  cannot reach. Exile improves but does not complete: the BASIC stamp is gone,
+  it now loads `EXILE1`, `EXILE2` and `EXILE3` and reaches `EXILEL 03 0301`,
+  then `ExileL` re-stamps FILEV from its own 6502 code at PC `&0922` in RAM and
+  the title stops on `Searching`. A text substitution in the stream cannot
+  rewrite a `STA &0212` instruction.
+  The size of this class is not known. Scanning the corpus for plain
+  `STA`/`STX`/`STY` to `&0212`/`&0213` finds only ten titles, and Exile is not
+  among them because its loader decrypts itself at run time, so that ten is a
+  floor and not a measurement. Do not quote it as coverage.
+  This is the case the event-driven reclaim was proposed for. Gated on an open
+  UEF stream, it would restore FILEV whatever wrote it and however, which is
+  precisely what the stream repair cannot do. Judge it against this residual
+  class rather than against the corpus total, most of which is already fixed.
 - [ ] Re-test the Mr Wiz and Frak aftermath items in the Tube-off milestone
   below against this mechanism before treating them as separate faults. Both
   titles stamp FILEV, which would explain `*UEF LOAD MRWIZ` hanging before the
   cassette-loading sequence, and a post-Frak `*MENU` hanging until a cold
   start because FILEV is left pointing at MOS cassette after the game exits.
+- [ ] Decide whether the sideways bank the ROM occupies needs defending. The
+  same loader line writes `?&2AC=0`, which clears the MOS ROM type byte for
+  bank 12 and stops MOS issuing service calls to whatever sits there. In the
+  emulator profile that is RH Plus, and the default 1MHz-WiFi bank is 3, so
+  nothing is lost today. A machine with 1MHz-WiFi installed in bank 12 would
+  have its service entry silenced by any of these 84 titles. This is an
+  installation constraint to document rather than a defect, but it should be
+  stated somewhere a user choosing a bank will see it.
 
 ### Physical Tube-off milestone, 21 August 2026
 

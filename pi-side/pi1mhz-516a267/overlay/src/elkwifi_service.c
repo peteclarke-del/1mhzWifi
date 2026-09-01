@@ -113,6 +113,10 @@ static bool uef_published_final;
 static bool uef_stream_ready;
 static bool uef_upload_active;
 static bool uef_trim_tail;
+/* On unless explicitly disabled: the loaders this repairs are a large
+ * minority of published titles, so the compatibility path is the default
+ * and the switch exists to A/B a suspected self-verifying loader. */
+static bool uef_filev_repair = true;
 
 typedef enum {
    NETOP_IDLE = 0,
@@ -403,6 +407,8 @@ static uint8_t uef_incremental_command(uint32_t cp)
             normalized_length = uef_legacy_trim_length(
                uef_stream_data, normalized_length);
          uef_stream_length = normalized_length;
+         if (uef_filev_repair)
+            (void)uef_repair_filev_stamp(uef_stream_data, uef_stream_length);
          uef_stream_cursor = 0u;
          uef_stream_ready = true;
          uef_upload_active = false;
@@ -709,6 +715,14 @@ static bool config_enabled(const char *value)
        && (strcmp(value, "1") == 0 || strcasecmp(value, "yes") == 0
            || strcasecmp(value, "true") == 0
            || strcasecmp(value, "on") == 0);
+}
+
+static bool config_disabled(const char *value)
+{
+   return value != NULL
+       && (strcmp(value, "0") == 0 || strcasecmp(value, "no") == 0
+           || strcasecmp(value, "false") == 0
+           || strcasecmp(value, "off") == 0);
 }
 
 static void format_network_time(uint32_t cp, bool date)
@@ -1205,6 +1219,8 @@ static uint8_t process_request(uint32_t cp)
          if (++uef_stream_token == 0u) ++uef_stream_token;
          memcpy(uef_stream_data, &Pi1MHz->JIM_ram[base], length);
          uef_stream_length = length;
+         if (uef_filev_repair)
+            (void)uef_repair_filev_stamp(uef_stream_data, uef_stream_length);
          uef_stream_cursor = 0u;
          uef_stream_ready = true;
          uef_upload_active = false;
@@ -1340,6 +1356,8 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
       time_utc_offset_minutes = utc_offset_parse(
          config_get("elkwifi_utc_offset_minutes"));
       uef_trim_tail = config_enabled(config_get("elkwifi_uef_trim_tail"));
+      uef_filev_repair =
+         !config_disabled(config_get("elkwifi_uef_filev_repair"));
    }
    /* Re-read the saved profile on every host reset, but credentials_load
     * preserves an already-running association when the profile is unchanged. */
