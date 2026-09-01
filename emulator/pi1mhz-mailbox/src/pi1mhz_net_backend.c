@@ -1,7 +1,6 @@
 #include "pi1mhz_net_backend.h"
 #include "pi1mhz_mailbox.h"
 #include "pi1mhz_ftp.h"
-#include "media_service_core.h"
 #include "media_catalogue.h"
 #ifdef PI1MHZ_WOLFSSH
 #include "pi1mhz_wolfssh.h"
@@ -351,65 +350,6 @@ static int wifi_credentials_valid(const char *ssid, const char *password,
         return length == 5u || length == 13u ||
                ((length == 10u || length == 26u) && wifi_hex_key(password));
     return 0;
-}
-
-/* Media service, commands 120 to 124. This mirrors media_service.c on the Pi
- * and calls the same media_service_core.c, so the emulator cannot drift from
- * the kernel the way a reimplementation would: an emulator answering these
- * differently would make every acceptance run evidence about the wrong
- * machine. */
-static media_service media;
-
-/* Mirrors uef_stream_render_ssd in the Pi overlay: a disc image becomes the
- * cassette stream WiCFS already reads, so *SSD LOAD needs no host filing code.
- * The catalogue is emitted several times because WiCFS searches forward and
- * does not rewind on a miss. */
-#define UEF_SSD_PASSES 3u
-
-static void uef_render_ssd(pi1mhz_net_backend *backend)
-{
-    size_t rendered = 0u;
-    uint8_t *scratch;
-    if (backend->uef_stream_length == 0u) return;
-    if (media_identify(backend->uef_stream, backend->uef_stream_length)
-        != MEDIA_KIND_SSD)
-        return;
-    scratch = backend->uef_scratch;
-    if (scratch == NULL) return;
-    if (media_ssd_to_uef(backend->uef_stream, backend->uef_stream_length,
-                         UEF_SSD_PASSES, scratch, UEF_STREAM_CAPACITY,
-                         &rendered) != MEDIA_OK)
-        return;
-    if (rendered == 0u || rendered > UEF_STREAM_CAPACITY) return;
-    memcpy(backend->uef_stream, scratch, rendered);
-    backend->uef_stream_length = rendered;
-}
-
-static uint8_t media_dispatch(pi1mhz_net_backend *backend, uint8_t *command)
-{
-    uint8_t reply[MEDIA_SVC_REPLY_MAX];
-    size_t reply_length = 0u;
-    uint8_t status;
-
-    /* An open binds whatever the host last uploaded through the incremental
-     * window protocol, the same buffer *UEF LOAD fills. */
-    if (command[0] == MEDIA_CMD_OPEN) {
-        if (!backend->uef_stream_ready || backend->uef_stream_length == 0u)
-            return MEDIA_SVC_ERR_PARAM;
-        status = media_service_open(&media, backend->uef_stream,
-                                    backend->uef_stream_length);
-        if (status != MEDIA_SVC_OK)
-            return status;
-    }
-
-    status = media_service_dispatch(&media, command, reply, sizeof reply,
-                                    &reply_length);
-    if (reply_length > MEDIA_SVC_REPLY_MAX)
-        reply_length = MEDIA_SVC_REPLY_MAX;
-    if (reply_length != 0u)
-        memcpy(command + 1, reply, reply_length);
-    command[1 + reply_length] = 0;
-    return status;
 }
 
 static void elkwifi_response(uint8_t *command, const char *response)
@@ -806,7 +746,6 @@ normalized:
         output_length = wicfs_stream_length(window, output_length);
     memcpy(backend->uef_stream, window, output_length);
     backend->uef_stream_length = output_length;
-    uef_render_ssd(backend);
     if (backend->uef_filev_repair)
         (void)uef_repair_filev_stamp(backend->uef_stream,
                                      backend->uef_stream_length);
@@ -1024,8 +963,6 @@ static uint8_t incremental_uef_control(pi1mhz_net_backend *backend,
         if (!backend->uef_upload_active || token != backend->uef_stream_token ||
             !normalized)
             return NET_ERR_PARAM;
-        uef_render_ssd(backend);
-        normalized = backend->uef_stream_length;
         memcpy(backend->uef_scratch, backend->uef_stream, normalized);
         if (is_raw_uef(backend->uef_scratch, normalized)) {
             backend->uef_stream_format = 'R';
@@ -2106,8 +2043,6 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     default:
         break;
     }
-    if (command[0] >= MEDIA_CMD_OPEN && command[0] <= MEDIA_CMD_CLOSE)
-        return media_dispatch(backend, command);
     if (command[0] >= 114u && command[0] <= 119u)
         return pi1mhz_ftp_dispatch(backend->ftp, command, service_jim,
                                    service_size);

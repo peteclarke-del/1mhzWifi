@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a small BeebSCSI LUN holding named UEF or SSD titles.
+"""Build a small BeebSCSI LUN holding named UEF titles.
 
 The acceptance sweeps ran against a photographed half-gigabyte hard-disc
 image. Reproducing one failing title does not need that, and depending on a
@@ -11,8 +11,8 @@ together with the .dsc geometry sidecar BeebSCSI needs.
     python3 tests/elkulator/make_uef_lun.py --out /tmp/repro EXILE:'*Exile*'
 
 Each argument is NAME:GLOB. NAME is the ADFS filename the host will load
-(so it must satisfy ADFS naming); GLOB selects the source .uef or .ssd under
-the sample corpus, or is a literal path to one. Requires oaknut-adfs, which is what Acorn File Forge uses.
+(so it must satisfy ADFS naming); GLOB selects the source .uef under the
+sample corpus, or is a literal path to one. Requires oaknut-adfs, which is what Acorn File Forge uses.
 """
 
 from __future__ import annotations
@@ -82,12 +82,9 @@ def main() -> int:
         if literal.is_file():
             entries[name] = literal
             continue
-        matches = []
-        for suffix in (".uef", ".ssd"):
-            matches += glob.glob(f"{args.samples}/**/{pattern}{suffix}",
-                                 recursive=True)
+        matches = glob.glob(f"{args.samples}/**/{pattern}.uef", recursive=True)
         if not matches:
-            print(f"no .uef or .ssd matched {pattern!r} under {args.samples}",
+            print(f"no .uef matched {pattern!r} under {args.samples}",
                   file=sys.stderr)
             return 1
         entries[name] = Path(sorted(matches)[0])

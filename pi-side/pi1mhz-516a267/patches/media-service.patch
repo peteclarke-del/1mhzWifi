@@ -1,7 +1,7 @@
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -409,6 +409,9 @@
+@@ -409,6 +409,7 @@
      ${wifi_files}
      ${lwip_files}
      elkwifi_service.c
@@ -9,6 +9,4 @@ diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
      puff.c
      puff.h
 +    media_catalogue.c
-+    media_service_core.c
-+    media_service.c
  )

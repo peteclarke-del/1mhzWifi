@@ -63,46 +63,19 @@ understands, so a file larger than the legacy 64 KiB aperture is delivered in
 successive windows. Text from `MEDIA_CAT` is returned through the ordinary
 paged command response used by `*ONLINE` and `*VERSION`.
 
-## Direction, after the cassette-rendering spike
+## Withdrawn
 
-Rendering a disc into a cassette stream so the existing WiCFS handler could
-read it is a spike, not the design, and should not be built on. It reached
-`!BOOT` execution on a real disc, which proved the transport, but DFS is
-random-access and addressed by name through a catalogue while the cassette path
-is sequential and forward-only, and each mismatch needed its own workaround.
-The intended design is to serve disc files by name on demand through
-`MEDIA_INFO` and `MEDIA_READ`, which removes the rendering, the repeated
-catalogue passes, the whole-image upload and the stream-cursor semantics
-together. See TODO.md for the open items.
+SSD support is not being built. The goal was to install disc images into
+BeebSCSI folders and play them from there; a host filing-system proxy and a
+minutes-long upload before a game starts both miss that, and every design here
+required one or the other. The commands, the cassette rendering and the mailbox
+binding are removed from the tree.
 
-## Scope, narrowed
+What remains in use from this area is `media_catalogue.c`, which decodes CFS
+for the UEF path and hosts the FILEV stamp repair. `media_service_core.c` is
+staged but not linked and has no caller.
 
-`*SSD LOAD` is the only media command wanted. `*SSD CAT`, `*SSD EXTRACT`,
-`*SSD CLOSE`, `*UEF CAT` and `*UEF EXTRACT` are dropped, and with them
-`MEDIA_STORE` and the Pi-hosted disc. The sections below are kept as the
-record of a wider design; only what `*SSD LOAD` needs is to be built.
-
-What `*SSD LOAD` must do is set by what the discs actually contain rather than
-by the original design. Across the 117 TOSEC Acorn Electron `.ssd` images, 115
-carry a `!BOOT` and every one of those sets boot option `*OPT 4,3`, which is
-`*EXEC`. None uses `*LOAD` or `*RUN`. The two without a `!BOOT` are a bad dump
-and the second disc of a two-disc title, neither of which would be booted
-directly. So the command execs `!BOOT` as text and reports an error when the
-image has none, which is the agreed behaviour.
-
-`!BOOT` on its own is not enough, and this is the part the plan has to absorb.
-These files are two lines: `*B.` then `CH."NAME"`, or a `*/NAME` handover.
-Every one of them immediately chains to another file on the same disc, so the
-filing system has to keep serving that image after `!BOOT` has run. A command
-that only execed `!BOOT` would fail on the next line of every title.
-
-The cost of that is small, because WiCFS already serves files by name through
-vectors it already installs, and `media_catalogue.c` already decodes DFS,
-recording each entry's contiguous byte offset. Serving a DFS file is less work
-than the CFS block walking WiCFS does for a cassette image, and `MEDIA_INFO`
-and `MEDIA_READ` already exist to answer for one. What is not needed is the
-`MEDIA_MOUNT` and `MEDIA_FSOP` filing-system proxy below: WiCFS is the filing
-system, and only its source changes.
+The sections below are kept as a design record only.
 
 ## `*SSD LOAD` and the Pi-hosted disc
 

@@ -22,7 +22,6 @@
 #include "ram_emulator.h"
 #include "services.h"
 #include "media_catalogue.h"
-#include "media_service.h"
 #include "uef_normalize.h"
 #include "wifi/sdio.h"
 #include "wifi/wifi.h"
@@ -154,28 +153,6 @@ static void response_string(uint32_t cp, const char *value);
 static void response_printf(uint32_t cp, const char *format, ...)
    __attribute__((format(printf, 2, 3)));
 static bool command_string(uint32_t cp, const char **value);
-
-/* A disc image is rendered into the cassette stream WiCFS already reads, so
- * *SSD LOAD needs no host filing code and *UEF LOAD accepts a .ssd as well.
- * The catalogue is emitted several times because WiCFS searches forward and
- * does not rewind when a name is not found, so a chain running backwards
- * through the catalogue still resolves. */
-#define UEF_SSD_PASSES 3u
-
-static void uef_stream_render_ssd(size_t *length)
-{
-   size_t rendered = 0u;
-   if (length == NULL || *length == 0u) return;
-   if (media_identify(uef_stream_data, *length) != MEDIA_KIND_SSD)
-      return;
-   if (media_ssd_to_uef(uef_stream_data, *length, UEF_SSD_PASSES,
-                        uef_stream_scratch, sizeof uef_stream_scratch,
-                        &rendered) != MEDIA_OK)
-      return;
-   if (rendered == 0u || rendered > sizeof uef_stream_data) return;
-   memcpy(uef_stream_data, uef_stream_scratch, rendered);
-   *length = rendered;
-}
 
 const uint8_t *elkwifi_uef_stream_image(size_t *length)
 {
@@ -425,7 +402,6 @@ static uint8_t uef_incremental_command(uint32_t cp)
          if (!uef_upload_active || token != uef_stream_token
              || normalized_length == 0u)
             return ELKWIFI_ERR_PARAM;
-         uef_stream_render_ssd(&normalized_length);
          normalized = uef_normalize(uef_stream_data, &normalized_length,
                                     sizeof uef_stream_data,
                                     uef_stream_scratch,
@@ -1400,7 +1376,6 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
    (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_UEF_NORMALIZE,
                            elkwifi_service_command);
    ftp_service_init();
-   media_service_init();
    /* A host reset abandons the old OSWORD/star-command caller. Complete any
       request latched during reset reinitialisation with a bounded error before
       clearing it, so FCAA can never be left at BUSY. */
