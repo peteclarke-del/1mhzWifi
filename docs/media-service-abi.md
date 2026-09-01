@@ -63,6 +63,18 @@ understands, so a file larger than the legacy 64 KiB aperture is delivered in
 successive windows. Text from `MEDIA_CAT` is returned through the ordinary
 paged command response used by `*ONLINE` and `*VERSION`.
 
+## Direction, after the cassette-rendering spike
+
+Rendering a disc into a cassette stream so the existing WiCFS handler could
+read it is a spike, not the design, and should not be built on. It reached
+`!BOOT` execution on a real disc, which proved the transport, but DFS is
+random-access and addressed by name through a catalogue while the cassette path
+is sequential and forward-only, and each mismatch needed its own workaround.
+The intended design is to serve disc files by name on demand through
+`MEDIA_INFO` and `MEDIA_READ`, which removes the rendering, the repeated
+catalogue passes, the whole-image upload and the stream-cursor semantics
+together. See TODO.md for the open items.
+
 ## Scope, narrowed
 
 `*SSD LOAD` is the only media command wanted. `*SSD CAT`, `*SSD EXTRACT`,
