@@ -529,8 +529,34 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
 - [ ] Re-run the differential with the relocated gateway. Repton must reach
   sustained gameplay and Last of the Free must still reach its start prompt
   from the same ROM. Both are required; either alone is not a fix.
-- [ ] Trace `WICFS-017`. Repton Infinity stops at `Searching` with 63,886 of
-  65,280 stream bytes unread, identically with and without the gateway.
+- [x] Trace `WICFS-017`. Root cause established, and it is not a WiCFS defect.
+  Repton Infinity's own BASIC loader stamps FILEV directly with
+  `?&212=&D6:?&213=&F1`, behind an OSBYTE `&81` machine check so it fires only
+  on the Electron. That overwrites the WiCFS filing-vector guard at `&FD97`
+  (`romsel`, `&FD00+jim_page_usable`) with the Electron MOS 1.00 cassette
+  entry `&F1D6`, so the `CHAIN""` on the next line reaches real MOS cassette
+  code instead of WiCFS and the stream stops being consumed. This is exactly
+  why the stall is identical with and without the `&0780` gateway: the loader
+  never consults what we installed, it writes the vector blind. Exile states
+  the idiom outright in `REM Elk Exile tape loader v1.0` (Kevin Edwards,
+  1988): `*TAPE`, OSBYTE `163,128,1`, `?&2AC=0`, then `?&212=&D6:?&213=&F1`.
+  Confirmed against the emulator write-watch, which caught `&0212` `97->D6`
+  and `&0213` `FD->F1` at PC `&B4CA`, BASIC's four-byte indirection store.
+- [ ] Decide the response to the direct-FILEV-stamp idiom. It is not
+  title-specific and not rare: 84 of the 728 corpus UEFs contain a literal
+  `?&212=` stamp, 76 of them writing exactly `&F1D6`, and 64 also issue the
+  accompanying OSBYTE `163,128`. The list includes Exile, Repton 2, Repton 3,
+  Repton Infinity, Stryker's Run, Codename Droid, both Last Ninja titles,
+  both Barbarian titles, both Galaforce titles, Ravenskull, Imogen, Zalaga,
+  Sim City, Frak and Mr Wiz. These loaders cannot be changed, so any repair
+  has to reclaim FILEV after the stamp rather than try to prevent it. This
+  reopens the BYTEV-driven repair recorded as superseded above, and should be
+  judged against the corpus measurement rather than against one title.
+- [ ] Re-test the Mr Wiz and Frak aftermath items in the Tube-off milestone
+  below against this mechanism before treating them as separate faults. Both
+  titles stamp FILEV, which would explain `*UEF LOAD MRWIZ` hanging before the
+  cassette-loading sequence, and a post-Frak `*MENU` hanging until a cold
+  start because FILEV is left pointing at MOS cassette after the game exits.
 
 ### Physical Tube-off milestone, 21 August 2026
 

@@ -84,6 +84,9 @@ def inspect_cfs_block(payload: bytes, chunk_index: int,
                        if data_crc_size else None)
     return {
         "chunk_index": chunk_index,
+        # Where the payload bytes start inside this chunk, so callers
+        # reassembling whole files do not repeat the header arithmetic.
+        "data_offset_in_chunk": data_at,
         "chunk_offset": chunk_offset,
         "name": payload[1:name_end].decode("latin-1"),
         "name_hex": payload[1:name_end].hex(),
