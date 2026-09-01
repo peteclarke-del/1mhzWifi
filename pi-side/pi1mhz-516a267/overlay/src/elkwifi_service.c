@@ -22,6 +22,7 @@
 #include "ram_emulator.h"
 #include "services.h"
 #include "media_catalogue.h"
+#include "media_service.h"
 #include "uef_normalize.h"
 #include "wifi/sdio.h"
 #include "wifi/wifi.h"
@@ -1253,7 +1254,6 @@ static uint8_t process_request(uint32_t cp)
          if (++uef_stream_token == 0u) ++uef_stream_token;
          memcpy(uef_stream_data, &Pi1MHz->JIM_ram[base], length);
          uef_stream_length = length;
-         uef_stream_render_ssd(&uef_stream_length);
          if (uef_filev_repair)
             (void)uef_repair_filev_stamp(uef_stream_data, uef_stream_length);
          uef_stream_cursor = 0u;
@@ -1400,6 +1400,7 @@ void elkwifi_service_init(uint8_t instance, uint8_t address)
    (void)services_register(ELKWIFI_CMD_STATUS, ELKWIFI_CMD_UEF_NORMALIZE,
                            elkwifi_service_command);
    ftp_service_init();
+   media_service_init();
    /* A host reset abandons the old OSWORD/star-command caller. Complete any
       request latched during reset reinitialisation with a bounded error before
       clearing it, so FCAA can never be left at BUSY. */
