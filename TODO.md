@@ -590,31 +590,41 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   before the renderer was reached. Both sides now render before normalising,
   and `test_uef_normalize` drives a disc image through the real
   BEGIN/APPEND/FINALIZE path, which would have caught it.
-- [ ] Resynchronise the stream when a file is closed before its end. This is
-  what now stops `*SSD LOAD` completing, and it is a filing-system gap rather
-  than anything to do with the rendering. Chuckulus reaches `*EXEC ""`, MOS
-  execs `!BOOT`, and its text runs: `*BASIC`, `*FX21`, then
-  `CLOSE#0:*R.Chuck`. The `CLOSE#0` closes the exec file part way through, so
-  WiCFS leaves its cursor inside `!BOOT`'s data exactly as a tape would, and
-  the `*R.Chuck` search then calls `chunk`, reads `*BASIC` as a chunk header
-  and reports `422A Chunk type?`. `2A 42` is `*B`.
-  A single bounded rewind and retry when `chunk` rejects a header would fix
-  this and would also remove the reason for rendering the catalogue more than
-  once, since a backward chain would resolve the same way. It has to be
-  bounded, or a genuinely absent file would loop. About 38 bytes are free.
-- [ ] Re-gate `*SSD LOAD` on a real disc once that lands, including a title
-  whose `!BOOT` chains with `CH."NAME"` rather than closing the exec file, to
-  confirm the two paths behave the same.
-- [ ] Record the transfer cost. The upload ran at roughly 310 bytes per second
-  on the conservative delayed-bus profile, so Chuckulus at 200 KB took about
-  eleven minutes before anything executed. `*UEF LOAD` already carries a
-  startup latency item; a disc image is several times larger, so this is
-  materially worse and is a usability problem on real hardware rather than a
-  defect.
-- [ ] Link `media_catalogue.c`, `media_service_core.c` and `media_service.c`
-  into the kernel. They are staged by `install_bundle.sh` but deliberately not
-  named in `CMakeLists.txt`, so a patch has to add them, and that is what makes
-  this reach real hardware rather than only the emulator.
+- [x] Decide whether rendering a disc as a cassette stream is the right shape.
+  It is not, and the work above should be read as a spike rather than as the
+  design. DFS is random-access and addressed by name through a catalogue; the
+  WiCFS cassette path is sequential, forward-only and has no catalogue.
+  Rendering the disc so the existing handler could read it reached `!BOOT`
+  execution, but every mismatch needed its own workaround: the catalogue is
+  emitted several times to fake a backward seek, and the run stops because
+  `CLOSE#0` part way through `!BOOT` leaves the cursor mid-block, which is
+  correct cassette behaviour and meaningless on a disc. A rewind-and-retry
+  would have papered over that too. Repeating data to simulate a capability the
+  real medium has, and a defect that turns out to be correct behaviour for the
+  borrowed path, are both signs the abstraction is wrong.
+  Do not add the rewind-and-retry, and do not build further on
+  `media_ssd_to_uef` or the `!BOOT` launch selection.
+- [ ] Serve disc files by name on demand instead. The filing vectors are
+  already installed and working, which is the hard part, and `MEDIA_INFO` and
+  `MEDIA_READ` already answer for one file by index. On OSFIND or OSFILE with
+  a name, ask the Pi for that file and stream only it. That removes the
+  rendering, the passes, the whole-image upload and the cursor semantics at
+  once, and closing a file early becomes harmless because each open is
+  independent. It also removes CFS block walking from the disc path rather
+  than adding to it. The cost is a new branch in the filing handlers, which is
+  the delicate area, so measure the ROM cost before committing to it: 38 bytes
+  are free below `&BF00`, and the reserve can be moved with justification.
+- [ ] Decide where the image lives before designing that branch, because it
+  changes the answer more than anything else here. Today the host reads the
+  `.ssd` from ADFS or BeebSCSI and uploads it, which is what makes a 200 KB
+  disc take about eleven minutes at roughly 310 bytes per second. If the image
+  sat on the Pi's SD card there would be no upload at all and `*SSD LOAD NAME`
+  would be a name lookup.
+- [x] Keep from the spike: the DFS decoder, the media service and its mailbox
+  binding, the emulator sharing the same session core, `.ssd` staging in
+  `make_uef_lun.py`, and the `SSD` command-table entry. The spike also proved
+  the whole chain end to end, upload through WiCFS install to `!BOOT`
+  execution, so a by-name handler starts from a known-good transport.
 - [ ] Superseded: decide whether to keep pursuing a BYTEV-driven repair. The
   frequency tradeoff rules it out. No such design can
   improve on the frequency tradeoff, because BYTEV cannot know which vector is
