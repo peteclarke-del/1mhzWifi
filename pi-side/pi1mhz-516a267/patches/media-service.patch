@@ -1,12 +1,10 @@
-diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -409,6 +409,7 @@
-     ${wifi_files}
-     ${lwip_files}
-     elkwifi_service.c
+@@ -422,6 +422,7 @@
      uef_normalize.c
      puff.c
      puff.h
 +    media_catalogue.c
  )
+ 
+ # These are cold (config/filename handling, ~12 call sites). We recompile them

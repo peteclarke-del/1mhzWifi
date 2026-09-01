@@ -85,9 +85,15 @@ class IntegrationContractTest(unittest.TestCase):
 
         integration = (ROOT / "pi-side/pi1mhz-516a267/patches/integration.patch").read_text()
         self.assertNotIn("harddisc_emulator", integration.lower())
-        capacity_test = (ROOT / "pi-side/pi1mhz-516a267/patches/services-capacity-test.patch").read_text()
-        self.assertIn("eighth range registers", capacity_test)
-        self.assertIn("identical reset-time claim renews", capacity_test)
+        # The services table capacity and its tests were merged upstream, so
+        # our patch for them is gone and the guarantee is the pinned commit's.
+        self.assertFalse(
+            (ROOT / "pi-side/pi1mhz-516a267/patches/services-capacity-test.patch").exists()
+        )
+        self.assertNotIn(
+            "services-capacity-test.patch",
+            (ROOT / "pi-side/install_bundle.sh").read_text(),
+        )
 
     def test_pi_zero_and_pi3_wifi_firmware_matrix_is_packaged(self) -> None:
         bundle = ROOT / "build/pi1mhz-all"
@@ -116,16 +122,6 @@ class IntegrationContractTest(unittest.TestCase):
             "pi_runtime.py", "pi_wifi_bridge.py", "run_bridge.sh",
         ):
             self.assertFalse(any(ROOT.rglob(name)), name)
-
-    def test_kernel_revision_fingerprints_untracked_overlay_contents(self) -> None:
-        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
-        version_patch = (
-            ROOT / "pi-side/pi1mhz-516a267/patches/gitversion-untracked-content.patch"
-        ).read_text()
-        self.assertIn("gitversion-untracked-content.patch", installer)
-        self.assertIn("ls-files --others --exclude-standard", version_patch)
-        self.assertIn("file(SHA256", version_patch)
-        self.assertIn("GIT_UNTRACKED_CONTENT", version_patch)
 
     def test_pi_overlay_uses_services_mailbox_not_fc30_uart(self) -> None:
         service = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c").read_text()
@@ -161,7 +157,6 @@ class IntegrationContractTest(unittest.TestCase):
         uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
         wget = (ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm").read_text()
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
-        security_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-security.patch").read_text()
         network_tools_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-network-tools.patch").read_text()
         net_copy_public_patch = (
             ROOT / "pi-side/pi1mhz-516a267/patches/net-copy-public.patch"
@@ -372,14 +367,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("const uint32_t base = ELKWIFI_UEF_BASE", service)
         self.assertIn("const uint32_t trailer = ELKWIFI_UEF_BASE + 0xfffeu", service)
         self.assertNotIn("DISC_RAM_BASE + 0x10000u", service)
-        self.assertIn("WLC_E_ESCAN_RESULT", security_patch)
-        self.assertIn('memcpy(p, "escan", name_length)', security_patch)
         for mode in ("AUTO", "OPEN", "WEP", "WPA", "WPA2"):
             self.assertIn(f'"{mode}"', service)
-        self.assertIn("WPA_AUTH_PSK | WPA2_AUTH_PSK", security_patch)
-        self.assertIn("WIFI_SDIO_TX_PROBE_COMMAND_WEP_KEY", security_patch)
-        self.assertIn("WSEC_KEY_PAYLOAD_LENGTH 164u", security_patch)
-        self.assertIn("wifi-security.patch", installer)
+        # The WEP/WPA key handling these used to assert is upstream's now, so
+        # our patch for it was removed. What stays ours is the host-facing
+        # security surface, checked above against the service source.
         self.assertIn("net_enable=1", installer)
         self.assertIn("Services_addr=0xA6", installer)
         self.assertIn("ElkWiFi_addr=0x00", installer)
@@ -949,11 +941,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("expected_upstream=$PI1MHZ_UPSTREAM_COMMIT", installer)
         self.assertIn("PI1MHZ_VERIFY_REMOTE:-1", installer)
         self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=831b80675b2f4b2f10a85833fa807e4c572087c9",
+            "PI1MHZ_UPSTREAM_COMMIT=d6ee4c357dc1c33640b4d97ac9048431057ede93",
             upstream,
         )
         self.assertIn("PI1MHZ_UPSTREAM_BRANCH=master", upstream)
-        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-08-31", upstream)
+        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-09-01", upstream)
         self.assertIn("git ls-remote --symref", verifier)
 
         rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()
