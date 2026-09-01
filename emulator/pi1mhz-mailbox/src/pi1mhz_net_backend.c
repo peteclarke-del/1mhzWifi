@@ -1,6 +1,7 @@
 #include "pi1mhz_net_backend.h"
 #include "pi1mhz_mailbox.h"
 #include "pi1mhz_ftp.h"
+#include "media_service_core.h"
 #ifdef PI1MHZ_WOLFSSH
 #include "pi1mhz_wolfssh.h"
 #endif
@@ -349,6 +350,40 @@ static int wifi_credentials_valid(const char *ssid, const char *password,
         return length == 5u || length == 13u ||
                ((length == 10u || length == 26u) && wifi_hex_key(password));
     return 0;
+}
+
+/* Media service, commands 120 to 124. This mirrors media_service.c on the Pi
+ * and calls the same media_service_core.c, so the emulator cannot drift from
+ * the kernel the way a reimplementation would: an emulator answering these
+ * differently would make every acceptance run evidence about the wrong
+ * machine. */
+static media_service media;
+
+static uint8_t media_dispatch(pi1mhz_net_backend *backend, uint8_t *command)
+{
+    uint8_t reply[MEDIA_SVC_REPLY_MAX];
+    size_t reply_length = 0u;
+    uint8_t status;
+
+    /* An open binds whatever the host last uploaded through the incremental
+     * window protocol, the same buffer *UEF LOAD fills. */
+    if (command[0] == MEDIA_CMD_OPEN) {
+        if (!backend->uef_stream_ready || backend->uef_stream_length == 0u)
+            return MEDIA_SVC_ERR_PARAM;
+        status = media_service_open(&media, backend->uef_stream,
+                                    backend->uef_stream_length);
+        if (status != MEDIA_SVC_OK)
+            return status;
+    }
+
+    status = media_service_dispatch(&media, command, reply, sizeof reply,
+                                    &reply_length);
+    if (reply_length > MEDIA_SVC_REPLY_MAX)
+        reply_length = MEDIA_SVC_REPLY_MAX;
+    if (reply_length != 0u)
+        memcpy(command + 1, reply, reply_length);
+    command[1 + reply_length] = 0;
+    return status;
 }
 
 static void elkwifi_response(uint8_t *command, const char *response)
@@ -2134,6 +2169,8 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     default:
         break;
     }
+    if (command[0] >= MEDIA_CMD_OPEN && command[0] <= MEDIA_CMD_CLOSE)
+        return media_dispatch(backend, command);
     if (command[0] >= 114u && command[0] <= 119u)
         return pi1mhz_ftp_dispatch(backend->ftp, command, service_jim,
                                    service_size);

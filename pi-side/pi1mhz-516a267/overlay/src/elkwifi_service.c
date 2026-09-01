@@ -153,6 +153,16 @@ static void response_printf(uint32_t cp, const char *format, ...)
    __attribute__((format(printf, 2, 3)));
 static bool command_string(uint32_t cp, const char **value);
 
+const uint8_t *elkwifi_uef_stream_image(size_t *length)
+{
+   if (!uef_stream_ready || uef_stream_length == 0u) {
+      if (length != NULL) *length = 0u;
+      return NULL;
+   }
+   if (length != NULL) *length = uef_stream_length;
+   return uef_stream_data;
+}
+
 static void uef_stream_clear(void)
 {
    uef_stream_length = 0u;
