@@ -44,15 +44,14 @@ class UefNormalizeTest(unittest.TestCase):
         cls.wicfs_length.restype = ctypes.c_size_t
         fixture_library = Path(cls._temporary.name) / "libfixture_normalize.so"
         subprocess.run(
-            # The backend answers media service commands 120 to 124 by calling
-            # the Pi overlay's session core directly rather than mirroring it,
-            # so the fixture links the same sources the emulator build does.
+            # The backend calls uef_repair_filev_stamp, which lives beside
+            # the container decoder so the Pi and the emulator share one
+            # implementation, so the fixture links what the emulator does.
             ["cc", "-std=c11", "-shared", "-fPIC", "-O2",
              "-D_POSIX_C_SOURCE=200809L", "-I", str(EMULATOR / "include"),
              "-I", str(SOURCE),
              str(EMULATOR / "src/pi1mhz_net_backend.c"),
              str(EMULATOR / "src/pi1mhz_ftp.c"),
-             str(SOURCE / "media_service_core.c"),
              str(SOURCE / "media_catalogue.c"), "-lz",
              "-o", str(fixture_library)],
             check=True,
