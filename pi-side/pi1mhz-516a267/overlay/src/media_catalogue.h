@@ -77,22 +77,6 @@ media_status_t media_extract(const uint8_t *image, size_t length,
 size_t media_format_entry(const media_entry_t *entry, char *out,
                           size_t capacity);
 
-/* Render a DFS disc image as a UEF cassette stream WiCFS can already consume.
- *
- * *SSD LOAD needs no new host filing code: the Pi presents the disc as the
- * cassette stream the ROM has always read. Two constraints shape the layout.
- * WiCFS searches forward only and does not rewind when a name is not found, so
- * `!BOOT` is emitted first, because it is what the command execs, and the whole
- * catalogue is then emitted `passes` times. A chain that runs backwards through
- * the catalogue still resolves, because the target reappears ahead of the
- * cursor on the next pass.
- *
- * `out` may be NULL to measure the required size, which is returned through
- * `*out_length` either way. */
-media_status_t media_ssd_to_uef(const uint8_t *image, size_t length,
-                                unsigned passes, uint8_t *out,
-                                size_t out_capacity, size_t *out_length);
-
 /* Redirect the published Electron loader idiom which stamps the FILEV vector
  * blind. A large minority of titles contain `?&212=&D6:?&213=&F1`, which
  * overwrites whatever filing system owns the vector - including WiCFS - with

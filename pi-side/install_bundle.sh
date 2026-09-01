@@ -161,16 +161,14 @@ install_if_changed "$overlay_dir/src/elkwifi_service.c" "$upstream/src/elkwifi_s
 install_if_changed "$overlay_dir/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
 install_if_changed "$overlay_dir/src/ftp_service.c" "$upstream/src/ftp_service.c"
 install_if_changed "$overlay_dir/src/ftp_service.h" "$upstream/src/ftp_service.h"
-# Container decoder, media session core and its mailbox binding. These are
-# linked by media-service.patch. elkwifi_service.c calls media_identify and
-# media_ssd_to_uef directly, so they have to be in the kernel build or it does
-# not link.
+# Container decoder. media-service.patch links it, because elkwifi_service.c
+# calls uef_repair_filev_stamp, which lives beside the decoder so the Pi and
+# the emulator share one implementation. media_service_core.c is staged but
+# not linked: its catalogue and extract session has no caller.
 install_if_changed "$overlay_dir/src/media_catalogue.c" "$upstream/src/media_catalogue.c"
 install_if_changed "$overlay_dir/src/media_catalogue.h" "$upstream/src/media_catalogue.h"
 install_if_changed "$overlay_dir/src/media_service_core.c" "$upstream/src/media_service_core.c"
 install_if_changed "$overlay_dir/src/media_service_core.h" "$upstream/src/media_service_core.h"
-install_if_changed "$overlay_dir/src/media_service.c" "$upstream/src/media_service.c"
-install_if_changed "$overlay_dir/src/media_service.h" "$upstream/src/media_service.h"
 install_if_changed "$overlay_dir/src/uef_normalize.c" "$upstream/src/uef_normalize.c"
 install_if_changed "$overlay_dir/src/uef_normalize.h" "$upstream/src/uef_normalize.h"
 install_if_changed "$overlay_dir/src/puff.c" "$upstream/src/puff.c"
@@ -199,7 +197,6 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
             ;;
         media-service.patch)
             grep -q '^    media_catalogue.c' "$upstream/src/CMakeLists.txt" &&
-            grep -q '^    media_service.c' "$upstream/src/CMakeLists.txt" &&
             patch_present=true
             ;;
         uef-normalize.patch)

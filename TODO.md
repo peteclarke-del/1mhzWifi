@@ -531,108 +531,24 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
 - [ ] Design SSD mounting on that mechanism once it ships. A mounted container
   inherits the vector-survival problem in full and must reuse the trampoline
   rather than introduce a second scheme.
-- [ ] Add SSD streaming as the reliable path, on that revised basis. Disc
-  titles do not run the cassette loader idiom which stamps FILEV with the MOS
-  cassette entry, so the direct-stamp failure class does not arise on the disc
-  path even though the low-memory overwrite problem does. That, rather than the
-  refuted extended-vector argument, is the reason to prefer it. Vector survival
-  is no longer a prerequisite: the JIM guard already ships, so the SSD work can
-  start at the transport rather than waiting on a mechanism.
-  Most of the Pi side already exists and is tested, so this is smaller than it
-  looks. `media_catalogue.c` decodes both UEF and DFS containers and
-  `media_service_core.c` implements the entire session protocol, `MEDIA_OPEN`,
-  `MEDIA_CAT`, `MEDIA_INFO`, `MEDIA_READ` and `MEDIA_CLOSE` as commands 120 to
-  124, deliberately free of any Pi1MHz register access so it unit tests on the
-  build host. `tests/test_media_catalogue.py` already compiles and drives both
-  C harnesses against the corpus, including a truncation fuzz.
-  What is missing, in the order worth building it:
-- [x] Write `media_service.c`, the binding its own header names. It registers
-  120 to 124 synchronously, and an open binds whatever the host last uploaded.
-  Covered by a build-host harness with stub Pi1MHz declarations.
-- [x] Narrow the scope to `*SSD LOAD`. `*SSD CAT`, `*SSD EXTRACT`,
-  `*SSD CLOSE`, `*UEF CAT`, `*UEF EXTRACT`, `MEDIA_STORE` and the Pi-hosted
-  disc are dropped.
-- [x] Establish what `*SSD LOAD` must do from the discs rather than the design.
-  Of the 117 TOSEC images, 115 carry a `!BOOT` and every one sets `*OPT 4,3`,
-  which is `*EXEC`; none uses `*LOAD` or `*RUN`. The two without a `!BOOT` are
-  a bad dump and the second disc of a two-disc title. So the command execs
-  `!BOOT` and errors when there is none, and the error case is rare.
-  `!BOOT` alone is not enough. These files are `*B.` then `CH."NAME"`, or a
-  `*/NAME` handover, so every title immediately chains to another file on the
-  same disc and the filing system has to keep serving that image afterwards.
-- [x] Render the disc as a cassette stream on the Pi rather than build a
-  filing-system proxy. `media_ssd_to_uef` turns a DFS image into the UEF
-  stream WiCFS already consumes, so `MEDIA_MOUNT` and `MEDIA_FSOP`, the large
-  host-side marshaller, are not needed at all: WiCFS stays the filing system
-  and only its source changes. Two constraints shape the layout, both from
-  WiCFS's cassette semantics. `!BOOT` is emitted first because that is what
-  the command execs, and the catalogue is emitted more than once because
-  `findf` searches forward and `fnd_err` does not rewind on a miss, so a chain
-  running backwards through the catalogue would otherwise fail. Chuckulus
-  makes that concrete: its `!BOOT` is the last catalogue entry.
-  Verified against the corpus: all 117 discs render to a valid UEF with every
-  block header and data CRC correct, no catalogue entry lost, and `!BOOT`
-  first on all 115 that have one. Truncations are swept under
-  AddressSanitizer and UndefinedBehaviorSanitizer.
-- [x] Add the host `*SSD LOAD` command. `ssd-command.patch` adds an `SSD`
-  entry pointing at the same handler as `UEF`, so `*SSD LOAD NAME` parses
-  identically, and `uef_select_launch` queues `*REWIND` then `*EXEC ""` when
-  the first cassette file is `!BOOT` instead of probing for CHAIN or RUN. That
-  check is needed because `!BOOT` is text beginning with `*`, so the existing
-  probe would have chosen `*RUN` and executed it as code. A disc with no
-  `!BOOT` is not rendered with one first and reports the ordinary not-found
-  error, which is the agreed behaviour at no extra cost.
-  It cost 50 bytes and left 38 free below `&BF00`, so the documented reserve
-  did not have to move after all.
-- [x] Fix the ordering defect the first emulator run exposed. The rendering
-  ran after `uef_normalize`, but a raw DFS image is not a UEF, gzip or ZIP
-  container, so normalisation answered `INVALID` and the stream was closed
-  before the renderer was reached. Both sides now render before normalising,
-  and `test_uef_normalize` drives a disc image through the real
-  BEGIN/APPEND/FINALIZE path, which would have caught it.
-- [x] Decide whether rendering a disc as a cassette stream is the right shape.
-  It is not, and the work above should be read as a spike rather than as the
-  design. DFS is random-access and addressed by name through a catalogue; the
-  WiCFS cassette path is sequential, forward-only and has no catalogue.
-  Rendering the disc so the existing handler could read it reached `!BOOT`
-  execution, but every mismatch needed its own workaround: the catalogue is
-  emitted several times to fake a backward seek, and the run stops because
-  `CLOSE#0` part way through `!BOOT` leaves the cursor mid-block, which is
-  correct cassette behaviour and meaningless on a disc. A rewind-and-retry
-  would have papered over that too. Repeating data to simulate a capability the
-  real medium has, and a defect that turns out to be correct behaviour for the
-  borrowed path, are both signs the abstraction is wrong.
-  Do not add the rewind-and-retry, and do not build further on
-  `media_ssd_to_uef` or the `!BOOT` launch selection.
-- [ ] Serve disc files by name on demand instead. The filing vectors are
-  already installed and working, which is the hard part, and `MEDIA_INFO` and
-  `MEDIA_READ` already answer for one file by index. On OSFIND or OSFILE with
-  a name, ask the Pi for that file and stream only it. That removes the
-  rendering, the passes, the whole-image upload and the cursor semantics at
-  once, and closing a file early becomes harmless because each open is
-  independent. It also removes CFS block walking from the disc path rather
-  than adding to it. The cost is a new branch in the filing handlers, which is
-  the delicate area, so measure the ROM cost before committing to it: 38 bytes
-  are free below `&BF00`, and the reserve can be moved with justification.
-- [x] Establish whether the image has to come from the host. It does not.
-  `elkwifi_service.c` already reads and writes SD-card files through
-  `BeebSCSI/filesystem.h`, which is how `*JOIN` persists credentials, so
-  `filesystemReadFile("/Pi1MHz/...", &buffer, max)` can read a `.ssd` straight
-  into the existing stream buffer. No new dependency, in the file that needs
-  it.
-  That removes the upload, and with it the eleven-minute wait: the roughly 310
-  bytes per second figure is an artefact of the spike uploading a 200 KB image
-  over the bus, not something inherent to `*SSD LOAD`, and should not be
-  carried forward as a constraint on the real design.
-  It is a usage decision rather than a technical one, though. This assumes
-  disc images live on the Pi's SD card. If `*SSD LOAD` has to work against an
-  image on the Electron's own ADFS or BeebSCSI, the upload cost returns and the
-  host path is needed after all.
-- [x] Keep from the spike: the DFS decoder, the media service and its mailbox
-  binding, the emulator sharing the same session core, `.ssd` staging in
-  `make_uef_lun.py`, and the `SSD` command-table entry. The spike also proved
-  the whole chain end to end, upload through WiCFS install to `!BOOT`
-  execution, so a by-name handler starts from a known-good transport.
+- [x] Drop SSD support. The goal was to install disc images into BeebSCSI
+  folders and play them from there, not to reimplement a filing system or to
+  wait minutes before a game starts, and every design that reached those
+  requirements did one or the other. The cassette rendering, the `!BOOT` exec
+  launch, the `*SSD` command, the media service mailbox binding and their tests
+  are removed, and the ROM rebuilds byte for byte to the pinned `720a180d`.
+  What was kept is what serves UEF: `media_catalogue.c`, which decodes CFS and
+  now also hosts `uef_repair_filev_stamp` so the Pi and the emulator share one
+  implementation, and the literal-path staging in `make_uef_lun.py`.
+  `media_service_core.c` stays staged and unlinked, as it was before, because
+  its catalogue and extract session has no caller.
+- [ ] Check whether BeebSCSI already meets the original goal without any ROM
+  work. A disc image placed in a BeebSCSI folder is served by the Pi and read
+  by ADFS or DFS directly, with no WiCFS involvement, which is what was
+  actually wanted. The open question is only whether a DFS `.ssd` floppy image
+  can be presented as a LUN, or whether it has to be converted into the
+  hard-disc `.dat` and `.dsc` pair BeebSCSI expects. Answer that before writing
+  any code, because it may need none.
 - [ ] Superseded: decide whether to keep pursuing a BYTEV-driven repair. The
   frequency tradeoff rules it out. No such design can
   improve on the frequency tradeoff, because BYTEV cannot know which vector is

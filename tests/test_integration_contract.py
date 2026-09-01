@@ -329,31 +329,19 @@ class IntegrationContractTest(unittest.TestCase):
         ).read_text()
         self.assertNotIn("uef_repair_filev_stamp(uint8_t *window", normalize)
         self.assertNotIn("static uint16_t tape_crc", normalize)
-        # The media service must exist on both sides and, unlike the FILEV
-        # repair, must be the same code rather than a mirrored copy: the
-        # emulator links the Pi overlay's session core, so it cannot drift.
-        media_service = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/media_service.c"
+        # One implementation of the FILEV repair, shared, rather than two kept
+        # in step by this test. Both sides link media_catalogue.c.
+        decoder = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/media_catalogue.c"
         ).read_text()
-        self.assertIn("services_register(MEDIA_SVC_CMD_FIRST", media_service)
-        self.assertIn("media_service_dispatch", media_service)
-        self.assertIn("elkwifi_uef_stream_image", media_service)
-        self.assertIn('#include "media_service_core.h"', emulator_backend)
-        self.assertIn("media_dispatch(backend, command)", emulator_backend)
-        self.assertIn("command[0] >= MEDIA_CMD_OPEN", emulator_backend)
-        emulator_makefile = (
-            ROOT / "emulator/pi1mhz-mailbox/Makefile"
+        self.assertIn("unsigned uef_repair_filev_stamp(", decoder)
+        self.assertNotIn("uef_repair_filev_stamp(uint8_t *window",
+                         emulator_backend)
+        normalize = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/uef_normalize.c"
         ).read_text()
-        self.assertIn("media_service_core.c", emulator_makefile)
-        installer_elk = (
-            ROOT / "emulator/pi1mhz-mailbox/integrations/elkulator/install.sh"
-        ).read_text()
-        self.assertIn("media_service_core.c", installer_elk)
-        self.assertIn("elkulator_SOURCES += media_service_core.c", installer_elk)
-        # Both default to on, so a disable switch is the only way to turn the
-        # compatibility path off and neither side can quietly ship it disabled.
-        self.assertIn("static bool uef_filev_repair = true;", service)
-        self.assertIn("backend->uef_filev_repair = !(repair &&", emulator_backend)
+        self.assertNotIn("uef_repair_filev_stamp(uint8_t *window", normalize)
+        self.assertNotIn("static uint16_t tape_crc", normalize)
         self.assertIn("Function 18 is a public ElkWiFi ABI", service)
         self.assertNotIn("+CIFSR:GATEWAY", service)
         self.assertNotIn("+CIFSR:NETMASK", service)

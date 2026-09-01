@@ -19,14 +19,11 @@ cp "$component_dir/include/pi1mhz_ftp.h" "$target/src/"
 cp "$component_dir/src/pi1mhz_mailbox.c" "$target/src/"
 cp "$component_dir/src/pi1mhz_net_backend.c" "$target/src/"
 cp "$component_dir/src/pi1mhz_ftp.c" "$target/src/"
-# The media service session core and container decoder are the Pi overlay's,
-# not copies, so the emulator answers commands 120 to 124 with the kernel's
-# logic rather than a reimplementation that could drift from it.
+# The container decoder is the Pi overlay's, not a copy, so the FILEV stamp
+# repair is one implementation rather than two that could drift apart.
 overlay_dir=$(CDPATH= cd -- "$component_dir/../../pi-side/pi1mhz-516a267/overlay/src" && pwd)
 cp "$overlay_dir/media_catalogue.h" "$target/src/"
 cp "$overlay_dir/media_catalogue.c" "$target/src/"
-cp "$overlay_dir/media_service_core.h" "$target/src/"
-cp "$overlay_dir/media_service_core.c" "$target/src/"
 cp "$component_dir/include/pi1mhz_wolfssh.h" "$target/src/"
 cp "$component_dir/src/pi1mhz_wolfssh.c" "$target/src/"
 cp "$integration_dir/pi1mhz_elkulator.h" "$target/src/"
@@ -94,8 +91,8 @@ if ! grep -q 'pi1mhz_mailbox.c' "$target/src/Makefile.am"; then
     printf '\nelkulator_SOURCES += pi1mhz_mailbox.c pi1mhz_net_backend.c pi1mhz_ftp.c pi1mhz_elkulator.c\n' \
         >> "$target/src/Makefile.am"
 fi
-if ! grep -q 'media_service_core.c' "$target/src/Makefile.am"; then
-    printf '%s\n' 'elkulator_SOURCES += media_service_core.c media_catalogue.c' \
+if ! grep -q 'media_catalogue.c' "$target/src/Makefile.am"; then
+    printf '%s\n' 'elkulator_SOURCES += media_catalogue.c' \
         >> "$target/src/Makefile.am"
 fi
 if ! grep -q 'pi1mhz_ftp.c' "$target/src/Makefile.am"; then
