@@ -614,12 +614,20 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   than adding to it. The cost is a new branch in the filing handlers, which is
   the delicate area, so measure the ROM cost before committing to it: 38 bytes
   are free below `&BF00`, and the reserve can be moved with justification.
-- [ ] Decide where the image lives before designing that branch, because it
-  changes the answer more than anything else here. Today the host reads the
-  `.ssd` from ADFS or BeebSCSI and uploads it, which is what makes a 200 KB
-  disc take about eleven minutes at roughly 310 bytes per second. If the image
-  sat on the Pi's SD card there would be no upload at all and `*SSD LOAD NAME`
-  would be a name lookup.
+- [x] Establish whether the image has to come from the host. It does not.
+  `elkwifi_service.c` already reads and writes SD-card files through
+  `BeebSCSI/filesystem.h`, which is how `*JOIN` persists credentials, so
+  `filesystemReadFile("/Pi1MHz/...", &buffer, max)` can read a `.ssd` straight
+  into the existing stream buffer. No new dependency, in the file that needs
+  it.
+  That removes the upload, and with it the eleven-minute wait: the roughly 310
+  bytes per second figure is an artefact of the spike uploading a 200 KB image
+  over the bus, not something inherent to `*SSD LOAD`, and should not be
+  carried forward as a constraint on the real design.
+  It is a usage decision rather than a technical one, though. This assumes
+  disc images live on the Pi's SD card. If `*SSD LOAD` has to work against an
+  image on the Electron's own ADFS or BeebSCSI, the upload cost returns and the
+  host path is needed after all.
 - [x] Keep from the spike: the DFS decoder, the media service and its mailbox
   binding, the emulator sharing the same session core, `.ssd` staging in
   `make_uef_lun.py`, and the `SSD` command-table entry. The spike also proved

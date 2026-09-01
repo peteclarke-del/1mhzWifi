@@ -161,11 +161,10 @@ install_if_changed "$overlay_dir/src/elkwifi_service.c" "$upstream/src/elkwifi_s
 install_if_changed "$overlay_dir/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
 install_if_changed "$overlay_dir/src/ftp_service.c" "$upstream/src/ftp_service.c"
 install_if_changed "$overlay_dir/src/ftp_service.h" "$upstream/src/ftp_service.h"
-# Container catalogue for the planned *UEF CAT, *UEF EXTRACT, *SSD CAT and
-# *SSD EXTRACT commands. The decoder is unit tested on the build host and is
-# staged into the Pi tree here, but it is not yet named in CMakeLists.txt and
-# so is not linked into the shipped kernels. It joins the build with the
-# mailbox service wrapper that calls it.
+# Container decoder, media session core and its mailbox binding. These are
+# linked by media-service.patch. elkwifi_service.c calls media_identify and
+# media_ssd_to_uef directly, so they have to be in the kernel build or it does
+# not link.
 install_if_changed "$overlay_dir/src/media_catalogue.c" "$upstream/src/media_catalogue.c"
 install_if_changed "$overlay_dir/src/media_catalogue.h" "$upstream/src/media_catalogue.h"
 install_if_changed "$overlay_dir/src/media_service_core.c" "$upstream/src/media_service_core.c"
@@ -184,7 +183,7 @@ install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/se
 install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
 install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
 
-for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch gitversion-untracked-content.patch secure-service.patch ftp-service.patch wifi-security.patch wifi-network-tools.patch net-copy-public.patch net-connected-udp.patch net-debug-stage.patch secure-debug-stage.patch; do
+for patch_name in integration.patch service-range-online.patch uef-normalize.patch media-service.patch services-capacity-test.patch gitversion-untracked-content.patch secure-service.patch ftp-service.patch wifi-security.patch wifi-network-tools.patch net-copy-public.patch net-connected-udp.patch net-debug-stage.patch secure-debug-stage.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
@@ -196,6 +195,11 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
             ;;
         service-range-online.patch)
             grep -Eq 'SERVICE_CMD_ELKWIFI_LAST  *(92|93)u' "$upstream/src/services.h" &&
+            patch_present=true
+            ;;
+        media-service.patch)
+            grep -q '^    media_catalogue.c' "$upstream/src/CMakeLists.txt" &&
+            grep -q '^    media_service.c' "$upstream/src/CMakeLists.txt" &&
             patch_present=true
             ;;
         uef-normalize.patch)

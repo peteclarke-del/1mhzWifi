@@ -24,7 +24,7 @@ class UefFilevRepairTest(unittest.TestCase):
         library = Path(cls._temporary.name) / "libuef_normalize.so"
         subprocess.run(
             ["cc", "-std=c11", "-shared", "-fPIC", "-O2", "-I", str(SOURCE),
-             str(SOURCE / "uef_normalize.c"), str(SOURCE / "puff.c"),
+             str(SOURCE / "media_catalogue.c"),
              "-o", str(library)],
             check=True,
         )

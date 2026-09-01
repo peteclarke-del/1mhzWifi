@@ -316,6 +316,19 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("if (backend->uef_filev_repair)", emulator_backend)
         self.assertIn("uef_repair_filev_stamp(backend->uef_stream",
                       emulator_backend)
+        # One implementation, shared, rather than two kept in step by this
+        # test. Both sides link media_catalogue.c, so they cannot diverge.
+        decoder = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/media_catalogue.c"
+        ).read_text()
+        self.assertIn("unsigned uef_repair_filev_stamp(", decoder)
+        self.assertNotIn("uef_repair_filev_stamp(uint8_t *window",
+                         emulator_backend)
+        normalize = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/uef_normalize.c"
+        ).read_text()
+        self.assertNotIn("uef_repair_filev_stamp(uint8_t *window", normalize)
+        self.assertNotIn("static uint16_t tape_crc", normalize)
         # The media service must exist on both sides and, unlike the FILEV
         # repair, must be the same code rather than a mirrored copy: the
         # emulator links the Pi overlay's session core, so it cannot drift.
