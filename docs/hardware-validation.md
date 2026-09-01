@@ -34,11 +34,26 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ### Implementing the Pi-resident trampoline
 
-**Superseded by "The trampoline was built, then withdrawn" below.** This
-section records the plan as it stood before the build, and its cost estimates
-remain accurate, but it should not be read as outstanding work: the trampoline
-was built to this design and removed again. Only the `*RUN` transfer now
-stands between it and shipping.
+**Superseded, and not outstanding work.** The trampoline was built to this
+design, withdrawn because it broke the `*/` handover, and then replaced by a
+different mechanism which ships. `f02a0bf`, "Serve the filing-vector guard from
+JIM so Repton loads", landed on 30 August, two days after `9ff59d1` removed the
+trampoline machinery.
+
+The shipped mechanism is the JIM guard. All four filing vectors point at
+`romsel = &FD00+jim_page_usable`, which is `&FD97`; the Pi stamps a 105-byte
+guard body into every JIM page and scatters the stream so it never covers it;
+and the ROM verifies a signature at two selector values before moving any
+vector, falling back to the RAM guard when no mirror answers. It achieves what
+this section wanted, nothing of ours resident where a loader can overwrite it,
+without the trampoline's defect: the guard repairs the MOS extended-vector
+entry and then dispatches through MOS, so the MOS frame stays intact and the
+`*RUN` and `*/` transfers are unaffected.
+
+The cost estimates below remain accurate as a record of the withdrawn design.
+Read this section and the two that follow it as history. The `vector_mirror`
+machinery and service command 86 are obsolete rather than dormant, and the
+patches under `rom-side/candidates` are kept as analysis, not as queued work.
 
 Both blocking facts are now measured. The 6502 executes code the Pi serves at
 `&FD00`, and a region mirrored into every JIM page is reachable whatever the
