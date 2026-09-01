@@ -489,53 +489,45 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   Both figures are floors, because a title can also write to page `&0D` at run
   time without loading a file there, exactly as Exile stamps FILEV from code
   rather than from its BASIC text.
-- [x] Settle the shared vector-survival mechanism. It is the Pi-resident
-  trampoline mirrored into every JIM page, and the decision is already carried
-  by evidence rather than preference. The 6502 executes code the Pi serves at
-  `&FD00`, measured with `*JIMTEST`. Mirroring the stub at offset `&78` of all
-  256 pages removes the selector problem, which could not be solved by
-  discipline because `&FCFF` is write only. Putting the vectors outside host
-  memory removes both failure groups at once, rather than trading one
-  overwrite risk for another: no host location is safe, the cassette trap being
-  merely the least bad at 3.4% against 11.8%, and the RAM guard at `&0780` is
-  what Repton's `&0700-&07A8` decryption loop destroys. The disc corpus offers
-  no escape either, as measured above. The frame-preserving pager this needs is
-  built and correct, including the nesting case a `currom` variable got wrong
-  and which hung Repton Around the World.
-- [x] Rework the `*RUN` transfer to be frame-agnostic.
-  `wicfs-run-frame-agnostic.patch` captures the caller's return address out of
-  the dispatch frame in `.actioned`, while that frame is still the only thing
-  on the stack, and replaces `run_code`'s closing `RTS` with
-  `PLA / PLA / JMP (chain_target)`. Same destination and same caller stack
-  depth, but reached through a saved pointer rather than by unwinding a frame
-  the code did not build, so the transfer no longer depends on which dispatcher
-  entered the vector. Three constraints shaped it. `run_code` is copied into
-  `chain_exec`, which runs from `&03A0` to `host_basic_pending` at `&03BD`, so
-  29 bytes is a hard ceiling the source asserts; the rework lands on exactly
-  29, which rules out the `PHA / PHA / RTS` form at 31. No new workspace was
-  available, so it reuses `chain_target`, which is safe because that belongs to
-  the predecessor-forward paths, the case where WiCFS declines the call rather
-  than claiming it. The captured bytes pushed `ret_fscv` out of branch range,
-  so `BPL ret_fscv` became `BMI actioned_run` over a `JMP`, following the
-  existing `wicfs-long-branches` precedent.
-  Verified behaviour-preserving under MOS dispatch on two multi-file titles.
-  Baseline `720a180d` against `d15cafe5`, Repton Infinity and Exile: identical
-  FILEV write-watch traces, identical mailbox traces and byte-identical final
-  screens in both cases.
-- [ ] Regenerate the shipped artifacts when the trampoline lands. The source
-  now assembles to `d15cafe5` while `SHA256SUMS`, `test_rom_compat.py` and the
-  hardware-test zip still pin `720a180d`, so a rebuild from source no longer
-  matches the committed ROM. This is deliberate rather than an oversight. Every
-  shipped ROM change in this project bumps the version, and `0.1.67` also
-  appears in `elkwifi_service.c` and so in both Pi kernels, so a bump costs a
-  kernel rebuild and a bundle regeneration. Spending that on a change which is
-  provably invisible at run time, immediately before the trampoline wants a
-  version of its own, is the wrong trade. Bump to `0.1.68` and re-pin every
-  hash once the trampoline restoration lands with it.
-- [ ] Restore the trampoline on the frame-agnostic transfer. The ROM side was
-  removed, and so was the Pi kernel side of service command 86 which assembled
-  the stub, so both have to come back. Gate on the `*/` handover and re-run the
-  sixteen title probe against the three quarter baseline.
+- [x] Settle the shared vector-survival mechanism. It is already settled and
+  already shipping, as the JIM guard, and the earlier conclusion recorded here
+  that it is the withdrawn Pi-resident trampoline was wrong. That conclusion
+  was drawn from this file and from the gateway location study, both of which
+  predate `f02a0bf`, "Serve the filing-vector guard from JIM so Repton loads",
+  which landed on 30 August, two days after `9ff59d1` removed the trampoline
+  machinery, and superseded it.
+  What ships: `wicfs-guard-in-jim.patch` points all four filing vectors,
+  `OSFILEV`, `BGETV`, `FINDV` and `FSCV`, at `romsel = &FD00+jim_page_usable`,
+  which is `&FD97`. The Pi stamps a 105-byte guard body into every JIM page and
+  scatters the stream so it never covers it, so the selector may hold anything
+  when a vector fires. The ROM verifies a guard signature at two selector
+  values before moving any vector and falls back to the RAM guard when no
+  mirror answers. Nothing of ours sits in host RAM for a loader to overwrite,
+  which is what the trampoline was for.
+  Why the guard works where the trampoline did not: the trampoline bypassed MOS
+  dispatch and supplied its own stack frame, which broke the `*/` handover. The
+  guard instead repairs the MOS extended-vector table entry for the vector
+  being entered, then dispatches through MOS, so the MOS frame is intact and
+  `*RUN` and `*/` behave exactly as before. That is also why the extended-vector
+  table being overwritten by 12.8% of disc and 18.3% of cassette titles, as
+  measured above, is survivable: the guard rewrites the entry on every entry.
+  Confirmed on the running machine rather than from source. The write-watch
+  over `&0212-&0213` shows FILEV set to `&FD97` from PC `&9D44` in bank 3,
+  which is this ROM installing the guard, on every run in this session.
+- [x] Reworking the `*RUN` transfer is not required and was reverted. It was
+  implemented and proved behaviour-preserving, byte-identical FILEV traces,
+  mailbox traces and final screens for Repton Infinity and Exile against the
+  baseline ROM, but its only justification was reviving the trampoline. The
+  guard dispatches through MOS, so `run_code`'s assumption that the MOS frame
+  is intact underneath holds. The change also consumed the last of `chain_exec`,
+  taking it to exactly 29 bytes of 29, and that headroom is worth more than a
+  latent decoupling nothing needs. `wicfs-run-frame-agnostic.patch` and the
+  reasoning are in the history at `e3734bc` if a future design ever bypasses MOS
+  dispatch again.
+- [ ] Do not restore the `vector_mirror` machinery removed by `9ff59d1`. It is
+  obsolete rather than dormant: the guard replaced it. The candidate patches
+  under `rom-side/candidates` record the withdrawn design and should be read as
+  history, not as work queued up.
 - [ ] Design SSD mounting on that mechanism once it ships. A mounted container
   inherits the vector-survival problem in full and must reuse the trampoline
   rather than introduce a second scheme.
