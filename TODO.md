@@ -472,10 +472,35 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
 - [ ] Move the filing trampoline into Pi RAM once the selector discipline holds.
   That removes the host footprint both failure groups attack, and should take
   the working set well above the measured three quarters.
-- [ ] Add SSD streaming as the reliable path. Disc software cannot use
-  `&0D9F-&0DEF` because DFS lives there, so an extended-vector filing system in
-  the DFS style needs no trampoline at all. Structural argument only; confirm
-  against real disc images.
+- [x] Confirm the SSD structural argument against real disc images. It does
+  not hold. The claim was that disc software cannot use `&0D9F-&0DEF` because
+  DFS lives there, so a DFS-style extended-vector filing system would need no
+  trampoline at all. Measured against the 117 TOSEC Acorn Electron `.ssd`
+  images, 15 of them (12.8%) load a file whose declared address and length
+  cover the extended vector table, with explicit load addresses of `&0880`,
+  `&0900`, `&0A00`, `&0B00`, `&0C00` and `&0D00` running well past `&0D9F`:
+  Brian Jacks Superstar Challenge, Danger! UXB, Jet Set Willy, Kansas
+  Collection Disk 1, Killer Gorilla, Mineshaft, Mr Wiz, Psycastria, Repton 2,
+  Return of R2, Rubble Trouble, Snooker, Tempest, Twin Kingdom Valley and
+  Wetzone. The same measurement over the cassette corpus gives 133 of 727
+  (18.3%). Disc is better than tape but nowhere near the zero the argument
+  needs. Catalogue entries with `load=&0000` carry no fixed address and were
+  excluded from both counts; counting them would have inflated disc to 16.2%.
+  Both figures are floors, because a title can also write to page `&0D` at run
+  time without loading a file there, exactly as Exile stamps FILEV from code
+  rather than from its BASIC text.
+- [ ] Design SSD mounting to survive the same vector loss as WiCFS. The
+  measurement above resolves the contradiction between this file and
+  `docs/media-service-abi.md` in the ABI document's favour: a mounted container
+  does inherit the vector-survival problem and must reuse whatever mechanism
+  WiCFS settles on, rather than assuming the DFS-style extended-vector table is
+  safe. Budget the trampoline and vector-survival work into the SSD plan
+  instead of expecting a free pass from the disc format.
+- [ ] Add SSD streaming as the reliable path, on that revised basis. Disc
+  titles do not run the cassette loader idiom which stamps FILEV with the MOS
+  cassette entry, so the direct-stamp failure class does not arise on the disc
+  path even though the low-memory overwrite problem does. That, rather than the
+  refuted extended-vector argument, is the reason to prefer it.
 - [ ] Superseded: decide whether to keep pursuing a BYTEV-driven repair. The
   frequency tradeoff rules it out. No such design can
   improve on the frequency tradeoff, because BYTEV cannot know which vector is
