@@ -64,7 +64,7 @@ class MergedRepositoryTest(unittest.TestCase):
             )
         upstream_env = (ROOT / "pi-side/upstream.env").read_text()
         self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=831b80675b2f4b2f10a85833fa807e4c572087c9",
+            "PI1MHZ_UPSTREAM_COMMIT=d6ee4c357dc1c33640b4d97ac9048431057ede93",
             upstream_env,
             "the pin must include dp111's FIQ-masked adjacent-byte fix",
         )
