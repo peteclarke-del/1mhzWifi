@@ -370,6 +370,22 @@ OSBGET = &FFD7
  jsr findf
  bcs uef_select_failed
  beq uef_select_failed
+ \ A disc image arrives already rendered as a cassette stream with !BOOT
+ \ first, because every booting disc in the corpus sets *OPT 4,3. Exec it
+ \ rather than probing for CHAIN or RUN: !BOOT is text, so the probe would
+ \ read its leading '*' and choose *RUN.
+ ldx #0
+.uef_select_boot_test
+ lda &03B2,x
+ cmp uef_boot_name,x
+ bne uef_select_probe
+ inx
+ cpx #5
+ bne uef_select_boot_test
+ lda #<uef_run_launch_exec
+ ldx #>uef_run_launch_exec
+ jmp uef_select_rewind
+.uef_select_probe
  jsr getbyte
  bcs uef_select_failed
  cmp #&0D
@@ -545,5 +561,16 @@ OSBGET = &FFD7
 .uef_run_launch_run
  equs "*REWIND",&0D
  equs "*RUN "
+ equb &22,&22,&0D
+ equb &FF
+.uef_boot_name
+ equs "!BOOT"
+\ An empty name selects the first cassette file, which the rendering places
+\ !BOOT at, so the exec needs no filename match of its own. A disc with no
+\ !BOOT is not rendered with one first and reports the ordinary not-found
+\ error rather than execing whatever happened to be first.
+.uef_run_launch_exec
+ equs "*REWIND",&0D
+ equs "*EXEC "
  equb &22,&22,&0D
  equb &FF

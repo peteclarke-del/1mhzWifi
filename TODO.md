@@ -574,17 +574,43 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   block header and data CRC correct, no catalogue entry lost, and `!BOOT`
   first on all 115 that have one. Truncations are swept under
   AddressSanitizer and UndefinedBehaviorSanitizer.
-- [ ] Add the host `*SSD LOAD` command. The Pi now hands back a stream the
-  existing `*UEF LOAD` path can consume, so the host work is to upload through
-  that path, ask for the SSD rendering, and exec `!BOOT`. ROM headroom is 88
-  bytes against the `&BF00` assert; `TECHNICAL.md` records that ceiling as
-  lowered for the trampoline and larger than the minimum, and the trampoline
-  is now confirmed obsolete, so moving it back is the justification that note
-  asks for and recovers about 240 bytes.
-- [ ] Gate `*SSD LOAD` on a real disc in the emulator, including a title whose
-  `!BOOT` uses the `*/` handover rather than `CH."NAME"`. That handover is the
-  transfer whose frame assumption was studied and left unchanged, so it is
-  worth exercising rather than reasoning about.
+- [x] Add the host `*SSD LOAD` command. `ssd-command.patch` adds an `SSD`
+  entry pointing at the same handler as `UEF`, so `*SSD LOAD NAME` parses
+  identically, and `uef_select_launch` queues `*REWIND` then `*EXEC ""` when
+  the first cassette file is `!BOOT` instead of probing for CHAIN or RUN. That
+  check is needed because `!BOOT` is text beginning with `*`, so the existing
+  probe would have chosen `*RUN` and executed it as code. A disc with no
+  `!BOOT` is not rendered with one first and reports the ordinary not-found
+  error, which is the agreed behaviour at no extra cost.
+  It cost 50 bytes and left 38 free below `&BF00`, so the documented reserve
+  did not have to move after all.
+- [x] Fix the ordering defect the first emulator run exposed. The rendering
+  ran after `uef_normalize`, but a raw DFS image is not a UEF, gzip or ZIP
+  container, so normalisation answered `INVALID` and the stream was closed
+  before the renderer was reached. Both sides now render before normalising,
+  and `test_uef_normalize` drives a disc image through the real
+  BEGIN/APPEND/FINALIZE path, which would have caught it.
+- [ ] Resynchronise the stream when a file is closed before its end. This is
+  what now stops `*SSD LOAD` completing, and it is a filing-system gap rather
+  than anything to do with the rendering. Chuckulus reaches `*EXEC ""`, MOS
+  execs `!BOOT`, and its text runs: `*BASIC`, `*FX21`, then
+  `CLOSE#0:*R.Chuck`. The `CLOSE#0` closes the exec file part way through, so
+  WiCFS leaves its cursor inside `!BOOT`'s data exactly as a tape would, and
+  the `*R.Chuck` search then calls `chunk`, reads `*BASIC` as a chunk header
+  and reports `422A Chunk type?`. `2A 42` is `*B`.
+  A single bounded rewind and retry when `chunk` rejects a header would fix
+  this and would also remove the reason for rendering the catalogue more than
+  once, since a backward chain would resolve the same way. It has to be
+  bounded, or a genuinely absent file would loop. About 38 bytes are free.
+- [ ] Re-gate `*SSD LOAD` on a real disc once that lands, including a title
+  whose `!BOOT` chains with `CH."NAME"` rather than closing the exec file, to
+  confirm the two paths behave the same.
+- [ ] Record the transfer cost. The upload ran at roughly 310 bytes per second
+  on the conservative delayed-bus profile, so Chuckulus at 200 KB took about
+  eleven minutes before anything executed. `*UEF LOAD` already carries a
+  startup latency item; a disc image is several times larger, so this is
+  materially worse and is a usability problem on real hardware rather than a
+  defect.
 - [ ] Link `media_catalogue.c`, `media_service_core.c` and `media_service.c`
   into the kernel. They are staged by `install_bundle.sh` but deliberately not
   named in `CMakeLists.txt`, so a patch has to add them, and that is what makes

@@ -21,6 +21,7 @@
 #include "ftp_service.h"
 #include "ram_emulator.h"
 #include "services.h"
+#include "media_catalogue.h"
 #include "uef_normalize.h"
 #include "wifi/sdio.h"
 #include "wifi/wifi.h"
@@ -152,6 +153,28 @@ static void response_string(uint32_t cp, const char *value);
 static void response_printf(uint32_t cp, const char *format, ...)
    __attribute__((format(printf, 2, 3)));
 static bool command_string(uint32_t cp, const char **value);
+
+/* A disc image is rendered into the cassette stream WiCFS already reads, so
+ * *SSD LOAD needs no host filing code and *UEF LOAD accepts a .ssd as well.
+ * The catalogue is emitted several times because WiCFS searches forward and
+ * does not rewind when a name is not found, so a chain running backwards
+ * through the catalogue still resolves. */
+#define UEF_SSD_PASSES 3u
+
+static void uef_stream_render_ssd(size_t *length)
+{
+   size_t rendered = 0u;
+   if (length == NULL || *length == 0u) return;
+   if (media_identify(uef_stream_data, *length) != MEDIA_KIND_SSD)
+      return;
+   if (media_ssd_to_uef(uef_stream_data, *length, UEF_SSD_PASSES,
+                        uef_stream_scratch, sizeof uef_stream_scratch,
+                        &rendered) != MEDIA_OK)
+      return;
+   if (rendered == 0u || rendered > sizeof uef_stream_data) return;
+   memcpy(uef_stream_data, uef_stream_scratch, rendered);
+   *length = rendered;
+}
 
 const uint8_t *elkwifi_uef_stream_image(size_t *length)
 {
@@ -401,6 +424,7 @@ static uint8_t uef_incremental_command(uint32_t cp)
          if (!uef_upload_active || token != uef_stream_token
              || normalized_length == 0u)
             return ELKWIFI_ERR_PARAM;
+         uef_stream_render_ssd(&normalized_length);
          normalized = uef_normalize(uef_stream_data, &normalized_length,
                                     sizeof uef_stream_data,
                                     uef_stream_scratch,
@@ -1229,6 +1253,7 @@ static uint8_t process_request(uint32_t cp)
          if (++uef_stream_token == 0u) ++uef_stream_token;
          memcpy(uef_stream_data, &Pi1MHz->JIM_ram[base], length);
          uef_stream_length = length;
+         uef_stream_render_ssd(&uef_stream_length);
          if (uef_filev_repair)
             (void)uef_repair_filev_stamp(uef_stream_data, uef_stream_length);
          uef_stream_cursor = 0u;
