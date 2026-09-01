@@ -489,13 +489,35 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   Both figures are floors, because a title can also write to page `&0D` at run
   time without loading a file there, exactly as Exile stamps FILEV from code
   rather than from its BASIC text.
-- [ ] Design SSD mounting to survive the same vector loss as WiCFS. The
-  measurement above resolves the contradiction between this file and
-  `docs/media-service-abi.md` in the ABI document's favour: a mounted container
-  does inherit the vector-survival problem and must reuse whatever mechanism
-  WiCFS settles on, rather than assuming the DFS-style extended-vector table is
-  safe. Budget the trampoline and vector-survival work into the SSD plan
-  instead of expecting a free pass from the disc format.
+- [x] Settle the shared vector-survival mechanism. It is the Pi-resident
+  trampoline mirrored into every JIM page, and the decision is already carried
+  by evidence rather than preference. The 6502 executes code the Pi serves at
+  `&FD00`, measured with `*JIMTEST`. Mirroring the stub at offset `&78` of all
+  256 pages removes the selector problem, which could not be solved by
+  discipline because `&FCFF` is write only. Putting the vectors outside host
+  memory removes both failure groups at once, rather than trading one
+  overwrite risk for another: no host location is safe, the cassette trap being
+  merely the least bad at 3.4% against 11.8%, and the RAM guard at `&0780` is
+  what Repton's `&0700-&07A8` decryption loop destroys. The disc corpus offers
+  no escape either, as measured above. The frame-preserving pager this needs is
+  built and correct, including the nesting case a `currom` variable got wrong
+  and which hung Repton Around the World.
+- [ ] Rework the `*RUN` transfer to be frame-agnostic. This is the only thing
+  standing between the settled mechanism and shipping it. `run_code` ends
+  `JSR <load address>` then `RTS`, returning through the MOS extended-vector
+  dispatch frame it assumes is intact underneath. The mirrored trampoline
+  supplies its own frame, so that `RTS` lands in the wrong place and every
+  multi-file title fails after its first file, which is why the trampoline was
+  withdrawn. The fix is to stop depending on what is underneath: capture the
+  caller's return address into workspace at vector entry, whichever dispatch
+  path was used, and have the exit `JMP` through it after restoring ROMSEL from
+  `chain_rom`, instead of unwinding a frame it did not build. Gate it on the
+  `*/` handover every multi-file cassette loader ends with, then restore the
+  trampoline and re-run the sixteen title probe against the three quarter
+  baseline.
+- [ ] Design SSD mounting on that mechanism once it ships. A mounted container
+  inherits the vector-survival problem in full and must reuse the trampoline
+  rather than introduce a second scheme.
 - [ ] Add SSD streaming as the reliable path, on that revised basis. Disc
   titles do not run the cassette loader idiom which stamps FILEV with the MOS
   cassette entry, so the direct-stamp failure class does not arise on the disc

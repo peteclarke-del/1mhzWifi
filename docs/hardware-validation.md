@@ -34,6 +34,12 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ### Implementing the Pi-resident trampoline
 
+**Superseded by "The trampoline was built, then withdrawn" below.** This
+section records the plan as it stood before the build, and its cost estimates
+remain accurate, but it should not be read as outstanding work: the trampoline
+was built to this design and removed again. Only the `*RUN` transfer now
+stands between it and shipping.
+
 Both blocking facts are now measured. The 6502 executes code the Pi serves at
 `&FD00`, and a region mirrored into every JIM page is reachable whatever the
 selector holds, which matters because the selector tracks the stream cursor and
@@ -186,20 +192,36 @@ withdraw and a republish, and the mirror is withdrawn altogether when WiCFS
 hands the vectors back to MOS. The NetTools clients are unaffected either way:
 they move bytes through the `&FC00` data register, not the JIM window.
 
-### Disc images avoid the problem entirely
+### Disc images do not avoid the problem, measured
 
 Tape software was written for a machine whose filing system lives in the MOS
 ROM and has no RAM footprint at all, so `&0700-&07FF` and `&0D9F-&0DEF` are
 genuinely spare there and titles use them freely. 76% of the corpus loads
 something below `&1900`.
 
-A disc build of the same game could not do that. DFS occupies the workspace
-below `&1900`, including the extended-vector table at `&0D9F`, so disc software
-is by construction compatible with a sideways-ROM filing system which claims
-vectors the way DFS does. Streaming SSD images should therefore need no
-trampoline, no repair and no workspace juggling, and both failure groups
-disappear. That argument is structural and has not been measured against real
-disc images.
+It was previously argued here that a disc build could not do the same, because
+DFS occupies the workspace below `&1900` including the extended-vector table at
+`&0D9F`, and that streaming SSD images would therefore need no trampoline, no
+repair and no workspace juggling. That argument was recorded as structural and
+unmeasured. It has now been measured and it is wrong.
+
+Across the 117 TOSEC Acorn Electron `.ssd` images, 15 (12.8%) load a file whose
+declared address and length cover `&0D9F-&0DEF`, at explicit load addresses of
+`&0880`, `&0900`, `&0A00`, `&0B00`, `&0C00` and `&0D00`, among them Jet Set
+Willy, Repton 2, Killer Gorilla, Mineshaft, Mr Wiz, Tempest and Twin Kingdom
+Valley. The cassette corpus gives 133 of 727 (18.3%) by the same test. Disc is
+better than tape and nowhere near safe. Reproduce with
+`scripts/vector_table_overlap.py`.
+
+Catalogue entries with `load=&0000` carry no fixed load address and are
+excluded; including them would have inflated the disc figure to 16.2%. Both
+numbers are floors, because a title can write to page `&0D` at run time without
+loading a file there.
+
+SSD mounting therefore inherits the vector-survival problem in full and must
+use the same mechanism as WiCFS. What the disc path does avoid is the
+direct-FILEV-stamp idiom, which is a cassette-loader defence and does not arise
+for disc software. That is the remaining reason to prefer it.
 
 ### Repair frequency trades directly against destroying the game
 
