@@ -1071,6 +1071,30 @@ length separately from the former firmware trim point. The normal candidate
 must use the complete length. `elkwifi_uef_trim_tail=1` exists only to reproduce
 the earlier behaviour in a controlled A/B/C hardware test.
 
+Check a candidate for the direct FILEV stamp before blaming WiCFS for a stall:
+
+```sh
+python3 scripts/uef_loader_scan.py "samples/Exile (198x)(Acornsoft - Superior Software).uef"
+python3 scripts/uef_loader_scan.py --scan samples
+```
+
+The scanner reassembles whole cassette files from their blocks and reports any
+loader which writes FILEV itself. A large minority of published Electron titles
+do: 84 of the 728 corpus UEFs, 76 of them writing the Electron MOS 1.00
+cassette entry `&F1D6`, usually with OSBYTE `163,128,1` and `?&2AC=0` beside
+it. Exile labels the idiom in its own source, `REM Elk Exile tape loader v1.0`.
+
+The stamp is written blind, without consulting the vector's current owner, so
+it overwrites the WiCFS filing-vector guard at `&FD97` and sends the loader's
+next `CHAIN""` to real MOS cassette code. A title which stalls this way is not
+evidence of a WiCFS defect, and the stall is unaffected by the `&0780`
+gateway. WiCFS owns FILEV, FINDV, FSCV and BGETV, and none of those is entered
+between the stamp and the `CHAIN""` which follows it, so a repair has to
+reclaim FILEV from a vector WiCFS does not currently hold. Confirm a suspected
+case with the emulator write-watch over `&0212-&0213`: the stamp appears as
+`97->D6` and `FD->F1` at PC `&B4CA`, which is BASIC's four-byte indirection
+store, not the title's own code.
+
 HWDTEST D4 is observational with respect to the WiCFS persistence record. Its
 write/read probe is at `&FFEE00`; it reads but never writes
 `&FFEF00-&FFEF19`. Capture D4 after cold boot, after WiCFS installation, after
