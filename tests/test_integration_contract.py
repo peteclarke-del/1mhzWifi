@@ -306,6 +306,20 @@ class IntegrationContractTest(unittest.TestCase):
         ).read_text()
         self.assertIn("PI1MHZ_UEF_TRIM_TAIL", emulator_backend)
         self.assertIn("if (backend->uef_trim_tail)", emulator_backend)
+        # The FILEV stamp repair must exist on both sides. An emulator which
+        # repairs a stream the Pi does not, or the reverse, makes every UEF
+        # acceptance run evidence about the wrong machine.
+        self.assertIn('config_get("elkwifi_uef_filev_repair")', service)
+        self.assertIn("if (uef_filev_repair)", service)
+        self.assertIn("uef_repair_filev_stamp(uef_stream_data", service)
+        self.assertIn("PI1MHZ_UEF_FILEV_REPAIR", emulator_backend)
+        self.assertIn("if (backend->uef_filev_repair)", emulator_backend)
+        self.assertIn("uef_repair_filev_stamp(backend->uef_stream",
+                      emulator_backend)
+        # Both default to on, so a disable switch is the only way to turn the
+        # compatibility path off and neither side can quietly ship it disabled.
+        self.assertIn("static bool uef_filev_repair = true;", service)
+        self.assertIn("backend->uef_filev_repair = !(repair &&", emulator_backend)
         self.assertIn("Function 18 is a public ElkWiFi ABI", service)
         self.assertNotIn("+CIFSR:GATEWAY", service)
         self.assertNotIn("+CIFSR:NETMASK", service)

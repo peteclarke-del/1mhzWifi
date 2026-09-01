@@ -1095,6 +1095,27 @@ case with the emulator write-watch over `&0212-&0213`: the stamp appears as
 `97->D6` and `FD->F1` at PC `&B4CA`, which is BASIC's four-byte indirection
 store, not the title's own code.
 
+The Pi repairs this as it normalises the stream. `uef_repair_filev_stamp`
+redirects the `&212`/`&213` address token to scratch at `&900`/`&901`, which is
+inside the `&0900-&10FF` range cassette loaders already overwrite. The
+substitution is the same length, so only the affected block's payload CRC is
+recomputed. It is on by default; `elkwifi_uef_filev_repair=0` in `Pi1MHz.cfg`,
+or `PI1MHZ_UEF_FILEV_REPAIR=0` under the emulator, disables it for an A/B.
+
+Reproduce the A/B against a small LUN built with `make_uef_lun.py`. With the
+repair off, WiCFS installs its guard (`&0212` `1B->97` at PC `&9D44`, bank 3)
+and the loader stamps it back at PC `&B4CA`; Repton Infinity stops on
+`Searching`. With it on the stamp never happens and the title reaches its
+interactive menu.
+
+The repair cannot reach a stamp made from machine code. Exile improves but
+does not complete: it now loads `EXILE1`, `EXILE2` and `EXILE3` and reaches
+`EXILEL 03 0301`, then `ExileL` re-stamps FILEV from its own 6502 code at PC
+`&0922` and stops on `Searching`. Searching the corpus for a plain `STA`,
+`STX` or `STY` to `&0212`/`&0213` finds ten titles, but Exile is not one of
+them because its loader decrypts itself at run time. Treat that ten as a floor
+rather than a measurement of how many titles remain affected.
+
 HWDTEST D4 is observational with respect to the WiCFS persistence record. Its
 write/read probe is at `&FFEE00`; it reads but never writes
 `&FFEF00-&FFEF19`. Capture D4 after cold boot, after WiCFS installation, after
