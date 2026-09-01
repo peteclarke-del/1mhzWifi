@@ -316,6 +316,27 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("if (backend->uef_filev_repair)", emulator_backend)
         self.assertIn("uef_repair_filev_stamp(backend->uef_stream",
                       emulator_backend)
+        # The media service must exist on both sides and, unlike the FILEV
+        # repair, must be the same code rather than a mirrored copy: the
+        # emulator links the Pi overlay's session core, so it cannot drift.
+        media_service = (
+            ROOT / "pi-side/pi1mhz-516a267/overlay/src/media_service.c"
+        ).read_text()
+        self.assertIn("services_register(MEDIA_SVC_CMD_FIRST", media_service)
+        self.assertIn("media_service_dispatch", media_service)
+        self.assertIn("elkwifi_uef_stream_image", media_service)
+        self.assertIn('#include "media_service_core.h"', emulator_backend)
+        self.assertIn("media_dispatch(backend, command)", emulator_backend)
+        self.assertIn("command[0] >= MEDIA_CMD_OPEN", emulator_backend)
+        emulator_makefile = (
+            ROOT / "emulator/pi1mhz-mailbox/Makefile"
+        ).read_text()
+        self.assertIn("media_service_core.c", emulator_makefile)
+        installer_elk = (
+            ROOT / "emulator/pi1mhz-mailbox/integrations/elkulator/install.sh"
+        ).read_text()
+        self.assertIn("media_service_core.c", installer_elk)
+        self.assertIn("elkulator_SOURCES += media_service_core.c", installer_elk)
         # Both default to on, so a disable switch is the only way to turn the
         # compatibility path off and neither side can quietly ship it disabled.
         self.assertIn("static bool uef_filev_repair = true;", service)
