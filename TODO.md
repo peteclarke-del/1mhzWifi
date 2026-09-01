@@ -546,24 +546,45 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   build host. `tests/test_media_catalogue.py` already compiles and drives both
   C harnesses against the corpus, including a truncation fuzz.
   What is missing, in the order worth building it:
-- [ ] Write `media_service.c`, the binding its own header names and the only
-  Pi-side file absent. It registers 120 to 124 the way `ftp_service.c`
-  registers 114 to 119, but synchronously, because the session works on an
-  in-memory image and needs no poll or pending state. Read the command block
-  at `cp`, call `media_service_dispatch`, copy the reply to `cp + 1` within the
-  240-byte window, and write the status through `Pi1MHz_MemoryWrite`.
-  `media_service_open` is separate from the dispatcher by design: the host
-  uploads the container through the existing incremental window protocol, the
-  same one `*UEF LOAD` fills, and a bare `MEDIA_OPEN` then reports what the
-  bound image holds. That needs an accessor on the uploaded stream buffer,
-  which is currently static in `elkwifi_service.c`.
-- [ ] Mirror the same five commands in `pi1mhz_net_backend.c` and assert the
-  pair in `test_integration_contract.py`, as the FILEV repair does. Without
-  the emulator side there is no end-to-end gate, and a divergence would make
-  every acceptance run evidence about the wrong machine.
-- [ ] Add the host `*SSD CAT` command. It uploads the image through the
-  existing path, sends a bare `MEDIA_OPEN`, then repeats `MEDIA_CAT` and
-  renders each returned line. No container parsing on the host.
+- [x] Write `media_service.c`, the binding its own header names. It registers
+  120 to 124 synchronously, and an open binds whatever the host last uploaded.
+  Covered by a build-host harness with stub Pi1MHz declarations.
+- [x] Narrow the scope to `*SSD LOAD`. `*SSD CAT`, `*SSD EXTRACT`,
+  `*SSD CLOSE`, `*UEF CAT`, `*UEF EXTRACT`, `MEDIA_STORE` and the Pi-hosted
+  disc are dropped.
+- [x] Establish what `*SSD LOAD` must do from the discs rather than the design.
+  Of the 117 TOSEC images, 115 carry a `!BOOT` and every one sets `*OPT 4,3`,
+  which is `*EXEC`; none uses `*LOAD` or `*RUN`. The two without a `!BOOT` are
+  a bad dump and the second disc of a two-disc title. So the command execs
+  `!BOOT` and errors when there is none, and the error case is rare.
+  `!BOOT` alone is not enough. These files are `*B.` then `CH."NAME"`, or a
+  `*/NAME` handover, so every title immediately chains to another file on the
+  same disc and the filing system has to keep serving that image afterwards.
+- [x] Render the disc as a cassette stream on the Pi rather than build a
+  filing-system proxy. `media_ssd_to_uef` turns a DFS image into the UEF
+  stream WiCFS already consumes, so `MEDIA_MOUNT` and `MEDIA_FSOP`, the large
+  host-side marshaller, are not needed at all: WiCFS stays the filing system
+  and only its source changes. Two constraints shape the layout, both from
+  WiCFS's cassette semantics. `!BOOT` is emitted first because that is what
+  the command execs, and the catalogue is emitted more than once because
+  `findf` searches forward and `fnd_err` does not rewind on a miss, so a chain
+  running backwards through the catalogue would otherwise fail. Chuckulus
+  makes that concrete: its `!BOOT` is the last catalogue entry.
+  Verified against the corpus: all 117 discs render to a valid UEF with every
+  block header and data CRC correct, no catalogue entry lost, and `!BOOT`
+  first on all 115 that have one. Truncations are swept under
+  AddressSanitizer and UndefinedBehaviorSanitizer.
+- [ ] Add the host `*SSD LOAD` command. The Pi now hands back a stream the
+  existing `*UEF LOAD` path can consume, so the host work is to upload through
+  that path, ask for the SSD rendering, and exec `!BOOT`. ROM headroom is 88
+  bytes against the `&BF00` assert; `TECHNICAL.md` records that ceiling as
+  lowered for the trampoline and larger than the minimum, and the trampoline
+  is now confirmed obsolete, so moving it back is the justification that note
+  asks for and recovers about 240 bytes.
+- [ ] Gate `*SSD LOAD` on a real disc in the emulator, including a title whose
+  `!BOOT` uses the `*/` handover rather than `CH."NAME"`. That handover is the
+  transfer whose frame assumption was studied and left unchanged, so it is
+  worth exercising rather than reasoning about.
 - [ ] Link `media_catalogue.c`, `media_service_core.c` and `media_service.c`
   into the kernel. They are staged by `install_bundle.sh` but deliberately not
   named in `CMakeLists.txt`, so a patch has to add them, and that is what makes

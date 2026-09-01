@@ -502,3 +502,157 @@ size_t media_format_entry(const media_entry_t *entry, char *out,
     out[n] = '\0';
     return n;
 }
+
+/* ------------------------------------------------------------------------ */
+/* DFS rendered as a cassette stream                                         */
+
+#define UEF_CHUNK_HEADER 6u
+#define CFS_BLOCK_DATA   256u
+
+static size_t emit_bytes(uint8_t *out, size_t capacity, size_t at,
+                         const uint8_t *data, size_t count)
+{
+    if (out != NULL && at + count <= capacity) {
+        memcpy(out + at, data, count);
+    }
+    return at + count;
+}
+
+static size_t emit_byte(uint8_t *out, size_t capacity, size_t at, uint8_t value)
+{
+    return emit_bytes(out, capacity, at, &value, 1u);
+}
+
+/* One standard Acorn cassette block wrapped in its own &0100 chunk. */
+static size_t emit_block(uint8_t *out, size_t capacity, size_t at,
+                         const media_entry_t *entry, uint16_t block_number,
+                         const uint8_t *data, size_t data_length, int last)
+{
+    uint8_t header[32];
+    size_t name_length = 0;
+    size_t n = 0;
+    size_t payload;
+    uint16_t crc;
+    const char *name = entry->name;
+
+    /* DFS names arrive as "D.NAME". The cassette form carries the leaf only. */
+    if (name[0] != '\0' && name[1] == '.') name += 2;
+    while (name[name_length] != '\0' && name_length < 10u) name_length++;
+
+    memcpy(header, name, name_length);
+    n = name_length;
+    header[n++] = 0;
+    header[n++] = (uint8_t)(entry->load & 0xFFu);
+    header[n++] = (uint8_t)((entry->load >> 8) & 0xFFu);
+    header[n++] = (uint8_t)((entry->load >> 16) & 0xFFu);
+    header[n++] = (uint8_t)((entry->load >> 24) & 0xFFu);
+    header[n++] = (uint8_t)(entry->exec & 0xFFu);
+    header[n++] = (uint8_t)((entry->exec >> 8) & 0xFFu);
+    header[n++] = (uint8_t)((entry->exec >> 16) & 0xFFu);
+    header[n++] = (uint8_t)((entry->exec >> 24) & 0xFFu);
+    header[n++] = (uint8_t)(block_number & 0xFFu);
+    header[n++] = (uint8_t)(block_number >> 8);
+    header[n++] = (uint8_t)(data_length & 0xFFu);
+    header[n++] = (uint8_t)(data_length >> 8);
+    header[n++] = (uint8_t)(last ? 0x80u : 0x00u);
+    header[n++] = 0; header[n++] = 0; header[n++] = 0; header[n++] = 0;
+
+    payload = 1u + n + 2u + data_length + (data_length ? 2u : 0u);
+
+    /* &0100 chunk header, then the block. */
+    at = emit_byte(out, capacity, at, 0x00u);
+    at = emit_byte(out, capacity, at, 0x01u);
+    at = emit_byte(out, capacity, at, (uint8_t)(payload & 0xFFu));
+    at = emit_byte(out, capacity, at, (uint8_t)((payload >> 8) & 0xFFu));
+    at = emit_byte(out, capacity, at, (uint8_t)((payload >> 16) & 0xFFu));
+    at = emit_byte(out, capacity, at, (uint8_t)((payload >> 24) & 0xFFu));
+
+    at = emit_byte(out, capacity, at, 0x2Au);
+    at = emit_bytes(out, capacity, at, header, n);
+    crc = tape_crc(header, n);
+    at = emit_byte(out, capacity, at, (uint8_t)(crc >> 8));
+    at = emit_byte(out, capacity, at, (uint8_t)(crc & 0xFFu));
+    if (data_length != 0u) {
+        at = emit_bytes(out, capacity, at, data, data_length);
+        crc = tape_crc(data, data_length);
+        at = emit_byte(out, capacity, at, (uint8_t)(crc >> 8));
+        at = emit_byte(out, capacity, at, (uint8_t)(crc & 0xFFu));
+    }
+    return at;
+}
+
+static size_t emit_entry(uint8_t *out, size_t capacity, size_t at,
+                         const uint8_t *image, size_t length,
+                         const media_entry_t *entry)
+{
+    size_t offset = 0;
+    uint16_t block = 0;
+
+    if (entry->length == 0u) {
+        return emit_block(out, capacity, at, entry, 0, NULL, 0u, 1);
+    }
+    while (offset < entry->length) {
+        size_t remaining = entry->length - offset;
+        size_t take = remaining < CFS_BLOCK_DATA ? remaining : CFS_BLOCK_DATA;
+        const uint8_t *data = NULL;
+        /* A truncated image yields short blocks rather than reading past it. */
+        if ((size_t)entry->offset + offset + take <= length) {
+            data = image + entry->offset + offset;
+        } else {
+            take = 0u;
+        }
+        at = emit_block(out, capacity, at, entry, block, data, take,
+                        offset + take >= entry->length);
+        if (take == 0u) break;
+        offset += take;
+        block++;
+    }
+    return at;
+}
+
+media_status_t media_ssd_to_uef(const uint8_t *image, size_t length,
+                                unsigned passes, uint8_t *out,
+                                size_t out_capacity, size_t *out_length)
+{
+    static const uint8_t magic[12] = {
+        'U','E','F',' ','F','i','l','e','!', 0, 0, 10
+    };
+    media_entry_t entries[MEDIA_MAX_ENTRIES];
+    media_catalogue_t summary;
+    media_status_t status;
+    size_t at = 0;
+    size_t i;
+    unsigned pass;
+    size_t boot = (size_t)-1;
+
+    if (image == NULL || out_length == NULL || passes == 0u) {
+        return MEDIA_ERR_PARAM;
+    }
+    status = media_catalogue(image, length, MEDIA_KIND_SSD, entries,
+                             MEDIA_MAX_ENTRIES, &summary);
+    if (status != MEDIA_OK && status != MEDIA_ERR_TRUNCATED) return status;
+
+    for (i = 0; i < summary.count; i++) {
+        const char *name = entries[i].name;
+        if (name[0] != '\0' && name[1] == '.') name += 2;
+        if (name[0] == '!' && (name[1] == 'B' || name[1] == 'b')) {
+            boot = i;
+            break;
+        }
+    }
+
+    at = emit_bytes(out, out_capacity, at, magic, sizeof magic);
+    for (pass = 0; pass < passes; pass++) {
+        if (boot != (size_t)-1) {
+            at = emit_entry(out, out_capacity, at, image, length,
+                            &entries[boot]);
+        }
+        for (i = 0; i < summary.count; i++) {
+            if (i == boot) continue;
+            at = emit_entry(out, out_capacity, at, image, length, &entries[i]);
+        }
+    }
+    *out_length = at;
+    if (out != NULL && at > out_capacity) return MEDIA_ERR_RANGE;
+    return MEDIA_OK;
+}
