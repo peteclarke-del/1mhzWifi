@@ -63,6 +63,35 @@ understands, so a file larger than the legacy 64 KiB aperture is delivered in
 successive windows. Text from `MEDIA_CAT` is returned through the ordinary
 paged command response used by `*ONLINE` and `*VERSION`.
 
+## Scope, narrowed
+
+`*SSD LOAD` is the only media command wanted. `*SSD CAT`, `*SSD EXTRACT`,
+`*SSD CLOSE`, `*UEF CAT` and `*UEF EXTRACT` are dropped, and with them
+`MEDIA_STORE` and the Pi-hosted disc. The sections below are kept as the
+record of a wider design; only what `*SSD LOAD` needs is to be built.
+
+What `*SSD LOAD` must do is set by what the discs actually contain rather than
+by the original design. Across the 117 TOSEC Acorn Electron `.ssd` images, 115
+carry a `!BOOT` and every one of those sets boot option `*OPT 4,3`, which is
+`*EXEC`. None uses `*LOAD` or `*RUN`. The two without a `!BOOT` are a bad dump
+and the second disc of a two-disc title, neither of which would be booted
+directly. So the command execs `!BOOT` as text and reports an error when the
+image has none, which is the agreed behaviour.
+
+`!BOOT` on its own is not enough, and this is the part the plan has to absorb.
+These files are two lines: `*B.` then `CH."NAME"`, or a `*/NAME` handover.
+Every one of them immediately chains to another file on the same disc, so the
+filing system has to keep serving that image after `!BOOT` has run. A command
+that only execed `!BOOT` would fail on the next line of every title.
+
+The cost of that is small, because WiCFS already serves files by name through
+vectors it already installs, and `media_catalogue.c` already decodes DFS,
+recording each entry's contiguous byte offset. Serving a DFS file is less work
+than the CFS block walking WiCFS does for a cassette image, and `MEDIA_INFO`
+and `MEDIA_READ` already exist to answer for one. What is not needed is the
+`MEDIA_MOUNT` and `MEDIA_FSOP` filing-system proxy below: WiCFS is the filing
+system, and only its source changes.
+
 ## `*SSD LOAD` and the Pi-hosted disc
 
 `*SSD LOAD` mounts an image so that later `*CAT`, `LOAD`, `RUN` and `CHAIN`
