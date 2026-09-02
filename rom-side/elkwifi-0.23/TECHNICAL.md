@@ -82,14 +82,25 @@ with explicit tables, shares repeated diagnostics and removes the obsolete ROM
 end marker. Its maintained PRD implementation never reads a JIM selector,
 reasserts selectors before each byte, and restores public bank `00:00`.
 
-ROM 0.1.67 keeps the four filing vectors on the RAM guard below `&0800`. A
-Pi-mirrored trampoline was built and withdrawn: pointing the vectors at it
-broke the `*/` handover that every multi-file cassette loader ends with,
-because `actioned` transfers to the loaded program by unwinding the MOS
-extended-vector dispatch frame and the mirrored entry supplies its own frame
-instead. Every multi-file title failed after its first file. Reverting the
-vectors fixed it, and the trampoline was then removed outright rather than
-left unreachable in the image.
+ROM 0.1.67 puts the four filing vectors on the JIM guard the Pi serves at
+`romsel`, which is `&FD00+jim_page_usable` and so `&FD97`. The guard body is
+stamped into every JIM page, and the ROM verifies its signature at two
+different selector values before moving any vector, so the selector may hold
+anything when one fires. The RAM guard below `&0800` is the fallback, used when
+no mirror answers, which is what an older kernel gives. Confirmed on the
+running machine: a write watch over `&0212-&0213` shows FILEV set to `&FD97`
+from PC `&9D44` in the ROM's own bank.
+
+Nothing of ours therefore sits in host RAM for a loader to overwrite, which is
+what the earlier Pi-mirrored trampoline was for. That trampoline was built and
+withdrawn: pointing the vectors at it broke the `*/` handover every multi-file
+cassette loader ends with, because `actioned` transfers to the loaded program
+by unwinding the MOS extended-vector dispatch frame and the mirrored entry
+supplied its own frame instead. Every multi-file title failed after its first
+file. It was removed outright rather than left unreachable, and the guard
+introduced afterwards supersedes it: the guard repairs the MOS extended-vector
+entry and then dispatches through MOS, so the frame stays intact and `*RUN` and
+`*/` are unaffected.
 
 Two things survive from that work. `cfsinit` starts the read cursor at JIM
 page 1, because page 0 is the service reply buffer that OSWORD `&65` clients

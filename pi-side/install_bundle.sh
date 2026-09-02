@@ -333,6 +333,9 @@ fi
 if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_uef_trim_tail[[:space:]]*=' "$config_file"; then
     printf '# elkwifi_uef_trim_tail=0  # diagnostic A/B only; normal WiCFS receives the complete UEF\n' >> "$config_file"
 fi
+if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_uef_filev_repair[[:space:]]*=' "$config_file"; then
+    printf '# elkwifi_uef_filev_repair=1  # redirect loaders which stamp FILEV themselves; 0 disables\n' >> "$config_file"
+fi
 if ! grep -Eq '^[[:space:]]*#?[[:space:]]*wifi_security[[:space:]]*=' "$config_file"; then
     printf '# wifi_security=auto      # auto|open|wep|wpa|wpa2\n' >> "$config_file"
 fi
