@@ -263,9 +263,17 @@ class MergedRepositoryTest(unittest.TestCase):
             )
 
     def test_packaged_kernels_have_matching_recovery_revisions(self) -> None:
+        # The trailing fingerprint hashes the overlay content, so pinning it in
+        # full is what catches a kernel built before a Pi-side change. That is
+        # not hypothetical: the bundle shipped kernels predating the FILEV
+        # stamp repair, so a 0.1.67 ROM which expects the Pi to repair the
+        # stream was packaged with kernels that could not, and every hash in
+        # SHA256SUMS still verified because it pins whatever was committed.
+        # A Pi-side change therefore requires a kernel rebuild before this
+        # passes, which is the intended cost.
         pattern = re.compile(
             rb"Pi1MHz ElkWiFi 0\.1\.67, kernel "
-            rb"(V1\.30-123-g831b806-dirty\.[0-9a-f]{8})"
+            rb"(V1\.30-137-gd6ee4c3-dirty\.8aee109b)"
         )
         revisions = []
         for name in ("kernel.img", "kernel7.img"):
