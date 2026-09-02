@@ -161,11 +161,10 @@ install_if_changed "$overlay_dir/src/elkwifi_service.c" "$upstream/src/elkwifi_s
 install_if_changed "$overlay_dir/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
 install_if_changed "$overlay_dir/src/ftp_service.c" "$upstream/src/ftp_service.c"
 install_if_changed "$overlay_dir/src/ftp_service.h" "$upstream/src/ftp_service.h"
-# Container catalogue for the planned *UEF CAT, *UEF EXTRACT, *SSD CAT and
-# *SSD EXTRACT commands. The decoder is unit tested on the build host and is
-# staged into the Pi tree here, but it is not yet named in CMakeLists.txt and
-# so is not linked into the shipped kernels. It joins the build with the
-# mailbox service wrapper that calls it.
+# Container decoder. media-service.patch links it, because elkwifi_service.c
+# calls uef_repair_filev_stamp, which lives beside the decoder so the Pi and
+# the emulator share one implementation. media_service_core.c is staged but
+# not linked: its catalogue and extract session has no caller.
 install_if_changed "$overlay_dir/src/media_catalogue.c" "$upstream/src/media_catalogue.c"
 install_if_changed "$overlay_dir/src/media_catalogue.h" "$upstream/src/media_catalogue.h"
 install_if_changed "$overlay_dir/src/media_service_core.c" "$upstream/src/media_service_core.c"
@@ -182,18 +181,21 @@ install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/se
 install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
 install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
 
-for patch_name in integration.patch service-range-online.patch uef-normalize.patch services-capacity-test.patch gitversion-untracked-content.patch secure-service.patch ftp-service.patch wifi-security.patch wifi-network-tools.patch net-copy-public.patch net-connected-udp.patch net-debug-stage.patch secure-debug-stage.patch; do
+for patch_name in integration.patch service-range-online.patch uef-normalize.patch media-service.patch secure-service.patch ftp-service.patch wifi-network-tools.patch net-copy-public.patch net-debug-stage.patch secure-debug-stage.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
         integration.patch)
             grep -q 'elkwifi_service.c' "$upstream/src/CMakeLists.txt" &&
             grep -q 'SERVICE_CMD_ELKWIFI_FIRST' "$upstream/src/services.h" &&
-            grep -q '#define SERVICES_MAX 8u' "$upstream/src/services_emulator.c" &&
             patch_present=true
             ;;
         service-range-online.patch)
             grep -Eq 'SERVICE_CMD_ELKWIFI_LAST  *(92|93)u' "$upstream/src/services.h" &&
+            patch_present=true
+            ;;
+        media-service.patch)
+            grep -q '^    media_catalogue.c' "$upstream/src/CMakeLists.txt" &&
             patch_present=true
             ;;
         uef-normalize.patch)
@@ -218,26 +220,6 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
                 "$upstream/src/tests/net/stubs/Pi1MHz.h" &&
             patch_present=true
             ;;
-        net-connected-udp.patch)
-            grep -q 'connected UDP compatibility path' \
-                "$upstream/src/tests/net/test_net.c" &&
-            grep -q 'h->type == NET_TYPE_UDP' "$upstream/src/net_service.c" &&
-            grep -q 'udp_connect(h->upcb, &h->remote_ip, h->remote_port)' \
-                "$upstream/src/net_service.c" &&
-            grep -q 'connected UDP generic recv strips peer record header' \
-                "$upstream/src/tests/net/test_net.c" &&
-            patch_present=true
-            ;;
-        services-capacity-test.patch)
-            grep -q 'eighth range registers' "$upstream/src/tests/services/test_services.c" &&
-            grep -q 'identical reset-time claim renews' "$upstream/src/tests/services/test_services.c" &&
-            patch_present=true
-            ;;
-        gitversion-untracked-content.patch)
-            grep -q 'GIT_UNTRACKED_CONTENT' "$upstream/src/scripts/gitversion.cmake" &&
-            grep -q 'file(SHA256.*UNTRACKED_FILE' "$upstream/src/scripts/gitversion.cmake" &&
-            patch_present=true
-            ;;
         secure-service.patch)
             grep -q 'SERVICE_CMD_SECURE_FIRST  *94u' "$upstream/src/services.h" &&
             grep -q 'secure_service.c' "$upstream/src/CMakeLists.txt" &&
@@ -248,11 +230,6 @@ for patch_name in integration.patch service-range-online.patch uef-normalize.pat
         ftp-service.patch)
             grep -q 'ftp_service.c' "$upstream/src/CMakeLists.txt" &&
             grep -q 'SERVICE_CMD_FTP_FIRST' "$upstream/src/services.h" &&
-            patch_present=true
-            ;;
-        wifi-security.patch)
-            grep -q 'WIFI_SDIO_TX_PROBE_COMMAND_WEP_KEY' "$upstream/src/wifi/wifi.h" &&
-            grep -q 'WSEC_KEY_PAYLOAD_LENGTH 164u' "$upstream/src/wifi/sdio.c" &&
             patch_present=true
             ;;
         wifi-network-tools.patch)
@@ -355,6 +332,9 @@ if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_utc_offset_minutes[[:space:]]*
 fi
 if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_uef_trim_tail[[:space:]]*=' "$config_file"; then
     printf '# elkwifi_uef_trim_tail=0  # diagnostic A/B only; normal WiCFS receives the complete UEF\n' >> "$config_file"
+fi
+if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_uef_filev_repair[[:space:]]*=' "$config_file"; then
+    printf '# elkwifi_uef_filev_repair=1  # redirect loaders which stamp FILEV themselves; 0 disables\n' >> "$config_file"
 fi
 if ! grep -Eq '^[[:space:]]*#?[[:space:]]*wifi_security[[:space:]]*=' "$config_file"; then
     printf '# wifi_security=auto      # auto|open|wep|wpa|wpa2\n' >> "$config_file"

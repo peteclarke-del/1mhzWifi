@@ -150,6 +150,23 @@ loader path. A last line of
 identifies a MOS/Tube call boundary. A CAPS result of zero with incorrect raw
 bytes identifies stale or partly published JIM data.
 
+Building a reproduction LUN
+---------------------------
+
+The sweeps run against a photographed hard-disc image, but reproducing one
+failing title does not need it, and an image kept only in `/tmp` does not
+survive that directory being cleared. `make_uef_lun.py` builds an ADFS image
+holding just the titles named, in `$.UEF` where the `adfs-beebscsi` profile
+looks, with the `.dsc` geometry sidecar:
+
+```sh
+python3 tests/elkulator/make_uef_lun.py --out /tmp/repro \
+  "EXILE:*Exile*" "REPTINF:*Repton Infinity*"
+```
+
+It needs `oaknut-adfs`, the same library Acorn File Forge uses. A three-title
+image is 32 MiB and builds in seconds.
+
 The DFS and MMFS profiles are approximations. They do not emulate the
 photographed BeebSCSI LUN. Pass `--beebscsi-lun /path/to/scsi0.dat` with
 `--profile adfs-beebscsi`. The runner mounts that image as LUN 0 at `&FC40`,

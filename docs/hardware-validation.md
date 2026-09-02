@@ -34,6 +34,27 @@ ADFS ROM and default geometry configuration, not a BeebSCSI hard-disc image.
 
 ### Implementing the Pi-resident trampoline
 
+**Superseded, and not outstanding work.** The trampoline was built to this
+design, withdrawn because it broke the `*/` handover, and then replaced by a
+different mechanism which ships. `f02a0bf`, "Serve the filing-vector guard from
+JIM so Repton loads", landed on 30 August, two days after `9ff59d1` removed the
+trampoline machinery.
+
+The shipped mechanism is the JIM guard. All four filing vectors point at
+`romsel = &FD00+jim_page_usable`, which is `&FD97`; the Pi stamps a 105-byte
+guard body into every JIM page and scatters the stream so it never covers it;
+and the ROM verifies a signature at two selector values before moving any
+vector, falling back to the RAM guard when no mirror answers. It achieves what
+this section wanted, nothing of ours resident where a loader can overwrite it,
+without the trampoline's defect: the guard repairs the MOS extended-vector
+entry and then dispatches through MOS, so the MOS frame stays intact and the
+`*RUN` and `*/` transfers are unaffected.
+
+The cost estimates below remain accurate as a record of the withdrawn design.
+Read this section and the two that follow it as history. The `vector_mirror`
+machinery and service command 86 are obsolete rather than dormant, and the
+patches under `rom-side/candidates` are kept as analysis, not as queued work.
+
 Both blocking facts are now measured. The 6502 executes code the Pi serves at
 `&FD00`, and a region mirrored into every JIM page is reachable whatever the
 selector holds, which matters because the selector tracks the stream cursor and
@@ -186,20 +207,36 @@ withdraw and a republish, and the mirror is withdrawn altogether when WiCFS
 hands the vectors back to MOS. The NetTools clients are unaffected either way:
 they move bytes through the `&FC00` data register, not the JIM window.
 
-### Disc images avoid the problem entirely
+### Disc images do not avoid the problem, measured
 
 Tape software was written for a machine whose filing system lives in the MOS
 ROM and has no RAM footprint at all, so `&0700-&07FF` and `&0D9F-&0DEF` are
 genuinely spare there and titles use them freely. 76% of the corpus loads
 something below `&1900`.
 
-A disc build of the same game could not do that. DFS occupies the workspace
-below `&1900`, including the extended-vector table at `&0D9F`, so disc software
-is by construction compatible with a sideways-ROM filing system which claims
-vectors the way DFS does. Streaming SSD images should therefore need no
-trampoline, no repair and no workspace juggling, and both failure groups
-disappear. That argument is structural and has not been measured against real
-disc images.
+It was previously argued here that a disc build could not do the same, because
+DFS occupies the workspace below `&1900` including the extended-vector table at
+`&0D9F`, and that streaming SSD images would therefore need no trampoline, no
+repair and no workspace juggling. That argument was recorded as structural and
+unmeasured. It has now been measured and it is wrong.
+
+Across the 117 TOSEC Acorn Electron `.ssd` images, 15 (12.8%) load a file whose
+declared address and length cover `&0D9F-&0DEF`, at explicit load addresses of
+`&0880`, `&0900`, `&0A00`, `&0B00`, `&0C00` and `&0D00`, among them Jet Set
+Willy, Repton 2, Killer Gorilla, Mineshaft, Mr Wiz, Tempest and Twin Kingdom
+Valley. The cassette corpus gives 133 of 727 (18.3%) by the same test. Disc is
+better than tape and nowhere near safe. Reproduce with
+`scripts/vector_table_overlap.py`.
+
+Catalogue entries with `load=&0000` carry no fixed load address and are
+excluded; including them would have inflated the disc figure to 16.2%. Both
+numbers are floors, because a title can write to page `&0D` at run time without
+loading a file there.
+
+SSD mounting therefore inherits the vector-survival problem in full and must
+use the same mechanism as WiCFS. What the disc path does avoid is the
+direct-FILEV-stamp idiom, which is a cassette-loader defence and does not arise
+for disc software. That is the remaining reason to prefer it.
 
 ### Repair frequency trades directly against destroying the game
 
@@ -1070,6 +1107,51 @@ The mapper validates every chunk boundary and reports the complete decoded
 length separately from the former firmware trim point. The normal candidate
 must use the complete length. `elkwifi_uef_trim_tail=1` exists only to reproduce
 the earlier behaviour in a controlled A/B/C hardware test.
+
+Check a candidate for the direct FILEV stamp before blaming WiCFS for a stall:
+
+```sh
+python3 scripts/uef_loader_scan.py "samples/Exile (198x)(Acornsoft - Superior Software).uef"
+python3 scripts/uef_loader_scan.py --scan samples
+```
+
+The scanner reassembles whole cassette files from their blocks and reports any
+loader which writes FILEV itself. A large minority of published Electron titles
+do: 84 of the 728 corpus UEFs, 76 of them writing the Electron MOS 1.00
+cassette entry `&F1D6`, usually with OSBYTE `163,128,1` and `?&2AC=0` beside
+it. Exile labels the idiom in its own source, `REM Elk Exile tape loader v1.0`.
+
+The stamp is written blind, without consulting the vector's current owner, so
+it overwrites the WiCFS filing-vector guard at `&FD97` and sends the loader's
+next `CHAIN""` to real MOS cassette code. A title which stalls this way is not
+evidence of a WiCFS defect, and the stall is unaffected by the `&0780`
+gateway. WiCFS owns FILEV, FINDV, FSCV and BGETV, and none of those is entered
+between the stamp and the `CHAIN""` which follows it, so a repair has to
+reclaim FILEV from a vector WiCFS does not currently hold. Confirm a suspected
+case with the emulator write-watch over `&0212-&0213`: the stamp appears as
+`97->D6` and `FD->F1` at PC `&B4CA`, which is BASIC's four-byte indirection
+store, not the title's own code.
+
+The Pi repairs this as it normalises the stream. `uef_repair_filev_stamp`
+redirects the `&212`/`&213` address token to scratch at `&900`/`&901`, which is
+inside the `&0900-&10FF` range cassette loaders already overwrite. The
+substitution is the same length, so only the affected block's payload CRC is
+recomputed. It is on by default; `elkwifi_uef_filev_repair=0` in `Pi1MHz.cfg`,
+or `PI1MHZ_UEF_FILEV_REPAIR=0` under the emulator, disables it for an A/B.
+
+Reproduce the A/B against a small LUN built with `make_uef_lun.py`. With the
+repair off, WiCFS installs its guard (`&0212` `1B->97` at PC `&9D44`, bank 3)
+and the loader stamps it back at PC `&B4CA`; Repton Infinity stops on
+`Searching`. With it on the stamp never happens and the title reaches its
+interactive menu.
+
+The repair cannot reach a stamp made from machine code. Exile improves but
+does not complete: it now loads `EXILE1`, `EXILE2` and `EXILE3` and reaches
+`EXILEL 03 0301`, then `ExileL` re-stamps FILEV from its own 6502 code at PC
+`&0922` and stops on `Searching`. Searching the corpus for a plain `STA`,
+`STX` or `STY` to `&0212`/`&0213` finds ten titles, but Exile is not one of
+them because its loader decrypts itself at run time. Treat that ten as a floor
+rather than a measurement of how many titles remain affected.
 
 HWDTEST D4 is observational with respect to the WiCFS persistence record. Its
 write/read probe is at `&FFEE00`; it reads but never writes

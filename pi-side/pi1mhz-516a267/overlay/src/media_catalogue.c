@@ -502,3 +502,86 @@ size_t media_format_entry(const media_entry_t *entry, char *out,
     out[n] = '\0';
     return n;
 }
+
+/* ------------------------------------------------------------------------ */
+/* Direct FILEV stamp repair                                                 */
+
+static int stamp_hex_digit(uint8_t c)
+{
+   return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F')
+       || (c >= 'a' && c <= 'f');
+}
+
+/* Rewrite `&212`/`&213` address tokens in one block's payload. BBC BASIC
+ * tokenises keywords but leaves `&` and digits as ASCII, so the address
+ * survives verbatim and a three-digit substitution is exact. A following hex
+ * digit means the token is really a longer address such as &2120, which must
+ * be left alone. Both `?` and `!` forms are redirected: a loader which saves
+ * and restores the vector then does both through scratch and leaves ours
+ * untouched. */
+static unsigned repair_block_payload(uint8_t *data, size_t length)
+{
+   unsigned repaired = 0u;
+   if (length < 4u) return 0u;
+   for (size_t at = 0u; at + 4u <= length; at++) {
+      if (data[at] != '&' || data[at + 1] != '2' || data[at + 2] != '1')
+         continue;
+      if (data[at + 3] != '2' && data[at + 3] != '3')
+         continue;
+      if (at + 4u < length && stamp_hex_digit(data[at + 4]))
+         continue;
+      if (at == 0u || (data[at - 1] != '?' && data[at - 1] != '!'))
+         continue;
+      data[at + 1] = '9';
+      data[at + 2] = '0';
+      data[at + 3] = (data[at + 3] == '2') ? '0' : '1';
+      repaired++;
+   }
+   return repaired;
+}
+
+unsigned uef_repair_filev_stamp(uint8_t *window, size_t length)
+{
+   size_t position = 12u;
+   unsigned repaired = 0u;
+   if (window == NULL || length < position) return 0u;
+   while (position + 6u <= length) {
+      uint16_t chunk = rd16(&window[position]);
+      uint32_t chunk_length = rd32(&window[position + 2]);
+      size_t start = position + 6u;
+      if (chunk_length > length || start + chunk_length > length)
+         break;
+      if (chunk == 0x0100u && chunk_length > 1u
+          && window[start] == (uint8_t)'*') {
+         /* Standard cassette block: '*', NUL-terminated name of 1 to 10
+          * characters, 17-byte descriptor, header CRC, payload, payload CRC. */
+         size_t name_end = start + 1u;
+         size_t limit = start + chunk_length;
+         while (name_end < limit && name_end - start <= 11u
+                && window[name_end] != 0u)
+            name_end++;
+         if (name_end < limit && window[name_end] == 0u) {
+            size_t descriptor = name_end + 1u;
+            size_t header_crc = descriptor + 17u;
+            size_t data_at = header_crc + 2u;
+            if (data_at <= limit && descriptor + 13u <= limit) {
+               uint16_t data_length = rd16(&window[descriptor + 10]);
+               size_t data_crc = data_at + data_length;
+               /* A zero-length catalogue marker carries no payload CRC. */
+               if (data_length != 0u && data_crc + 2u <= limit) {
+                  unsigned hits = repair_block_payload(&window[data_at],
+                                                       data_length);
+                  if (hits != 0u) {
+                     uint16_t crc = tape_crc(&window[data_at], data_length);
+                     window[data_crc] = (uint8_t)(crc >> 8);
+                     window[data_crc + 1u] = (uint8_t)(crc & 0xffu);
+                     repaired += hits;
+                  }
+               }
+            }
+         }
+      }
+      position = start + chunk_length;
+   }
+   return repaired;
+}

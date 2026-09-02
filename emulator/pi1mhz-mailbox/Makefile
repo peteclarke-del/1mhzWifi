@@ -15,12 +15,19 @@ $(BUILD)/test-mailbox: tests/test_mailbox.c src/pi1mhz_mailbox.c \
 	$(CC) -std=c11 -Wall -Wextra -Werror -I include \
 		tests/test_mailbox.c src/pi1mhz_mailbox.c -o $@
 
+# The container decoder is shared with the Pi overlay rather than
+# reimplemented, so the FILEV stamp repair is one implementation, not two.
+OVERLAY := ../../pi-side/pi1mhz-516a267/overlay/src
+
 $(BUILD)/test-live: tests/test_live_backend.c src/pi1mhz_mailbox.c \
 		src/pi1mhz_net_backend.c src/pi1mhz_ftp.c include/pi1mhz_mailbox.h \
-		include/pi1mhz_net_backend.h | $(BUILD)
+		include/pi1mhz_net_backend.h $(OVERLAY)/media_catalogue.c | $(BUILD)
 	$(CC) -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror \
-		-I include tests/test_live_backend.c src/pi1mhz_mailbox.c \
-		src/pi1mhz_net_backend.c src/pi1mhz_ftp.c -lz -o $@
+		-I include -I $(OVERLAY) tests/test_live_backend.c \
+		src/pi1mhz_mailbox.c \
+		src/pi1mhz_net_backend.c src/pi1mhz_ftp.c \
+		$(OVERLAY)/media_catalogue.c \
+		-lz -o $@
 
 clean:
 	rm -rf -- $(BUILD)

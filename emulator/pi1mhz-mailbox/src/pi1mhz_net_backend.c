@@ -1,6 +1,7 @@
 #include "pi1mhz_net_backend.h"
 #include "pi1mhz_mailbox.h"
 #include "pi1mhz_ftp.h"
+#include "media_catalogue.h"
 #ifdef PI1MHZ_WOLFSSH
 #include "pi1mhz_wolfssh.h"
 #endif
@@ -150,6 +151,7 @@ struct pi1mhz_net_backend {
     int live;
     int exit_on_close;
     int uef_trim_tail;
+    int uef_filev_repair;
     uint8_t *uef_stream;
     uint8_t *uef_scratch;
     size_t uef_stream_length;
@@ -744,6 +746,9 @@ normalized:
         output_length = wicfs_stream_length(window, output_length);
     memcpy(backend->uef_stream, window, output_length);
     backend->uef_stream_length = output_length;
+    if (backend->uef_filev_repair)
+        (void)uef_repair_filev_stamp(backend->uef_stream,
+                                     backend->uef_stream_length);
     backend->uef_stream_cursor = 0u;
     backend->uef_stream_ready = 1;
     backend->uef_upload_active = 0;
@@ -1025,6 +1030,9 @@ static uint8_t incremental_uef_control(pi1mhz_net_backend *backend,
             return uef_stream_normalize_reply(command, "INVALID\r\n");
         }
         backend->uef_stream_length = normalized;
+        if (backend->uef_filev_repair)
+            (void)uef_repair_filev_stamp(backend->uef_stream,
+                                         backend->uef_stream_length);
         backend->uef_stream_cursor = 0u;
         backend->uef_stream_ready = 1;
         backend->uef_upload_active = 0;
@@ -1650,6 +1658,13 @@ pi1mhz_net_backend *pi1mhz_net_backend_create(const char *mode,
         backend->uef_trim_tail = trim &&
             (!strcmp(trim, "1") || !strcasecmp(trim, "yes") ||
              !strcasecmp(trim, "true") || !strcasecmp(trim, "on"));
+    }
+    {
+        /* On unless explicitly disabled, matching the Pi service default. */
+        const char *repair = getenv("PI1MHZ_UEF_FILEV_REPAIR");
+        backend->uef_filev_repair = !(repair &&
+            (!strcmp(repair, "0") || !strcasecmp(repair, "no") ||
+             !strcasecmp(repair, "false") || !strcasecmp(repair, "off")));
     }
     strcpy(backend->wifi_security, "AUTO");
     backend->wifi_present = 1;
