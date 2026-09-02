@@ -283,6 +283,17 @@ tracked elsewhere.
 
 ## Release gate
 
+The binding constraint is a machine, not more code. The last physically proven
+build is 0.1.55/0.1.58; the current ROM is 0.1.67, so twelve versions of ROM,
+kernel and transport change have never run on hardware. Several items below
+resolve themselves on a hardware run rather than needing separate work, and
+the corpus baseline needs re-measuring because the FILEV stamp repair moved it.
+
+Items marked "Superseded, not to be done" record a route that was abandoned and
+why. They are kept because the reasoning is worth having and because a design
+here has twice been re-attempted after being settled; they are not work.
+
+
 ### Outcome, 29 August 2026
 
 The trampoline route was built in full and withdrawn. What ships instead is the
@@ -464,19 +475,98 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   under `rom-side/candidates`.
 - [ ] Rerun the joint gate and the sixteen title probe against the measured
   three quarter baseline. Blocked: see the staging item below.
-- [ ] Superseded: prove the JIM selector discipline. `&FCFF` chooses the page at `&FD00`,
+- [x] Superseded, not to be done: prove the JIM selector discipline. `&FCFF` chooses the page at `&FD00`,
   WiCFS moves it while streaming, and it is write only. A vector firing while it
   points at a data page would execute UEF data. Establish that WiCFS can always
   restore it before returning to a caller, and decide what happens when another
   JIM user moves it.
-- [ ] Move the filing trampoline into Pi RAM once the selector discipline holds.
+- [x] Superseded, not to be done: move the filing trampoline into Pi RAM.
+  The JIM guard ships and already puts the vectors outside host memory, which
+  is what this asked for. See `rom-side/elkwifi-0.23/TECHNICAL.md`.
+  Original note: move the filing trampoline into Pi RAM once the selector
+  discipline holds.
   That removes the host footprint both failure groups attack, and should take
   the working set well above the measured three quarters.
-- [ ] Add SSD streaming as the reliable path. Disc software cannot use
-  `&0D9F-&0DEF` because DFS lives there, so an extended-vector filing system in
-  the DFS style needs no trampoline at all. Structural argument only; confirm
-  against real disc images.
-- [ ] Superseded: decide whether to keep pursuing a BYTEV-driven repair. The
+- [x] Confirm the SSD structural argument against real disc images. It does
+  not hold. The claim was that disc software cannot use `&0D9F-&0DEF` because
+  DFS lives there, so a DFS-style extended-vector filing system would need no
+  trampoline at all. Measured against the 117 TOSEC Acorn Electron `.ssd`
+  images, 15 of them (12.8%) load a file whose declared address and length
+  cover the extended vector table, with explicit load addresses of `&0880`,
+  `&0900`, `&0A00`, `&0B00`, `&0C00` and `&0D00` running well past `&0D9F`:
+  Brian Jacks Superstar Challenge, Danger! UXB, Jet Set Willy, Kansas
+  Collection Disk 1, Killer Gorilla, Mineshaft, Mr Wiz, Psycastria, Repton 2,
+  Return of R2, Rubble Trouble, Snooker, Tempest, Twin Kingdom Valley and
+  Wetzone. The same measurement over the cassette corpus gives 133 of 727
+  (18.3%). Disc is better than tape but nowhere near the zero the argument
+  needs. Catalogue entries with `load=&0000` carry no fixed address and were
+  excluded from both counts; counting them would have inflated disc to 16.2%.
+  Both figures are floors, because a title can also write to page `&0D` at run
+  time without loading a file there, exactly as Exile stamps FILEV from code
+  rather than from its BASIC text.
+- [x] Settle the shared vector-survival mechanism. It is already settled and
+  already shipping, as the JIM guard, and the earlier conclusion recorded here
+  that it is the withdrawn Pi-resident trampoline was wrong. That conclusion
+  was drawn from this file and from the gateway location study, both of which
+  predate `f02a0bf`, "Serve the filing-vector guard from JIM so Repton loads",
+  which landed on 30 August, two days after `9ff59d1` removed the trampoline
+  machinery, and superseded it.
+  What ships: `wicfs-guard-in-jim.patch` points all four filing vectors,
+  `OSFILEV`, `BGETV`, `FINDV` and `FSCV`, at `romsel = &FD00+jim_page_usable`,
+  which is `&FD97`. The Pi stamps a 105-byte guard body into every JIM page and
+  scatters the stream so it never covers it, so the selector may hold anything
+  when a vector fires. The ROM verifies a guard signature at two selector
+  values before moving any vector and falls back to the RAM guard when no
+  mirror answers. Nothing of ours sits in host RAM for a loader to overwrite,
+  which is what the trampoline was for.
+  Why the guard works where the trampoline did not: the trampoline bypassed MOS
+  dispatch and supplied its own stack frame, which broke the `*/` handover. The
+  guard instead repairs the MOS extended-vector table entry for the vector
+  being entered, then dispatches through MOS, so the MOS frame is intact and
+  `*RUN` and `*/` behave exactly as before. That is also why the extended-vector
+  table being overwritten by 12.8% of disc and 18.3% of cassette titles, as
+  measured above, is survivable: the guard rewrites the entry on every entry.
+  Confirmed on the running machine rather than from source. The write-watch
+  over `&0212-&0213` shows FILEV set to `&FD97` from PC `&9D44` in bank 3,
+  which is this ROM installing the guard, on every run in this session.
+- [x] Reworking the `*RUN` transfer is not required and was reverted. It was
+  implemented and proved behaviour-preserving, byte-identical FILEV traces,
+  mailbox traces and final screens for Repton Infinity and Exile against the
+  baseline ROM, but its only justification was reviving the trampoline. The
+  guard dispatches through MOS, so `run_code`'s assumption that the MOS frame
+  is intact underneath holds. The change also consumed the last of `chain_exec`,
+  taking it to exactly 29 bytes of 29, and that headroom is worth more than a
+  latent decoupling nothing needs. `wicfs-run-frame-agnostic.patch` and the
+  reasoning are in the history at `e3734bc` if a future design ever bypasses MOS
+  dispatch again.
+- [x] Do not restore the `vector_mirror` machinery removed by `9ff59d1`. It is
+  obsolete rather than dormant: the guard replaced it. The candidate patches
+  under `rom-side/candidates` record the withdrawn design and should be read as
+  history, not as work queued up.
+- [x] Superseded, not to be done: SSD support was dropped, so there is no
+  mounting to design. Original note: design SSD mounting on that mechanism once
+  it ships. A mounted container
+  inherits the vector-survival problem in full and must reuse the trampoline
+  rather than introduce a second scheme.
+- [x] Drop SSD support. The goal was to install disc images into BeebSCSI
+  folders and play them from there, not to reimplement a filing system or to
+  wait minutes before a game starts, and every design that reached those
+  requirements did one or the other. The cassette rendering, the `!BOOT` exec
+  launch, the `*SSD` command, the media service mailbox binding and their tests
+  are removed, and the ROM rebuilds byte for byte to the pinned `720a180d`.
+  What was kept is what serves UEF: `media_catalogue.c`, which decodes CFS and
+  now also hosts `uef_repair_filev_stamp` so the Pi and the emulator share one
+  implementation, and the literal-path staging in `make_uef_lun.py`.
+  `media_service_core.c` stays staged and unlinked, as it was before, because
+  its catalogue and extract session has no caller.
+- [ ] Check whether BeebSCSI already meets the original goal without any ROM
+  work. A disc image placed in a BeebSCSI folder is served by the Pi and read
+  by ADFS or DFS directly, with no WiCFS involvement, which is what was
+  actually wanted. The open question is only whether a DFS `.ssd` floppy image
+  can be presented as a LUN, or whether it has to be converted into the
+  hard-disc `.dat` and `.dsc` pair BeebSCSI expects. Answer that before writing
+  any code, because it may need none.
+- [x] Superseded, not to be done: decide whether to keep pursuing a BYTEV-driven repair. The
   frequency tradeoff rules it out. No such design can
   improve on the frequency tradeoff, because BYTEV cannot know which vector is
   about to be used. The original cartridge shape avoids the problem entirely by
@@ -489,18 +579,18 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
 - [ ] Measure the `hchunk` exposure against the corpus. The Repton dump shows
   `&07A8` filled with game data during a load, so chunk parsing can be
   corrupted mid-stream. Count the titles which write `&07A8-&07AD`.
-- [ ] Superseded: find the twenty second byte. The trap needs twenty two bytes once the
+- [x] Superseded, not to be done: find the twenty second byte. The trap needs twenty two bytes once the
   MOS byte at `&03D1` is consumed as a discarded operand, and `&03CB-&03DF` is
   twenty one. Splitting the entry into `&0398-&039F` works arithmetically but
   that space holds the chunk header state, which is live during streaming and
   has no safe home. This is a decision about which workspace to expose.
-- [ ] Superseded: repack the cassette page to give the trap twenty contiguous bytes.
+- [x] Superseded, not to be done: repack the cassette page to give the trap twenty contiguous bytes.
   It is the only materially safer region at about 3.4% of the corpus, and has
   about nine free bytes scattered. The CFS filename buffer at `&03D2-&03DF` and
   the chunk header state at `&03CB-&03D0` are the relocation candidates, and
   together need slightly more room than the trap frees, so one of them must
   also shrink.
-- [ ] Superseded: choose where the enlarged BYTEV trap lives. It needs about twenty bytes
+- [x] Superseded, not to be done: choose where the enlarged BYTEV trap lives. It needs about twenty bytes
   against the present eight, because the OSBYTE reason code must be preserved
   across the signature comparison. The cassette trap area is the safest at 3.4%
   of the corpus but `chain_exec` starts at `&03A0` and repacking the page costs
@@ -529,8 +619,66 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
 - [ ] Re-run the differential with the relocated gateway. Repton must reach
   sustained gameplay and Last of the Free must still reach its start prompt
   from the same ROM. Both are required; either alone is not a fix.
-- [ ] Trace `WICFS-017`. Repton Infinity stops at `Searching` with 63,886 of
-  65,280 stream bytes unread, identically with and without the gateway.
+- [x] Trace `WICFS-017`. Root cause established, and it is not a WiCFS defect.
+  Repton Infinity's own BASIC loader stamps FILEV directly with
+  `?&212=&D6:?&213=&F1`, behind an OSBYTE `&81` machine check so it fires only
+  on the Electron. That overwrites the WiCFS filing-vector guard at `&FD97`
+  (`romsel`, `&FD00+jim_page_usable`) with the Electron MOS 1.00 cassette
+  entry `&F1D6`, so the `CHAIN""` on the next line reaches real MOS cassette
+  code instead of WiCFS and the stream stops being consumed. This is exactly
+  why the stall is identical with and without the `&0780` gateway: the loader
+  never consults what we installed, it writes the vector blind. Exile states
+  the idiom outright in `REM Elk Exile tape loader v1.0` (Kevin Edwards,
+  1988): `*TAPE`, OSBYTE `163,128,1`, `?&2AC=0`, then `?&212=&D6:?&213=&F1`.
+  Confirmed against the emulator write-watch, which caught `&0212` `97->D6`
+  and `&0213` `FD->F1` at PC `&B4CA`, BASIC's four-byte indirection store.
+- [x] Respond to the direct-FILEV-stamp idiom in the Pi stream. It is not
+  title-specific and not rare: 84 of the 728 corpus UEFs contain a literal
+  `?&212=` stamp, 76 of them writing exactly `&F1D6`, and 64 also issue the
+  accompanying OSBYTE `163,128`. `uef_repair_filev_stamp` redirects the
+  `&212`/`&213` address token to scratch at `&900`/`&901` as the Pi normalises
+  the stream. The substitution is the same length, so block layout and every
+  stored offset are untouched and only the affected block's payload CRC is
+  recomputed. Across the corpus it modifies 85 files with no CRC failure and
+  no length change, and the Pi and emulator implementations produce
+  byte-identical output on all 728. It costs no ROM space and nothing on any
+  host hot path, so it cannot affect the network tools.
+- [x] Prove the repair on the WICFS-017 title. A/B against the three-title
+  reproduction LUN, same emulator binary and media, only
+  `PI1MHZ_UEF_FILEV_REPAIR` differing: with the repair off, WiCFS installs its
+  guard (`&0212` `1B->97` at PC `&9D44`, bank 3) and the loader stamps it back
+  (`97->D6` at PC `&B4CA`, bank 11) and Repton Infinity stops on `Searching`.
+  With the repair on the stamp never happens, the guard survives, and the
+  title reaches its interactive menu, which requires `Screen`, `Menu` and
+  `Game` to have loaded in sequence. The loaders do not self-verify the
+  patched program: no title tested rejected it.
+- [ ] Handle the machine-code stamp, which the stream repair structurally
+  cannot reach. Exile improves but does not complete: the BASIC stamp is gone,
+  it now loads `EXILE1`, `EXILE2` and `EXILE3` and reaches `EXILEL 03 0301`,
+  then `ExileL` re-stamps FILEV from its own 6502 code at PC `&0922` in RAM and
+  the title stops on `Searching`. A text substitution in the stream cannot
+  rewrite a `STA &0212` instruction.
+  The size of this class is not known. Scanning the corpus for plain
+  `STA`/`STX`/`STY` to `&0212`/`&0213` finds only ten titles, and Exile is not
+  among them because its loader decrypts itself at run time, so that ten is a
+  floor and not a measurement. Do not quote it as coverage.
+  This is the case the event-driven reclaim was proposed for. Gated on an open
+  UEF stream, it would restore FILEV whatever wrote it and however, which is
+  precisely what the stream repair cannot do. Judge it against this residual
+  class rather than against the corpus total, most of which is already fixed.
+- [ ] Re-test the Mr Wiz and Frak aftermath items in the Tube-off milestone
+  below against this mechanism before treating them as separate faults. Both
+  titles stamp FILEV, which would explain `*UEF LOAD MRWIZ` hanging before the
+  cassette-loading sequence, and a post-Frak `*MENU` hanging until a cold
+  start because FILEV is left pointing at MOS cassette after the game exits.
+- [ ] Decide whether the sideways bank the ROM occupies needs defending. The
+  same loader line writes `?&2AC=0`, which clears the MOS ROM type byte for
+  bank 12 and stops MOS issuing service calls to whatever sits there. In the
+  emulator profile that is RH Plus, and the default 1MHz-WiFi bank is 3, so
+  nothing is lost today. A machine with 1MHz-WiFi installed in bank 12 would
+  have its service entry silenced by any of these 84 titles. This is an
+  installation constraint to document rather than a defect, but it should be
+  stated somewhere a user choosing a bank will see it.
 
 ### Physical Tube-off milestone, 21 August 2026
 

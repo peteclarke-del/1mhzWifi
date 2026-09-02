@@ -63,6 +63,20 @@ understands, so a file larger than the legacy 64 KiB aperture is delivered in
 successive windows. Text from `MEDIA_CAT` is returned through the ordinary
 paged command response used by `*ONLINE` and `*VERSION`.
 
+## Withdrawn
+
+SSD support is not being built. The goal was to install disc images into
+BeebSCSI folders and play them from there; a host filing-system proxy and a
+minutes-long upload before a game starts both miss that, and every design here
+required one or the other. The commands, the cassette rendering and the mailbox
+binding are removed from the tree.
+
+What remains in use from this area is `media_catalogue.c`, which decodes CFS
+for the UEF path and hosts the FILEV stamp repair. `media_service_core.c` is
+staged but not linked and has no caller.
+
+The sections below are kept as a design record only.
+
 ## `*SSD LOAD` and the Pi-hosted disc
 
 `*SSD LOAD` mounts an image so that later `*CAT`, `LOAD`, `RUN` and `CHAIN`
@@ -81,6 +95,24 @@ Because the vectors must survive whatever the loaded program does to low
 memory, a mounted container inherits the same vector-survival problem that
 `docs/hardware-validation.md` records for WiCFS. The mount path must reuse
 whatever mechanism WiCFS settles on rather than introducing a second one.
+
+This is measured, not assumed. An earlier plan held that disc software could
+not touch the MOS extended vector table at `&0D9F-&0DEF` because DFS lives
+there, and that a DFS-style extended-vector filing system would therefore need
+no trampoline. Across the 117 TOSEC Acorn Electron `.ssd` images, 15 (12.8%)
+load a file whose declared address and length cover that table, at load
+addresses from `&0880` to `&0D00`. The cassette corpus gives 133 of 727
+(18.3%). Disc is better than tape and far from safe, so the mount path gets no
+free pass and must budget the same vector-survival work.
+
+Catalogue entries with `load=&0000` carry no fixed load address and are
+excluded from those counts. Both are floors: a title can also write to page
+`&0D` at run time without loading a file there.
+
+What the disc path does avoid is the direct-FILEV-stamp idiom described in
+`docs/hardware-validation.md`. That is a cassette-loader defence, so it does
+not arise for disc software. That is the reason to prefer the disc route, not
+the refuted extended-vector argument.
 
 The Pi-hosted disc is a DFS-format image held by the Pi and addressed through
 exactly the same `MEDIA_MOUNT` and `MEDIA_FSOP` path as a mounted `.SSD` file.

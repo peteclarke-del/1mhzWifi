@@ -1,6 +1,7 @@
 #ifndef ELKWIFI_SERVICE_H
 #define ELKWIFI_SERVICE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* ElkWiFi-compatible operations on the Pi1MHz &FCA6 services mailbox. */
@@ -35,5 +36,11 @@ void elkwifi_service_command(uint32_t command_pointer, uint32_t address,
 #define ELKWIFI_JOIN_SET         1u
 #define ELKWIFI_JOIN_LEAVE       2u
 #define ELKWIFI_JOIN_RADIO_OFF   3u
+
+/* The container most recently uploaded through the incremental window
+ * protocol, or NULL when no complete upload is held. The media service opens
+ * whatever this returns, so `*SSD CAT` and `*UEF CAT` reuse the same upload
+ * path `*UEF LOAD` already fills rather than adding a second one. */
+const uint8_t *elkwifi_uef_stream_image(size_t *length);
 
 #endif

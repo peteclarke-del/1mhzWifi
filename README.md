@@ -1,7 +1,7 @@
 # 1MHz-WiFi
 
 This project exposes the Raspberry Pi WiFi stack to an Acorn Electron or BBC
-Micro through Pi1MHz. The `1MHz-WiFi 0.1.66` candidate ROM presents the
+Micro through Pi1MHz. The `1MHz-WiFi 0.1.67` candidate ROM presents the
 ElkWiFi 0.23 command and OSWORD interface. The same 16 KiB ROM is built for
 Electron, BBC B, BBC B+ and Master hosts. The Pi implementation runs inside
 the Pi1MHz bare-metal kernel; it is not a Linux daemon.
@@ -21,8 +21,12 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-Version 0.1.66 is the current compatibility candidate. Version 0.1.55 is the last
-physically exercised Tube-off baseline. Earlier 0.1.50 and
+Version 0.1.67 is the current compatibility candidate. It repairs the direct
+FILEV stamp which 84 of the 728 corpus titles use to overwrite whatever filing
+system owns the vector, so a title such as Repton Infinity now reaches its menu
+where it previously stopped on `Searching`. Version 0.1.55 is the last
+physically exercised Tube-off baseline, so everything from 0.1.56 onward is
+verified on the emulator and by test rather than on the machine. Earlier 0.1.50 and
 0.1.51 timing and WiCFS cursor changes caused physical MENU and local UEF
 regressions, so they are not release baselines. Version 0.1.55 retains the
 0.1.54 WiCFS execution path and checkpoints its stream cursor at file and

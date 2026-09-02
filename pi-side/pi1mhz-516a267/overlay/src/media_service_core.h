@@ -14,8 +14,10 @@
  * time. Every parsing decision is made by media_catalogue.c and every session
  * decision is made here, so neither costs host ROM space.
  *
- * This core performs no Pi1MHz register access. media_service.c binds it to
- * the services mailbox, and the unit tests drive it directly. */
+ * This core performs no Pi1MHz register access and currently has no caller:
+ * the catalogue and extract commands it implements were not built, and the
+ * mailbox binding was removed with them. It is staged but not linked, and the
+ * unit tests drive it directly. */
 
 enum {
     MEDIA_CMD_OPEN  = 120,   /* identify the uploaded image, return kind/count */

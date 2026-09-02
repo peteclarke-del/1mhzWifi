@@ -275,6 +275,24 @@ rejected before WiCFS is installed. This normalization applies both to `*UEF LOA
 The corresponding WGET forms report `WGET RAW OK`, `WGET GZIP OK`, or
 `WGET ZIP OK`.
 
+The Pi also repairs one loader idiom as the stream passes. A large minority of
+published Electron titles defend their tape loader by writing the FILEV vector
+themselves, `?&212=&D6:?&213=&F1`, which overwrites whatever filing system owns
+the vector with the Electron MOS 1.00 cassette entry. Under WiCFS that sends
+the loader's next `CHAIN""` to real cassette code and the title stops, usually
+on `Searching`. 84 of the 728 sample UEFs contain such a stamp.
+
+The repair redirects the `&212` and `&213` address token to scratch at `&900`
+and `&901`, inside the `&0900-&10FF` range cassette loaders already overwrite.
+The substitution is the same length, so block layout and every stored offset
+are untouched and only the affected block's data CRC is recomputed. No loader
+tested has objected to the change.
+
+It cannot reach a title which stamps the vector from machine code rather than
+from its BASIC text, and Exile is one: it improves but does not complete. Set
+`elkwifi_uef_filev_repair=0` in `Pi1MHz.cfg` to disable the repair, which is
+useful for confirming that a suspect title is failing for this reason.
+
 WiCFS accepts valid zero-byte CFS files. These are used as markers by some
 multi-file applications. The ROM checks the cassette block's declared length
 before fetching data, so a final zero-byte file such as Desk Diary's
