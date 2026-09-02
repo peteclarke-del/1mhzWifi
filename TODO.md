@@ -283,6 +283,17 @@ tracked elsewhere.
 
 ## Release gate
 
+The binding constraint is a machine, not more code. The last physically proven
+build is 0.1.55/0.1.58; the current ROM is 0.1.67, so twelve versions of ROM,
+kernel and transport change have never run on hardware. Several items below
+resolve themselves on a hardware run rather than needing separate work, and
+the corpus baseline needs re-measuring because the FILEV stamp repair moved it.
+
+Items marked "Superseded, not to be done" record a route that was abandoned and
+why. They are kept because the reasoning is worth having and because a design
+here has twice been re-attempted after being settled; they are not work.
+
+
 ### Outcome, 29 August 2026
 
 The trampoline route was built in full and withdrawn. What ships instead is the
@@ -464,12 +475,16 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   under `rom-side/candidates`.
 - [ ] Rerun the joint gate and the sixteen title probe against the measured
   three quarter baseline. Blocked: see the staging item below.
-- [ ] Superseded: prove the JIM selector discipline. `&FCFF` chooses the page at `&FD00`,
+- [x] Superseded, not to be done: prove the JIM selector discipline. `&FCFF` chooses the page at `&FD00`,
   WiCFS moves it while streaming, and it is write only. A vector firing while it
   points at a data page would execute UEF data. Establish that WiCFS can always
   restore it before returning to a caller, and decide what happens when another
   JIM user moves it.
-- [ ] Move the filing trampoline into Pi RAM once the selector discipline holds.
+- [x] Superseded, not to be done: move the filing trampoline into Pi RAM.
+  The JIM guard ships and already puts the vectors outside host memory, which
+  is what this asked for. See `rom-side/elkwifi-0.23/TECHNICAL.md`.
+  Original note: move the filing trampoline into Pi RAM once the selector
+  discipline holds.
   That removes the host footprint both failure groups attack, and should take
   the working set well above the measured three quarters.
 - [x] Confirm the SSD structural argument against real disc images. It does
@@ -524,11 +539,13 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   latent decoupling nothing needs. `wicfs-run-frame-agnostic.patch` and the
   reasoning are in the history at `e3734bc` if a future design ever bypasses MOS
   dispatch again.
-- [ ] Do not restore the `vector_mirror` machinery removed by `9ff59d1`. It is
+- [x] Do not restore the `vector_mirror` machinery removed by `9ff59d1`. It is
   obsolete rather than dormant: the guard replaced it. The candidate patches
   under `rom-side/candidates` record the withdrawn design and should be read as
   history, not as work queued up.
-- [ ] Design SSD mounting on that mechanism once it ships. A mounted container
+- [x] Superseded, not to be done: SSD support was dropped, so there is no
+  mounting to design. Original note: design SSD mounting on that mechanism once
+  it ships. A mounted container
   inherits the vector-survival problem in full and must reuse the trampoline
   rather than introduce a second scheme.
 - [x] Drop SSD support. The goal was to install disc images into BeebSCSI
@@ -549,7 +566,7 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   can be presented as a LUN, or whether it has to be converted into the
   hard-disc `.dat` and `.dsc` pair BeebSCSI expects. Answer that before writing
   any code, because it may need none.
-- [ ] Superseded: decide whether to keep pursuing a BYTEV-driven repair. The
+- [x] Superseded, not to be done: decide whether to keep pursuing a BYTEV-driven repair. The
   frequency tradeoff rules it out. No such design can
   improve on the frequency tradeoff, because BYTEV cannot know which vector is
   about to be used. The original cartridge shape avoids the problem entirely by
@@ -562,18 +579,18 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
 - [ ] Measure the `hchunk` exposure against the corpus. The Repton dump shows
   `&07A8` filled with game data during a load, so chunk parsing can be
   corrupted mid-stream. Count the titles which write `&07A8-&07AD`.
-- [ ] Superseded: find the twenty second byte. The trap needs twenty two bytes once the
+- [x] Superseded, not to be done: find the twenty second byte. The trap needs twenty two bytes once the
   MOS byte at `&03D1` is consumed as a discarded operand, and `&03CB-&03DF` is
   twenty one. Splitting the entry into `&0398-&039F` works arithmetically but
   that space holds the chunk header state, which is live during streaming and
   has no safe home. This is a decision about which workspace to expose.
-- [ ] Superseded: repack the cassette page to give the trap twenty contiguous bytes.
+- [x] Superseded, not to be done: repack the cassette page to give the trap twenty contiguous bytes.
   It is the only materially safer region at about 3.4% of the corpus, and has
   about nine free bytes scattered. The CFS filename buffer at `&03D2-&03DF` and
   the chunk header state at `&03CB-&03D0` are the relocation candidates, and
   together need slightly more room than the trap frees, so one of them must
   also shrink.
-- [ ] Superseded: choose where the enlarged BYTEV trap lives. It needs about twenty bytes
+- [x] Superseded, not to be done: choose where the enlarged BYTEV trap lives. It needs about twenty bytes
   against the present eight, because the OSBYTE reason code must be preserved
   across the signature comparison. The cassette trap area is the safest at 3.4%
   of the corpus but `chain_exec` starts at `&03A0` and repacking the page costs
