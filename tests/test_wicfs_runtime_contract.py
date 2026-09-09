@@ -119,6 +119,62 @@ class WicfsRuntimeContractTest(unittest.TestCase):
         self.assertIn("+\tJSR\twicfs_detect_machine", fill)
         self.assertIn("once per 256-byte refill", fill)
 
+    def test_catalogue_line_layout_is_unchanged(self) -> None:
+        """Execute prblock and pin the catalogue line it prints.
+
+        The routine was rewritten out of the inherited file, and *CAT output
+        must be identical byte for byte. Run it rather than read it: the
+        padding is the part a rewrite gets wrong, and a short name and a full
+        ten character one exercise both sides of the column test.
+        """
+        # LDA #cr / JSR OSWRCH / LDX #0 / LDA &3B2,X opens the printing path.
+        opening = bytes((0xA9, 0x0D, 0x20, 0xEE, 0xFF, 0xA2, 0x00, 0xBD, 0xB2, 0x03))
+        start = self.rom.find(opening)
+        self.assertNotEqual(start, -1, "prblock printing path not found")
+        # Walk back over BEQ, AND and LDA &E3 to the routine's first byte.
+        entry = self.rom.rfind(bytes((0xA5, 0xE3)), max(0, start - 12), start)
+        self.assertNotEqual(entry, -1, "prblock entry not found")
+        mask_operand = entry + 2
+        self.assertIn(self.rom[mask_operand], (0x25, 0x2D), "expected an AND after LDA &E3")
+        if self.rom[mask_operand] == 0x25:
+            optmask = self.rom[mask_operand + 1]
+        else:
+            optmask = self.rom[mask_operand + 1] | (self.rom[mask_operand + 2] << 8)
+
+        def run(name: bytes, block: int) -> bytes:
+            mpu = MPU()
+            mpu.memory[ROM_START:ROM_START + len(self.rom)] = self.rom
+            mpu.memory[0x03B2:0x03B2 + len(name) + 1] = name + b"\0"
+            mpu.memory[0x03C6] = block
+            mpu.memory[0x00E3] = 0xC0          # both message bits set
+            mpu.memory[optmask] = 0xC0
+            mpu.pc = ROM_START + entry
+            mpu.sp = 0xFF
+            printed = bytearray()
+            for _ in range(4000):
+                if mpu.pc in (0xFFEE, 0xFFE3):
+                    printed.append(mpu.a)
+                    low = mpu.memory[0x0100 + ((mpu.sp + 1) & 0xFF)]
+                    high = mpu.memory[0x0100 + ((mpu.sp + 2) & 0xFF)]
+                    mpu.sp = (mpu.sp + 2) & 0xFF
+                    mpu.pc = ((high << 8) | low) + 1
+                    continue
+                if mpu.pc == 0x0000:
+                    break
+                before = mpu.sp
+                mpu.step()
+                if mpu.memory[mpu.pc] == 0x60 and before == 0xFF:
+                    break
+                if mpu.sp == 0xFF and mpu.memory[mpu.pc - 1] == 0x60:
+                    break
+            return bytes(printed)
+
+        # Four character name: padded out to the ten column field, then a
+        # separating space and the block number in hex.
+        self.assertEqual(run(b"TEST", 0x07), b"\rTEST" + b" " * 6 + b" 07")
+        # Exactly ten characters: no padding, just the separator.
+        self.assertEqual(run(b"ABCDEFGHIJ", 0x1F), b"\rABCDEFGHIJ 1F")
+
     def test_message_terminator_survives_osasci_register_clobber(self) -> None:
         # The message table and its print loop are our own source now, so the
         # maintainable form is checked there rather than in a patch.

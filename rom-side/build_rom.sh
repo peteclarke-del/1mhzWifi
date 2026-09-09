@@ -46,10 +46,15 @@ install -m 0644 "$overlay_dir/time.asm" "$upstream/rom/time.asm"
 install -m 0644 "$overlay_dir/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$overlay_dir/uef.asm" "$upstream/rom/uef.asm"
 install -m 0644 "$overlay_dir/wicfs_messages.asm" "$upstream/rom/wicfs_messages.asm"
-for patch_name in wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch wicfs-stream-finish.patch wicfs-pre-tape-predecessor.patch wicfs-bget-exhaustion.patch wicfs-run-return.patch wicfs-run-owner.patch wicfs-dual-predecessor.patch wicfs-native-predecessor.patch wicfs-opt-forward.patch wicfs-chain-target.patch wicfs-vector-flags.patch wicfs-page-select-fast.patch wicfs-incremental-stream.patch wicfs-low-loader-guard.patch wicfs-bget-refill-detection.patch wicfs-reply-buffer-page.patch wicfs-relocatable-guard.patch wicfs-guard-in-jim.patch wicfs-messages-out.patch; do
+install -m 0644 "$overlay_dir/wicfs_catalogue.asm" "$upstream/rom/wicfs_catalogue.asm"
+for patch_name in wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch wicfs-stream-finish.patch wicfs-pre-tape-predecessor.patch wicfs-bget-exhaustion.patch wicfs-run-return.patch wicfs-run-owner.patch wicfs-dual-predecessor.patch wicfs-native-predecessor.patch wicfs-opt-forward.patch wicfs-chain-target.patch wicfs-vector-flags.patch wicfs-page-select-fast.patch wicfs-incremental-stream.patch wicfs-low-loader-guard.patch wicfs-bget-refill-detection.patch wicfs-reply-buffer-page.patch wicfs-relocatable-guard.patch wicfs-guard-in-jim.patch wicfs-messages-out.patch wicfs-catalogue-out.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
+        wicfs-catalogue-out.patch)
+            ! grep -q '^\.prblock' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
         wicfs-messages-out.patch)
             ! grep -q '^\.txt0' "$upstream/rom/wicfs.asm" &&
             patch_present=true
