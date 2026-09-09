@@ -15,8 +15,16 @@ test -f "$target/src/Makefile.am"
 
 cp "$component_dir/include/pi1mhz_mailbox.h" "$target/src/"
 cp "$component_dir/include/pi1mhz_net_backend.h" "$target/src/"
+cp "$component_dir/include/pi1mhz_ftp.h" "$target/src/"
 cp "$component_dir/src/pi1mhz_mailbox.c" "$target/src/"
 cp "$component_dir/src/pi1mhz_net_backend.c" "$target/src/"
+cp "$component_dir/src/pi1mhz_ftp.c" "$target/src/"
+# The container decoder is the Pi overlay's, not a copy, so the FILEV stamp
+# repair is one implementation rather than two that could drift apart. The
+# Elkulator integration takes it from the same place.
+overlay_dir=$(CDPATH= cd -- "$component_dir/../../pi-side/pi1mhz-516a267/overlay/src" && pwd)
+cp "$overlay_dir/media_catalogue.h" "$target/src/"
+cp "$overlay_dir/media_catalogue.c" "$target/src/"
 cp "$component_dir/include/pi1mhz_wolfssh.h" "$target/src/"
 cp "$component_dir/src/pi1mhz_wolfssh.c" "$target/src/"
 cp "$integration_dir/pi1mhz_bem.h" "$target/src/"
@@ -52,7 +60,7 @@ fi
 # emulator's source list. This composes with other independently installed
 # devices and stays valid even if the upstream b_em_SOURCES list changes.
 if ! grep -q 'pi1mhz_bem.c' "$target/src/Makefile.am"; then
-    printf '\nb_em_SOURCES += pi1mhz_bem.c pi1mhz_mailbox.c pi1mhz_net_backend.c\n' \
+    printf '\nb_em_SOURCES += pi1mhz_bem.c pi1mhz_mailbox.c pi1mhz_net_backend.c pi1mhz_ftp.c media_catalogue.c\n' \
         >> "$target/src/Makefile.am"
 fi
 
