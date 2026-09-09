@@ -152,7 +152,7 @@ Tube itself:
 | WiFi | `*WIFI ON`, `*WIFI OFF`, `*LAP`, `*JOIN`, `*JOIN ?`, `*LEAVE`, `*ONLINE`, `*IFCFG`, `*LAPOPT` |
 | Network | `*PING`, `*NSLOOK`, HTTP `*WGET`, OSWORD `&65` TCP/UDP open, send, receive and close |
 | Time | NTP-backed `*DATE` and `*TIME` |
-| Storage | `*WGET <url> <filename>` through the active filing system; `*WGET -U`, `*UEF LOAD`, `*WICFS`, `*REWIND`, `*PRD`, and `*WGET -S` through explicit Pi1MHz JIM windows |
+| Storage | `*WGET <url> <filename>` through the active filing system; the RAM disk commands `*RDINIT`, `*RDCAT`, `*RDSAVE`, `*RDLOAD` and `*RDRUN`; `*PRD` and `*WGET -S` through explicit Pi1MHz JIM windows. `*WGET -U`, `*UEF LOAD`, `*WICFS` and `*REWIND` need the filing system ROM as well |
 | Diagnostics | `*HELP WIFI`, `*VERSION`, station `*MODE`, bounded missing-service errors |
 
 Platform-sensitive ROM paging uses the documented
@@ -170,10 +170,37 @@ The ElkWiFi-compatible ROM does not add HTTPS or TLS to `*WGET`; unsupported
 secure URLs fail closed and are never downgraded to plaintext. The separate
 native `host-tools/SSH` client uses the managed Pi secure service and wolfSSH.
 
-The maintained upstream changes are grouped by target. ElkWiFi changes live
-under `rom-side/elkwifi-0.23/`, and Pi1MHz changes live under
+The host ROM is two sideways images.
+
+`1mhz-wifi.rom` carries WiFi association, the network commands, the OSWORD
+`&65` interface and the RAM disk, and is entirely this project's own code. It
+builds with no ElkWiFi checkout present.
+
+The RAM disk is how a program reaches the machine without a filing system
+fitted. It holds 65,024 bytes in up to 15 files, being 254 pages of the low
+64 KiB JIM window; page 0 is the OSWORD `&65` service reply buffer and page 1
+is the catalogue. Files start on a page boundary, so a short file still costs
+a whole page, and space is reclaimed only by `*RDINIT`, which clears the
+catalogue. It stays in JIM bank 0 because that is the only bank an unmodified
+Electron AP5 forwards, so it behaves the same on all four target machines.
+
+`1mhz-wicfs.rom` carries the UEF cassette filing system, and with it the only
+file that derives from anyone else's work, so the network image can be
+licensed and shipped on its own. The two do not call each other. They share
+only the JIM window and four documented bytes, so either works with the other
+absent, and Pi1MHz serves sideways ROMs from its own directory, so the second
+image costs no socket on any target machine.
+
+The maintained upstream changes are grouped by target, and the ROM is further
+split by provenance. The ROM sources written for this project are in
+`rom-side/1mhz-wifi/src/`; what still derives from ElkWiFi 0.23, and through it
+from Martin Barr's UPCFS, is confined to `rom-side/inherited/`, where it now
+applies to the single file `wicfs.asm`. Pi1MHz changes live under
 `pi-side/pi1mhz-516a267/`. Each package separates ordered patches from complete
-source overlays and records its required upstream commit.
+source overlays and records its required upstream commit. Read
+[the inherited ROM notes](rom-side/inherited/README.md) before reusing any of
+it: two upstream authors have a claim on `wicfs.asm` and neither has stated
+terms.
 
 The former 1mhzNetTools project is incorporated under `host-tools/`,
 `emulator/pi1mhz-mailbox/` and the central Pi overlay. Its disposition and
@@ -192,7 +219,9 @@ The removal and the retained generic facilities are recorded in
 The ready-to-copy SD-card image tree is `build/pi1mhz-all/`. The equivalent ZIP
 archive is [build/pi1mhz-all-hardware-test.zip](build/pi1mhz-all-hardware-test.zip).
 Copy the contents of `pi1mhz-all/` to a FAT-formatted Pi boot partition, then
-fit or load `Pi1MHz/1mhz-wifi.rom` as an Acorn sideways ROM.
+fit or load `Pi1MHz/1mhz-wifi.rom` as an Acorn sideways ROM. Add
+`Pi1MHz/1mhz-wicfs.rom` in a second slot if you want UEF cassette loading;
+the network ROM does not need it.
 The same tree includes `host-tools/nettools.ssd`. Install or select that SSD
 through DFS/MMFS when testing `*SSH` or `*TELNET`; replacing the Pi files alone
 does not replace host programs already held on another disc image.

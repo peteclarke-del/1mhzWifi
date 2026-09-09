@@ -197,12 +197,76 @@ successful EOF.
 
 For a response with `Content-Length`, an early TCP close is a network error,
 not successful EOF. This prevents a partial UEF download from being reported
-as `WGET OK` and failing later inside WiCFS with `Unexpected EOF`.
+as `WGET OK` and failing later inside WiCFS with `Stream ended`.
 
 See [MENU retirement](menu-retirement.md) for the removed command surface and
 the generic facilities which remain.
 
+## RAM disk
+
+The RAM disk is a small store in the Pi1MHz JIM window, and is how a program
+reaches the machine without a filing system. It is in the 1MHz-WiFi ROM and
+needs nothing else fitted.
+
+| command | |
+| ------------------------------------- | ------------------------------- |
+| `*RDINIT`                             | write an empty catalogue |
+| `*RDCAT`                              | list what is stored |
+| `*RDSAVE <name> <start> <end> [exec]` | store a block of memory |
+| `*RDLOAD <name> [address]`            | load it back |
+| `*RDRUN <name>`                       | load and enter it |
+
+The store holds 65,024 bytes in up to 15 files. The window is 256 pages of 256
+bytes; page 0 is the service reply buffer that OSWORD `&65` clients read and is
+left alone, page 1 is the catalogue, and pages 2 to 255 hold file data. Fifteen
+entries is what one catalogue page holds: a 16 byte header and 15 entries of 16
+bytes.
+
+Names are up to seven characters and are folded to upper case. A file starts on
+a page boundary, so a short file still occupies a whole page. That is what
+makes a file's position a single byte and the copy loop a page counter.
+
+Space is reclaimed only by `*RDINIT`. Entries are never removed individually,
+so a full store is cleared and refilled rather than tidied.
+
+The store lives in JIM bank 0, which is the only bank an unmodified Electron
+AP5 forwards, so the RAM disk behaves identically on the Electron and on the
+BBC family. Page 0 is left alone because OSWORD `&65` clients read the service
+reply buffer there. `*RDINIT` discards everything: entries are never removed
+individually, so clearing the catalogue is how space is reclaimed.
+
 ## WiCFS and paged RAM
+
+### Filing system messages
+
+WiCFS reports status and errors through a fixed table of fifteen character
+messages. ROM 0.1.68 rewrote the wording: the previous text was inherited from
+ElkWiFi and, through it, from Martin Barr's UPCFS, and was replaced along with
+the rest of that material. The meanings are unchanged, so validation records
+and emulator captures made before 0.1.68 use the older wording.
+
+| before 0.1.68     | 0.1.68 onwards    |
+| ----------------- | ----------------- |
+| `WiFi UEF FS`     | `1MHz-WiFi CFS`   |
+| `Ver 1.0E 251112` | `Ver 0.1.67`      |
+| `File is gzip!`   | `Compressed file` |
+| `File not found!` | `File not found`  |
+| `No file open!`   | `No file open`    |
+| `UEF Header?`     | `Bad UEF header`  |
+| `Block sequence?` | `Block sequence`  |
+| `Chunk type?`     | `Unknown chunk`   |
+| `Unexpected EOF!` | `Stream ended`    |
+| `End of UEF`      | `End of tape`     |
+| `Cannot write!`   | `Cannot write`    |
+
+`Searching` and `Loading` are unchanged.
+
+0.1.68 also adds a fourteenth entry, `File already op`, reported when OSFILE is
+asked to open a file that is already open. The code had always asked for that
+message number while the table stopped one short, so the path printed bytes
+from the routine that follows the table until it met a carriage return.
+ElkWiFi 0.23 has the same defect.
+
 
 A typical WiCFS sequence is:
 
@@ -297,7 +361,7 @@ WiCFS accepts valid zero-byte CFS files. These are used as markers by some
 multi-file applications. The ROM checks the cassette block's declared length
 before fetching data, so a final zero-byte file such as Desk Diary's
 `V1` marker completes normally instead of consuming the following UEF chunk
-header and eventually reporting `Unexpected EOF`.
+header and eventually reporting `Stream ended`.
 
 Matched ROM and kernel builds negotiate stream ABI 1. The ROM uploads
 `&FF00`-byte source windows, the Pi retains and normalizes up to 16 MiB, and

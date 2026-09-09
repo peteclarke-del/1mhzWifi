@@ -6,8 +6,10 @@ Both upstream projects must be checked out separately at the pinned commits.
 
 Each upstream target has a self-contained package:
 
-- `rom-side/elkwifi-0.23/patches/` contains the ElkWiFi source patches.
-- `rom-side/elkwifi-0.23/overlay/` contains complete ROM assembly sources.
+- `rom-side/1mhz-wifi/src/` contains the ROM sources written for this project,
+  with `1mhzwifi.asm` as the assembly root.
+- `rom-side/inherited/patches/` contains what still derives from ElkWiFi, all of
+  it now applying to `wicfs.asm` alone.
 - `pi-side/pi1mhz-516a267/patches/` contains the Pi1MHz source patches.
 - `pi-side/pi1mhz-516a267/overlay/` contains complete Pi service sources.
 
@@ -80,7 +82,10 @@ Run this from the 1MHz-WiFi repository root:
 The command verifies that the checkout contains the reviewed ElkWiFi commit,
 applies the ROM patch series in a fixed order, installs the maintained assembly
 overlays, and writes the canonical
-`build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom`. A repeat invocation must report every
+`build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom` and
+`build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom`. The script builds both images: the
+network ROM, which is entirely this project's own code, and the filing system
+ROM, which carries the inherited `wicfs.asm`. A repeat invocation must report every
 patch as already applied and produce the same 16 KiB ROM. The legacy
 `build/elkwifi_pi1mhz.rom` name is a relative symbolic link to this file, not a
 second ROM image.

@@ -8,6 +8,13 @@ WiFi passwords.
 An item checked against an earlier binary must be repeated after a ROM, kernel,
 or protocol change that can affect it.
 
+Observations recorded below quote what was on screen at the time. WiCFS message
+wording changed in ROM 0.1.68, when the inherited message table was replaced,
+so records made before then quote the earlier text: `Unexpected EOF!` for
+`Stream ended`, `End of UEF` for `End of tape`, and so on. The mapping is in
+[the command reference](commands.md). The observations themselves stand; only
+the wording of the messages moved.
+
 ## Current artifact identity
 
 ```text
@@ -24,7 +31,9 @@ The Pi1MHz commit was the official `master` tip verified on 23 August 2026. Run
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
 files. Replace `kernel.img` or `kernel7.img` for the fitted Pi, the host
-`1mhz-wifi.rom`, and the separately mounted `nettools.ssd`. The universal ZIP is
+`1mhz-wifi.rom`, `1mhz-wicfs.rom`, and the separately mounted `nettools.ssd`.
+The network ROM is sufficient on its own; the filing system ROM is only needed
+for UEF cassette loading. The universal ZIP is
 for a clean card and may contain a fresh configuration template.
 
 Also preserve `/BeebSCSI0` and its `scsi*.dat` images. The bundle supplies the

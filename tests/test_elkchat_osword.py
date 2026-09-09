@@ -480,7 +480,7 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         # Machine type controls whether the BBC-family high JIM selectors are
         # written. The result must be refreshed for each call because the
         # driver state is explicitly transient and cannot be a boot-time cache.
-        source = (ROOT / "rom-side" / "elkwifi-0.23" / "overlay" /
+        source = (ROOT / "rom-side" / "1mhz-wifi" / "src" /
                   "driver.asm").read_text()
         entry = source.split(".wifidriver", 1)[1].split(
             ".service_driver_not_0", 1
@@ -537,7 +537,7 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         # numbers to five bits. Private star commands must bypass this table.
         self.machine.call(29, 37, 0, expected_error=b"Not implemented")
 
-        driver = (ROOT / "rom-side" / "elkwifi-0.23" / "overlay" /
+        driver = (ROOT / "rom-side" / "1mhz-wifi" / "src" /
                   "driver.asm").read_text()
         table = driver.split(".public_driver_dispatch", 1)[1].split(
             "\\ Initialize the data buffer", 1

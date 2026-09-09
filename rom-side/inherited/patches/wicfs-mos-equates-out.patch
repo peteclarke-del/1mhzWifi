@@ -1,0 +1,39 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -15,18 +15,6 @@
+ 
+ \System constants and program constants & variables
+ 
+-OSWORD	=	&FFF1		\OSWORD
+-OSASCI	=	$FFE3		\print A to screen
+-OSFSC	=	$FFE9		\filing-system control entry
+-OSBYTE	=	$FFF4		\OSBYTE
+-OSRDCH	=	$FFE0		\read character from input stream
+-OSWRCH	=	$FFEE		\write character to output stream
+-
+-OSFILEV	=	&0212		\OS FILEV vector
+-OSFSCV	=	&021E		\OS FSCV vector
+-BYTEV	=	&020A		\OSBYTE vector
+-OSFINDV	=	&021C		\OSFIND vector (Open sequential)
+-OSBGETV	=	&0216		\OSBGET vector (sequential read)
+ 
+ \The MOS keyboard input buffer occupies &03E0-&03FF. Never place WiCFS state
+ \there: MENU and *UEF depend on the queued *REWIND and CHAIN commands remaining
+@@ -82,8 +70,6 @@
+ 
+ bufsize	=	28		\data burst (buffer) size
+ sbuft	=	&F5		\official WiCFS start-of-UEF flag
+-sbufl	=	&F8		\official WiCFS bytes-left count (lo)
+-sbufh	=	&F9		\official WiCFS bytes-left count (hi)
+ temp	=	&C4		\zp temporary
+ fscv_x         = &C9    \must be zero page for (fscv_x),Y
+ fscv_y         = &CA
+@@ -112,8 +98,6 @@
+ optmask	=	&B7		\mask for *OPT setting (two values)
+ 
+ \Retain the original WiCFS cassette-workspace ABI for the active stream.
+-pr_y    =   &C7     \persistent UEF offset
+-pr_r    =   &C8     \persistent UEF page-register shadow
+ filev_x =   &0396 \OSFILE/OSFIND require X and Y to be preserved
+ filev_y =   &0397
+ bget_y  =   &03B1 \OSBGET returns data in A and preserves X and Y
