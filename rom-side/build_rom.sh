@@ -30,8 +30,12 @@ fi
 # ones, so they are installed rather than patched. 1mhzwifi.asm is the assembly
 # root and pulls in the rest.
 install -m 0644 "$overlay_dir/1mhzwifi.asm" "$upstream/rom/1mhzwifi.asm"
+install -m 0644 "$overlay_dir/1mhzwicfs.asm" "$upstream/rom/1mhzwicfs.asm"
 install -m 0644 "$overlay_dir/machine.asm" "$upstream/rom/machine.asm"
 install -m 0644 "$overlay_dir/util.asm" "$upstream/rom/util.asm"
+install -m 0644 "$overlay_dir/net_transport.asm" "$upstream/rom/net_transport.asm"
+install -m 0644 "$overlay_dir/wicfs_errors.asm" "$upstream/rom/wicfs_errors.asm"
+install -m 0644 "$overlay_dir/ramdisk.asm" "$upstream/rom/ramdisk.asm"
 install -m 0644 "$overlay_dir/join.asm" "$upstream/rom/join.asm"
 install -m 0644 "$overlay_dir/lap.asm" "$upstream/rom/lap.asm"
 install -m 0644 "$overlay_dir/ifcfg.asm" "$upstream/rom/ifcfg.asm"
@@ -47,12 +51,16 @@ install -m 0644 "$overlay_dir/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$overlay_dir/uef.asm" "$upstream/rom/uef.asm"
 install -m 0644 "$overlay_dir/wicfs_messages.asm" "$upstream/rom/wicfs_messages.asm"
 install -m 0644 "$overlay_dir/wicfs_catalogue.asm" "$upstream/rom/wicfs_catalogue.asm"
-for patch_name in wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch wicfs-stream-finish.patch wicfs-pre-tape-predecessor.patch wicfs-bget-exhaustion.patch wicfs-run-return.patch wicfs-run-owner.patch wicfs-dual-predecessor.patch wicfs-native-predecessor.patch wicfs-opt-forward.patch wicfs-chain-target.patch wicfs-vector-flags.patch wicfs-page-select-fast.patch wicfs-incremental-stream.patch wicfs-low-loader-guard.patch wicfs-bget-refill-detection.patch wicfs-reply-buffer-page.patch wicfs-relocatable-guard.patch wicfs-guard-in-jim.patch wicfs-messages-out.patch wicfs-catalogue-out.patch; do
+for patch_name in wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch wicfs-stream-finish.patch wicfs-pre-tape-predecessor.patch wicfs-bget-exhaustion.patch wicfs-run-return.patch wicfs-run-owner.patch wicfs-dual-predecessor.patch wicfs-native-predecessor.patch wicfs-opt-forward.patch wicfs-chain-target.patch wicfs-vector-flags.patch wicfs-page-select-fast.patch wicfs-incremental-stream.patch wicfs-low-loader-guard.patch wicfs-bget-refill-detection.patch wicfs-reply-buffer-page.patch wicfs-relocatable-guard.patch wicfs-guard-in-jim.patch wicfs-messages-out.patch wicfs-catalogue-out.patch wicfs-mos-equates-out.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
         wicfs-catalogue-out.patch)
             ! grep -q '^\.prblock' "$upstream/rom/wicfs.asm" &&
+            patch_present=true
+            ;;
+        wicfs-mos-equates-out.patch)
+            ! grep -q '^OSWORD' "$upstream/rom/wicfs.asm" &&
             patch_present=true
             ;;
         wicfs-messages-out.patch)
@@ -340,11 +348,11 @@ install -m 0644 "$overlay_dir/wget_helpers.asm" "$upstream/rom/wget.asm"
 # The checker resolves source equates, so aliases into &03E0-&03FF cannot hide
 # a mutation of the MOS keyboard input buffer used by UEF command queues.
 python3 "$script_dir/check_wicfs_keyboard_buffer.py" "$upstream/rom/wicfs.asm"
-if grep -q 'jsr wicfs_reset' "$upstream/rom/1mhzwifi.asm"; then
+if grep -q 'jsr wicfs_reset' "$upstream/rom/1mhzwicfs.asm"; then
     echo "reset service still calls wicfs_reset" >&2
     exit 1
 fi
-autorun_source=$(sed -n '/^\.autorun/,/^\.autorun_l1/p' "$upstream/rom/1mhzwifi.asm")
+autorun_source=$(sed -n '/^\.autorun/,/^\.autorun_released/p' "$upstream/rom/1mhzwicfs.asm")
 if grep -Eq '\b(pagereg|uptype)\b' <<<"$autorun_source"; then
     echo "reset service still touches AP5 JIM or obsolete printer workspace" >&2
     exit 1
@@ -356,11 +364,21 @@ if [[ "$beebasm_command" = /snap/bin/beebasm && -x /snap/beebasm/current/usr/bin
     # restricted builders while using the identical assembler payload.
     beebasm_command=/snap/beebasm/current/usr/bin/beebasm
 fi
+# Two images are built. 1mhz-wifi.rom is entirely this project's work.
+# 1mhz-wicfs.rom carries the filing system, and with it the only inherited
+# file, so that the network ROM can be licensed and shipped on its own.
 labels_file="$upstream/rom/1mhzwifi-labels.json"
 (cd "$upstream/rom" && "$beebasm_command" -i 1mhzwifi.asm -dd -labels "$labels_file")
-python3 "$script_dir/check_combined_ram_layout.py" "$upstream/rom" "$labels_file"
+wicfs_labels_file="$upstream/rom/1mhzwicfs-labels.json"
+(cd "$upstream/rom" && "$beebasm_command" -i 1mhzwicfs.asm -dd -labels "$wicfs_labels_file")
+# The RAM layout audit belongs to the image that installs filing system
+# vectors and persists state, which is now the WiCFS ROM.
+python3 "$script_dir/check_combined_ram_layout.py" "$upstream/rom" \
+    "$wicfs_labels_file" "$labels_file"
 mkdir -p "$root_dir/build"
 rom_output=${ELKWIFI_ROM_OUTPUT:-"$root_dir/build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom"}
 mkdir -p "$(dirname -- "$rom_output")"
 install -m 0644 "$upstream/rom/1mhz-wifi.rom" "$rom_output"
-sha256sum "$rom_output"
+wicfs_output=${ELKWIFI_WICFS_ROM_OUTPUT:-"$(dirname -- "$rom_output")/1mhz-wicfs.rom"}
+install -m 0644 "$upstream/rom/1mhz-wicfs.rom" "$wicfs_output"
+sha256sum "$rom_output" "$wicfs_output"

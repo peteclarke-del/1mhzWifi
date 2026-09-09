@@ -131,7 +131,7 @@ driver_entry_y = drv_svc_workspace+23
  txa
  jsr select_public_page_a
  stx pageram
- jsr wicfs_bus_delay
+ jsr bus_delay
  plp
 ; txa
 ;.irb_l1
@@ -170,7 +170,7 @@ driver_entry_y = drv_svc_workspace+23
  jsr select_public_page_a
  pla
  sta pageram,x
- jsr wicfs_bus_delay
+ jsr bus_delay
  plp
  jmp read_buffer_inc
 

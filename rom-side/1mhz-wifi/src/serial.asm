@@ -39,15 +39,47 @@
  cpx #1
  beq set_bank_0_page
  sta &FCFD
- jsr wicfs_bus_delay
+ jsr bus_delay
  sta &FCFE
- jsr wicfs_bus_delay
+ jsr bus_delay
 .set_bank_0_page
  pla
  tax
  pla
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
  rts
 
 set_bank_1 = set_bank_0
+
+\ Settle the 1MHz bus after touching a Pi1MHz register. The Pi needs time to
+\ see a write and publish a reply, and the host must not read back sooner.
+\ A and the flags are preserved so this can be dropped between any pair of
+\ accesses. Written for this project; it lived in the filing system source
+\ only because that is where the first caller happened to be.
+
+.bus_delay          php
+                    pha
+                    lda #64
+.bus_delay_loop     sec
+                    sbc #1
+                    bne bus_delay_loop
+                    pla
+                    plp
+                    rts
+
+
+\ Point the Pi1MHz service cursor at persisted state byte X, which lives in
+\ the reserved services buffer at &FFEF00. Leaves the cursor set so the
+\ caller can read or write &FCA9 directly.
+
+.pi_state_address_x txa
+                    sta &FCA6
+                    jsr bus_delay
+                    lda #&EF
+                    sta &FCA7
+                    jsr bus_delay
+                    lda #&FF
+                    sta &FCA8
+                    jsr bus_delay
+                    rts

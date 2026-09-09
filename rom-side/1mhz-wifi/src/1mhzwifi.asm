@@ -175,19 +175,6 @@ include "machine.asm"
                     txa
                     pha
 
-                    \ The MOS rebuilds the standard and extended vectors before
-                    \ this call, so persisted WiCFS state is only meaningful if
-                    \ BYTEV still proves the RAM cassette trap survived. Read it
-                    \ only then, and release only the entries WiCFS owns.
-                    lda BYTEV
-                    cmp #<notape
-                    bne autorun_wicfs_released
-                    lda BYTEV+1
-                    cmp #>notape
-                    bne autorun_wicfs_released
-                    jsr release_owned_wicfs
-                    bcs autorun_wicfs_abort
-.autorun_wicfs_released
 
                     \ Nothing here may touch the AP5 JIM selector: the ROM scan
                     \ runs with another ROM's page possibly selected, and every
@@ -221,16 +208,6 @@ include "machine.asm"
                     lda #1
                     rts
 
-\ WiCFS could not be released safely. Leave the vectors alone and return
-\ without the banner rather than resetting into an inconsistent filing system.
-.autorun_wicfs_abort
-                    pla
-                    tax
-                    pla
-                    tay
-                    lda #1
-                    rts
-
 \ ---------------------------------------------------------------------------
 \ Command table
 \ ---------------------------------------------------------------------------
@@ -241,16 +218,6 @@ include "machine.asm"
                     equb >pi_wget_cmd, <pi_wget_cmd
                     equs "FTP"
                     equb >ftp_cmd, <ftp_cmd
-                    equs "QUPRUN"
-                    equb >uef_run_cmd, <uef_run_cmd
-                    equs "QR"
-                    equb >uef_run_cmd, <uef_run_cmd
-                    equs "QAUTO"
-                    equb >uef_auto_cmd, <uef_auto_cmd
-                    equs "QHOST"
-                    equb >host_basic_cmd, <host_basic_cmd
-                    equs "UEF"
-                    equb >uef_cmd, <uef_cmd
                     equs "WIFI"
                     equb >wifi_cmd, <wifi_cmd
                     equs "VERSION"
@@ -277,16 +244,20 @@ include "machine.asm"
                     equb >ping_cmd, <ping_cmd
                     equs "NSLOOK"
                     equb >nslook_cmd, <nslook_cmd
+                    equs "RDINIT"
+                    equb >rd_init_cmd, <rd_init_cmd
+                    equs "RDCAT"
+                    equb >rd_cat_cmd, <rd_cat_cmd
+                    equs "RDLOAD"
+                    equb >rd_load_cmd, <rd_load_cmd
+                    equs "RDSAVE"
+                    equb >rd_save_cmd, <rd_save_cmd
+                    equs "RDRUN"
+                    equb >rd_run_cmd, <rd_run_cmd
                     equs "MODE"
                     equb >mode_cmd, <mode_cmd
                     equs "DISCONNECT"
                     equb >disconnect_cmd, <disconnect_cmd
-                    equs "WICFS"
-                    equb >wicfs_cmd, <wicfs_cmd
-                    equs "REWIND"
-                    equb >rewind_cmd, <rewind_cmd
-                    equs "QUPCFS"
-                    equb >bUPCFS, <bUPCFS
                     equb >command_x6, <command_x6
 
 \ Print the ROM title and version, with the separating zero shown as a space.
@@ -316,11 +287,14 @@ include "machine.asm"
                     equs " PING      ping a host on network",&0D
                     equs " NSLOOK    Resolve an IPv4 address",&0D
                     equs " PRD       Paged Ram Dump",&0D
+                    equs " RDCAT     Catalogue the RAM disk",&0D
+                    equs " RDINIT    Clear the RAM disk",&0D
+                    equs " RDLOAD    Load from the RAM disk",&0D
+                    equs " RDRUN     Run from the RAM disk",&0D
+                    equs " RDSAVE    Save to the RAM disk",&0D
                     equs " TIME      Print current time",&0D
                     equs " VERSION   Print firmware version",&0D
                     equs " WGET      Get a file from a webserver",&0D
-                    equs " UEF       Load local UEF file",&0D
-                    equs " WICFS     Enable WiFi CFS",&0D
                     equs " WIFI      WiFi control ON|OFF|HR|SR",&0D
                     equb &EA
 .print_help_end     rts
@@ -360,6 +334,7 @@ include "util.asm"
 include "errors.asm"
 include "serial.asm"
 include "service_driver.asm"
+include "net_transport.asm"   \ after service_driver.asm, which sizes its workspace
 include "driver.asm"
 include "version.asm"
 include "time.asm"
@@ -370,16 +345,12 @@ include "wificmd.asm"
 include "pdump.asm"
 include "join.asm"
 include "mode.asm"
-include "wicfs.asm"
-include "wicfs_messages.asm"   \ after wicfs.asm, which defines cr
-include "wicfs_catalogue.asm"
 include "wget.asm"
 include "net_wget.asm"
 include "ftp.asm"
-include "host_launch.asm"
-include "uef.asm"
 include "ping.asm"
 include "nslook.asm"
+include "ramdisk.asm"
 
 rom_content_end = P%
 ASSERT rom_content_end <= &BF00

@@ -202,6 +202,30 @@ as `WGET OK` and failing later inside WiCFS with `Stream ended`.
 See [MENU retirement](menu-retirement.md) for the removed command surface and
 the generic facilities which remain.
 
+## RAM disk
+
+The RAM disk is a small store in the Pi1MHz JIM window, and is how a program
+reaches the machine without a filing system. It is in the 1MHz-WiFi ROM and
+needs nothing else fitted.
+
+| command | |
+| ------------------------------------- | ------------------------------- |
+| `*RDINIT`                             | write an empty catalogue |
+| `*RDCAT`                              | list what is stored |
+| `*RDSAVE <name> <start> <end> [exec]` | store a block of memory |
+| `*RDLOAD <name> [address]`            | load it back |
+| `*RDRUN <name>`                       | load and enter it |
+
+Names are up to seven characters and are folded to upper case. Fifteen files
+fit, which is what one catalogue page holds, and a file starts on a page
+boundary so the store is 254 pages of 256 bytes.
+
+The store lives in JIM bank 0, which is the only bank an unmodified Electron
+AP5 forwards, so the RAM disk behaves identically on the Electron and on the
+BBC family. Page 0 is left alone because OSWORD `&65` clients read the service
+reply buffer there. `*RDINIT` discards everything: entries are never removed
+individually, so clearing the catalogue is how space is reclaimed.
+
 ## WiCFS and paged RAM
 
 ### Filing system messages
