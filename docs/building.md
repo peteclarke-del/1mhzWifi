@@ -82,7 +82,10 @@ Run this from the 1MHz-WiFi repository root:
 The command verifies that the checkout contains the reviewed ElkWiFi commit,
 applies the ROM patch series in a fixed order, installs the maintained assembly
 overlays, and writes the canonical
-`build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom`. A repeat invocation must report every
+`build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom` and
+`build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom`. The script builds both images: the
+network ROM, which is entirely this project's own code, and the filing system
+ROM, which carries the inherited `wicfs.asm`. A repeat invocation must report every
 patch as already applied and produce the same 16 KiB ROM. The legacy
 `build/elkwifi_pi1mhz.rom` name is a relative symbolic link to this file, not a
 second ROM image.

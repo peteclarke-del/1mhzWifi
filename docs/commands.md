@@ -216,9 +216,18 @@ needs nothing else fitted.
 | `*RDLOAD <name> [address]`            | load it back |
 | `*RDRUN <name>`                       | load and enter it |
 
-Names are up to seven characters and are folded to upper case. Fifteen files
-fit, which is what one catalogue page holds, and a file starts on a page
-boundary so the store is 254 pages of 256 bytes.
+The store holds 65,024 bytes in up to 15 files. The window is 256 pages of 256
+bytes; page 0 is the service reply buffer that OSWORD `&65` clients read and is
+left alone, page 1 is the catalogue, and pages 2 to 255 hold file data. Fifteen
+entries is what one catalogue page holds: a 16 byte header and 15 entries of 16
+bytes.
+
+Names are up to seven characters and are folded to upper case. A file starts on
+a page boundary, so a short file still occupies a whole page. That is what
+makes a file's position a single byte and the copy loop a page counter.
+
+Space is reclaimed only by `*RDINIT`. Entries are never removed individually,
+so a full store is cleared and refilled rather than tidied.
 
 The store lives in JIM bank 0, which is the only bank an unmodified Electron
 AP5 forwards, so the RAM disk behaves identically on the Electron and on the
