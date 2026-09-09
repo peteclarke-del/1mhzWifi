@@ -7,7 +7,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom"
-ROM_SHA256 = "720a180dc2e9d924c08b8728a729059798a45915aaad3f768f6ec8c71f0ebff1"
+WICFS_ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom"
+ROM_SHA256 = "7d9523df8d4f1b0e89da1be695beee625a3b5b1d48fae991c339ff8b7f8ae5f1"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -15,6 +16,9 @@ class RomCompatibilityTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.rom_path = Path(os.environ.get("ELKWIFI_TEST_ROM", ROM_PATH))
         cls.rom = cls.rom_path.read_bytes()
+        # The filing system is a separate image; tests for it read that one.
+        cls.wicfs_rom = Path(os.environ.get(
+            "ELKWIFI_TEST_WICFS_ROM", WICFS_ROM_PATH)).read_bytes()
 
     def test_rom_identity_and_stock_header(self) -> None:
         self.assertEqual(len(self.rom), 16 * 1024)
@@ -31,9 +35,9 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(b"Parts from ElkWiFi (C) 2020 Roland Leurs", self.rom)
 
     def test_uef_host_transition_is_present(self) -> None:
-        self.assertIn(b"TAPE\r", self.rom)
+        self.assertIn(b"TAPE\r", self.wicfs_rom)
         source = (
-            ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm"
+            ROOT / "rom-side/1mhz-wifi/src/host_launch.asm"
         ).read_text()
         self.assertIn(".host_select_tape", source)
         self.assertIn("jsr wicfs_snapshot_pre_tape", source)
@@ -44,54 +48,54 @@ class RomCompatibilityTest(unittest.TestCase):
     def test_uef_file_handle_is_recovered_from_each_stack_context(self) -> None:
         # Inline read: TSX; LDY &0103,X; JSR OSBGET.
         self.assertEqual(
-            self.rom.count(bytes.fromhex("BA BC 03 01 20 D7 FF")), 1
+            self.wicfs_rom.count(bytes.fromhex("BA BC 03 01 20 D7 FF")), 1
         )
         # Close helper: JSR has added its return address, so the saved OSFIND
         # handle is two bytes farther away: TSX; LDY &0105,X; LDA #0;
         # JSR OSFIND; RTS.
         self.assertEqual(
-            self.rom.count(bytes.fromhex("BA BC 05 01 A9 00 20 CE FF 60")), 1
+            self.wicfs_rom.count(bytes.fromhex("BA BC 05 01 A9 00 20 CE FF 60")), 1
         )
         # WiCFS retains its original OSBYTE &8C trap so a protected loader's
         # internal *TAPE cannot disconnect a multi-stage virtual tape.
-        self.assertIn(bytes.fromhex("C9 8C D0 01 60 4C 00 00 EA"), self.rom)
+        self.assertIn(bytes.fromhex("C9 8C D0 01 60 4C 00 00 EA"), self.wicfs_rom)
 
     def test_wicfs_uses_mos_vectors_and_host_only_osfile_transfer(self) -> None:
         # Preserve upstream's generic final-block decision. Production code
         # must never inspect or rewrite a loaded program to decide completion.
         self.assertEqual(
-            self.rom.count(bytes.fromhex("AD CA 03 29 80 D0 0D E6 B6")), 1
+            self.wicfs_rom.count(bytes.fromhex("AD CA 03 29 80 D0 0D E6 B6")), 1
         )
         # No ROM switcher may be copied into &07A4. Pages 4-7 belong to the
         # Tube host code whenever a parasite is active.
-        self.assertNotIn(bytes.fromhex("A5 F4 8D C2 07"), self.rom)
+        self.assertNotIn(bytes.fromhex("A5 F4 8D C2 07"), self.wicfs_rom)
         # WiCFS is an Electron-host filing system. It may query Tube presence
         # through OSBYTE &EA, but must never use Tube transfer registers or
         # copy a launcher into Tube host workspace.
-        self.assertNotIn(bytes.fromhex("8D E4 FC"), self.rom)
-        self.assertNotIn(bytes.fromhex("8D E5 FC"), self.rom)
-        self.assertNotIn(bytes.fromhex("AD E4 FC"), self.rom)
-        self.assertNotIn(bytes.fromhex("AD E5 FC"), self.rom)
-        self.assertIn(bytes.fromhex("A9 EA A2 00 A0 FF 20 F4 FF"), self.rom)
-        self.assertNotIn(bytes.fromhex("20 06 04"), self.rom)
+        self.assertNotIn(bytes.fromhex("8D E4 FC"), self.wicfs_rom)
+        self.assertNotIn(bytes.fromhex("8D E5 FC"), self.wicfs_rom)
+        self.assertNotIn(bytes.fromhex("AD E4 FC"), self.wicfs_rom)
+        self.assertNotIn(bytes.fromhex("AD E5 FC"), self.wicfs_rom)
+        self.assertIn(bytes.fromhex("A9 EA A2 00 A0 FF 20 F4 FF"), self.wicfs_rom)
+        self.assertNotIn(bytes.fromhex("20 06 04"), self.wicfs_rom)
         # Every UEF byte follows the normal host indirect-store path.
-        self.assertIn(bytes.fromhex("A0 00 91 B0 E6 B0"), self.rom)
+        self.assertIn(bytes.fromhex("A0 00 91 B0 E6 B0"), self.wicfs_rom)
         # Extended vector entry points for FILEV/BGETV/FINDV/FSCV.
         for entry in (0x1B, 0x21, 0x2A, 0x2D):
-            self.assertIn(bytes((0xA9, entry, 0x8D)), self.rom)
+            self.assertIn(bytes((0xA9, entry, 0x8D)), self.wicfs_rom)
         # WiCFS reads the authoritative length trailer at rewind. The local
         # importer checkpoints a CPU-side count and reads the trailer only at
         # operation boundaries, so the retired per-byte byte pattern is not a
         # compatibility requirement.
-        self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FE FD")), 1)
-        self.assertGreaterEqual(self.rom.count(bytes.fromhex("AD FF FD")), 1)
+        self.assertGreaterEqual(self.wicfs_rom.count(bytes.fromhex("AD FE FD")), 1)
+        self.assertGreaterEqual(self.wicfs_rom.count(bytes.fromhex("AD FF FD")), 1)
         # &03E0-&03FF is the MOS keyboard input buffer containing UEF's
         # queued REWIND and CHAIN commands. The ROM must never mutate it. The
         # literal operand bytes may occur as data or instructions crossing a
         # ROM byte boundary, so inspect decoded absolute stores from a listing
         # in integration tests rather than rejecting arbitrary byte triples.
-        self.assertNotIn(bytes.fromhex("8E DA 09 8C DB 09"), self.rom)
-        self.assertNotIn(bytes.fromhex("8C DC 09"), self.rom)
+        self.assertNotIn(bytes.fromhex("8E DA 09 8C DB 09"), self.wicfs_rom)
+        self.assertNotIn(bytes.fromhex("8C DC 09"), self.wicfs_rom)
         # Successful host OSFILE loads return the cassette catalogue metadata
         # which BASIC CHAIN needs to execute the loaded program.
         osfile_metadata = bytes.fromhex(
@@ -101,44 +105,58 @@ class RomCompatibilityTest(unittest.TestCase):
             "91 B8 C8 A9 00 6D C7 03 91 B8 C8 A9 00 91 B8 A2 04 C8 91 B8 "
             "CA D0 FA A9 01 60"
         )
-        self.assertEqual(self.rom.count(osfile_metadata), 1)
+        self.assertEqual(self.wicfs_rom.count(osfile_metadata), 1)
         # The UEF length remains authoritative in JIM. Do not reintroduce the
         # discarded cache in volatile &09D6/&09D7 host heap.
-        self.assertNotIn(bytes.fromhex("A5 F8 8D D6 09 A5 F9 8D D7 09"), self.rom)
-        self.assertIn(bytes.fromhex("0A 0A 0A 0A AA"), self.rom)
-        self.assertNotIn(bytes.fromhex("0A AD D6 09"), self.rom)
+        self.assertNotIn(bytes.fromhex("A5 F8 8D D6 09 A5 F9 8D D7 09"), self.wicfs_rom)
+        self.assertIn(bytes.fromhex("0A 0A 0A 0A AA"), self.wicfs_rom)
+        self.assertNotIn(bytes.fromhex("0A AD D6 09"), self.wicfs_rom)
         # The ROM may not fingerprint or patch a loaded program. Compatibility
         # comes from MOS vector and cassette semantics, not title signatures.
         loader_signature = bytes.fromhex(
             "AE B7 FF AC B8 FF 86 70 84 71 AC B6 FF 88 B1 70 "
             "99 00 02 98 D0 F7 A9 EA"
         )
-        self.assertNotIn(loader_signature, self.rom)
-        self.assertIn(b"TAPE\r", self.rom)
+        self.assertNotIn(loader_signature, self.wicfs_rom)
+        self.assertIn(b"TAPE\r", self.wicfs_rom)
 
     def test_supported_commands_and_osword_are_present(self) -> None:
         for command in (
             b"WGET", b"FTP", b"WIFI", b"VERSION", b"LAPOPT",
             b"LAP", b"IFCFG", b"DATE", b"TIME", b"PRD", b"JOIN", b"LEAVE",
-            b"PING", b"NSLOOK", b"MODE", b"ONLINE", b"DISCONNECT", b"UEF", b"WICFS",
-            b"REWIND", b"QUPCFS", b"QUPRUN", b"PAGE=&E00\r*QR\r",
+            b"PING", b"NSLOOK", b"MODE", b"ONLINE", b"DISCONNECT",
+            b"RDINIT", b"RDCAT", b"RDLOAD", b"RDSAVE", b"RDRUN",
         ):
             self.assertIn(command, self.rom)
+        # The filing system commands are in the filing system image, and must
+        # not appear in the network one.
+        for command in (
+            b"UEF", b"WICFS", b"REWIND", b"QUPCFS", b"QUPRUN",
+            b"PAGE=&E00\r*QR\r",
+        ):
+            self.assertIn(command, self.wicfs_rom)
+        # The command names must not be in the network image. UEF is excluded
+        # from this half: *WGET -U reports "Invalid UEF..." when the Pi rejects
+        # a download, so the three letters appear there as message text rather
+        # than as a command.
+        for command in (b"WICFS", b"REWIND", b"QUPCFS", b"QUPRUN"):
+            self.assertNotIn(command, self.rom)
         for removed in (
             b"MENU", b"MENUSRC", b"PRINTER", b"UPDATE", b"SETSERIAL",
             b"CRC error", b"acornelectron.nl",
         ):
             self.assertNotIn(removed, self.rom)
         self.assertIn(bytes((0xA5, 0xEF, 0xC9, 0x65)), self.rom)
-        self.assertIn(b"Usage: *UEF LOAD <filename>", self.rom)
-        self.assertIn(b"UEF ", self.rom)
+        self.assertIn(b"Usage: *UEF LOAD <filename>", self.wicfs_rom)
+        self.assertIn(b"UEF ", self.wicfs_rom)
         self.assertIn(b"RAW ", self.rom)
         self.assertIn(b"OK &", self.rom)
         self.assertIn(b"GZIP ", self.rom)
         self.assertIn(b"ZIP ", self.rom)
-        self.assertIn(b"*QUPRUN\r", self.rom)
-        self.assertIn(b"*REWIND\rCHAIN \"\"\r", self.rom)
-        self.assertNotIn(b"*QUPRUN\r*REWIND", self.rom)
+        # The queued command sequences belong to the filing system image.
+        self.assertIn(b"*QUPRUN\r", self.wicfs_rom)
+        self.assertIn(b"*REWIND\rCHAIN \"\"\r", self.wicfs_rom)
+        self.assertNotIn(b"*QUPRUN\r*REWIND", self.wicfs_rom)
         self.assertIn(b"USER PASS PWD CD DIR LS GET PUT", self.rom)
 
     def test_public_osword_driver_abi_reaches_single_socket_transport(self) -> None:
@@ -149,9 +167,9 @@ class RomCompatibilityTest(unittest.TestCase):
             "C8 B1 F0 AA C8 B1 F0 A8 68 20"
         ), self.rom)
 
-        driver = (ROOT / "rom-side/elkwifi-0.23/overlay/driver.asm").read_text()
-        service = (ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm").read_text()
-        serial = (ROOT / "rom-side/elkwifi-0.23/overlay/serial.asm").read_text()
+        driver = (ROOT / "rom-side/1mhz-wifi/src/driver.asm").read_text()
+        service = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
+        serial = (ROOT / "rom-side/1mhz-wifi/src/serial.asm").read_text()
         table = driver.split(".public_driver_dispatch", 1)[1].split(
             "\\ Initialize the data buffer", 1
         )[0]
@@ -175,8 +193,8 @@ class RomCompatibilityTest(unittest.TestCase):
         common_entry = driver.split("jsr set_bank_0", 1)[1].split("lda save_a", 1)[0]
         self.assertIn("sta driver_page_shadow", common_entry)
         self.assertIn(".select_public_page_a", serial)
-        self.assertIn("sta &FCFD\n jsr wicfs_bus_delay\n sta &FCFE", serial)
-        self.assertIn("sta pagereg\n jsr wicfs_bus_delay", serial)
+        self.assertIn("sta &FCFD\n jsr bus_delay\n sta &FCFE", serial)
+        self.assertIn("sta pagereg\n jsr bus_delay", serial)
         self.assertGreaterEqual(driver.count("jsr select_public_page_a"), 5)
         self.assertIn("ldx driver_page_shadow", driver)
         self.assertNotIn("ldx pagereg", driver)
@@ -192,9 +210,9 @@ class RomCompatibilityTest(unittest.TestCase):
         # OSWORD caller such as ElkChat will have live return addresses there.
         # Error construction and driver state must remain in the retired
         # netprt block.
-        ping = (ROOT / "rom-side/elkwifi-0.23/overlay/ping.asm").read_text()
-        nslook = (ROOT / "rom-side/elkwifi-0.23/overlay/nslook.asm").read_text()
-        errors = (ROOT / "rom-side/elkwifi-0.23/overlay/errors.asm").read_text()
+        ping = (ROOT / "rom-side/1mhz-wifi/src/ping.asm").read_text()
+        nslook = (ROOT / "rom-side/1mhz-wifi/src/nslook.asm").read_text()
+        errors = (ROOT / "rom-side/1mhz-wifi/src/errors.asm").read_text()
         self.assertNotIn("errorspace+", service)
         self.assertNotIn("errorspace+", ping)
         self.assertNotIn("errorspace+", nslook)
@@ -205,7 +223,8 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn("driver_page_shadow = drv_svc_workspace+19", driver)
         self.assertIn("driver_machine = drv_svc_workspace+20", driver)
 
-        transport = (ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm").read_text()
+        transport = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
+            ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
         self.assertIn("net_cursor_lo = drv_svc_workspace+21", transport)
         self.assertIn("net_empty_lo = drv_svc_workspace+24", transport)
         self.assertIn(".net_wait_cursor", transport)
@@ -230,7 +249,7 @@ class RomCompatibilityTest(unittest.TestCase):
             ".set_bank_1", 1
         )[0]
         self.assertIn("cpx #1\n beq set_bank_0_page", selector)
-        self.assertIn("sta &FCFD\n jsr wicfs_bus_delay\n sta &FCFE", selector)
+        self.assertIn("sta &FCFD\n jsr bus_delay\n sta &FCFE", selector)
 
     def test_retired_cartridge_code_is_not_emitted(self) -> None:
         for legacy in (
@@ -246,7 +265,7 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertNotIn(b"ACORNELECTRON.NL/uefarchive/MENU", self.rom)
 
     def test_join_uses_the_long_async_service_timeout(self) -> None:
-        source = (ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm").read_text()
+        source = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
         self.assertIn("cmp #drv_svc_join", source)
 
     def test_startup_does_not_probe_legacy_uart_or_reset_pi_service(self) -> None:

@@ -23,7 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PI_PATCHES = ROOT / "pi-side/pi1mhz-516a267/patches"
-ROM_PATCHES = ROOT / "rom-side/elkwifi-0.23/patches"
+ROM_PATCHES = ROOT / "rom-side/inherited/patches"
 OVERLAY = ROOT / "pi-side/pi1mhz-516a267/overlay/src"
 
 

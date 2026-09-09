@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shutil
 import signal
 import subprocess
 import sys
@@ -27,10 +28,19 @@ def similarity(left: Path, right: Path) -> float:
     return float(result.stderr.strip().split()[0])
 
 
-def bem_paste(command: str) -> str:
-    if "|" in command:
-        raise ValueError("B-Em paste command must not contain '|'")
-    return f"*{command.upper()}|M"
+def bem_paste(commands) -> str:
+    """Build a B-Em paste string for one or more star commands.
+
+    B-Em spells Return as |M inside a paste, so a sequence is just the
+    commands joined by it. A command may not contain | itself, which would
+    otherwise let a caller inject paste escapes.
+    """
+    if isinstance(commands, str):
+        commands = [commands]
+    for command in commands:
+        if "|" in command:
+            raise ValueError("B-Em paste command must not contain '|'")
+    return "".join(f"*{command.upper()}|M" for command in commands)
 
 
 MACHINE_PROFILES = {
@@ -123,7 +133,8 @@ def main() -> int:
         "--machine-profile", choices=tuple(MACHINE_PROFILES),
         default="bbc-b-32k",
     )
-    parser.add_argument("--command", default="version")
+    parser.add_argument("--command", action="append", default=None,
+                        help="star command; repeat to run a sequence")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-screen", type=Path, action="append", default=[])
     parser.add_argument("--require-trace-event", action="append", default=[])
@@ -136,6 +147,8 @@ def main() -> int:
         default=Path("/tmp/elkulator-tools/usr/bin/Xvfb"),
     )
     args = parser.parse_args()
+    if not args.command:
+        args.command = ["version"]
     if not 0.5 <= args.similarity <= 1.0:
         parser.error("--similarity must be between 0.5 and 1.0")
     for path in (args.bem, args.wifi_rom, *args.require_screen):
@@ -152,6 +165,18 @@ def main() -> int:
     log = args.output / "b-em.log"
     xdg = args.output / "xdg"
     xdg.mkdir(exist_ok=True)
+    # The Master reads its configured ROM set from CMOS, and b-em looks for
+    # that file under XDG_CONFIG_HOME/b-em rather than beside the emulator.
+    # Without it the machine boots with no language and never scans the slot
+    # the ROM under test is in, so the run reports Bad command and says
+    # nothing about the ROM.
+    if MACHINE_PROFILES[args.machine_profile]["master"] == "true":
+        cmos_source = args.runtime_dir / "cmos.bin"
+        if not cmos_source.is_file():
+            parser.error(f"master profile needs a CMOS image: {cmos_source}")
+        cmos_dir = xdg / "b-em"
+        cmos_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(cmos_source, cmos_dir / "cmos.bin")
     display = f":{args.display}"
     selected_profile = MACHINE_PROFILES[args.machine_profile]
     immutable_paths = {

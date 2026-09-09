@@ -617,7 +617,11 @@ def run_one(args: argparse.Namespace, entry: dict[str, object], tube: bool,
     opened_url, payload = trace_payload(trace, str(entry["path"])) \
         if trace.exists() else (None, [])
     log_text = log.read_text(errors="replace") if log.exists() else ""
-    mos_errors = [text for text in ("Bad program", "Unexpected EOF", "Chunk type")
+    mos_errors = [text for text in ("Bad program", "Stream ended",
+                                    "Unknown chunk", "Bad UEF header",
+                                    # pre-0.1.68 wording, so older
+                                    # captures still classify
+                                    "Unexpected EOF", "Chunk type")
                   if text.casefold() in log_text.casefold()]
     tube_started = "AP5 Tube: external 3MHz 65C02 enabled" in log_text
     tube_requirement_satisfied = not tube or tube_started

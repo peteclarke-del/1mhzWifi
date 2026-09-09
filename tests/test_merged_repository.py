@@ -16,8 +16,8 @@ class MergedRepositoryTest(unittest.TestCase):
         )
         source_suffixes = {".asm", ".c", ".h", ".py", ".sh"}
         roots = (
-            ROOT / "rom-side/elkwifi-0.23/overlay",
-            ROOT / "rom-side/elkwifi-0.23/patches",
+            ROOT / "rom-side/1mhz-wifi/src",
+            ROOT / "rom-side/inherited/patches",
             ROOT / "pi-side/pi1mhz-516a267/overlay",
             ROOT / "pi-side/pi1mhz-516a267/patches",
             ROOT / "emulator/pi1mhz-mailbox/src",
@@ -126,7 +126,7 @@ class MergedRepositoryTest(unittest.TestCase):
         service = (
             ROOT / "pi-side/pi1mhz-516a267/overlay/src/ftp_service.c"
         ).read_text()
-        rom = (ROOT / "rom-side/elkwifi-0.23/overlay/ftp.asm").read_text()
+        rom = (ROOT / "rom-side/1mhz-wifi/src/ftp.asm").read_text()
         emulator = (
             ROOT / "emulator/pi1mhz-mailbox/src/pi1mhz_ftp.c"
         ).read_text()
@@ -214,7 +214,7 @@ class MergedRepositoryTest(unittest.TestCase):
             "pi-side/tests/run_secure_build.sh",
             "pi-side/upstream/1mhzwifi-pi1mhz.patch",
             "docs/nettools-merge.md",
-            "rom-side/elkwifi-0.23/TECHNICAL.md",
+            "rom-side/inherited/TECHNICAL.md",
             "pi-side/pi1mhz-516a267/TECHNICAL.md",
             "emulator/pi1mhz-mailbox/integrations/elkulator/TECHNICAL.md",
             "scripts/package_patch_kits.sh",
