@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom"
-ROM_SHA256 = "720a180dc2e9d924c08b8728a729059798a45915aaad3f768f6ec8c71f0ebff1"
+ROM_SHA256 = "fbfb4d8a22197739cb293de1ce642df59a7a3aa2fcfb7bbac847ea82a24aba2c"
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -33,7 +33,7 @@ class RomCompatibilityTest(unittest.TestCase):
     def test_uef_host_transition_is_present(self) -> None:
         self.assertIn(b"TAPE\r", self.rom)
         source = (
-            ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm"
+            ROOT / "rom-side/1mhz-wifi/src/host_launch.asm"
         ).read_text()
         self.assertIn(".host_select_tape", source)
         self.assertIn("jsr wicfs_snapshot_pre_tape", source)
@@ -149,9 +149,9 @@ class RomCompatibilityTest(unittest.TestCase):
             "C8 B1 F0 AA C8 B1 F0 A8 68 20"
         ), self.rom)
 
-        driver = (ROOT / "rom-side/elkwifi-0.23/overlay/driver.asm").read_text()
-        service = (ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm").read_text()
-        serial = (ROOT / "rom-side/elkwifi-0.23/overlay/serial.asm").read_text()
+        driver = (ROOT / "rom-side/1mhz-wifi/src/driver.asm").read_text()
+        service = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
+        serial = (ROOT / "rom-side/1mhz-wifi/src/serial.asm").read_text()
         table = driver.split(".public_driver_dispatch", 1)[1].split(
             "\\ Initialize the data buffer", 1
         )[0]
@@ -192,9 +192,9 @@ class RomCompatibilityTest(unittest.TestCase):
         # OSWORD caller such as ElkChat will have live return addresses there.
         # Error construction and driver state must remain in the retired
         # netprt block.
-        ping = (ROOT / "rom-side/elkwifi-0.23/overlay/ping.asm").read_text()
-        nslook = (ROOT / "rom-side/elkwifi-0.23/overlay/nslook.asm").read_text()
-        errors = (ROOT / "rom-side/elkwifi-0.23/overlay/errors.asm").read_text()
+        ping = (ROOT / "rom-side/1mhz-wifi/src/ping.asm").read_text()
+        nslook = (ROOT / "rom-side/1mhz-wifi/src/nslook.asm").read_text()
+        errors = (ROOT / "rom-side/1mhz-wifi/src/errors.asm").read_text()
         self.assertNotIn("errorspace+", service)
         self.assertNotIn("errorspace+", ping)
         self.assertNotIn("errorspace+", nslook)
@@ -205,7 +205,7 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn("driver_page_shadow = drv_svc_workspace+19", driver)
         self.assertIn("driver_machine = drv_svc_workspace+20", driver)
 
-        transport = (ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm").read_text()
+        transport = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text()
         self.assertIn("net_cursor_lo = drv_svc_workspace+21", transport)
         self.assertIn("net_empty_lo = drv_svc_workspace+24", transport)
         self.assertIn(".net_wait_cursor", transport)
@@ -246,7 +246,7 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertNotIn(b"ACORNELECTRON.NL/uefarchive/MENU", self.rom)
 
     def test_join_uses_the_long_async_service_timeout(self) -> None:
-        source = (ROOT / "rom-side/elkwifi-0.23/overlay/service_driver.asm").read_text()
+        source = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
         self.assertIn("cmp #drv_svc_join", source)
 
     def test_startup_does_not_probe_legacy_uart_or_reset_pi_service(self) -> None:

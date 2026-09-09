@@ -6,8 +6,10 @@ Both upstream projects must be checked out separately at the pinned commits.
 
 Each upstream target has a self-contained package:
 
-- `rom-side/elkwifi-0.23/patches/` contains the ElkWiFi source patches.
-- `rom-side/elkwifi-0.23/overlay/` contains complete ROM assembly sources.
+- `rom-side/1mhz-wifi/src/` contains the ROM sources written for this project,
+  with `1mhzwifi.asm` as the assembly root.
+- `rom-side/inherited/patches/` contains what still derives from ElkWiFi, all of
+  it now applying to `wicfs.asm` alone.
 - `pi-side/pi1mhz-516a267/patches/` contains the Pi1MHz source patches.
 - `pi-side/pi1mhz-516a267/overlay/` contains complete Pi service sources.
 

@@ -306,13 +306,3 @@
  \OSFILE metadata return complete
  
  .xfilev
---- a/rom/ElkWifi.asm
-+++ b/rom/ElkWifi.asm
-@@ -126,6 +126,7 @@
-                     pha                         \ the exit value of A depends on the command.
-                     txa
-                     pha
-+                    jsr wicfs_reset              \ release virtual cassette vectors on every reset
-                     lda #&D7                    \ Turn off default banner
-                     ldx #0
-                     stx pagereg                 \ reset page register to 0
