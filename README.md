@@ -170,10 +170,16 @@ The ElkWiFi-compatible ROM does not add HTTPS or TLS to `*WGET`; unsupported
 secure URLs fail closed and are never downgraded to plaintext. The separate
 native `host-tools/SSH` client uses the managed Pi secure service and wolfSSH.
 
-The maintained upstream changes are grouped by target. ElkWiFi changes live
-under `rom-side/elkwifi-0.23/`, and Pi1MHz changes live under
+The maintained upstream changes are grouped by target, and the ROM is further
+split by provenance. The ROM sources written for this project are in
+`rom-side/1mhz-wifi/src/`; what still derives from ElkWiFi 0.23, and through it
+from Martin Barr's UPCFS, is confined to `rom-side/inherited/`, where it now
+applies to the single file `wicfs.asm`. Pi1MHz changes live under
 `pi-side/pi1mhz-516a267/`. Each package separates ordered patches from complete
-source overlays and records its required upstream commit.
+source overlays and records its required upstream commit. Read
+[the inherited ROM notes](rom-side/inherited/README.md) before reusing any of
+it: two upstream authors have a claim on `wicfs.asm` and neither has stated
+terms.
 
 The former 1mhzNetTools project is incorporated under `host-tools/`,
 `emulator/pi1mhz-mailbox/` and the central Pi overlay. Its disposition and

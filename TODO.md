@@ -482,7 +482,7 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   JIM user moves it.
 - [x] Superseded, not to be done: move the filing trampoline into Pi RAM.
   The JIM guard ships and already puts the vectors outside host memory, which
-  is what this asked for. See `rom-side/elkwifi-0.23/TECHNICAL.md`.
+  is what this asked for. See `rom-side/inherited/TECHNICAL.md`.
   Original note: move the filing trampoline into Pi RAM once the selector
   discipline holds.
   That removes the host footprint both failure groups attack, and should take

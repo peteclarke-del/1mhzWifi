@@ -11,17 +11,17 @@ sys.path.insert(0, str(ROOT / "host-tools/.test-deps"))
 from py65.devices.mpu6502 import MPU
 
 
-PATCH = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-private-workspace.patch"
-TRANSACTIONAL = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-transactional-state.patch"
-STREAM_CHECKPOINT = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-stream-checkpoint.patch"
-STREAM_FINISH = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-stream-finish.patch"
-RUN_RETURN = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-run-return.patch"
-CHAIN_TARGET = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-chain-target.patch"
-VECTOR_FLAGS = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-vector-flags.patch"
-MESSAGE_PRESERVE = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-message-preserve.patch"
-PAGE_SELECT_FAST = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-page-select-fast.patch"
-LOW_LOADER_GUARD = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-low-loader-guard.patch"
-BGET_REFILL_DETECTION = ROOT / "rom-side/elkwifi-0.23/patches/wicfs-bget-refill-detection.patch"
+PATCH = ROOT / "rom-side/inherited/patches/wicfs-private-workspace.patch"
+TRANSACTIONAL = ROOT / "rom-side/inherited/patches/wicfs-transactional-state.patch"
+STREAM_CHECKPOINT = ROOT / "rom-side/inherited/patches/wicfs-stream-checkpoint.patch"
+STREAM_FINISH = ROOT / "rom-side/inherited/patches/wicfs-stream-finish.patch"
+RUN_RETURN = ROOT / "rom-side/inherited/patches/wicfs-run-return.patch"
+CHAIN_TARGET = ROOT / "rom-side/inherited/patches/wicfs-chain-target.patch"
+VECTOR_FLAGS = ROOT / "rom-side/inherited/patches/wicfs-vector-flags.patch"
+MESSAGE_PRESERVE = ROOT / "rom-side/inherited/patches/wicfs-message-preserve.patch"
+PAGE_SELECT_FAST = ROOT / "rom-side/inherited/patches/wicfs-page-select-fast.patch"
+LOW_LOADER_GUARD = ROOT / "rom-side/inherited/patches/wicfs-low-loader-guard.patch"
+BGET_REFILL_DETECTION = ROOT / "rom-side/inherited/patches/wicfs-bget-refill-detection.patch"
 ROM_START = 0x8000
 
 
@@ -167,7 +167,7 @@ class WicfsRuntimeContractTest(unittest.TestCase):
 
     def test_every_mos_error_fits_private_workspace(self) -> None:
         source = (
-            ROOT / "rom-side/elkwifi-0.23/overlay/errors.asm"
+            ROOT / "rom-side/1mhz-wifi/src/errors.asm"
         ).read_text()
         messages = re.findall(
             r'^\.error_[A-Za-z0-9_]+\s+equs\s+"([^"]*)",&0D$',
@@ -381,7 +381,7 @@ host_basic_pending = &03BD
         self.assertEqual(memory.collisions, 0)
 
     def test_persisted_state_uses_explicit_private_addresses(self) -> None:
-        base = (ROOT / "rom-side/elkwifi-0.23/patches/wicfs-jim-state.patch").read_text()
+        base = (ROOT / "rom-side/inherited/patches/wicfs-jim-state.patch").read_text()
         text = TRANSACTIONAL.read_text()
         load = text.split("@@ -225", 1)[1].split(" .wicfs_state_save", 1)[0]
         save = text.split("@@ -260", 1)[1].split(" .wicfs_install", 1)[0]
@@ -403,7 +403,7 @@ host_basic_pending = &03BD
 
     def test_wicfs_delay_is_cpu_only_and_preserves_state(self) -> None:
         text = (
-            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-jim-state.patch"
+            ROOT / "rom-side/inherited/patches/wicfs-jim-state.patch"
         ).read_text()
         delay = text.split("+.wicfs_bus_delay\n", 1)[1].split(
             "+.wicfs_state_address_x", 1
@@ -419,7 +419,7 @@ host_basic_pending = &03BD
 
     def test_jim_page_is_settled_before_data_access(self) -> None:
         atomic = (
-            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-jim-atomic.patch"
+            ROOT / "rom-side/inherited/patches/wicfs-jim-atomic.patch"
         ).read_text()
         self.assertIn(
             "sta pagereg\n+    jsr wicfs_bus_delay"
@@ -429,7 +429,7 @@ host_basic_pending = &03BD
         )
         self.assertGreaterEqual(atomic.count("+    jsr wicfs_bus_delay"), 4)
 
-        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
         self.assertIn(
             "tsx\n lda &0103,x                \\ high byte below saved flags\n"
             " sta pagereg\n jsr wicfs_bus_delay\n"
@@ -456,7 +456,7 @@ host_basic_pending = &03BD
         )
 
     def test_wget_mailbox_accesses_are_individually_settled(self) -> None:
-        source = (ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm").read_text()
+        source = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text()
         start = source.index(".net_address_low")
         end = source.index(".net_dispatch_wait")
         transport = source[start:end]
@@ -1016,7 +1016,7 @@ host_basic_pending = &03BD
                 self.assertEqual(mpu.sp, 0xF0)
 
     def test_every_uef_jim_write_is_followed_by_bus_settle(self) -> None:
-        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
         lines = uef.splitlines()
         jim_writes = re.compile(r"^\s*sta\s+(?:&FD[0-9A-F]{2}|pageram(?:,y)?)\s*$", re.I)
         for index, line in enumerate(lines):
@@ -1027,7 +1027,7 @@ host_basic_pending = &03BD
 
     def test_rom_switchers_are_bounded_below_private_state(self) -> None:
         patch = (
-            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-rom-switch.patch"
+            ROOT / "rom-side/inherited/patches/wicfs-rom-switch.patch"
         ).read_text()
         self.assertIn(
             "ASSERT chain_exec+(chain_code_end-chain_code) <= host_basic_pending",
@@ -1082,8 +1082,9 @@ host_basic_pending = &03BD
         self.assertGreaterEqual(text.count("wicfs_prepare_byte_trap"), 3)
         self.assertGreaterEqual(text.count("wicfs_publish_byte_trap"), 3)
         self.assertIn("+.wicfs_any_vector_owned", text)
-        reset_service = text.split("@@ -138,7 +138,8 @@", 1)[1].split(
-            "@@", 1
+        rom_source = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
+        reset_service = rom_source.split(".autorun", 1)[1].split(
+            ".commandtable", 1
         )[0]
         self.assertNotIn("wicfs_any_vector_owned", reset_service)
         self.assertIn("bne autorun_wicfs_released", reset_service)
@@ -1096,7 +1097,7 @@ host_basic_pending = &03BD
         )[0]
         self.assertIn("+\tJMP\twicfs_reset", finish)
         self.assertIn("+.wicfs_install_invalid", text)
-        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
         self.assertIn("jsr print_wicfs_power_cycle", uef)
         for vector, dispatcher in (
             ("OSFILEV", "&FF1B"),
@@ -1111,7 +1112,7 @@ host_basic_pending = &03BD
     def test_final_bget_retires_the_complete_wicfs_installation(self) -> None:
         patch = (
             ROOT
-            / "rom-side/elkwifi-0.23/patches/wicfs-bget-exhaustion.patch"
+            / "rom-side/inherited/patches/wicfs-bget-exhaustion.patch"
         ).read_text()
         self.assertIn("+.xbgetv\tPHP", patch)
         self.assertIn("+\tSTA\ttemp", patch)
@@ -1127,16 +1128,17 @@ host_basic_pending = &03BD
         self.assertIn("+.wicfs_install_check_partial", text)
         self.assertIn("+.wicfs_install_components_ok", text)
         self.assertIn("+.wicfs_release_invalid_byte_trap", text)
-        self.assertIn("+                    bcs autorun_wicfs_abort", text)
-        self.assertIn("+.autorun_wicfs_abort", text)
-        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        rom_source = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
+        self.assertIn("bcs autorun_wicfs_abort", rom_source)
+        self.assertIn(".autorun_wicfs_abort", rom_source)
+        uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
         self.assertIn(".uef_run_failed", uef)
         self.assertIn("bcs uef_run_failed", uef)
         self.assertIn("+\tBCC\tbUPCFS_installed", text)
         self.assertIn("+\tLDX\t#(error_wicfs_state-error_table)", text)
         self.assertIn("+.bUPCFS_installed", text)
         self.assertIn("jsr print_wicfs_power_cycle", uef)
-        host = (ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm").read_text()
+        host = (ROOT / "rom-side/1mhz-wifi/src/host_launch.asm").read_text()
         self.assertEqual(host.count('equs "WiCFS state invalid; power cycle"'), 1)
 
         invalid = text.split("+.wicfs_install_invalid", 1)[1].split(
@@ -1185,11 +1187,14 @@ host_basic_pending = &03BD
             partial,
         )
 
-        reset_service = text.split("@@ -138,7 +138,8 @@", 1)[1].split(
-            "@@", 1
+        reset_service = rom_source.split(".autorun", 1)[1].split(
+            ".commandtable", 1
         )[0]
-        self.assertEqual(reset_service.count("bne autorun_wicfs_released"), 1)
-        self.assertIn("+                    bcs autorun_wicfs_abort", reset_service)
+        # Both halves of the BYTEV pointer are compared, and either
+        # mismatch skips the release, so there are two branches. The old
+        # count of one came from a diff hunk that showed only the second.
+        self.assertEqual(reset_service.count("bne autorun_wicfs_released"), 2)
+        self.assertIn("bcs autorun_wicfs_abort", reset_service)
         self.assertNotIn("wicfs_any_vector_owned", reset_service)
 
         ownership = text.split("+.wicfs_any_vector_owned", 1)[1].split(
@@ -1221,21 +1226,26 @@ host_basic_pending = &03BD
             "wicfs_prepare_byte_trap", "wicfs_publish_byte_trap",
             "commit rollback record before publishing hooks",
             "capture any BYTEV owner installed by service &0F",
-            "wicfs_release_invalid_byte_trap", "autorun_wicfs_abort",
+            "wicfs_release_invalid_byte_trap",
             "uef_run_failed",
             "bUPCFS_installed", "error_wicfs_state",
         ):
             self.assertIn(marker, build)
+        # autorun_wicfs_abort is no longer one of the build script's
+        # already-applied markers: the reset service is our own source rather
+        # than a patched file, so the label is asserted where it now lives.
+        self.assertNotIn("autorun_wicfs_abort", build)
+        self.assertIn(".autorun_wicfs_abort", rom_source)
 
     def test_tape_transition_preserves_the_real_filing_system_predecessor(self) -> None:
         patch = (
             ROOT
-            / "rom-side/elkwifi-0.23/patches/wicfs-pre-tape-predecessor.patch"
+            / "rom-side/inherited/patches/wicfs-pre-tape-predecessor.patch"
         ).read_text()
         host_launch = (
-            ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm"
+            ROOT / "rom-side/1mhz-wifi/src/host_launch.asm"
         ).read_text()
-        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
 
         self.assertIn("+.wicfs_snapshot_pre_tape", patch)
         self.assertIn("+.wicfs_apply_pre_tape", patch)
@@ -1248,7 +1258,7 @@ host_basic_pending = &03BD
 
         retirement = (
             ROOT
-            / "rom-side/elkwifi-0.23/patches/wicfs-dual-predecessor.patch"
+            / "rom-side/inherited/patches/wicfs-dual-predecessor.patch"
         ).read_text()
         self.assertIn("+\tSTA\tbytev_rtn", retirement)
         self.assertIn("+\tSTA\tbytev_rtn+1", retirement)
@@ -1271,7 +1281,7 @@ host_basic_pending = &03BD
 
     def test_reset_does_not_restore_arbitrary_host_workspace(self) -> None:
         workspace_patch = (
-            ROOT / "rom-side/elkwifi-0.23/patches/wicfs-workspace-preserve.patch"
+            ROOT / "rom-side/inherited/patches/wicfs-workspace-preserve.patch"
         )
         self.assertFalse(workspace_patch.exists())
         self.assertNotIn(
@@ -1416,7 +1426,7 @@ host_basic_pending = &03BD
                 self.assertIsNone(accepted, interrupted_after)
 
     def test_uef_length_is_cpu_side_and_checkpointed(self) -> None:
-        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
         read_loop = uef.split(".uef_read\n", 1)[1].split(".uef_read_end", 1)[0]
         opened = uef.split(".uef_opened\n", 1)[1].split(".uef_read\n", 1)[0]
         self.assertIn("pha                         \\ file handle below", opened)
@@ -1491,7 +1501,7 @@ host_basic_pending = &03BD
 
     def test_host_transition_refuses_invalid_vector_record(self) -> None:
         host_launch = (
-            ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm"
+            ROOT / "rom-side/1mhz-wifi/src/host_launch.asm"
         ).read_text()
         release = host_launch.split(".wicfs_release_tape_trap", 1)[1].split(
             ".host_basic_cmd", 1
@@ -1501,14 +1511,14 @@ host_basic_pending = &03BD
         self.assertIn("WiCFS state invalid; power cycle", host_launch)
 
     def test_uef_tube_and_native_paths_share_host_tape_transition(self) -> None:
-        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
         transition = uef.index("jsr host_select_tape")
         tube_query = uef.index("lda #&EA", transition)
         self.assertLess(transition, tube_query)
         launch = uef.split(".uef_launch", 1)[1].split(".uef_run_launch", 1)[0]
         self.assertNotIn("*TAPE", launch)
         host_launch = (
-            ROOT / "rom-side/elkwifi-0.23/overlay/host_launch.asm"
+            ROOT / "rom-side/1mhz-wifi/src/host_launch.asm"
         ).read_text()
         helper = host_launch.split(".host_select_tape", 1)[1].split(
             ".host_tape_command", 1
@@ -1517,7 +1527,7 @@ host_basic_pending = &03BD
         self.assertIn("clc\n    rts", helper)
 
     def test_wget_shared_uef_errors_do_not_pop_uef_stack_frame(self) -> None:
-        uef = (ROOT / "rom-side/elkwifi-0.23/overlay/uef.asm").read_text()
+        uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
         invalid = uef.split(".uef_invalid\n", 1)[1].split(
             ".uef_too_large_cleanup", 1
         )[0]
@@ -1530,9 +1540,9 @@ host_basic_pending = &03BD
         self.assertIn("jmp uef_too_large_cleanup", uef)
 
     def test_wget_machine_detection_and_jim_writes_are_settled(self) -> None:
-        serial = (ROOT / "rom-side/elkwifi-0.23/overlay/serial.asm").read_text()
-        wget = (ROOT / "rom-side/elkwifi-0.23/overlay/net_wget.asm").read_text()
-        helpers = (ROOT / "rom-side/elkwifi-0.23/overlay/wget_helpers.asm").read_text()
+        serial = (ROOT / "rom-side/1mhz-wifi/src/serial.asm").read_text()
+        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text()
+        helpers = (ROOT / "rom-side/1mhz-wifi/src/wget_helpers.asm").read_text()
         self.assertIn(".pi_wget_cmd\n jsr detect_jim_machine", wget)
         self.assertIn("lda #&81\n ldx #0\n ldy #&FF\n jsr osbyte", serial)
         self.assertIn("cpx #1\n beq set_bank_0_page", serial)
@@ -1546,7 +1556,7 @@ host_basic_pending = &03BD
                         self.assertEqual(lines[index + 1].strip(), "jsr wicfs_bus_delay")
 
     def test_invalid_vectors_never_dereference_predecessors(self) -> None:
-        patch = (ROOT / "rom-side/elkwifi-0.23/patches/wicfs-invalid-state.patch").read_text()
+        patch = (ROOT / "rom-side/inherited/patches/wicfs-invalid-state.patch").read_text()
         for label in ("upfilev_state_valid", "upfindv_state_valid",
                       "upfscv_state_valid", "upbgetv_state_valid"):
             self.assertIn(label, patch)
