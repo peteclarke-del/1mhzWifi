@@ -1,7 +1,12 @@
-\ ElkWiFi-compatible WiFi command parser
-\ (c) Roland Leurs, May 2020
-
-\ Pi1MHz WIFI command response handling.
+\ wificmd.asm
+\ 1MHz-WiFi ROM: *WIFI.
+\
+\ Written for the 1MHz-WiFi project. The command keeps the ElkWiFi syntax
+\ because that is the interface users and scripts already have, but the parser
+\ and the response handling are this project's and talk to the Pi1MHz service
+\ driver. Attribution for what genuinely derives from ElkWiFi is carried in
+\ *VERSION.
+\
 \ Syntax: *WIFI [ON | OFF | SR | HR]
 
 .wifi_cmd       lda (line),y

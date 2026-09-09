@@ -79,17 +79,16 @@ laddr = heap+&FE
  stx pr_r
  stx pagereg
  stx zp+2
- lda #&80
+ lda #&80                  \ sideways RAM starts at &8000
  sta zp+3
- lda #&40
+ lda #&40                  \ and is 64 pages long
  sta zp+4
  ldy #0
 .wget_swramload_l1
- lda pageram,x
+ lda pageram,y
  sta (zp+2),y
- cmp (zp+2),y
+ cmp (zp+2),y              \ read back: absent RAM will not hold the write
  bne wget_swramload_err
- inx
  iny
  bne wget_swramload_l1
  inc pr_r

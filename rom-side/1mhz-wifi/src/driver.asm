@@ -155,10 +155,10 @@ driver_entry_y = drv_svc_workspace+23
  rts
 .read_buffer_inc
  inx
- bne read_buffer_end
- jsr inc_page_reg
-.read_buffer_end
+ beq read_buffer_page_over  \ X wrapped, so the JIM page is exhausted
  rts
+.read_buffer_page_over
+ jmp inc_page_reg
 
 \ Writes a character to the paged ram buffer at position X
 \ returns with X pointing to the next byte
@@ -177,18 +177,18 @@ driver_entry_y = drv_svc_workspace+23
 \ Decrements the 24 bit data pointer. On the Electron most transfers will be smaller than
 \ 64 KB but it is possible to send up to 4 MB per transfer.
 .dec_data_counter
- sec
- lda data_counter
- sbc #1
- sta data_counter
+ lda data_counter           \ borrow only into the bytes that need it
+ bne dec_data_counter_low
  lda data_counter+1
- sbc #0
- sta data_counter+1
- lda data_counter+2
- sbc #0
- sta data_counter+2
+ bne dec_data_counter_mid
+ dec data_counter+2
+.dec_data_counter_mid
+ dec data_counter+1
+.dec_data_counter_low
+ dec data_counter
+ lda data_counter           \ Z set once all three bytes are zero
  ora data_counter+1
- ora data_counter
+ ora data_counter+2
  rts
 \ Finalise a Pi1MHz response buffered in JIM.
 .restore_env
