@@ -372,6 +372,7 @@ include "join.asm"
 include "mode.asm"
 include "wicfs.asm"
 include "wicfs_messages.asm"   \ after wicfs.asm, which defines cr
+include "wicfs_catalogue.asm"
 include "wget.asm"
 include "net_wget.asm"
 include "ftp.asm"

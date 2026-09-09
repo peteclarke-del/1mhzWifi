@@ -1,0 +1,88 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -2853,85 +2853,11 @@
+ \Display handler for last block of a CFS file
+ \Tests for *OPT1,0 and if TRUE, returns no action (messages surpressed)
+ 
+-.lastblk
+-    if __debug = 1
+-    php:jsr debug
+-    equs "in lastblk",&0D,&EA
+-    plp
+-    endif
+-	LDA	&E3		\CFS Options Byte
+-	AND	optmask		\test message bits
+-	BEQ	lblk_x		\if messages surpressed, exit no action
+-
+-	LDA	#sp		\last block, always print 16 bit length
+-	JSR	OSWRCH
+-	LDA	&3C6		\length = current block number...
+-	JSR	printhex
+-	LDA	blklen		\... + current block length
+-	JSR	printhex
+-
+-	LDA	&E3		\at last block, test for *OPT1,2
+-	AND	optmask		\ = Bits 7,6 set of &E3
+-	CMP	optmask
+-	BNE	lblk_a1		\no extended info
+-	
+-	LDA	#sp		\else add 16 bit load & execution
+-	JSR	OSWRCH
+-	LDA	&3BF		\load address
+-	JSR	printhex
+-	LDA	&3BE
+-	JSR	printhex
+-	LDA	#sp		\<space>
+-	JSR	OSWRCH
+-	LDA	&3C3		\execution address
+-	JSR	printhex
+-	LDA	&3C2
+-	JSR	printhex
+-.lblk_a1	LDA	#cr		\new line
+-	JSR	OSASCI
+-.lblk_x	LDA	#0		\reset current/next block
+-	STA	curblk
+-	STA	nxtblk
+-	RTS			\and return
+-
+ \-------------------------------------------------------------------------------
+ \Following a CFS header load, prints the standard CFS block output. Saves a
+ \copy of this block number in curblk for comparison with expected block nxtblk
+ \Tests for *OPT1,0 and if TRUE, returns no action (messages surpressed)
+  
+-.prblock
+-	LDA	&E3		\CFS Options Byte
+-	AND	optmask		\test message bits
+-	BEQ	prb_a5		\if messages surpressed, exit only..
+-				\..updating block number record
+-
+-	LDA	#cr		\else cursor to left
+-	JSR	OSWRCH
+-	LDX	#0		\print the block filename (overwrite)
+-.prb_a1	LDA	&3B2,X
+-	BEQ	prb_a2		\null is last byte (non-printed)
+-	JSR	OSWRCH
+-	INX
+-	BNE	prb_a1		\loop till done
+-
+-.prb_a2	CPX	#10		\all 10 filename characters used?
+-	BEQ	prb_a4		\yes, skip formatting
+-.prb_a3	LDA	#sp		\else pad out to 10 spaces
+-	JSR	OSWRCH
+-	INX
+-	CPX	#10
+-	BNE	prb_a3
+-
+-.prb_a4	LDA	#sp		\<space>
+-	JSR	OSWRCH
+-	LDA	&3C6		\print current block number in hex
+-	JSR	printhex
+-.prb_a5	LDA	&3C6
+-	STA	curblk		\update CFS current block record
+-		
+-
+-.prb_x	RTS			\and return		
+-
+ \-------------------------------------------------------------------------------
+ \Tests if next Chunk (header just loaded) is CFS. Returns A=1 if CFS tape block
+ \else returns A=0
