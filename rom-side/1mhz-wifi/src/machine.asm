@@ -16,7 +16,6 @@
 \ which is decided at run time through OSBYTE &81.
 
             __ELECTRON__ = 1
-            __ATOM__     = 0
 
 \ ---------------------------------------------------------------------------
 \ MOS entry points (Acorn published interface)
@@ -56,7 +55,6 @@
             save_a = zp+2
             save_y = zp+3
             save_x = zp+4
-            pr24pad = zp+5
 
             \ The OSWORD &65 parameter block pointer shares save_y: the driver
             \ has finished with the saved Y by the time it needs the pointer.
@@ -64,29 +62,17 @@
 
             \ Transfer sizes and addresses.
             data_counter = zp+6
-            blocksize    = zp+6
             load_addr    = zp+9
-
-            \ Serial parameters. baudrate must share blocksize because both are
-            \ fed to the same multiply-by-ten helper.
-            baudrate = zp+6
-            parity   = zp+9
-            databits = zp+10
-            stopbits = zp+11
 
             \ Buffer walk. buffer_ptr and data_pointer must stay adjacent so a
             \ sixteen bit pointer can be incremented across the pair.
-            buffer_ptr   = zp+9
             data_pointer = zp+11
             size         = zp+11    \ search length, shares data_pointer
             needle       = zp+12    \ search string pointer, 2 bytes
             datalen      = zp+13    \ remaining data length, 2 bytes
-            crc          = zp+15    \ calculated CRC, 2 bytes
-            servercrc    = zp+17    \ CRC reported by the far end, 2 bytes
 
             \ Connection state read by the public OSWORD &65 driver.
             mux_status  = &90
-            mux_channel = &91       \ five bytes
 
 \ ---------------------------------------------------------------------------
 \ Main memory workspace
@@ -95,21 +81,19 @@
 \ of one command, so the overlaps below are safe and are documented where they
 \ are not obvious.
 
-            errorspace = &100       \ MOS BRK block is assembled here
-            timer      = &140       \ countdown timer, 3 bytes
-            time_out   = timer + 4  \ timeout setting, 1 byte
             heap       = &900       \ command parameter block
             strbuf     = &A00       \ command line parameter string
 
             \ Retired network printer workspace. The printer support this ROM
             \ inherited has been removed, so the bytes are free; the dynamic
             \ error block is built here rather than on the &0100 stack.
-            uptvec = &222           \ user print vector
             netprt = &D90           \ 32 bytes
-            uptype = &DB0
-            uptsav = &DB1
 
-            switch = &FE05
+            \ The ROM select register is not the same on every target, so it
+            \ is not equated here: &FE05 with the Electron deselect cycle
+            \ against &FE30 on the BBC family, chosen at run time from
+            \ driver_machine. shadow is the MOS copy of the selected ROM
+            \ number, which is &F4 on all four machines.
             shadow = &F4
 
 \ The image carries the ATM header the loader expects ahead of the ROM itself.

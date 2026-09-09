@@ -324,9 +324,19 @@ endif
 \ the boot cursor. Defining character 255 and printing it through the VDU keeps
 \ the icon on the banner's own line whatever the ROM ordering and however the
 \ screen has scrolled.
+\
+\ The BBC B, B+ and Master boot into MODE 7, where characters above 127 are
+\ teletext codes rather than soft characters, so a defined glyph cannot be
+\ displayed and VDU 255 would emit a stray graphics cell instead. Only the
+\ Electron, which has no teletext mode, ever reaches the glyph. The banner
+\ text is identical on all four machines either way.
 
 if __ELECTRON__
-.print_logo         lda #' '
+.print_logo         lda #135                \ OSBYTE 135 returns the mode in Y
+                    jsr osbyte
+                    cpy #7                  \ teletext cannot show a soft
+                    beq logo2               \ character, so print none
+                    lda #' '
                     jsr oswrch
                     lda #23                 \ VDU 23,255,... defines a glyph
                     jsr oswrch

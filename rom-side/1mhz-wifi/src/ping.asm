@@ -18,8 +18,9 @@ ping_request_count = heap+&B1
 .ping_start
  ldx #5
  stx ping_request_count
- ldx #32
- stx time_out
+\ The inherited ROM set a UART timeout at time_out here. That address is &0144,
+\ inside the processor stack, and nothing has read it since the UART went, so
+\ the store is removed rather than relocated.
 .ping_loop
  ldx #>strbuf
  ldy #<strbuf
