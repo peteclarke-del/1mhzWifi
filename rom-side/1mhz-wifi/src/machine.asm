@@ -27,6 +27,22 @@
             oswrch = &FFEE
             osbyte = &FFF4
             oscli  = &FFF7
+            OSWORD = &FFF1
+            OSFSC  = &FFE9
+            \ Some sources spell these in capitals; both name the same entry.
+            OSASCI = &FFE3
+            OSWRCH = &FFEE
+            OSBYTE = &FFF4
+            OSRDCH = &FFE0
+
+\ MOS vectors the filing system ROM claims. Listed here so both images agree
+\ on them and neither depends on the other's header.
+
+            OSFILEV = &0212         \ OSFILE
+            OSBGETV = &0216         \ OSBGET, sequential read
+            OSFINDV = &021C         \ OSFIND, open
+            OSFSCV  = &021E         \ filing system control
+            BYTEV   = &020A         \ OSBYTE
 
 \ ---------------------------------------------------------------------------
 \ 1MHz bus / AP5 interface
@@ -70,6 +86,17 @@
             size         = zp+11    \ search length, shares data_pointer
             needle       = zp+12    \ search string pointer, 2 bytes
             datalen      = zp+13    \ remaining data length, 2 bytes
+
+            \ The UEF stream handover to the filing system ROM. *WGET -U
+            \ downloads an image into the JIM window and records its length
+            \ and cursor here; the filing system ROM reads them to stream the
+            \ image out. These four addresses are the whole of the contract
+            \ between the two ROMs, alongside the JIM window itself, so they
+            \ must agree with the filing system ROM's own definitions.
+            sbufl = &F8             \ stream bytes remaining, low
+            sbufh = &F9             \ stream bytes remaining, high
+            pr_y  = &C7             \ stream cursor offset within the page
+            pr_r  = &C8             \ stream cursor page register shadow
 
             \ Connection state read by the public OSWORD &65 driver.
             mux_status  = &90

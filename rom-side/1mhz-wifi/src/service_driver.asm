@@ -282,14 +282,14 @@ drv_net_status = 54
  txa
  pha
  ldx #drv_uef_generation_record_lo
- jsr wicfs_state_address_x
+ jsr pi_state_address_x
  lda &FCA9
- jsr wicfs_bus_delay
+ jsr bus_delay
  sta drv_uef_generation_lo
  ldx #drv_uef_generation_record_hi
- jsr wicfs_state_address_x
+ jsr pi_state_address_x
  lda &FCA9
- jsr wicfs_bus_delay
+ jsr bus_delay
  sta drv_uef_generation_hi
  pla
  tax
@@ -304,15 +304,15 @@ drv_net_status = 54
  txa
  pha
  ldx #drv_uef_generation_record_lo
- jsr wicfs_state_address_x
+ jsr pi_state_address_x
  lda drv_uef_generation_lo
  sta &FCA9
- jsr wicfs_bus_delay
+ jsr bus_delay
  ldx #drv_uef_generation_record_hi
- jsr wicfs_state_address_x
+ jsr pi_state_address_x
  lda drv_uef_generation_hi
  sta &FCA9
- jsr wicfs_bus_delay
+ jsr bus_delay
  pla
  tax
  pla

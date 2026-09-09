@@ -155,7 +155,8 @@ class IntegrationContractTest(unittest.TestCase):
         service_header = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.h").read_text()
         service_driver = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
         uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
-        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text()
+        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
+            ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         network_tools_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-network-tools.patch").read_text()
         net_copy_public_patch = (
@@ -230,7 +231,7 @@ class IntegrationContractTest(unittest.TestCase):
         )[1].split(".service_driver_uef_stream_template", 1)[0]
         for helper in (generation_load, generation_save):
             self.assertIn("php\n sei", helper)
-            self.assertIn("jsr wicfs_state_address_x", helper)
+            self.assertIn("jsr pi_state_address_x", helper)
             self.assertIn("&FCA9", helper)
         self.assertIn("jsr service_driver_uef_generation_load", service_driver)
         self.assertIn("jsr service_driver_uef_generation_save", service_driver)
@@ -385,7 +386,8 @@ class IntegrationContractTest(unittest.TestCase):
 
     def test_rom_routes_url_and_osword_tcp_through_pi_services(self) -> None:
         driver = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
-        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text()
+        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
+            ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
         for operation in ("cipstart", "cipsend", "receive", "cipclose"):
             self.assertIn(f"service_driver_{operation}", driver)
         self.assertIn("net_cmd_url_open = 60", wget)
@@ -417,7 +419,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("lda #14\n jmp generic_cmd", wget)
 
     def test_wget_and_wicfs_use_the_pi_transport_and_jim_windows(self) -> None:
-        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text()
+        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
+            ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
         surface = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
         executable = "\n".join(
             line for line in wget.splitlines() if not line.lstrip().startswith("\\")
@@ -479,8 +482,9 @@ class IntegrationContractTest(unittest.TestCase):
             ".pi_wget_usage", 1
         )[0]
         self.assertLess(close.index("jsr wget_OSFIND"), close.index("jsr net_dispatch_wait"))
-        self.assertIn('equs "WICFS"', surface)
-        self.assertIn('include "wicfs.asm"', surface)
+        wicfs_root = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
+        self.assertIn('equs "WICFS"', wicfs_root)
+        self.assertIn('include "wicfs.asm"', wicfs_root)
         wicfs_patch = (ROOT / "rom-side/inherited/patches/wicfs-page-shadow.patch").read_text()
         self.assertIn("inc pr_r", wicfs_patch)
         self.assertIn("JSR set_bank_1", wicfs_patch)
@@ -603,9 +607,13 @@ class IntegrationContractTest(unittest.TestCase):
         # Reset may release WiCFS only while its live BYTEV trap proves that
         # the saved predecessor set still belongs to this installation. Once
         # stream completion restores BYTEV, MOS owns reset-time vector rebuilds.
+        # The reset service moved into the filing system image with the filing
+        # system, so the network image no longer mentions it at all.
+        wicfs_root = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
+        self.assertIn("jsr release_owned_wicfs", wicfs_root)
+        self.assertNotIn("jsr wicfs_reset", wicfs_root)
         rom_source = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
-        self.assertIn("jsr release_owned_wicfs", rom_source)
-        self.assertNotIn("jsr wicfs_reset", rom_source)
+        self.assertNotIn("release_owned_wicfs", rom_source)
         self.assertNotIn("stx pagereg", rom_source)
         self.assertNotIn("stx uptype", rom_source)
         self.assertIn("Nothing here may touch the AP5 JIM selector", rom_source)
@@ -614,11 +622,11 @@ class IntegrationContractTest(unittest.TestCase):
             ROOT / "rom-side/inherited/patches/wicfs-stream-finish.patch"
         ).read_text()
         self.assertIn(".wicfs_any_vector_owned", stream_finish_patch)
-        reset_service = rom_source.split(".autorun", 1)[1].split(
+        reset_service = wicfs_root.split(".autorun", 1)[1].split(
             ".commandtable", 1
         )[0]
         self.assertNotIn("wicfs_any_vector_owned", reset_service)
-        self.assertIn("bne autorun_wicfs_released", reset_service)
+        self.assertIn("bne autorun_released", reset_service)
         self.assertIn("cannot execute a partially rewritten handler", stream_finish_patch)
         self.assertEqual(stream_finish_patch.count("JSR\tinstall_extended_vector"), 0)
         self.assertNotIn("wicfs_reset_select_tape", stream_finish_patch)
@@ -711,7 +719,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn('equs "PAGE=&E00",&0D', host_launch)
         self.assertIn('equs "*QR",&0D', host_launch)
         self.assertIn("jmp host_basic_cmd", uef)
-        command_patch = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
+        command_patch = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
         self.assertIn('equs "QHOST"', command_patch)
         self.assertIn(".host_basic_cmd", host_launch)
         self.assertIn("jmp &8000", host_launch)
@@ -773,7 +781,8 @@ class IntegrationContractTest(unittest.TestCase):
         rewind_patch = (
             ROOT / "rom-side/inherited/patches/wicfs-rewind.patch"
         ).read_text()
-        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text()
+        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
+            ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
         self.assertIn("jsr cfsinit", rewind_patch)
         self.assertIn("authoritative UEF length from Pi1MHz JIM", rewind_patch)
         self.assertNotIn("tape_len", rewind_patch)
@@ -781,7 +790,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("lda #&EA", uef)
         serial = (ROOT / "rom-side/1mhz-wifi/src/serial.asm").read_text()
         self.assertIn("cpx #1\n beq set_bank_0_page", serial)
-        self.assertIn("sta &FCFD\n jsr wicfs_bus_delay\n sta &FCFE", serial)
+        self.assertIn("sta &FCFD\n jsr bus_delay\n sta &FCFE", serial)
         self.assertIn(".detect_jim_machine", serial)
         self.assertNotIn("lda &FCFF", serial)
         self.assertIn("jsr set_bank_0             \\ ElkWiFi buffers are in JIM address 00:00:page", (ROOT / "rom-side/1mhz-wifi/src/driver.asm").read_text())
@@ -960,7 +969,7 @@ class IntegrationContractTest(unittest.TestCase):
 
     def test_local_uef_import_uses_current_filing_system_and_wicfs(self) -> None:
         source = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
-        command_patch = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
+        command_patch = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
         callable_patch = (
             ROOT / "rom-side/inherited/patches/wicfs-callable-init.patch"
         ).read_text()

@@ -5,17 +5,11 @@
 \ implementation uses Pi1MHz's URL service through the FCA6 mailbox and
 \ accesses the AP5-forwarded FRED services window from the I/O processor.
 
-net_svc_addr_lo = &A6
-net_svc_addr_mid = &A7
-net_svc_addr_hi = &A8
-net_svc_data = &A9
-net_svc_command = &AA
 
 net_cmd_url_open = 60
 net_cmd_url_read = 61
 net_cmd_url_close = 63
 net_cmd_url_status = 64
-net_result_pending = 1
 net_result_eof = &20
 net_result_http_status = &30
 net_result_unsupported = &27
@@ -26,12 +20,8 @@ wget_OSBPUT = &FFD4
 
 net_count = heap+&E8
 net_cli_y = heap+&E9
-net_wait_lo = heap+&EA
-net_wait_hi = heap+&EB
 \ The raw ElkWiFi OSWORD receive path shares these counters and the cursor
 \ helpers below. They must not occupy the &0900 ADFS/application workspace.
-net_empty_lo = drv_svc_workspace+24
-net_empty_hi = drv_svc_workspace+25
 net_result = heap+&EE
 net_transfer_ok = heap+&EF
 net_received = heap+&F0
@@ -47,9 +37,6 @@ net_bytes_bank = heap+&E2
 \ heap+&E3 and &E7 are otherwise unused across the whole ROM build.
 \ &F5-&F7 collide with wget.asm's proto/newln/clptr, and &E6 belongs to the
 \ host BASIC transition workspace. Both share the same "heap" workspace.
-net_cursor_lo = drv_svc_workspace+21
-net_cursor_mid = drv_svc_workspace+22
-net_cursor_hi = drv_svc_workspace+23
 
 \ Close the ElkWiFi-compatible raw socket and display the Pi response. The
 \ inherited wget_close routine is also an internal silent cleanup path.
@@ -397,13 +384,13 @@ net_cursor_hi = drv_svc_workspace+23
  jsr set_bank_1
  lda #&FF
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
  lda net_bytes_lo
  sta &FDFE
- jsr wicfs_bus_delay
+ jsr bus_delay
  lda net_bytes_hi
  sta &FDFF
- jsr wicfs_bus_delay
+ jsr bus_delay
  plp
  lda uflag
  beq pi_wget_normalized
@@ -418,7 +405,7 @@ net_cursor_hi = drv_svc_workspace+23
  sei
  lda #0
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
  lda pageram
  sta zp
  lda pageram+1
@@ -443,13 +430,13 @@ net_cursor_hi = drv_svc_workspace+23
  bne pi_wget_not_invalid_uef
  jsr pi_wget_close
  jsr set_bank_0
- jmp uef_invalid
+ jmp pi_wget_invalid_uef
 .pi_wget_not_invalid_uef
  cmp #'T'
  bne pi_wget_normalize_ok
  jsr pi_wget_close
  jsr set_bank_0
- jmp uef_too_large
+ jmp pi_wget_too_large
 .pi_wget_normalize_ok
  sta net_result
  \ Command 93 rewrites the authoritative trailer with the expanded length.
@@ -458,7 +445,7 @@ net_cursor_hi = drv_svc_workspace+23
  jsr set_bank_1
  lda #&FF
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
  lda &FDFE
  sta net_bytes_lo
  sta sbufl
@@ -472,7 +459,7 @@ net_cursor_hi = drv_svc_workspace+23
  sei
  lda #&FF
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
  plp
 .pi_wget_normalized
  php
@@ -480,7 +467,7 @@ net_cursor_hi = drv_svc_workspace+23
  jsr set_bank_0
  lda net_primary_page
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
  plp
  lda sflag
  beq pi_wget_finish_close
@@ -548,31 +535,31 @@ net_cursor_hi = drv_svc_workspace+23
  jsr set_bank_1
  lda net_paged_page
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
  ldy net_paged_offset
  pla
  sta pageram,y
- jsr wicfs_bus_delay
+ jsr bus_delay
  iny
  bne pi_wget_paged_pointer_ok
  inc net_paged_page
  beq pi_wget_paged_full
  lda net_paged_page
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
 .pi_wget_paged_pointer_ok
  sty net_paged_offset
  jsr set_bank_0
  lda net_primary_page
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
  plp
  rts
 .pi_wget_paged_full
  jsr set_bank_0
  lda net_primary_page
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
  plp
  jsr pi_wget_close
  ldx #(error_buffer_full-error_table)
@@ -599,168 +586,6 @@ net_cursor_hi = drv_svc_workspace+23
  equs "Usage: WGET <url> <file>",&0D
  equs "       WGET [-TXUS] <url> [slot]",&0D,&EA
  jmp call_claimed
-
-\ Select logical JIM &FFF000: Pi1MHz maps it into the reserved service RAM.
-.net_command_address
- lda #0
- jsr net_address_low
- lda #&F0
- jsr net_address_mid
- lda #&FF
- jmp net_address_high
-
-.net_scratch_address
- lda #0
- jsr net_address_low
- lda #&F1
- jsr net_address_mid
- lda #&FF
- jmp net_address_high
-
-.net_address_low
- sta net_cursor_lo
- sta &FC00+net_svc_addr_lo
- jsr wicfs_bus_delay
- rts
-.net_address_mid
- sta net_cursor_mid
- sta &FC00+net_svc_addr_mid
- jsr wicfs_bus_delay
- rts
-.net_address_high
- sta net_cursor_hi
- sta &FC00+net_svc_addr_hi
- jsr wicfs_bus_delay
- rts
-
-.net_write_a
- php
- sei
- pha
- lda net_cursor_lo
- sta &FC00+net_svc_addr_lo
- jsr wicfs_bus_delay
- lda net_cursor_mid
- sta &FC00+net_svc_addr_mid
- jsr wicfs_bus_delay
- lda net_cursor_hi
- sta &FC00+net_svc_addr_hi
- jsr wicfs_bus_delay
- pla
- sta &FC00+net_svc_data
- jsr wicfs_bus_delay
- inc net_cursor_lo
- bne net_write_done
- inc net_cursor_mid
- bne net_write_done
- inc net_cursor_hi
-.net_write_done
- jsr net_wait_cursor
- plp
- rts
-
-.net_read_a
- php
- sei
- lda net_cursor_lo
- sta &FC00+net_svc_addr_lo
- jsr wicfs_bus_delay
- lda net_cursor_mid
- sta &FC00+net_svc_addr_mid
- jsr wicfs_bus_delay
- lda net_cursor_hi
- sta &FC00+net_svc_addr_hi
- jsr wicfs_bus_delay
- lda &FC00+net_svc_data
- jsr wicfs_bus_delay
- pha
- inc net_cursor_lo
- bne net_read_done
- inc net_cursor_mid
- bne net_read_done
- inc net_cursor_hi
-.net_read_done
- jsr net_wait_cursor
- pla
- plp
- cmp #0
- rts
-
-\ FCA9 read/write callbacks advance the shared cursor asynchronously on real
-\ Pi1MHz hardware. Wait until the complete published cursor matches the
-\ software cursor before another transaction can select FCA6-FCA8. The loop is
-\ deliberately bounded and preserves A and X.
-.net_wait_cursor
- pha
- txa
- pha
- ldx #0
-.net_wait_cursor_loop
- lda &FC00+net_svc_addr_lo
- jsr wicfs_bus_delay
- cmp net_cursor_lo
- bne net_wait_cursor_again
- lda &FC00+net_svc_addr_mid
- jsr wicfs_bus_delay
- cmp net_cursor_mid
- bne net_wait_cursor_again
- lda &FC00+net_svc_addr_hi
- jsr wicfs_bus_delay
- cmp net_cursor_hi
- beq net_wait_cursor_done
-.net_wait_cursor_again
- dex
- bne net_wait_cursor_loop
-.net_wait_cursor_done
- pla
- tax
- pla
- rts
-
-\ Dispatch handle zero (&F0).  Bit 7 means the Pi main loop has not serviced
-\ the FIQ latch; result 1 means an async DNS/connect is still pending and must
-\ be re-issued.  Both paths are bounded and Escape-aware.
-.net_dispatch_wait
- lda #0
- sta net_wait_lo
- lda #&FF                 \ about five seconds at one yield per video frame
- sta net_wait_hi
-.net_dispatch_again
- php
- sei
- lda #&F0
- sta &FC00+net_svc_command
- jsr wicfs_bus_delay
- plp
-.net_dispatch_busy
- lda &FC00+net_svc_command
- bpl net_dispatch_ready
- dec net_wait_lo
- bne net_dispatch_busy
- lda #19                  \ yield to the Pi main-loop network poll
- jsr osbyte
- dec net_wait_hi
- bne net_dispatch_busy
- jmp net_dispatch_timeout
-.net_dispatch_ready
- cmp #net_result_pending
- bne net_dispatch_return
- jsr check_esc
- bcs net_dispatch_cancel
- lda #19
- jsr osbyte
- dec net_wait_lo
- bne net_dispatch_again
- dec net_wait_hi
- bne net_dispatch_again
- jmp net_dispatch_timeout
-.net_dispatch_cancel
- lda #&2A                  \ cancelled: never masquerade as successful EOF
-.net_dispatch_return
- rts
-.net_dispatch_timeout
- lda #&29                  \ private transport-timeout result
- rts
 
 .pi_wget_timeout
  jsr printtext
@@ -805,3 +630,17 @@ net_cursor_hi = drv_svc_workspace+23
  lda net_result
  jsr printhex
  jmp osnewl
+
+\ The Pi normaliser rejected the downloaded image, or it will not fit in the
+\ JIM window. *WGET -U reports that itself: the filing system ROM is a
+\ separate image and may not even be fitted.
+
+.pi_wget_invalid_uef
+ jsr printtext
+ equs "Invalid UEF, gzip or ZIP file",&0D,&EA
+ jmp call_claimed
+
+.pi_wget_too_large
+ jsr printtext
+ equs "Expanded UEF exceeds &FFFE bytes",&0D,&EA
+ jmp call_claimed

@@ -112,14 +112,14 @@ pdump_bank = driver_entry_x
  beq pdump_read_page
  lda #0
  sta &FCFD
- jsr wicfs_bus_delay
+ jsr bus_delay
  lda pdump_bank
  sta &FCFE
- jsr wicfs_bus_delay
+ jsr bus_delay
 .pdump_read_page
  lda load_addr+1
  sta pagereg
- jsr wicfs_bus_delay
+ jsr bus_delay
  lda pageram,y
  plp
  ora #0

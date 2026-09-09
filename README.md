@@ -170,6 +170,15 @@ The ElkWiFi-compatible ROM does not add HTTPS or TLS to `*WGET`; unsupported
 secure URLs fail closed and are never downgraded to plaintext. The separate
 native `host-tools/SSH` client uses the managed Pi secure service and wolfSSH.
 
+The host ROM is two sideways images. `1mhz-wifi.rom` carries WiFi association,
+the network commands, the OSWORD `&65` interface and the RAM disk, and is
+entirely this project's own code. `1mhz-wicfs.rom` carries the UEF cassette
+filing system, and with it the only file that derives from anyone else's work,
+so the network image can be licensed and shipped on its own. The two do not
+call each other; they share only the JIM window and four documented bytes, so
+either works with the other absent. Pi1MHz serves sideways ROMs from its own
+directory, so the second image costs no socket.
+
 The maintained upstream changes are grouped by target, and the ROM is further
 split by provenance. The ROM sources written for this project are in
 `rom-side/1mhz-wifi/src/`; what still derives from ElkWiFi 0.23, and through it

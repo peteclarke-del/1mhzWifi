@@ -246,14 +246,28 @@ class WicfsRuntimeContractTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        # The filing system ships in its own image now, so these tests read
+        # that one. The network ROM no longer contains any of it.
         cls.rom_path = pathlib.Path(os.environ.get(
+            "ELKWIFI_TEST_WICFS_ROM",
+            ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom",
+        ))
+        cls.rom = cls.rom_path.read_bytes()
+        # A few tests here cover *WGET, which is in the network image.
+        cls.net_rom_path = pathlib.Path(os.environ.get(
             "ELKWIFI_TEST_ROM",
             ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom",
         ))
-        cls.rom = cls.rom_path.read_bytes()
+        cls.net_rom = cls.net_rom_path.read_bytes()
+
 
     def find_rom_routine(self, pattern: bytes) -> re.Match[bytes]:
         matches = list(re.finditer(pattern, self.rom, re.S))
+        self.assertEqual(len(matches), 1)
+        return matches[0]
+
+    def find_net_rom_routine(self, pattern: bytes) -> re.Match[bytes]:
+        matches = list(re.finditer(pattern, self.net_rom, re.S))
         self.assertEqual(len(matches), 1)
         return matches[0]
 
@@ -520,7 +534,7 @@ host_basic_pending = &03BD
         )
 
     def test_wget_mailbox_accesses_are_individually_settled(self) -> None:
-        source = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text()
+        source = (ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
         start = source.index(".net_address_low")
         end = source.index(".net_dispatch_wait")
         transport = source[start:end]
@@ -530,7 +544,7 @@ host_basic_pending = &03BD
             if mailbox.match(line):
                 with self.subTest(line=index + 1, instruction=line.strip()):
                     self.assertLess(index + 1, len(lines))
-                    self.assertEqual(lines[index + 1].strip(), "jsr wicfs_bus_delay")
+                    self.assertEqual(lines[index + 1].strip(), "jsr bus_delay")
 
     def test_assembled_uef_length_commit_preserves_both_bytes(self) -> None:
         match = self.find_rom_routine(
@@ -962,7 +976,7 @@ host_basic_pending = &03BD
         self.assertEqual(mpu.sp, 0xF0)
 
     def test_assembled_wget_file_sink_passes_each_byte_to_mos(self) -> None:
-        match = self.find_rom_routine(
+        match = self.find_net_rom_routine(
             rb"\x68\xac(..)\x20\xd4\xff\x4c(..)"
         )
         start = ROM_START + match.start()
@@ -970,7 +984,7 @@ host_basic_pending = &03BD
         copied = match.group(2)[0] | match.group(2)[1] << 8
 
         mpu = MPU()
-        mpu.memory[ROM_START:ROM_START + len(self.rom)] = self.rom
+        mpu.memory[ROM_START:ROM_START + len(self.net_rom)] = self.net_rom
         mpu.pc = start
         mpu.sp = 0xEF
         mpu.memory[0x01F0] = 0xA7
@@ -1146,12 +1160,12 @@ host_basic_pending = &03BD
         self.assertGreaterEqual(text.count("wicfs_prepare_byte_trap"), 3)
         self.assertGreaterEqual(text.count("wicfs_publish_byte_trap"), 3)
         self.assertIn("+.wicfs_any_vector_owned", text)
-        rom_source = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
+        rom_source = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
         reset_service = rom_source.split(".autorun", 1)[1].split(
             ".commandtable", 1
         )[0]
         self.assertNotIn("wicfs_any_vector_owned", reset_service)
-        self.assertIn("bne autorun_wicfs_released", reset_service)
+        self.assertIn("bne autorun_released", reset_service)
         self.assertIn("jsr release_owned_wicfs", reset_service)
         self.assertIn("cannot execute a partially rewritten handler", text)
         self.assertEqual(text.count("+\tJSR\tinstall_extended_vector"), 0)
@@ -1192,9 +1206,9 @@ host_basic_pending = &03BD
         self.assertIn("+.wicfs_install_check_partial", text)
         self.assertIn("+.wicfs_install_components_ok", text)
         self.assertIn("+.wicfs_release_invalid_byte_trap", text)
-        rom_source = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
-        self.assertIn("bcs autorun_wicfs_abort", rom_source)
-        self.assertIn(".autorun_wicfs_abort", rom_source)
+        rom_source = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
+        self.assertIn("bcs autorun_abort", rom_source)
+        self.assertIn(".autorun_abort", rom_source)
         uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
         self.assertIn(".uef_run_failed", uef)
         self.assertIn("bcs uef_run_failed", uef)
@@ -1257,8 +1271,8 @@ host_basic_pending = &03BD
         # Both halves of the BYTEV pointer are compared, and either
         # mismatch skips the release, so there are two branches. The old
         # count of one came from a diff hunk that showed only the second.
-        self.assertEqual(reset_service.count("bne autorun_wicfs_released"), 2)
-        self.assertIn("bcs autorun_wicfs_abort", reset_service)
+        self.assertEqual(reset_service.count("bne autorun_released"), 2)
+        self.assertIn("bcs autorun_abort", reset_service)
         self.assertNotIn("wicfs_any_vector_owned", reset_service)
 
         ownership = text.split("+.wicfs_any_vector_owned", 1)[1].split(
@@ -1299,7 +1313,7 @@ host_basic_pending = &03BD
         # already-applied markers: the reset service is our own source rather
         # than a patched file, so the label is asserted where it now lives.
         self.assertNotIn("autorun_wicfs_abort", build)
-        self.assertIn(".autorun_wicfs_abort", rom_source)
+        self.assertIn(".autorun_abort", rom_source)
 
     def test_tape_transition_preserves_the_real_filing_system_predecessor(self) -> None:
         patch = (
@@ -1610,14 +1624,14 @@ host_basic_pending = &03BD
         self.assertIn(".pi_wget_cmd\n jsr detect_jim_machine", wget)
         self.assertIn("lda #&81\n ldx #0\n ldy #&FF\n jsr osbyte", serial)
         self.assertIn("cpx #1\n beq set_bank_0_page", serial)
-        self.assertIn("sta &FCFD\n jsr wicfs_bus_delay\n sta &FCFE", serial)
+        self.assertIn("sta &FCFD\n jsr bus_delay\n sta &FCFE", serial)
         for source in (serial, wget, helpers):
             lines = source.splitlines()
             for index, line in enumerate(lines):
                 if re.match(r"^\s*sta\s+(?:pagereg|&FD[0-9A-F]{2}|pageram(?:,y)?)\s*$",
                             line, re.I):
                     with self.subTest(source=source[:20], line=index + 1):
-                        self.assertEqual(lines[index + 1].strip(), "jsr wicfs_bus_delay")
+                        self.assertEqual(lines[index + 1].strip(), "jsr bus_delay")
 
     def test_invalid_vectors_never_dereference_predecessors(self) -> None:
         patch = (ROOT / "rom-side/inherited/patches/wicfs-invalid-state.patch").read_text()

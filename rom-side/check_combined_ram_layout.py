@@ -58,18 +58,36 @@ def source_symbols(source_dir: Path) -> dict[str, int]:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print(f"usage: {Path(sys.argv[0]).name} /path/to/rom /path/to/labels.json",
+    if len(sys.argv) not in (3, 4):
+        print(f"usage: {Path(sys.argv[0]).name} /path/to/rom /path/to/labels.json "
+              "[/path/to/other-labels.json]",
               file=sys.stderr)
         return 2
     source_dir = Path(sys.argv[1])
-    labels_text = re.sub(r"(?<=\d)L\b", "", Path(sys.argv[2]).read_text())
-    labels = ast.literal_eval(labels_text)
-    if isinstance(labels, list) and len(labels) == 1 and isinstance(labels[0], dict):
-        labels = labels[0]
-    if not isinstance(labels, dict):
-        print("assembled label export has an unknown format", file=sys.stderr)
+
+    # The project builds two images now, and the RAM layout is shared between
+    # them, so the audit reads both label sets. The required symbols below are
+    # distinct between the two, so merging cannot mask one with the other.
+    def read_labels(path: Path):
+        text = re.sub(r"(?<=\d)L\b", "", path.read_text())
+        loaded = ast.literal_eval(text)
+        if isinstance(loaded, list) and len(loaded) == 1 and isinstance(loaded[0], dict):
+            loaded = loaded[0]
+        if not isinstance(loaded, dict):
+            print(f"assembled label export has an unknown format: {path}",
+                  file=sys.stderr)
+            return None
+        return loaded
+
+    labels = read_labels(Path(sys.argv[2]))
+    if labels is None:
         return 1
+    for extra in sys.argv[3:]:
+        more = read_labels(Path(extra))
+        if more is None:
+            return 1
+        for name, value in more.items():
+            labels.setdefault(name, value)
     required_labels = {
         ".uef_cmd", ".wicfs_state_load", ".host_select_tape", ".pi_wget_cmd",
         ".wicfs_reset_done", ".wicfs_load_pre_tape",
