@@ -28,11 +28,18 @@ The checkout must be at ElkWiFi commit
 not idempotent, because some patches are detected by markers that later patches
 change.
 
-An ElkWiFi checkout is still needed only for `wicfs.asm`. When that file is
-replaced, `1mhz-wifi/` becomes the whole ROM and the dependency goes away.
+An ElkWiFi checkout is needed only for `wicfs.asm`, and only for the filing
+system image. `1mhzwifi.asm` assembles on its own with no ElkWiFi source
+present at all, which is what makes the network ROM licensable separately.
 
-The ROM is written to `../build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom`, with
-`../build/elkwifi_pi1mhz.rom` kept as a compatibility symbolic link to it. The
-release build checks its size and recorded SHA-256. The source build is
-deterministic; physical Electron, filing system and Tube coexistence tests
-remain separate acceptance gates.
+Two images are written:
+
+- `../build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom`, the network ROM, entirely this
+  project's own code, with `../build/elkwifi_pi1mhz.rom` kept as a
+  compatibility symbolic link to it.
+- `../build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom`, the filing system ROM, which
+  carries the inherited `wicfs.asm`.
+
+The release build checks the size and recorded SHA-256 of the network image.
+The source build is deterministic; physical Electron, filing system and Tube
+coexistence tests remain separate acceptance gates.

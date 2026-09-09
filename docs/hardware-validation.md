@@ -31,7 +31,9 @@ The Pi1MHz commit was the official `master` tip verified on 23 August 2026. Run
 
 For this update, preserve the existing `Pi1MHz.cfg` and saved `ElkWiFi.*`
 files. Replace `kernel.img` or `kernel7.img` for the fitted Pi, the host
-`1mhz-wifi.rom`, and the separately mounted `nettools.ssd`. The universal ZIP is
+`1mhz-wifi.rom`, `1mhz-wicfs.rom`, and the separately mounted `nettools.ssd`.
+The network ROM is sufficient on its own; the filing system ROM is only needed
+for UEF cassette loading. The universal ZIP is
 for a clean card and may contain a fresh configuration template.
 
 Also preserve `/BeebSCSI0` and its `scsi*.dat` images. The bundle supplies the
