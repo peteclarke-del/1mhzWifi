@@ -47,16 +47,22 @@ rd_offset        = heap+&C1     \ offset within that page
 \ The host memory pointer must be in zero page for (rd_addr),Y. load_addr is
 \ the ROM's pointer pair for exactly this and no other command is running.
 rd_addr          = load_addr
-rd_len           = heap+&C4     \ bytes remaining, two bytes
 rd_entry         = heap+&C6     \ catalogue offset of the entry in hand
 rd_count         = heap+&C7     \ entries in the catalogue
 rd_next          = heap+&C8     \ next free page
 rd_name          = heap+&C9     \ the name being matched, seven bytes
+
+\ Load, execution and length are read and written as one six byte run, both
+\ here and in the catalogue entry, so they must stay adjacent and in this
+\ order. Putting the length elsewhere silently records a zero.
 rd_load          = heap+&D0     \ two bytes
 rd_exec          = heap+&D2     \ two bytes
-rd_start         = heap+&D4     \ first page of the file in hand
-rd_index         = heap+&D5     \ entry number while walking the catalogue
-rd_temp          = heap+&D6
+rd_len           = heap+&D4     \ two bytes, counted down by the copy
+
+rd_start         = heap+&D6     \ first page of the file in hand
+rd_index         = heap+&D7     \ entry number while walking the catalogue
+rd_temp          = heap+&D8
+rd_hold          = heap+&D9     \ byte held across a Y restore
 
 \ ===========================================================================
 \ Window access
@@ -65,12 +71,21 @@ rd_temp          = heap+&D6
 \ because the page register and the aperture are shared with other JIM users.
 \ Returns the byte in A; Y is not preserved.
 
+\ Y is preserved because Y is the MOS command line pointer, and every command
+\ here reads the catalogue before it has finished parsing its arguments.
+
 .rd_read            php
                     sei
+                    tya
+                    pha
                     lda rd_page
                     jsr select_public_page_a
                     ldy rd_offset
                     lda pageram,y
+                    sta rd_hold
+                    pla
+                    tay
+                    lda rd_hold
                     plp
                     rts
 
@@ -79,12 +94,16 @@ rd_temp          = heap+&D6
 .rd_write           php
                     sei
                     sta rd_temp
+                    tya
+                    pha
                     lda rd_page
                     jsr select_public_page_a
                     ldy rd_offset
                     lda rd_temp
                     sta pageram,y
                     jsr bus_delay
+                    pla
+                    tay
                     plp
                     rts
 
@@ -382,26 +401,42 @@ rd_temp          = heap+&D6
                     rts
 
 \ Copy rd_len bytes from page rd_start to rd_addr.
+\
+\ The page is selected once per page rather than once per byte. Selecting
+\ costs two JIM selector writes and three bus settling delays on a BBC family
+\ host, so doing it per byte would spend far longer settling the bus than
+\ moving data; a sixteen kilobyte file would take seconds. Y indexes the
+\ window and the destination together, which is why rd_addr is kept pointing
+\ at the byte matching offset zero of the current page rather than at the next
+\ byte to write.
 
 .rd_copy_out        lda rd_start
                     sta rd_page
-                    lda #0
-                    sta rd_offset
-.rd_copy_byte       lda rd_len
+                    ldy #0
+.rd_out_page        lda rd_len
                     ora rd_len+1
                     beq rd_copy_done
-                    jsr rd_read
-                    ldy #0
+                    php
+                    sei                     \ the selector is shared, so hold
+                    lda rd_page             \ it across the page
+                    jsr select_public_page_a
+.rd_out_byte        lda pageram,y
                     sta (rd_addr),y
-                    inc rd_addr
-                    bne rd_copy_next
-                    inc rd_addr+1
-.rd_copy_next       jsr rd_step
                     lda rd_len
-                    bne rd_copy_low
+                    bne rd_out_low
                     dec rd_len+1
-.rd_copy_low        dec rd_len
-                    jmp rd_copy_byte
+.rd_out_low         dec rd_len
+                    lda rd_len
+                    ora rd_len+1
+                    beq rd_out_page_done
+                    iny
+                    bne rd_out_byte
+.rd_out_page_done   plp
+                    tya
+                    bne rd_copy_done        \ stopped mid page: nothing to step
+                    inc rd_page
+                    inc rd_addr+1
+                    jmp rd_out_page
 .rd_copy_done       rts
 
 \ ===========================================================================
@@ -463,17 +498,21 @@ rd_temp          = heap+&D6
                     sta rd_exec
                     lda zp+1
                     sta rd_exec+1
+                    jmp rd_save_store       \ or the exec case falls into usage
 
 .rd_save_usage_near jmp rd_usage_save
 
+\ Record the entry before copying, because the copy counts rd_len down to zero
+\ and the entry has to carry the real length. Writing it early is safe: an
+\ entry is not visible until rd_count is raised, which only happens once the
+\ copy has succeeded.
 .rd_save_store      lda rd_next
                     sta rd_start
+                    jsr rd_entry_write
                     jsr rd_copy_in
                     bcc rd_save_stored
                     jmp rd_full
-.rd_save_stored
-                    jsr rd_entry_write
-                    inc rd_count
+.rd_save_stored     inc rd_count
                     jsr rd_commit
                     jmp call_claimed
 
@@ -486,7 +525,8 @@ rd_temp          = heap+&D6
                     jmp call_claimed
 
 \ Copy rd_len bytes from rd_load into the window at rd_start, advancing
-\ rd_next past them. Carry set if the window would overflow.
+\ rd_next past them. Carry set if the window would overflow. The page is
+\ selected once per page, as above.
 
 .rd_copy_in         lda rd_load
                     sta rd_addr
@@ -494,29 +534,37 @@ rd_temp          = heap+&D6
                     sta rd_addr+1
                     lda rd_start
                     sta rd_page
-                    lda #0
-                    sta rd_offset
-.rd_in_byte         lda rd_len
+                    ldy #0
+.rd_in_page         lda rd_len
                     ora rd_len+1
                     beq rd_in_done
-                    ldy #0
-                    lda (rd_addr),y
-                    jsr rd_write
-                    inc rd_addr
-                    bne rd_in_next
-                    inc rd_addr+1
-.rd_in_next         jsr rd_step
                     lda rd_page
                     beq rd_in_overflow      \ wrapped past the top of the window
+                    php
+                    sei
+                    lda rd_page
+                    jsr select_public_page_a
+.rd_in_byte         lda (rd_addr),y
+                    sta pageram,y
                     lda rd_len
                     bne rd_in_low
                     dec rd_len+1
 .rd_in_low          dec rd_len
-                    jmp rd_in_byte
-.rd_in_done         lda rd_offset           \ round up to the next page
-                    beq rd_in_aligned
-                    inc rd_page
-.rd_in_aligned      lda rd_page
+                    lda rd_len
+                    ora rd_len+1
+                    beq rd_in_page_done
+                    iny
+                    bne rd_in_byte
+.rd_in_page_done    jsr bus_delay           \ settle the last write of the page
+                    plp
+                    tya
+                    beq rd_in_whole_page
+                    inc rd_page             \ part of a page used; round up
+                    jmp rd_in_done
+.rd_in_whole_page   inc rd_page
+                    inc rd_addr+1
+                    jmp rd_in_page
+.rd_in_done         lda rd_page
                     sta rd_next
                     clc
                     rts

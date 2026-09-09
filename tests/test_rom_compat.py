@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom"
 WICFS_ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom"
-ROM_SHA256 = "1434c236e11249162461ea46a4a0d741189054844e39534c4f43cc90fbb6a40e"
+ROM_SHA256 = "7d9523df8d4f1b0e89da1be695beee625a3b5b1d48fae991c339ff8b7f8ae5f1"
 
 
 class RomCompatibilityTest(unittest.TestCase):
