@@ -197,12 +197,43 @@ successful EOF.
 
 For a response with `Content-Length`, an early TCP close is a network error,
 not successful EOF. This prevents a partial UEF download from being reported
-as `WGET OK` and failing later inside WiCFS with `Unexpected EOF`.
+as `WGET OK` and failing later inside WiCFS with `Stream ended`.
 
 See [MENU retirement](menu-retirement.md) for the removed command surface and
 the generic facilities which remain.
 
 ## WiCFS and paged RAM
+
+### Filing system messages
+
+WiCFS reports status and errors through a fixed table of fifteen character
+messages. ROM 0.1.68 rewrote the wording: the previous text was inherited from
+ElkWiFi and, through it, from Martin Barr's UPCFS, and was replaced along with
+the rest of that material. The meanings are unchanged, so validation records
+and emulator captures made before 0.1.68 use the older wording.
+
+| before 0.1.68     | 0.1.68 onwards    |
+| ----------------- | ----------------- |
+| `WiFi UEF FS`     | `1MHz-WiFi CFS`   |
+| `Ver 1.0E 251112` | `Ver 0.1.67`      |
+| `File is gzip!`   | `Compressed file` |
+| `File not found!` | `File not found`  |
+| `No file open!`   | `No file open`    |
+| `UEF Header?`     | `Bad UEF header`  |
+| `Block sequence?` | `Block sequence`  |
+| `Chunk type?`     | `Unknown chunk`   |
+| `Unexpected EOF!` | `Stream ended`    |
+| `End of UEF`      | `End of tape`     |
+| `Cannot write!`   | `Cannot write`    |
+
+`Searching` and `Loading` are unchanged.
+
+0.1.68 also adds a fourteenth entry, `File already op`, reported when OSFILE is
+asked to open a file that is already open. The code had always asked for that
+message number while the table stopped one short, so the path printed bytes
+from the routine that follows the table until it met a carriage return.
+ElkWiFi 0.23 has the same defect.
+
 
 A typical WiCFS sequence is:
 
@@ -297,7 +328,7 @@ WiCFS accepts valid zero-byte CFS files. These are used as markers by some
 multi-file applications. The ROM checks the cassette block's declared length
 before fetching data, so a final zero-byte file such as Desk Diary's
 `V1` marker completes normally instead of consuming the following UEF chunk
-header and eventually reporting `Unexpected EOF`.
+header and eventually reporting `Stream ended`.
 
 Matched ROM and kernel builds negotiate stream ABI 1. The ROM uploads
 `&FF00`-byte source windows, the Pi retains and normalizes up to 16 MiB, and
