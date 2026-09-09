@@ -8,6 +8,13 @@ WiFi passwords.
 An item checked against an earlier binary must be repeated after a ROM, kernel,
 or protocol change that can affect it.
 
+Observations recorded below quote what was on screen at the time. WiCFS message
+wording changed in ROM 0.1.68, when the inherited message table was replaced,
+so records made before then quote the earlier text: `Unexpected EOF!` for
+`Stream ended`, `End of UEF` for `End of tape`, and so on. The mapping is in
+[the command reference](commands.md). The observations themselves stand; only
+the wording of the messages moved.
+
 ## Current artifact identity
 
 ```text

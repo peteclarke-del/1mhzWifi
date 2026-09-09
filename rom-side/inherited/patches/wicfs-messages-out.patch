@@ -1,0 +1,45 @@
+--- a/rom/wicfs.asm
++++ b/rom/wicfs.asm
+@@ -3467,42 +3467,6 @@
+ 	JSR	wicfs_state_save
+ 	RTS			    \and return
+ 
+-\-------------------------------------------------------------------------------
+-\Multi-message print routine.
+-\ALL messages are 15 characters long (padded with trailing spaces if necessary)
+-\and are selected via A = <message number> in the max. range 0-15
+-\Note 1 : exits A = 0 and thus caller can branch always via BEQ on return
+-\Note 2 : The last message ONLY can be longer than 15 characters as follows...
+-\	Max length last message is given by : 254 - (#messages x 16) + <cr>
+-\Note 3 : If required, multiple long messages can be used by padding the
+-\         following dummy text string with an approriate number of spaces.
+-
+-.txt0	equs	"WiFi UEF FS    ",&0D
+-.txt1	equs	"Ver 1.0E 251112",&0D
+-.txt2	equs	"File is gzip!  ",&0D
+-.txt3	equs	"File not found!",&0D
+-.txt4	equs	"No file open!  ",&0D
+-.txt5	equs	"UEF Header?    ",&0D
+-.txt6	equs	"Block sequence?",&0D
+-.txt7	equs	" Chunk type?   ",&0D
+-.txt8	equs	"Unexpected EOF!",&0D
+-.txt9	equs	"End of UEF     ",&0D
+-.txt10	equs	"Searching      ",&0D
+-.txt11	equs	"Loading        ",&0D
+-.txt12	equs	"Cannot write!  ",&0D
+-
+-.xmess	ASL	A		\multiply message number by 16
+-	ASL A
+-	ASL A
+-	ASL A
+-	TAX
+-.xmess_a1
+-	LDA	txt0,X		\get a character
+-	JSR	OSASCI		\print it
+-	INX			    \increment index
+-	CMP	#cr		    \<cr>?
+-	BNE xmess_a1	\no, loop for next character
+-	RTS			    \else finished, return
+ 
+ \-------------------------------------------------------------------------------
+ \** end of WiCFS **

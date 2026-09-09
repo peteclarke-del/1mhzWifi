@@ -18,7 +18,6 @@ STREAM_FINISH = ROOT / "rom-side/inherited/patches/wicfs-stream-finish.patch"
 RUN_RETURN = ROOT / "rom-side/inherited/patches/wicfs-run-return.patch"
 CHAIN_TARGET = ROOT / "rom-side/inherited/patches/wicfs-chain-target.patch"
 VECTOR_FLAGS = ROOT / "rom-side/inherited/patches/wicfs-vector-flags.patch"
-MESSAGE_PRESERVE = ROOT / "rom-side/inherited/patches/wicfs-message-preserve.patch"
 PAGE_SELECT_FAST = ROOT / "rom-side/inherited/patches/wicfs-page-select-fast.patch"
 LOW_LOADER_GUARD = ROOT / "rom-side/inherited/patches/wicfs-low-loader-guard.patch"
 BGET_REFILL_DETECTION = ROOT / "rom-side/inherited/patches/wicfs-bget-refill-detection.patch"
@@ -121,12 +120,21 @@ class WicfsRuntimeContractTest(unittest.TestCase):
         self.assertIn("once per 256-byte refill", fill)
 
     def test_message_terminator_survives_osasci_register_clobber(self) -> None:
-        text = MESSAGE_PRESERVE.read_text()
-        loop = text.split(" .xmess_a1", 1)[1]
-        self.assertIn(" \tLDA\ttxt0,X", loop)
-        self.assertIn(" \tCMP\t#cr", loop)
-        self.assertLess(loop.index("+\tPHA"), loop.index(" \tJSR\tOSASCI"))
-        self.assertLess(loop.index(" \tJSR\tOSASCI"), loop.index("+\tPLA"))
+        # The message table and its print loop are our own source now, so the
+        # maintainable form is checked there rather than in a patch.
+        source = (ROOT / "rom-side/1mhz-wifi/src/wicfs_messages.asm").read_text()
+        loop = source.split(".xmess_a1", 1)[1]
+        self.assertIn("lda txt0,x", loop)
+        self.assertIn("cmp #cr", loop)
+        self.assertLess(loop.index("pha"), loop.index("jsr OSASCI"))
+        self.assertLess(loop.index("jsr OSASCI"), loop.index("pla"))
+
+        # Every entry must stay exactly sixteen bytes, because xmess indexes
+        # the table by shifting the message number left four times.
+        entries = re.findall(r'^\.txt(\d+)\s+equs "(.*)",&0D$', source, re.M)
+        self.assertEqual([int(n) for n, _ in entries], list(range(14)))
+        for number, body in entries:
+            self.assertEqual(len(body), 15, f"txt{number} is not 15 characters")
 
         # Execute the emitted loop as well as checking its maintainable source.
         # OSASCI is a MOS call and does not promise to preserve A. Model the
@@ -161,7 +169,7 @@ class WicfsRuntimeContractTest(unittest.TestCase):
         else:
             self.fail("xmess did not stop at its first CR")
 
-        self.assertEqual(bytes(printed), b"WiFi UEF FS    \r")
+        self.assertEqual(bytes(printed), b"1MHz-WiFi CFS  \r")
         self.assertEqual(mpu.x, 16)
         self.assertEqual(mpu.a, 0x0D)
 

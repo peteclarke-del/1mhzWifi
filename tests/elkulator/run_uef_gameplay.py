@@ -930,7 +930,11 @@ def main() -> int:
             process.wait(timeout=5)
         elk_log.flush()
         log_text = (args.output / "elkulator.log").read_text(errors="replace")
-        mos_errors = [text for text in ("Bad program", "Unexpected EOF", "Chunk type")
+        mos_errors = [text for text in ("Bad program", "Stream ended",
+                                    "Unknown chunk", "Bad UEF header",
+                                    # pre-0.1.68 wording, so older
+                                    # captures still classify
+                                    "Unexpected EOF", "Chunk type")
                       if text.casefold() in log_text.casefold()]
         trace = args.output / "mailbox.trace"
         trace_lines = trace.read_text(errors="replace").splitlines() if trace.exists() else []
