@@ -1,6 +1,8 @@
-7d9523df8d4f1b0e89da1be695beee625a3b5b1d48fae991c339ff8b7f8ae5f1  build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom
-6c4ca5754a1c625d5be7f5c6e24acfe8b1c0f82c2475f7865e773e39d857b654  build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom
+025f2e865dfe5fb70b4655052898f773b01ad107c72a1635fb63f0ac26602cae  build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom
+360f30ba9a52fb7333656de1f3366dd90e1e65a87f5958ff0cae8ad788cdcaca  build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom
+556c95b9f9519cea0198784d0de1c37637be890bcadb46f43f533ec02297a6ca  build/pi1mhz-all/Pi1MHz/1mhz-wifi-eprom.rom
+1cd31097371a078f78e0df145f254fb29e9571eabcf7c58e66f7be8e884db436  build/pi1mhz-all/Pi1MHz/1mhz-wicfs-eprom.rom
 03cae72bcf50ebc44b0756dae081f2d8afa67cb02fe3793f0bd36c4909abd81d  build/pi1mhz-all/kernel.img
 0253b5b851a2e92ce80e9b6feae1146ae6061dea6baf168aa2444b526448d16b  build/pi1mhz-all/kernel7.img
-e15fabb93e88564bc537f93ef76daf29b44ce326c914e79c3b0d07119bb8a348  build/pi1mhz-all-hardware-test.zip
+f73862ba97b2aa0e6ed120d64685298cb816a3008dd1c5cddb1d706744663c9b  build/pi1mhz-all-hardware-test.zip
 7bfe26b2c8f3212466bd3bdbc7f40e6f1d72722a3dbcc7a9f25fd3858dc8d883  build/pi1mhz-all/host-tools/nettools.ssd

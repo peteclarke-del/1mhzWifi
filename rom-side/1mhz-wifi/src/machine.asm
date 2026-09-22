@@ -85,6 +85,10 @@
             data_pointer = zp+11
             size         = zp+11    \ search length, shares data_pointer
             needle       = zp+12    \ search string pointer, 2 bytes
+            \ *HELP only: two pointers for the table walk that prints it.
+            \ Nothing else is live while a service call 9 is being handled.
+            help_tbl     = zp+0     \ 2 bytes, walks commandtable
+            help_txt     = zp+6     \ 2 bytes, walks help_descriptions
             datalen      = zp+13    \ remaining data length, 2 bytes
 
             \ The UEF stream handover to the filing system ROM. *WGET -U
@@ -99,7 +103,11 @@
             pr_r  = &C8             \ stream cursor page register shadow
 
             \ Connection state read by the public OSWORD &65 driver.
-            mux_status  = &90
+            \ In the image, not zero page: &90 is in the Econet/NFS block
+            \ (&009A-&009F is live NetTx/NetRx/NFS workspace), nothing in
+            \ this ROM reads it, and upstream ElkWiFi moved it into its own
+            \ image at 0.34 for the same reason ("Mux is disabled from
+            \ version 0.34").  Defined with the rest of the workspace below.
 
 \ ---------------------------------------------------------------------------
 \ Main memory workspace
@@ -108,13 +116,63 @@
 \ of one command, so the overlaps below are safe and are documented where they
 \ are not obvious.
 
-            heap       = &900       \ command parameter block
-            strbuf     = &A00       \ command line parameter string
-
-            \ Retired network printer workspace. The printer support this ROM
-            \ inherited has been removed, so the bytes are free; the dynamic
-            \ error block is built here rather than on the &0100 stack.
-            netprt = &D90           \ 32 bytes
+            \ The ROM's scratch lives INSIDE THE IMAGE, not in host RAM.
+            \ Pi1MHz loads this ROM into sideways RAM (helper 16), so the
+            \ image is writable, and a workspace here costs the machine
+            \ nothing and cannot collide with anything the OS owns.
+            \
+            \ It used to sit in host memory at &900, &A00 and &D90, which
+            \ the OS owns on every machine this ROM claims to support:
+            \   &0900  RS423 output buffer, speech, CFS BPUT, ENVELOPEs 5-16
+            \   &0A00  CFS/RFS/RS423 input buffer
+            \   &0D90  VFS/AMX mouse workspace (&0D92-&0D9E) and then the
+            \          EXTENDED VECTOR TABLE at &0D9F
+            \ The last one is fatal: corrupting the extended vectors kills
+            \ the next OS call made through a claimed vector, so the machine
+            \ hung after any command on a Master with ROMs using vectors.
+            \ The first one is why a *FX3,1 serial redirect stopped as soon
+            \ as a command ran.  See ws_writable below for the ROM case.
+            \ Packed against the top of the bank so the code below has every
+            \ byte that is left: the two page buffers take the last two pages
+            \ and the small state sits just under them.  Room matters here -
+            \ a second ROM merged into this image has to fit in what remains
+            \ (see README.md, "One bank").
+            \ WS_IN_IMAGE=0 builds the same sources for a real EPROM, where
+            \ there is no writable image to put this in. The addresses stay
+            \ assembly-time constants either way, which is what lets one set
+            \ of sources serve both: every reference is still absolute, and
+            \ none of the 90-odd symbols derived from these three bases has
+            \ to be reached through a pointer.
+            \
+            \ The EPROM build claims its pages from the OS at service call 1
+            \ rather than assuming them, so it cannot repeat the fault this
+            \ layout was introduced to fix. Each image claims its own fixed
+            \ range so that two of them fitted together do not collide:
+            \ the network ROM takes &0E00, the filing system ROM &1100. PAGE
+            \ then rises by three pages per fitted image, which is the cost
+            \ of a real ROM and is why it is not the default.
+IF WS_IN_IMAGE
+            heap       = &BE00      \ command parameter block, 256 bytes
+            strbuf     = &BF00      \ command line parameter string, 256 bytes
+            ws_base    = &BDDE      \ 34 bytes of state below them
+ELSE
+            ws_base    = WS_HOST_PAGE * &100
+            heap       = ws_base + &100
+            strbuf     = ws_base + &200
+            \ The first free page this image leaves behind, handed back in Y
+            \ at service call 1.
+            ws_host_end = WS_HOST_PAGE + 3
+            \ Two bytes beside the flag, stamped once the claim succeeds.
+            \ Claimed host RAM is not ours the way a writable image is: the
+            \ flag on its own is one byte of uninitialised RAM that can read
+            \ back as set, so the command entry checks all three.
+            ws_signature    = ws_base+&22
+            ws_signature_lo = &57       \ "W"
+            ws_signature_hi = &53       \ "S"
+ENDIF
+            netprt     = ws_base+&00    \ 32 bytes, was &0D90
+            ws_flag    = ws_base+&20    \ 0 = image is not writable (real ROM)
+            mux_status = ws_base+&21    \ connection state, was zero page &90
 
             \ The ROM select register is not the same on every target, so it
             \ is not equated here: &FE05 with the Electron deselect cycle

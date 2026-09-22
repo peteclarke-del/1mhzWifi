@@ -79,7 +79,19 @@ include "machine.asm"
 \ matched text, which is where every handler expects to start reading its
 \ arguments.
 
-.command            tya                         \ A on exit belongs to the
+.command            bit ws_flag                 \ no writable workspace, no
+                    bpl command_no_ws           \ commands: every handler
+IF WS_IN_IMAGE = 0                              \ scribbles on it.  Claimed
+                    lda ws_signature            \ host RAM needs more than
+                    cmp #ws_signature_lo        \ one byte of evidence that
+                    bne command_no_ws           \ it is still ours, so the
+                    lda ws_signature+1          \ signature autorun stamped
+                    cmp #ws_signature_hi        \ is checked as well.
+                    bne command_no_ws
+ENDIF
+                    jmp command_have_ws
+.command_no_ws      jmp no_swr_error
+.command_have_ws    tya                         \ A on exit belongs to the
                     pha                         \ handler, so only X and Y are
                     txa                         \ saved here
                     pha
@@ -170,11 +182,69 @@ include "machine.asm"
 \ 3 before this one sees it. The MOS banner is suppressed and replaced, so the
 \ machine reports one identity rather than two.
 
-.autorun            tya
+.autorun
+IF WS_IN_IMAGE = 0
+                    \ Service call 1 hands the first free page of absolute
+                    \ workspace in Y. This image needs a fixed range, because
+                    \ every workspace reference in it is an absolute address,
+                    \ so it can only take that range if nothing claimed
+                    \ earlier has already reached past the start of it. When
+                    \ it can, it raises Y over the pages it takes; when it
+                    \ cannot, it claims nothing and leaves the signature
+                    \ below unwritten, so the command entry refuses rather
+                    \ than writing into another ROM's workspace.
+                    cpy #WS_HOST_PAGE
+                    beq autorun_may_claim
+                    bcc autorun_may_claim
+                    clc                         \ carry clear: not ours
+                    bcc autorun_claim_decided   \ always
+.autorun_may_claim  ldy #ws_host_end            \ raise Y over our pages
+                    sec                         \ carry set: claimed
+.autorun_claim_decided
+ENDIF
+                    tya
                     pha
                     txa
                     pha
 
+IF WS_IN_IMAGE = 0
+                    bcc autorun_claim_done      \ nothing claimed, touch none
+ENDIF
+                    \ Is the image writable?  Pi1MHz loads this ROM into
+                    \ sideways RAM, where the workspace above the code is
+                    \ ours to use.  Burnt into a real ROM the writes would go
+                    \ nowhere, and every command would read back whatever the
+                    \ image holds, so record the answer once, here, and let
+                    \ the command entry refuse rather than misbehave.
+                    \ ws_flag is itself inside the image: in ROM it keeps its
+                    \ assembled 0 however often this runs.
+                    lda ws_base
+                    pha                         \ do not disturb the workspace
+                    lda #&A5
+                    sta ws_base
+                    cmp ws_base
+                    bne autorun_read_only
+                    lda #&5A                    \ both ways: a bus that floats
+                    sta ws_base                 \ high would pass the first
+                    cmp ws_base
+                    bne autorun_read_only
+                    lda #&80                    \ bit 7, so the command entry
+                    sta ws_flag                 \ can test it with BIT/BMI
+.autorun_read_only  pla
+                    sta ws_base
+IF WS_IN_IMAGE = 0
+                    \ Claimed host RAM is not ours the way an image is: the
+                    \ flag alone would be a single byte of uninitialised RAM
+                    \ that could read back as set. Stamp a signature beside
+                    \ it and have the command entry check both, so workspace
+                    \ this image never claimed, or that another ROM has since
+                    \ taken, is refused instead of used.
+                    lda #ws_signature_lo
+                    sta ws_signature
+                    lda #ws_signature_hi
+                    sta ws_signature+1
+.autorun_claim_done
+ENDIF
 
                     \ Nothing here may touch the AP5 JIM selector: the ROM scan
                     \ runs with another ROM's page possibly selected, and every
@@ -271,33 +341,88 @@ include "machine.asm"
                     bne help_vl1
                     rts
 
+\ The names come out of the command table, which already holds them: storing
+\ a second copy with each description cost 200 of this block's 643 bytes, and
+\ room in the bank is what decides whether a filing system can share it.  The
+\ descriptions below are in TABLE order, so they stay paired with the names.
 .print_help         jsr help_version
-                    jsr printtext
-                    equb &0D
-                    \ 40 "----- This string is 40 characters -----"
-                    equs " DATE      Print current date",&0D
-                    equs " FTP       Interactive file transfer",&0D
-                    equs " IFCFG     Print IP and MAC address",&0D
-                    equs " JOIN      Join a network",&0D
-                    equs " LAP       List access points",&0D
-                    equs " LAPOPT    Set LAP options",&0D
-                    equs " LEAVE     Disconnect from network",&0D
-                    equs " MODE      Set device mode",&0D
-                    equs " ONLINE    Show network readiness",&0D
-                    equs " PING      ping a host on network",&0D
-                    equs " NSLOOK    Resolve an IPv4 address",&0D
-                    equs " PRD       Paged Ram Dump",&0D
-                    equs " RDCAT     Catalogue the RAM disk",&0D
-                    equs " RDINIT    Clear the RAM disk",&0D
-                    equs " RDLOAD    Load from the RAM disk",&0D
-                    equs " RDRUN     Run from the RAM disk",&0D
-                    equs " RDSAVE    Save to the RAM disk",&0D
-                    equs " TIME      Print current time",&0D
-                    equs " VERSION   Print firmware version",&0D
-                    equs " WGET      Get a file from a webserver",&0D
-                    equs " WIFI      WiFi control ON|OFF|HR|SR",&0D
-                    equb &EA
-.print_help_end     rts
+                    lda #<commandtable
+                    sta help_tbl
+                    lda #>commandtable
+                    sta help_tbl+1
+                    lda #<help_descriptions
+                    sta help_txt
+                    lda #>help_descriptions
+                    sta help_txt+1
+                    lda #&0D
+                    jsr OSASCI
+.phd_entry          ldy #0
+                    lda (help_tbl),y
+                    bmi phd_done
+                    lda #' '
+                    jsr OSWRCH
+                    ldx #1                      \ columns used, including it
+.phd_name           lda (help_tbl),y
+                    bmi phd_name_done
+                    jsr OSWRCH
+                    iny
+                    inx
+                    bne phd_name
+.phd_name_done      iny                         \ step over the address bytes
+                    iny
+                    tya
+                    clc
+                    adc help_tbl
+                    sta help_tbl
+                    bcc phd_pad
+                    inc help_tbl+1
+.phd_pad            cpx #11                     \ line up the descriptions
+                    bcs phd_desc
+                    lda #' '
+                    jsr OSWRCH
+                    inx
+                    bne phd_pad
+.phd_desc           ldy #0
+.phd_dchar          lda (help_txt),y
+                    jsr OSASCI
+                    iny
+                    cmp #&0D
+                    bne phd_dchar
+                    tya
+                    clc
+                    adc help_txt
+                    sta help_txt
+                    bcc phd_entry
+                    inc help_txt+1
+                    jmp phd_entry
+.phd_done           rts
+\ One line per command table entry, read in lockstep with it. A name that
+\ gains an entry above without a line here shifts every description below it,
+\ so the two lists are checked against each other by the build.
+.help_descriptions
+                    equs "Get a file from a webserver",&0D
+                    equs "Interactive file transfer",&0D
+                    equs "WiFi control ON|OFF|HR|SR",&0D
+                    equs "Print firmware version",&0D
+                    equs "Set LAP options",&0D
+                    equs "List access points",&0D
+                    equs "Print IP and MAC address",&0D
+                    equs "Print current date",&0D
+                    equs "Print current time",&0D
+                    equs "Paged Ram Dump",&0D
+                    equs "Show network readiness",&0D
+                    equs "Join a network",&0D
+                    equs "Disconnect from network",&0D
+                    equs "ping a host on network",&0D
+                    equs "Resolve an IPv4 address",&0D
+                    equs "Clear the RAM disk",&0D
+                    equs "Catalogue the RAM disk",&0D
+                    equs "Load from the RAM disk",&0D
+                    equs "Save to the RAM disk",&0D
+                    equs "Run from the RAM disk",&0D
+                    equs "Set device mode",&0D
+                    equs "Close the connection",&0D
+.print_help_end
 
 \ ---------------------------------------------------------------------------
 \ OSWORD &65
@@ -352,11 +477,46 @@ include "ping.asm"
 include "nslook.asm"
 include "ramdisk.asm"
 
+\ Raised when the image is not writable - burnt into a real ROM rather than
+\ loaded into sideways RAM.  The workspace this ROM needs lives in the image,
+\ so there is nowhere to put it; say so instead of corrupting host memory.
+\ (A real-ROM build wants the workspace claimed from the OS at service call
+\ &02, or &24/&22 on the Master: see TODO.md.)
+.no_swr_error       brk
+                    equb &80
+                    equs "1MHz-WiFi needs sideways RAM"
+                    equb 0
+
 rom_content_end = P%
-ASSERT rom_content_end <= &BF00
+IF WS_IN_IMAGE
+ASSERT rom_content_end <= ws_base
+
+\ ---------------------------------------------------------------------------
+\ Workspace, inside the image (see machine.asm)
+\ ---------------------------------------------------------------------------
+\ At the top of the bank, so everything below rom_content_end is free for code.
+skipto ws_base
+.ws_netprt          skip &20        \ netprt: timeouts, cursor, error block
+.ws_writable        equb 0          \ ws_flag: set by the probe in autorun
+.ws_mux_status      equb 0          \ mux_status
+skipto heap
+.ws_heap            skip &100       \ heap
+.ws_strbuf          skip &100       \ strbuf
+ELSE
+\ A real ROM keeps nothing in the image: the workspace is three pages of host
+\ RAM claimed at service call 1, so the whole bank below &C000 is code.
+ASSERT rom_content_end <= &C000
+ENDIF
 
 skipto &C000
 .romend
 
+\ The EPROM build is a different image from the one Pi1MHz serves - it keeps
+\ no workspace in the bank and claims host RAM instead - so it is saved under
+\ its own name rather than overwriting the default.
+IF WS_IN_IMAGE
 SAVE "1mhz-wifi-atm.rom", atmheader, romend
 SAVE "1mhz-wifi.rom", romstart, romend
+ELSE
+SAVE "1mhz-wifi-eprom.rom", romstart, romend
+ENDIF

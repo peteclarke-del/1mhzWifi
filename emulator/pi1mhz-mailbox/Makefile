@@ -17,7 +17,7 @@ $(BUILD)/test-mailbox: tests/test_mailbox.c src/pi1mhz_mailbox.c \
 
 # The container decoder is shared with the Pi overlay rather than
 # reimplemented, so the FILEV stamp repair is one implementation, not two.
-OVERLAY := ../../pi-side/pi1mhz-516a267/overlay/src
+OVERLAY := ../../pi-side/pi1mhz/overlay/src
 
 $(BUILD)/test-live: tests/test_live_backend.c src/pi1mhz_mailbox.c \
 		src/pi1mhz_net_backend.c src/pi1mhz_ftp.c include/pi1mhz_mailbox.h \

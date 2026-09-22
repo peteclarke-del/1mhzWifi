@@ -17,12 +17,12 @@ upstream ElkWiFi repository in place.
 | `docs/secure_service_abi.md` | `host-tools/docs/secure_service_abi.md` | Imported with the reconciled command allocation |
 | `docs/ssh_https_plan.md` | `host-tools/docs/ssh_https_plan.md` | Imported and revised to reference central packages |
 | `patches/pi1mhz-mailbox-emulator/` | `emulator/pi1mhz-mailbox/` | Imported as the reusable mailbox/JIM implementation |
-| secure firmware source files | `pi-side/pi1mhz-516a267/overlay/src/` | Imported into the central Pi overlay |
-| secure core test | `pi-side/tests/test_secure_service_core.c` | Imported into central Pi tests |
-| `wolfssh-pi1mhz.patch` | `pi-side/pi1mhz-516a267/patches/` | Imported unchanged |
+| secure firmware source files | `pi-side/pi1mhz/overlay/src/` | Imported into the central Pi overlay |
+| secure core test | (retired) | Pi1MHz merged the ABI core with PR #20 and tests it in `src/tests/secure` |
+| `wolfssh-pi1mhz.patch` | `pi-side/pi1mhz/patches/` | Imported unchanged |
 | standalone firmware installer | `pi-side/install_bundle.sh` | Superseded by the combined installer |
 | standalone `pi1mhz.patch` | central Pi patch series and `pi-side/upstream/1mhzwifi-pi1mhz.patch` | Superseded and regenerated from the combined source |
-| standalone firmware build test | `pi-side/tests/run_secure_build.sh` | Superseded by the combined two-kernel build gate |
+| standalone firmware build test | `pi-side/tests/run_firmware_build.sh` | Superseded by the combined two-kernel build gate |
 | patch-package READMEs | component READMEs and this record | Consolidated |
 | former `.gitignore` files | root and component `.gitignore` files | Consolidated |
 

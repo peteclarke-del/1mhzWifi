@@ -453,6 +453,8 @@ def emulator_command(args: argparse.Namespace, entry: dict[str, object],
         "-ram", "7", "-ram", "6",
         "-rom", "5", str(roms / "AFM1V09.rom"),
         "-rom", "3", str(args.wifi_rom),
+        # Bank 3 must be writable: the ROM's workspace is in its own image.
+        "-ram", "3",
         "-rom", "2", str(roms / "dfs.rom"),
         "-rom", "1", str(roms / "acorn-adfs.rom"),
         "-autokeys", key_script(int(entry["index"]), args.profile == "mmfs"),

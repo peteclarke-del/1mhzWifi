@@ -19,6 +19,7 @@
 #include "rpi/systimer.h"
 #include "wifi/wifi_lwip.h"
 #include "lwip/altcp.h"
+#include "lwip/tcp.h"        /* TCP_WRITE_FLAG_COPY */
 #include "lwip/dns.h"
 #include "lwip/err.h"
 #include "lwip/ip_addr.h"

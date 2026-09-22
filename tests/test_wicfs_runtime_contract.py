@@ -21,7 +21,20 @@ VECTOR_FLAGS = ROOT / "rom-side/inherited/patches/wicfs-vector-flags.patch"
 PAGE_SELECT_FAST = ROOT / "rom-side/inherited/patches/wicfs-page-select-fast.patch"
 LOW_LOADER_GUARD = ROOT / "rom-side/inherited/patches/wicfs-low-loader-guard.patch"
 BGET_REFILL_DETECTION = ROOT / "rom-side/inherited/patches/wicfs-bget-refill-detection.patch"
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from rom_symbols import symbol
+
 ROM_START = 0x8000
+# The driver's UEF stream state. These were &0DAD-&0DAF in host RAM until the
+# workspace moved into the ROM image, so they are read from the sources.
+GEN_LO = symbol("drv_uef_generation_lo")
+GEN_HI = symbol("drv_uef_generation_hi")
+UEF_FORMAT = symbol("drv_uef_format")
+
+
+def absolute(opcode: int, address: int) -> bytes:
+    """A 6502 absolute-addressed instruction, little endian."""
+    return bytes((opcode, address & 0xFF, address >> 8))
 
 
 class DelayedOneSlotMailbox:
@@ -634,10 +647,10 @@ host_basic_pending = &03BD
             self.fail("incremental response parser did not return")
 
         self.assertEqual(reads, 12)
-        self.assertEqual(memory[0x0DAE:0x0DB0], bytes((0x34, 0x12)))
+        self.assertEqual(memory[GEN_LO:GEN_HI + 1], bytes((0x34, 0x12)))
         self.assertEqual(memory[0x00F8:0x00FA], bytes((0x00, 0xFF)))
         self.assertEqual(memory[0x00F5], 0x80)  # incremental, not final
-        self.assertEqual(memory[0x0DAD], ord("G"))
+        self.assertEqual(memory[UEF_FORMAT], ord("G"))
         # The read cursor returns to the first byte of the window, which is
         # page 1 offset 0: JIM page 0 is the service reply buffer and the
         # stream is published above it so a reply cannot overwrite it.
@@ -647,11 +660,15 @@ host_basic_pending = &03BD
             next(reply)
 
     def test_incremental_generation_survives_complete_loader_workspace_overwrite(self) -> None:
+        # STA GEN_LO and LDA GEN_LO, built from the resolved address so the
+        # patterns cannot go stale the way the literals they replaced did.
         load = self.find_rom_routine(
-            rb"\x08\x78\x48\x8A\x48\xA2\x1A\x20..\xAD\xA9\xFC\x20..\x8D\xAE\x0D"
+            rb"\x08\x78\x48\x8A\x48\xA2\x1A\x20..\xAD\xA9\xFC\x20.."
+            + re.escape(absolute(0x8D, GEN_LO))
         )
         save = self.find_rom_routine(
-            rb"\x08\x78\x48\x8A\x48\xA2\x1A\x20..\xAD\xAE\x0D\x8D\xA9\xFC"
+            rb"\x08\x78\x48\x8A\x48\xA2\x1A\x20.."
+            + re.escape(absolute(0xAD, GEN_LO)) + rb"\x8D\xA9\xFC"
         )
         memory = DelayedOneSlotMailbox(self.rom)
 
@@ -668,14 +685,17 @@ host_basic_pending = &03BD
                 mpu.step()
             self.fail("generation persistence helper did not return")
 
-        memory.ram[0x0DAE:0x0DB0] = bytes((0x34, 0x12))
+        memory.ram[GEN_LO:GEN_HI + 1] = bytes((0x34, 0x12))
         call(ROM_START + save.start())
         # This is the exact host-memory range occupied by the observed A-CODE
-        # loader. It destroys netprt and the old generation scratch bytes.
+        # loader. It used to destroy netprt and the generation scratch bytes,
+        # which is why the generation is round-tripped to the Pi at all. The
+        # workspace is now inside the ROM image, above &BDDE, so the loader
+        # cannot reach it - assert that rather than that it was destroyed.
+        self.assertGreaterEqual(GEN_LO, 0x1100)
         memory.ram[0x0900:0x1100] = b"\xA5" * 0x800
-        self.assertEqual(memory.ram[0x0DAE:0x0DB0], b"\xA5\xA5")
         call(ROM_START + load.start())
-        self.assertEqual(memory.ram[0x0DAE:0x0DB0], bytes((0x34, 0x12)))
+        self.assertEqual(memory.ram[GEN_LO:GEN_HI + 1], bytes((0x34, 0x12)))
         self.assertEqual(memory.collisions, 0)
 
     def test_assembled_first_file_classifier_obeys_basic_line_boundary(self) -> None:
@@ -1209,6 +1229,12 @@ host_basic_pending = &03BD
         rom_source = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
         self.assertIn("bcs autorun_abort", rom_source)
         self.assertIn(".autorun_abort", rom_source)
+        # uef_run_failed is this project's own, in uef.asm, not something the
+        # inherited stack introduces.
+        self.assertIn(
+            "uef_run_failed",
+            (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text(),
+        )
         uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
         self.assertIn(".uef_run_failed", uef)
         self.assertIn("bcs uef_run_failed", uef)
@@ -1298,21 +1324,35 @@ host_basic_pending = &03BD
         self.assertNotIn("+\tLDA\tnotape+8", invalid_trap)
         self.assertIn("+.wicfs_invalid_trap_bad", invalid_trap)
 
-        build = (ROOT / "rom-side/build_rom.sh").read_text()
+        # Each of these is a symbol or a stated intent the patch stack puts
+        # into the filing system. They used to be asserted against
+        # build_rom.sh, because the script grepped for them to decide whether
+        # a patch was already applied; that only tested that the build tested.
+        # Those greps are gone - the stack is now applied to a wicfs.asm
+        # restored from the pinned commit, so it cannot be half applied - and
+        # the markers are asserted where they are actually introduced.
+        patches = {
+            path.name: path.read_text(errors="replace")
+            for path in (ROOT / "rom-side/inherited/patches").glob("*.patch")
+        }
         for marker in (
             "wicfs_any_vector_owned", "wicfs_install_check_partial",
             "wicfs_prepare_byte_trap", "wicfs_publish_byte_trap",
             "commit rollback record before publishing hooks",
             "capture any BYTEV owner installed by service &0F",
             "wicfs_release_invalid_byte_trap",
-            "uef_run_failed",
             "bUPCFS_installed", "error_wicfs_state",
         ):
-            self.assertIn(marker, build)
-        # autorun_wicfs_abort is no longer one of the build script's
-        # already-applied markers: the reset service is our own source rather
-        # than a patched file, so the label is asserted where it now lives.
-        self.assertNotIn("autorun_wicfs_abort", build)
+            self.assertTrue(
+                any(marker in text for text in patches.values()),
+                f"no patch introduces {marker!r}",
+            )
+        # The reset service is our own source, not a patched file, so this
+        # label lives in the ROM rather than in the inherited stack.
+        self.assertFalse(
+            any("autorun_wicfs_abort" in text for text in patches.values()),
+            "the reset service is ours; this label should not be in a patch",
+        )
         self.assertIn(".autorun_abort", rom_source)
 
     def test_tape_transition_preserves_the_real_filing_system_predecessor(self) -> None:
@@ -1340,9 +1380,19 @@ host_basic_pending = &03BD
         ).read_text()
         self.assertIn("+\tSTA\tbytev_rtn", retirement)
         self.assertIn("+\tSTA\tbytev_rtn+1", retirement)
-        build = (ROOT / "rom-side/build_rom.sh").read_text()
-        self.assertIn("retain the pre-\\*TAPE standard BYTEV as well", build)
-        self.assertIn("STA\\tbytev_rtn+1", build)
+        # The property is that the patched filing system retains the
+        # pre-*TAPE standard BYTEV, which is what this patch introduces.
+        # It used to be asserted against a grep inside build_rom.sh, which
+        # only checked that the build checked; the patch is where it lives.
+        predecessor = (
+            ROOT / "rom-side/inherited/patches/wicfs-pre-tape-predecessor.patch"
+        ).read_text()
+        self.assertIn("retain the pre-*TAPE standard BYTEV as well",
+                      predecessor)
+        dual = (
+            ROOT / "rom-side/inherited/patches/wicfs-dual-predecessor.patch"
+        ).read_text()
+        self.assertIn("STA\tbytev_rtn+1", dual)
 
         release = host_launch.index("jsr release_owned_wicfs")
         release_failed = host_launch.index("bcs host_tape_invalid", release)
@@ -1620,7 +1670,7 @@ host_basic_pending = &03BD
     def test_wget_machine_detection_and_jim_writes_are_settled(self) -> None:
         serial = (ROOT / "rom-side/1mhz-wifi/src/serial.asm").read_text()
         wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text()
-        helpers = (ROOT / "rom-side/1mhz-wifi/src/wget_helpers.asm").read_text()
+        helpers = (ROOT / "rom-side/1mhz-wifi/src/wget.asm").read_text()
         self.assertIn(".pi_wget_cmd\n jsr detect_jim_machine", wget)
         self.assertIn("lda #&81\n ldx #0\n ldy #&FF\n jsr osbyte", serial)
         self.assertIn("cpx #1\n beq set_bank_0_page", serial)

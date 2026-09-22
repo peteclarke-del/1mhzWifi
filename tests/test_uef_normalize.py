@@ -1,3 +1,18 @@
+"""The emulator's UEF container decoder, and the incremental stream protocol.
+
+Pi1MHz V1.35 absorbed the Pi's half of this. The Pi no longer decompresses a
+whole tape into RAM: uef_stream.c streams it through uzlib's inflater with a
+32 KB history, and upstream's own src/tests/uef suite pins the bytes it
+produces against gunzip. `make test-pi-integration` runs that suite against
+the integrated tree, so this file no longer needs a second copy of the Pi's
+decoder to compare against - it checks the emulator's decoder against Python's
+gzip and zipfile, which is the same property from the other end.
+
+What remains here, and is not covered anywhere else, is the incremental
+protocol: BEGIN / APPEND / FINALIZE / REFILL and the generation handshake the
+host ROM drives, exercised against the emulator backend.
+"""
+
 import ctypes
 import gzip
 import io
@@ -11,7 +26,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "pi-side/pi1mhz-516a267/overlay/src"
+SOURCE = ROOT / "pi-side/pi1mhz/overlay/src"
 EMULATOR = ROOT / "emulator/pi1mhz-mailbox"
 PUBLISH_BASE = 0x100
 FLAT_WINDOW = 0xFE00
@@ -24,24 +39,6 @@ class UefNormalizeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls._temporary = tempfile.TemporaryDirectory()
-        library = Path(cls._temporary.name) / "libuef_normalize.so"
-        subprocess.run(
-            ["cc", "-std=c11", "-shared", "-fPIC", "-O2", "-I", str(SOURCE),
-             str(SOURCE / "uef_normalize.c"), str(SOURCE / "puff.c"),
-             "-o", str(library)],
-            check=True,
-        )
-        cls.normalize = ctypes.CDLL(str(library)).uef_normalize
-        cls.normalize.argtypes = [
-            ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_size_t),
-            ctypes.c_size_t, ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t,
-        ]
-        cls.normalize.restype = ctypes.c_int
-        cls.wicfs_length = ctypes.CDLL(str(library)).uef_legacy_trim_length
-        cls.wicfs_length.argtypes = [
-            ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t,
-        ]
-        cls.wicfs_length.restype = ctypes.c_size_t
         fixture_library = Path(cls._temporary.name) / "libfixture_normalize.so"
         subprocess.run(
             # The backend calls uef_repair_filev_stamp, which lives beside
@@ -72,26 +69,6 @@ class UefNormalizeTest(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls._temporary.cleanup()
 
-    def run_normalize(self, encoded: bytes) -> tuple[int, bytes]:
-        capacity = 0xFFFE
-        window = (ctypes.c_uint8 * capacity)()
-        scratch = (ctypes.c_uint8 * capacity)()
-        window[:len(encoded)] = encoded
-        length = ctypes.c_size_t(len(encoded))
-        result = self.normalize(window, ctypes.byref(length), capacity,
-                                scratch, capacity)
-        return result, bytes(window[:length.value])
-
-    def run_normalize_large(self, encoded: bytes) -> tuple[int, bytes]:
-        capacity = 16 * 1024 * 1024
-        window = (ctypes.c_uint8 * capacity)()
-        scratch = (ctypes.c_uint8 * capacity)()
-        window[:len(encoded)] = encoded
-        length = ctypes.c_size_t(len(encoded))
-        result = self.normalize(window, ctypes.byref(length), capacity,
-                                scratch, capacity)
-        return result, bytes(window[:length.value])
-
     def run_fixture_normalize(
         self, encoded: bytes, *, trim_tail: bool = False,
     ) -> tuple[str, bytes]:
@@ -121,10 +98,6 @@ class UefNormalizeTest(unittest.TestCase):
             return response.decode("ascii").strip(), bytes(jim[:length])
         finally:
             self.fixture.pi1mhz_net_backend_destroy(backend)
-
-    def effective_length(self, raw: bytes) -> int:
-        window = (ctypes.c_uint8 * len(raw)).from_buffer_copy(raw)
-        return self.wicfs_length(window, len(raw))
 
     def run_incremental(self, encoded: bytes) -> tuple[bytes, list[int]]:
         jim = (ctypes.c_uint8 * JIM_SIZE)()
@@ -256,9 +229,6 @@ class UefNormalizeTest(unittest.TestCase):
             containers.append(archive.getvalue())
         for encoded in containers:
             with self.subTest(signature=encoded[:4]):
-                pi_result, pi_output = self.run_normalize_large(encoded)
-                self.assertIn(pi_result, (0, 1, 2))
-                self.assertEqual(pi_output, raw)
                 output, windows = self.run_incremental(encoded)
                 self.assertEqual(output, raw)
                 self.assertEqual(
@@ -410,12 +380,15 @@ class UefNormalizeTest(unittest.TestCase):
         return struct.pack("<HI", chunk_type, len(payload)) + payload
 
     def test_terminal_timing_chunks_do_not_extend_the_wicfs_stream(self) -> None:
+        # The trim is a diagnostic A/B, never the compatibility path: the
+        # default hands WiCFS the complete tape, trailing carrier tone and
+        # all. Pi1MHz dropped its copy of the option with V1.35, so this is
+        # now checked in the emulator, which is where it still exists.
         header = b"UEF File!\0\x05\0"
         data = self.chunk(0x0100, b"cassette block")
         trailing = self.chunk(0x0110, b"\x58\x02") + self.chunk(0x0112, b"\x58\x02")
         raw = header + data + trailing
         expected = len(header + data)
-        self.assertEqual(self.effective_length(raw), expected)
         fixture_format, fixture = self.run_fixture_normalize(raw)
         self.assertEqual(fixture_format, "RAW")
         self.assertEqual(fixture, raw)
@@ -425,43 +398,56 @@ class UefNormalizeTest(unittest.TestCase):
         self.assertEqual(trimmed_format, "RAW")
         self.assertEqual(trimmed, raw[:expected])
 
-    def test_wicfs_length_keeps_later_data_and_malformed_streams(self) -> None:
+    def test_trim_keeps_later_data_and_malformed_streams(self) -> None:
+        # A timing chunk with real data after it is not a terminal tail, and a
+        # malformed chunk list is left exactly as it arrived rather than being
+        # truncated at the first thing that does not parse.
         header = b"UEF File!\0\x05\0"
         first = self.chunk(0x0100, b"one")
         gap = self.chunk(0x0112, b"\x01\0")
         second = self.chunk(0x0100, b"two")
         complete = header + first + gap + second
-        self.assertEqual(self.effective_length(complete), len(complete))
+        self.assertEqual(
+            self.run_fixture_normalize(complete, trim_tail=True),
+            ("RAW", complete),
+        )
         malformed = header + b"\x00\x01\xff\xff\xff\x7f"
-        self.assertEqual(self.effective_length(malformed), len(malformed))
+        self.assertEqual(
+            self.run_fixture_normalize(malformed, trim_tail=True),
+            ("RAW", malformed),
+        )
 
     def test_raw_gzip_zip_and_zip_containing_gzip(self) -> None:
         raw = b"UEF File!\0" + bytes(range(64))
-        self.assertEqual(self.run_normalize(raw), (0, raw))
-        self.assertEqual(self.run_normalize(gzip.compress(raw)), (1, raw))
+        self.assertEqual(self.run_fixture_normalize(raw), ("RAW", raw))
+        self.assertEqual(
+            self.run_fixture_normalize(gzip.compress(raw)), ("GZIP", raw)
+        )
 
         for payload in (raw, gzip.compress(raw)):
             archive = io.BytesIO()
             with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
                 output.writestr("game.uef", payload)
-            self.assertEqual(self.run_normalize(archive.getvalue()), (2, raw))
+            self.assertEqual(
+                self.run_fixture_normalize(archive.getvalue()), ("ZIP", raw)
+            )
 
-    def test_invalid_and_oversized_inputs_are_rejected(self) -> None:
-        self.assertEqual(self.run_normalize(b"not a UEF")[0], 3)
+    def test_invalid_inputs_are_rejected(self) -> None:
+        self.assertEqual(self.run_fixture_normalize(b"not a UEF")[0], "INVALID")
         archive = io.BytesIO()
         with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
             output.writestr("one.uef", b"UEF File!\0one")
             output.writestr("two.uef", b"UEF File!\0two")
-        self.assertEqual(self.run_normalize(archive.getvalue())[0], 3)
-        oversized = gzip.compress(b"UEF File!\0" + bytes(0xFFFE))
-        self.assertEqual(self.run_normalize(oversized)[0], 4)
+        self.assertEqual(
+            self.run_fixture_normalize(archive.getvalue())[0], "INVALID"
+        )
 
     def test_local_deskdiary_hardware_sample_when_present(self) -> None:
         sample = ROOT / "samples/Acornsoft Desk Diary (198x)(Acornsoft).uef"
         if not sample.is_file():
             self.skipTest("local third-party DeskDiary sample is not installed")
-        result, raw = self.run_normalize(sample.read_bytes())
-        self.assertEqual(result, 1)
+        result, raw = self.run_fixture_normalize(sample.read_bytes())
+        self.assertEqual(result, "GZIP")
         self.assertEqual(len(raw), 20580)
         self.assertEqual(raw[:12], b"UEF File!\0\x05\0")
         offset = 12
@@ -475,7 +461,15 @@ class UefNormalizeTest(unittest.TestCase):
         self.assertNotIn(b"\xD5\x5F", raw)
         self.assertNotIn(b"\x5F\xD5", raw)
 
-    def test_emulator_and_pi_normalizers_match_real_corpus(self) -> None:
+    def test_emulator_decoder_matches_python_on_the_real_corpus(self) -> None:
+        """The Beeb must see exactly the tape a desktop tool would produce.
+
+        This used to compare the emulator against the Pi's own decoder. Pi1MHz
+        V1.35 replaced that decoder with a streaming one and tests it against
+        gunzip in src/tests/uef, so the two halves are now pinned to the same
+        external reference rather than to each other - which is stronger, since
+        two copies of one mistake agreed with each other perfectly well.
+        """
         samples = [
             ROOT / "samples/Thrust (1986)(Superior Software).uef",
             ROOT / "samples/Acornsoft Desk Diary (198x)(Acornsoft).uef",
@@ -483,18 +477,22 @@ class UefNormalizeTest(unittest.TestCase):
         installed = [sample for sample in samples if sample.is_file()]
         if not installed:
             self.skipTest("local third-party UEF corpus is not installed")
-        result_names = {0: "RAW", 1: "GZIP", 2: "ZIP", 3: "INVALID",
-                        4: "TOO LARGE"}
         for sample in installed:
             with self.subTest(sample=sample.name):
-                pi_result, pi_bytes = self.run_normalize(sample.read_bytes())
-                fixture_result, fixture_bytes = self.run_fixture_normalize(
-                    sample.read_bytes(), trim_tail=True,
-                )
-                self.assertEqual(fixture_result, result_names[pi_result])
-                self.assertEqual(
-                    fixture_bytes, pi_bytes[:self.effective_length(pi_bytes)]
-                )
+                encoded = sample.read_bytes()
+                if encoded[:2] == b"\x1f\x8b":
+                    expected, kind = gzip.decompress(encoded), "GZIP"
+                elif encoded[:2] == b"PK":
+                    with zipfile.ZipFile(io.BytesIO(encoded)) as archive:
+                        names = archive.namelist()
+                        self.assertEqual(len(names), 1)
+                        expected = archive.read(names[0])
+                    kind = "ZIP"
+                else:
+                    expected, kind = encoded, "RAW"
+                result, produced = self.run_fixture_normalize(encoded)
+                self.assertEqual(result, kind)
+                self.assertEqual(produced, expected)
 
 
 if __name__ == "__main__":

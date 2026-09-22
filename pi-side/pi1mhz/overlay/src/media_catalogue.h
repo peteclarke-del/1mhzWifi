@@ -89,4 +89,23 @@ size_t media_format_entry(const media_entry_t *entry, char *out,
  * the Pi and the emulator run the same code instead of two copies. */
 unsigned uef_repair_filev_stamp(uint8_t *window, size_t length);
 
+/* Bytes of UEF file header - "UEF File!", its terminator and the two version
+ * bytes - that precede the first chunk. */
+#define UEF_REPAIR_HEADER 12u
+
+/* The same repair, driven a window at a time, for a caller that never holds
+ * the whole tape: the Pi streams a tape to the Beeb in 63 KB windows and a
+ * cassette block can straddle one. Repairs every COMPLETE chunk from `start`
+ * and returns the offset just past the last of them, so the caller can carry
+ * the remainder into the next window. Holding the remainder back is not an
+ * optimisation: the repair rewrites a block's payload and then the payload
+ * CRC that follows it, so a block split across two windows cannot be
+ * repaired from either half on its own.
+ *
+ * `start` is UEF_REPAIR_HEADER for the first window and 0 afterwards, because
+ * every window this returns ends on a chunk boundary. `repaired`, when not
+ * NULL, receives the number of address tokens redirected. */
+size_t uef_repair_filev_span(uint8_t *window, size_t length, size_t start,
+                             unsigned *repaired);
+
 #endif

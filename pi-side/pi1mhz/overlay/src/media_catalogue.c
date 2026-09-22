@@ -540,24 +540,26 @@ static unsigned repair_block_payload(uint8_t *data, size_t length)
    return repaired;
 }
 
-unsigned uef_repair_filev_stamp(uint8_t *window, size_t length)
+size_t uef_repair_filev_span(uint8_t *window, size_t length, size_t start,
+                             unsigned *repaired)
 {
-   size_t position = 12u;
-   unsigned repaired = 0u;
-   if (window == NULL || length < position) return 0u;
+   size_t position = start;
+   unsigned hits_total = 0u;
+   if (repaired != NULL) *repaired = 0u;
+   if (window == NULL || length < position) return length;
    while (position + 6u <= length) {
       uint16_t chunk = rd16(&window[position]);
       uint32_t chunk_length = rd32(&window[position + 2]);
-      size_t start = position + 6u;
-      if (chunk_length > length || start + chunk_length > length)
+      size_t block = position + 6u;
+      if (chunk_length > length || block + chunk_length > length)
          break;
       if (chunk == 0x0100u && chunk_length > 1u
-          && window[start] == (uint8_t)'*') {
+          && window[block] == (uint8_t)'*') {
          /* Standard cassette block: '*', NUL-terminated name of 1 to 10
           * characters, 17-byte descriptor, header CRC, payload, payload CRC. */
-         size_t name_end = start + 1u;
-         size_t limit = start + chunk_length;
-         while (name_end < limit && name_end - start <= 11u
+         size_t name_end = block + 1u;
+         size_t limit = block + chunk_length;
+         while (name_end < limit && name_end - block <= 11u
                 && window[name_end] != 0u)
             name_end++;
          if (name_end < limit && window[name_end] == 0u) {
@@ -575,13 +577,21 @@ unsigned uef_repair_filev_stamp(uint8_t *window, size_t length)
                      uint16_t crc = tape_crc(&window[data_at], data_length);
                      window[data_crc] = (uint8_t)(crc >> 8);
                      window[data_crc + 1u] = (uint8_t)(crc & 0xffu);
-                     repaired += hits;
+                     hits_total += hits;
                   }
                }
             }
          }
       }
-      position = start + chunk_length;
+      position = block + chunk_length;
    }
+   if (repaired != NULL) *repaired = hits_total;
+   return position;
+}
+
+unsigned uef_repair_filev_stamp(uint8_t *window, size_t length)
+{
+   unsigned repaired = 0u;
+   (void)uef_repair_filev_span(window, length, UEF_REPAIR_HEADER, &repaired);
    return repaired;
 }

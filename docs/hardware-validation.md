@@ -1114,8 +1114,10 @@ python3 scripts/uef_map.py --json "samples/Acornsoft Desk Diary (198x)(Acornsoft
 
 The mapper validates every chunk boundary and reports the complete decoded
 length separately from the former firmware trim point. The normal candidate
-must use the complete length. `elkwifi_uef_trim_tail=1` exists only to reproduce
-the earlier behaviour in a controlled A/B/C hardware test.
+must use the complete length. The `elkwifi_uef_trim_tail=1` switch that
+reproduced the earlier behaviour for a controlled A/B/C hardware test is gone
+from the Pi with Pi1MHz V1.35; the emulator still has it, as
+`PI1MHZ_UEF_TRIM_TAIL`.
 
 Check a candidate for the direct FILEV stamp before blaming WiCFS for a stall:
 
@@ -1145,7 +1147,7 @@ The Pi repairs this as it normalises the stream. `uef_repair_filev_stamp`
 redirects the `&212`/`&213` address token to scratch at `&900`/`&901`, which is
 inside the `&0900-&10FF` range cassette loaders already overwrite. The
 substitution is the same length, so only the affected block's payload CRC is
-recomputed. It is on by default; `elkwifi_uef_filev_repair=0` in `Pi1MHz.cfg`,
+recomputed. It is on by default; `wifi_service_uef_filev_repair=0` in `Pi1MHz.cfg`,
 or `PI1MHZ_UEF_FILEV_REPAIR=0` under the emulator, disables it for an A/B.
 
 Reproduce the A/B against a small LUN built with `make_uef_lun.py`. With the

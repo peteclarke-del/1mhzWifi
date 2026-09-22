@@ -21,7 +21,7 @@ cp "$component_dir/src/pi1mhz_net_backend.c" "$target/src/"
 cp "$component_dir/src/pi1mhz_ftp.c" "$target/src/"
 # The container decoder is the Pi overlay's, not a copy, so the FILEV stamp
 # repair is one implementation rather than two that could drift apart.
-overlay_dir=$(CDPATH= cd -- "$component_dir/../../pi-side/pi1mhz-516a267/overlay/src" && pwd)
+overlay_dir=$(CDPATH= cd -- "$component_dir/../../pi-side/pi1mhz/overlay/src" && pwd)
 cp "$overlay_dir/media_catalogue.h" "$target/src/"
 cp "$overlay_dir/media_catalogue.c" "$target/src/"
 cp "$component_dir/include/pi1mhz_wolfssh.h" "$target/src/"

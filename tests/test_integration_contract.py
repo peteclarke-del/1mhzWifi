@@ -13,8 +13,8 @@ class IntegrationContractTest(unittest.TestCase):
         runtime_roots = (
             ROOT / "rom-side/1mhz-wifi/src",
             ROOT / "rom-side/inherited/patches",
-            ROOT / "pi-side/pi1mhz-516a267/overlay",
-            ROOT / "pi-side/pi1mhz-516a267/patches",
+            ROOT / "pi-side/pi1mhz/overlay",
+            ROOT / "pi-side/pi1mhz/patches",
             ROOT / "emulator/pi1mhz-mailbox/src",
         )
         fixture_titles = (
@@ -40,9 +40,9 @@ class IntegrationContractTest(unittest.TestCase):
             self.assertIn(source.name, rom_installer, source.name)
 
         pi_installer = (ROOT / "pi-side/install_bundle.sh").read_text()
-        for patch in (ROOT / "pi-side/pi1mhz-516a267/patches").glob("*.patch"):
+        for patch in (ROOT / "pi-side/pi1mhz/patches").glob("*.patch"):
             self.assertIn(patch.name, pi_installer, patch.name)
-        for source in (ROOT / "pi-side/pi1mhz-516a267/overlay/src").iterdir():
+        for source in (ROOT / "pi-side/pi1mhz/overlay").rglob("*"):
             if source.is_file():
                 self.assertIn(source.name, pi_installer, source.name)
         for source in (ROOT / "pi-side/firmware").iterdir():
@@ -83,17 +83,34 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("Harddisc_addr", active)
         self.assertEqual(active.get("Services_addr", "").strip(), "0xA6")
 
-        integration = (ROOT / "pi-side/pi1mhz-516a267/patches/integration.patch").read_text()
-        self.assertNotIn("harddisc_emulator", integration.lower())
-        # The services table capacity and its tests were merged upstream, so
-        # our patch for them is gone and the guarantee is the pinned commit's.
-        self.assertFalse(
-            (ROOT / "pi-side/pi1mhz-516a267/patches/services-capacity-test.patch").exists()
+        # No patch this package carries may touch the hard disc emulator: the
+        # BeebSCSI side is upstream's and the AP5 test rig boots from it.
+        for patch in (ROOT / "pi-side/pi1mhz/patches").glob("*.patch"):
+            self.assertNotIn("harddisc_emulator", patch.read_text().lower(),
+                             patch.name)
+        # Patches whose subject Pi1MHz has since merged. Each one is gone from
+        # the tree and from the installer, and must not come back: upstream's
+        # version of the same change is the one that is maintained.
+        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        # Whole names, not substrings: "integration.patch" is a tail of
+        # "services-integration.patch", which is a patch this package keeps.
+        driven = set(
+            installer.split("for patch_name in ", 1)[1].split(";", 1)[0].split()
         )
-        self.assertNotIn(
-            "services-capacity-test.patch",
-            (ROOT / "pi-side/install_bundle.sh").read_text(),
-        )
+        for merged in (
+            "services-capacity-test.patch",   # services table capacity
+            "integration.patch",              # the service in the build
+            "service-range-online.patch",     # command 92
+            "uef-normalize.patch",            # command 93
+            "secure-service.patch",           # SSH, now behind PI1MHZ_SSH
+            "wifi-network-tools.patch",       # LWIP_RAW and raw.c
+            "net-debug-stage.patch",          # net bring-up breadcrumbs
+            "secure-debug-stage.patch",       # secure bring-up breadcrumbs
+        ):
+            self.assertFalse(
+                (ROOT / "pi-side/pi1mhz/patches" / merged).exists(), merged
+            )
+            self.assertNotIn(merged, driven, merged)
 
     def test_pi_zero_and_pi3_wifi_firmware_matrix_is_packaged(self) -> None:
         bundle = ROOT / "build/pi1mhz-all"
@@ -124,101 +141,86 @@ class IntegrationContractTest(unittest.TestCase):
             self.assertFalse(any(ROOT.rglob(name)), name)
 
     def test_pi_overlay_uses_services_mailbox_not_fc30_uart(self) -> None:
-        service = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c").read_text()
-        service_header = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.h").read_text()
-        patch = (ROOT / "pi-side/pi1mhz-516a267/patches/integration.patch").read_text()
-        self.assertIn("services_register", service)
-        self.assertIn("elkwifi_service.c", patch)
-        self.assertNotIn("elkwifi_emulator", patch)
-        self.assertNotIn("0x30", patch)
-        for source in (service, service_header):
-            self.assertNotRegex(source.lower(), r"\btube\b|\bparasite\b")
-
-    def test_secure_rng_startup_is_incremental_and_capabilities_are_live(self) -> None:
-        source = (
-            ROOT
-            / "pi-side/pi1mhz-516a267/overlay/src/secure_service_wolfssh.c"
+        # Everything this package adds to the Pi reaches the Beeb through the
+        # &FCA6 services mailbox, by claiming a command range in services.h.
+        # Nothing claims a FRED base of its own, and nothing talks to a tube.
+        integration = (
+            ROOT / "pi-side/pi1mhz/patches/services-integration.patch"
         ).read_text()
-        service = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service.c"
-        ).read_text()
-        self.assertIn("static void rng_begin(void)", source)
-        self.assertIn("static void rng_poll(void)", source)
-        self.assertIn("rng_sample_count == 8u", source)
-        self.assertIn("nts_pi_wolfssh_random_ready", source)
-        self.assertIn("nts_pi_wolfssh_poll();\n    secure_refresh_capabilities();", service)
-        self.assertIn("static volatile uint8_t capability_features;", service)
-        self.assertNotIn("static volatile uint8_t capability_features =", service)
+        ftp = (ROOT / "pi-side/pi1mhz/overlay/src/ftp_service.c").read_text()
+        ftp_header = (ROOT / "pi-side/pi1mhz/overlay/src/ftp_service.h").read_text()
+        self.assertIn("SERVICE_CMD_FTP_FIRST", integration)
+        self.assertIn("services_register", ftp)
+        self.assertNotIn("Pi1MHz_Register_Memory", ftp)
+        self.assertNotIn("_addr", integration)
+        for source in (ftp, ftp_header):
+            code = "\n".join(
+                line for line in source.splitlines()
+                if not line.lstrip().startswith(("*", "/*", "//"))
+            )
+            self.assertNotRegex(code.lower(), r"\btube\b|\bparasite\b")
 
-    def test_wifi_credentials_persist_and_runtime_network_is_enabled(self) -> None:
-        service = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c").read_text()
-        service_header = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.h").read_text()
+    def test_the_services_pi1mhz_now_owns_are_not_carried_here_as_well(self) -> None:
+        """A second copy of an upstream file is how the two drift apart.
+
+        Every one of these was an overlay source in this package before
+        Pi1MHz V1.35 merged it. Upstream's copies have since gained fixes
+        these never got - a provider returning more than the host asked for,
+        a write-and-swap for known_hosts, a UEF stream that costs 34 KB
+        instead of 32 MB - so carrying them again would be a regression, not
+        a safety net. Their behaviour is covered by upstream's own suites,
+        which `make test-pi-integration` runs against the integrated tree.
+        """
+        overlay = ROOT / "pi-side/pi1mhz/overlay/src"
+        for merged in (
+            "elkwifi_service.c", "elkwifi_service.h",
+            "uef_normalize.c", "uef_normalize.h", "puff.c", "puff.h",
+            "secure_service.c", "secure_service.h",
+            "secure_service_core.c", "secure_service_core.h",
+            "secure_service_wolfssh.c", "secure_service_wolfssh.h",
+            "user_settings.h",
+        ):
+            self.assertFalse((overlay / merged).exists(), merged)
+        # What is left is what upstream does not have.
+        self.assertEqual(
+            sorted(source.name for source in overlay.iterdir() if source.is_file()),
+            ["ftp_service.c", "ftp_service.h",
+             "media_catalogue.c", "media_catalogue.h",
+             "media_service_core.c", "media_service_core.h"],
+        )
+
+    def test_host_side_of_the_pi_services_is_wired_as_designed(self) -> None:
+        """The ROM half of the mailbox conversation, and how it is configured.
+
+        This used to grep the Pi's own WiFi, UEF and secure service sources as
+        well. Pi1MHz V1.35 absorbed all three, and upstream's src/tests/{net,
+        uef,secure} exercise them for real rather than by string match, so the
+        assertions that read those files are gone and `make test-pi-integration`
+        runs the suites that replaced them. What stays here is what is still
+        this repository's: the 6502 side, the two patches that add commands
+        upstream does not have, and the bundle the installer produces.
+        """
         service_driver = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
         uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
         wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
             ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
-        network_tools_patch = (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-network-tools.patch").read_text()
         net_copy_public_patch = (
-            ROOT / "pi-side/pi1mhz-516a267/patches/net-copy-public.patch"
+            ROOT / "pi-side/pi1mhz/patches/net-copy-public.patch"
         ).read_text()
-        secure_wolfssh = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service_wolfssh.c"
+        filev_patch = (
+            ROOT / "pi-side/pi1mhz/patches/uef-filev-repair.patch"
         ).read_text()
-        self.assertIn('WIFI_FILE "/Pi1MHz/ElkWiFi.wifi"', service)
-        self.assertIn('WIFI_PROFILE_HEADER "ELKWIFI1"', service)
-        self.assertIn("wifi_credentials_load", service)
-        self.assertIn("Do not turn an already-live association into a full rejoin", service)
-        self.assertIn("if (sdio_runtime_started())", service)
-        self.assertIn("strcmp(current->ssid, ssid) == 0", service)
-        self.assertIn("current->security == security", service)
-        self.assertIn("wifi_disconnect", service)
-        self.assertIn("wifi_profile_is_valid(ssid, password, security)", service)
-        self.assertIn("wifi_enable_radio", service)
-        self.assertIn("sdio_runtime_scan_start", service)
-        self.assertIn("sdio_runtime_scan_busy", service)
-        self.assertIn("sdio_runtime_link_is_up", service)
-        self.assertIn("wifi_lwip_get_context", service)
-        self.assertIn("netif_ip4_addr", service)
-        self.assertIn('response_string(cp, "No AP\\r\\n\\r\\nOK\\r\\n")', service)
-        self.assertIn("sdio_runtime_rejoin_busy", service)
-        self.assertIn("operation == (uint8_t)'?'", service)
-        self.assertIn("Never keep the shared ElkWiFi command page", service)
-        self.assertNotIn("+WIFI:LINK", service)
-        self.assertIn('+CIFSR:STAIP,\\"%s\\"', service)
-        self.assertIn('+CIFSR:STAMAC,\\"%02x:%02x:%02x:%02x:%02x:%02x\\"', service)
-        ifcfg = service.split("static uint8_t wifi_ifcfg", 1)[1].split(
-            "static uint8_t wifi_online", 1
-        )[0]
-        self.assertNotIn("+WIFI:", ifcfg)
-        self.assertNotIn("GATEWAY", ifcfg)
-        self.assertNotIn("NETMASK", ifcfg)
-        longest_ifcfg = (
-            '+CIFSR:STAIP,"255.255.255.255"\r\n'
-            '+CIFSR:STAMAC,"FF:FF:FF:FF:FF:FF"\r\n\r\nOK\r\n'
-        )
-        self.assertLess(len(longest_ifcfg), 240)
+
+        # A rejoin queue patch that was tried and abandoned; it must not come
+        # back by accident.
         self.assertNotIn("wifi-rejoin-queue.patch", installer)
         self.assertFalse(
-            (ROOT / "pi-side/pi1mhz-516a267/patches/wifi-rejoin-queue.patch").exists()
+            (ROOT / "pi-side/pi1mhz/patches/wifi-rejoin-queue.patch").exists()
         )
-        self.assertIn("Re-read the saved profile on every host reset", service)
-        self.assertIn('LAPOPT_FILE "/Pi1MHz/ElkWiFi.lapopt"', service)
-        self.assertIn("ELKWIFI_CMD_LAPOPT", service)
-        self.assertIn("scan_fields == 7u", service)
-        self.assertIn("ELKWIFI_CMD_PING", service)
-        self.assertIn("raw_sendto", service)
-        self.assertIn("ELKWIFI_CMD_DATETIME", service)
-        self.assertIn("ELKWIFI_CMD_ONLINE", service)
-        self.assertIn("ELKWIFI_CMD_ONLINE       92u", service_header)
-        self.assertIn("ELKWIFI_CMD_UEF_NORMALIZE 93u", service_header)
-        self.assertIn("ELKWIFI_CMD_LAST         ELKWIFI_CMD_UEF_NORMALIZE", service_header)
-        self.assertIn("ELKWIFI_UEF_STREAM_CAPACITY (16u * 1024u * 1024u)", service)
-        self.assertIn("uef_stream_publish_window", service)
-        self.assertIn("ELKWIFI_UEF_OP_REFILL", service)
-        self.assertIn("value + 1u == uef_window_generation", service)
-        self.assertIn("value + 1u != uef_window_generation", service)
-        self.assertIn("actual_crc != uef_last_append_crc", service)
+
+        # The incremental UEF stream's generation handshake, host side. The
+        # generation is what stops a dropped REFILL silently skipping tape.
         self.assertIn("drv_uef_generation_lo = drv_svc_workspace+30", service_driver)
         self.assertIn("drv_uef_generation_hi = drv_svc_workspace+31", service_driver)
         self.assertIn("drv_uef_generation_record_lo = 26", service_driver)
@@ -239,33 +241,22 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("cmp #drv_svc_uef_op_append", service_driver)
         self.assertIn("lda #17\n sta drv_svc_cursor", service_driver)
         self.assertIn("jsr service_driver_uef_stream_close", uef)
-        self.assertIn('response_printf(cp, "ONLINE %u.%u.%u.%u\\r\\n"', service)
-        self.assertIn('response_string(cp, "OFFLINE CONNECTING\\r\\n")', service)
-        self.assertIn('response_string(cp, "OFFLINE WIFI OFF\\r\\n")', service)
-        self.assertIn('response_string(cp, "OFFLINE ERROR\\r\\n")', service)
-        self.assertIn('dns_gethostbyname("pool.ntp.org"', service)
-        self.assertIn("NTP_UNIX_EPOCH", service)
-        self.assertIn("LWIP_RAW", network_tools_patch)
-        self.assertIn("src/core/raw.c", network_tools_patch)
-        self.assertIn("wifi-network-tools.patch", installer)
-        self.assertIn("net-copy-public.patch", installer)
-        self.assertIn("memmove(&Pi1MHz->JIM_ram\\[destination\\]", installer)
-        self.assertIn("! grep -q 'JIM_ram\\[DISC_RAM_BASE + destination\\]'",
-                      installer)
-        self.assertIn("grep -q 'DISC_RAM_BASE + 0x01f0u'", installer)
-        self.assertIn("grep -q 'COPY_PUBLIC_NONZERO_ONLY'", installer)
-        self.assertIn("grep -q '#define TEST_JIM_SIZE 0x1100000u'", installer)
+
+        # Command 58: the Pi copies received bytes straight into the public
+        # 64K JIM window instead of the host carrying every byte through
+        # FCA9. Upstream merged the ROM that calls it but not the command, so
+        # this patch is ours to keep until it does.
         self.assertIn("#define NET_CMD_COPY_PUBLIC  58u", net_copy_public_patch)
         self.assertIn("destination + count > 0x10000u", net_copy_public_patch)
         self.assertIn("JIM_ram[destination]", net_copy_public_patch)
         self.assertNotIn("JIM_ram[DISC_RAM_BASE + destination]",
                          net_copy_public_patch)
-        # The copy-boundary test case moved upstream with the net test files,
-        # so the patch no longer carries it; upstream owns that assertion now.
-        self.assertIn("result == WS_EOF || result == WS_CHANNEL_CLOSED",
-                      secure_wolfssh)
-        self.assertIn("if (channel_finished(result)) return -(int)NTS_EOF;",
-                      secure_wolfssh)
+        # The source is DISC_RAM_BASE-relative and the destination is not, so
+        # the patch carries a test built at a nonzero base; at the default
+        # base of 0 the mistake is invisible.
+        self.assertIn("COPY_PUBLIC_NONZERO_ONLY", net_copy_public_patch)
+        self.assertIn("DISC_RAM_BASE + destination", net_copy_public_patch)
+        self.assertIn("net-copy-public.patch", installer)
         self.assertIn("drv_net_copy_public = 58", service_driver)
         receive = service_driver.split(".service_driver_receive_ok", 1)[1].split(
             ".service_driver_receive_empty", 1
@@ -282,107 +273,80 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("jsr net_scratch_address", paged_wget)
         self.assertIn("lda net_paged_offset", paged_wget)
         self.assertNotIn("lda #&FF\n sta pagereg", paged_wget)
-        self.assertIn("ELKWIFI_JOIN_RADIO_OFF", service)
-        self.assertIn("if (radio.link_up && live != NULL", service)
-        init_body = service.split("void elkwifi_service_init", 1)[1]
-        initial_once = init_body.split("if (!service_initialised)", 1)[1].split(
-            "   }", 1
-        )[0]
-        self.assertNotIn("wifi_credentials_load();", initial_once)
-        self.assertIn("   wifi_credentials_load();", init_body)
-        self.assertIn('config_get("elkwifi_utc_offset_minutes")', service)
-        self.assertIn('config_get("elkwifi_uef_trim_tail")', service)
-        self.assertIn("if (uef_trim_tail)", service)
-        self.assertIn("elkwifi_uef_trim_tail=0", installer)
-        self.assertIn('bundle_stage_dir=$(mktemp -d', installer)
-        self.assertIn('rm -rf -- "$bundle"', installer)
-        self.assertIn('mv "$bundle_staged" "$bundle"', installer)
-        emulator_backend = (
-            ROOT / "emulator/pi1mhz-mailbox/src/pi1mhz_net_backend.c"
-        ).read_text()
-        self.assertIn("PI1MHZ_UEF_TRIM_TAIL", emulator_backend)
-        self.assertIn("if (backend->uef_trim_tail)", emulator_backend)
-        # The FILEV stamp repair must exist on both sides. An emulator which
-        # repairs a stream the Pi does not, or the reverse, makes every UEF
-        # acceptance run evidence about the wrong machine.
-        self.assertIn('config_get("elkwifi_uef_filev_repair")', service)
-        self.assertIn("if (uef_filev_repair)", service)
-        self.assertIn("uef_repair_filev_stamp(uef_stream_data", service)
-        self.assertIn("PI1MHZ_UEF_FILEV_REPAIR", emulator_backend)
-        self.assertIn("if (backend->uef_filev_repair)", emulator_backend)
-        self.assertIn("uef_repair_filev_stamp(backend->uef_stream",
-                      emulator_backend)
-        # One implementation, shared, rather than two kept in step by this
-        # test. Both sides link media_catalogue.c, so they cannot diverge.
-        decoder = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/media_catalogue.c"
-        ).read_text()
-        self.assertIn("unsigned uef_repair_filev_stamp(", decoder)
-        self.assertNotIn("uef_repair_filev_stamp(uint8_t *window",
-                         emulator_backend)
-        normalize = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/uef_normalize.c"
-        ).read_text()
-        self.assertNotIn("uef_repair_filev_stamp(uint8_t *window", normalize)
-        self.assertNotIn("static uint16_t tape_crc", normalize)
-        # One implementation of the FILEV repair, shared, rather than two kept
-        # in step by this test. Both sides link media_catalogue.c.
-        decoder = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/media_catalogue.c"
-        ).read_text()
-        self.assertIn("unsigned uef_repair_filev_stamp(", decoder)
-        self.assertNotIn("uef_repair_filev_stamp(uint8_t *window",
-                         emulator_backend)
-        normalize = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/uef_normalize.c"
-        ).read_text()
-        self.assertNotIn("uef_repair_filev_stamp(uint8_t *window", normalize)
-        self.assertNotIn("static uint16_t tape_crc", normalize)
-        self.assertIn("Function 18 is a public ElkWiFi ABI", service)
-        self.assertNotIn("+CIFSR:GATEWAY", service)
-        self.assertNotIn("+CIFSR:NETMASK", service)
-        self.assertIn('snprintf(response, sizeof response, "OK\\r\\n")', service)
-        self.assertIn("ELKWIFI_ERR_NO_WIFI", service)
-        self.assertIn("wifi_get_state() == WIFI_STATE_ERROR", service)
-        self.assertIn("Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS", service)
-        self.assertNotIn(
-            "Pi1MHz->JIM_ram[cp] == ELKWIFI_CMD_STATUS\n       && wifi_get_state()",
-            service,
-        )
-        status_case = service.split("case ELKWIFI_CMD_STATUS:", 1)[1].split(
-            "case ELKWIFI_CMD_RADIO:", 1
-        )[0]
-        self.assertNotIn("wifi_get_state", status_case)
-        self.assertIn("response_string(cp, ELKWIFI_VERSION_RESPONSE)", status_case)
-        self.assertIn('"Pi1MHz ElkWiFi 0.1.67, kernel " GITVERSION', service)
+
         self.assertIn("drv_svc_radio = 91", service_driver)
         wifi_control = service_driver.split(".service_driver_wifi_control", 1)[1].split(
             ".service_driver_ping", 1
         )[0]
         self.assertIn("lda #drv_svc_radio\n jmp service_driver_begin", wifi_control)
         self.assertNotIn("jmp service_driver_version", wifi_control)
-        self.assertIn("case ELKWIFI_CMD_RADIO:", service)
-        self.assertIn("do not make the caller wait for firmware or association", service)
-        self.assertEqual(service.count("response_string(cp, ELKWIFI_VERSION_RESPONSE)"), 2)
-        self.assertIn("#define ELKWIFI_UEF_BASE 0u", service)
-        self.assertIn("const uint32_t base = ELKWIFI_UEF_BASE", service)
-        self.assertIn("const uint32_t trailer = ELKWIFI_UEF_BASE + 0xfffeu", service)
-        self.assertNotIn("DISC_RAM_BASE + 0x10000u", service)
-        for mode in ("AUTO", "OPEN", "WEP", "WPA", "WPA2"):
-            self.assertIn(f'"{mode}"', service)
-        # The WEP/WPA key handling these used to assert is upstream's now, so
-        # our patch for it was removed. What stays ours is the host-facing
-        # security surface, checked above against the service source.
+
+        # The FILEV stamp repair must exist on both sides. An emulator which
+        # repairs a stream the Pi does not, or the reverse, makes every UEF
+        # acceptance run evidence about the wrong machine.
+        emulator_backend = (
+            ROOT / "emulator/pi1mhz-mailbox/src/pi1mhz_net_backend.c"
+        ).read_text()
+        self.assertIn("PI1MHZ_UEF_TRIM_TAIL", emulator_backend)
+        self.assertIn("if (backend->uef_trim_tail)", emulator_backend)
+        self.assertIn("PI1MHZ_UEF_FILEV_REPAIR", emulator_backend)
+        self.assertIn("if (backend->uef_filev_repair)", emulator_backend)
+        self.assertIn("uef_repair_filev_stamp(backend->uef_stream",
+                      emulator_backend)
+        self.assertIn('config_get("wifi_service_uef_filev_repair")', filev_patch)
+        self.assertIn("uef_repair_filev_span", filev_patch)
+        self.assertIn("uef_repair_filev_stamp(tape->window", filev_patch)
+        self.assertIn("wifi_service_uef_filev_repair=1", installer)
+        # The Pi streams the tape now, so the repair sees it a window at a
+        # time and has to carry an incomplete chunk into the next window.
+        # Without that, a block straddling a boundary is never repaired.
+        self.assertIn("repair_carry", filev_patch)
+        self.assertIn("repair_skip", filev_patch)
+        self.assertIn("test_uef_filev.c", filev_patch)
+
+        # One implementation of the repair, shared, rather than two kept in
+        # step by this test. Both sides link media_catalogue.c.
+        decoder = (
+            ROOT / "pi-side/pi1mhz/overlay/src/media_catalogue.c"
+        ).read_text()
+        self.assertIn("unsigned uef_repair_filev_stamp(", decoder)
+        self.assertIn("size_t uef_repair_filev_span(", decoder)
+        self.assertNotIn("uef_repair_filev_stamp(uint8_t *window",
+                         emulator_backend)
+
+        # The bundle, and the configuration a Pi needs to answer this ROM.
+        # Pi1MHz 7077688 renamed the service and made it opt-in, so the enable
+        # key is not optional any more: without it the ROM sees no service.
+        self.assertIn("wifi_service_enable=1", installer)
         self.assertIn("net_enable=1", installer)
         self.assertIn("Services_addr=0xA6", installer)
-        self.assertIn("ElkWiFi_addr=0x00", installer)
+        self.assertIn("wifi_service_utc_offset_minutes", installer)
+        # The retired key names may still appear in a comment explaining the
+        # rename. What must not survive is the installer writing them into a
+        # generated Pi1MHz.cfg, so only the lines that do that are searched.
+        writes = "\n".join(
+            line for line in installer.splitlines()
+            if line.lstrip().startswith(("printf", "ensure_config_default"))
+        )
+        for retired in ("ElkWiFi_addr", "elkwifi_enable",
+                        "elkwifi_utc_offset_minutes", "elkwifi_uef_trim_tail",
+                        "elkwifi_uef_filev_repair"):
+            self.assertNotIn(retired, writes, retired)
         self.assertIn("preset=${2:-all}", installer)
         self.assertIn('build.sh" rpi', installer)
         self.assertIn('build.sh" rpi3', installer)
+        # The secure service is behind PI1MHZ_SSH, which is OFF upstream
+        # because Pi1MHz carries neither crypto library. The installer has
+        # just installed and verified them, so it turns the option on.
+        self.assertIn("-DPI1MHZ_SSH=ON", installer)
+        self.assertIn("PI1MHZ_SSH:BOOL=ON", installer)
         for key in ("SCSIJUKE", "SCSIID", "VFSJUKE"):
             self.assertIn(f"ensure_config_default {key} 0", installer)
         self.assertIn("ensure_config_default Rampage_addr 0xFD", installer)
         self.assertIn("must set Rampage_addr=0xFD", installer)
+        self.assertIn('bundle_stage_dir=$(mktemp -d', installer)
+        self.assertIn('rm -rf -- "$bundle"', installer)
+        self.assertIn('mv "$bundle_staged" "$bundle"', installer)
 
     def test_rom_routes_url_and_osword_tcp_through_pi_services(self) -> None:
         driver = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
@@ -542,7 +506,13 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("0x03E0 <= address <= 0x03FF", checker)
         self.assertIn("FILENAME_WRITE", checker)
         self.assertIn("FILENAME_LIMIT", checker)
-        self.assertIn("-dd -labels", build_script)
+        # The RAM layout audit reads the assembler's label export, so both
+        # roots must be assembled with debug info and a labels file. Asserted
+        # as two flags rather than one adjacent pair: they stopped being
+        # adjacent when the build gained the workspace defines.
+        self.assertIn("-dd", build_script)
+        self.assertIn('-labels "$labels_file"', build_script)
+        self.assertIn('-labels "$wicfs_labels_file"', build_script)
         self.assertIn("check_combined_ram_layout.py", build_script)
         self.assertIn("symbols", checker)
         vector_entry_patch = (
@@ -579,7 +549,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("inc pagereg", service_driver)
 
         wget_helpers = (
-            ROOT / "rom-side/1mhz-wifi/src/wget_helpers.asm"
+            ROOT / "rom-side/1mhz-wifi/src/wget.asm"
         ).read_text()
         self.assertNotRegex(wget_helpers, r"\blda\s+pagereg\b")
         self.assertNotRegex(wget_helpers, r"\binc\s+pagereg\b")
@@ -873,26 +843,30 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn(".pdump_end\n jsr set_bank_0", pdump)
 
     def test_rom_reserves_space_for_the_next_feature(self) -> None:
-        patch = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
-        self.assertIn("rom_content_end = P%", patch)
-        self.assertIn("ASSERT rom_content_end <= &BF00", patch)
-        self.assertNotIn(b"This is the end!", (ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom").read_bytes())
+        # The ceiling is ws_base, not &BF00: the workspace now sits at the top
+        # of the bank, so code has to stop below it rather than below the last
+        # page. Both roots assert it, because both carry a copy.
+        for root in ("1mhzwifi.asm", "1mhzwicfs.asm"):
+            source = (ROOT / "rom-side/1mhz-wifi/src" / root).read_text()
+            with self.subTest(root=root):
+                self.assertIn("rom_content_end = P%", source)
+                self.assertIn("ASSERT rom_content_end <= ws_base", source)
+                self.assertNotIn("ASSERT rom_content_end <= &BF00", source)
+        for image in ("1mhz-wifi.rom", "1mhz-wicfs.rom"):
+            built = (ROOT / "build/pi1mhz-all/Pi1MHz" / image).read_bytes()
+            with self.subTest(image=image):
+                self.assertNotIn(b"This is the end!", built)
+                self.assertEqual(len(built), 16384)
 
     def test_menu_surface_is_fully_retired(self) -> None:
-        service = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c"
-        ).read_text()
-        service_header = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.h"
-        ).read_text()
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         build_script = (ROOT / "rom-side/build_rom.sh").read_text()
         retirement = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
         wget = (
             ROOT / "rom-side/1mhz-wifi/src/net_wget.asm"
         ).read_text()
-        self.assertNotIn("ELKWIFI_CMD_MENU", service)
-        self.assertNotIn("ELKWIFI_CMD_MENU", service_header)
+        for patch in (ROOT / "pi-side/pi1mhz/patches").glob("*.patch"):
+            self.assertNotIn("CMD_MENU", patch.read_text(), patch.name)
         self.assertNotIn("elkwifi_menu", installer)
         self.assertNotIn("menu-cache.patch", installer)
         self.assertNotIn("overlay/menu.asm", build_script)
@@ -908,8 +882,6 @@ class IntegrationContractTest(unittest.TestCase):
     def test_ping_escape_dispatches_pi_cancellation(self) -> None:
         driver = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
         ping = (ROOT / "rom-side/1mhz-wifi/src/ping.asm").read_text()
-        service = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c").read_text()
-        header = (ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.h").read_text()
         self.assertIn("drv_svc_cancel = 90", driver)
         self.assertIn("jsr check_esc", driver)
         self.assertIn("lda #drv_svc_cancel", driver)
@@ -920,21 +892,10 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("dec ping_request_count", ping)
         self.assertNotIn("stx size", ping)
         self.assertNotIn("dec size", ping)
-        self.assertIn("ELKWIFI_CMD_CANCEL       90u", header)
-        self.assertIn("if (request_cancel)", service)
-        self.assertIn("ping_close();", service)
-        self.assertIn("asynchronous_close();", service)
-        self.assertIn("sdio_runtime_scan_cancel();", service)
-        self.assertIn("ping_generation++", service)
-        self.assertIn("time_generation++", service)
-        self.assertIn("(uint32_t)(uintptr_t)arg != ping_generation", service)
-        self.assertIn("(uint32_t)(uintptr_t)arg != time_generation", service)
-        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
-        self.assertIn("service-range-online.patch", installer)
-        range_patch = (
-            ROOT / "pi-side/pi1mhz-516a267/patches/service-range-online.patch"
-        ).read_text()
-        self.assertIn("SERVICE_CMD_ELKWIFI_LAST  92u", range_patch)
+        # Command 90 (cancel) and 92 (online) are Pi1MHz's now: its
+        # services.h allocates 80..93 to the WiFi service, and wifi_service.c
+        # answers a cancel by dropping the request in flight. What stays here
+        # is the ROM sending it on ESCAPE rather than waiting out the ping.
 
     def test_installer_pins_reviewed_pi1mhz_commit(self) -> None:
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
@@ -942,12 +903,14 @@ class IntegrationContractTest(unittest.TestCase):
         verifier = (ROOT / "pi-side/check_upstream.sh").read_text()
         self.assertIn("expected_upstream=$PI1MHZ_UPSTREAM_COMMIT", installer)
         self.assertIn("PI1MHZ_VERIFY_REMOTE:-1", installer)
-        self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=d6ee4c357dc1c33640b4d97ac9048431057ede93",
-            upstream,
-        )
+        # The pin's value is not asserted here. It changes on every rebase,
+        # and check_upstream.sh already fails the build when it stops matching
+        # the live tip; naming it twice only meant editing two places. What is
+        # asserted is the shape, so a truncated or abbreviated SHA is caught.
+        self.assertRegex(upstream, r"PI1MHZ_UPSTREAM_COMMIT=[0-9a-f]{40}\n")
+        self.assertRegex(upstream, r"PI1MHZ_BASE_TAG_COMMIT=[0-9a-f]{40}\n")
         self.assertIn("PI1MHZ_UPSTREAM_BRANCH=master", upstream)
-        self.assertIn("PI1MHZ_UPSTREAM_VERIFIED=2026-09-01", upstream)
+        self.assertRegex(upstream, r"PI1MHZ_UPSTREAM_VERIFIED=\d{4}-\d{2}-\d{2}\n")
         self.assertIn("git ls-remote --symref", verifier)
 
         rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()

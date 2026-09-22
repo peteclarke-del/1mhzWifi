@@ -21,6 +21,26 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
+The build produces four images. `1mhz-wifi.rom` and `1mhz-wicfs.rom` are the
+pair Pi1MHz serves into sideways RAM and are what the SD-card bundle carries.
+`1mhz-wifi-eprom.rom` and `1mhz-wicfs-eprom.rom` are the same sources built
+for a burnt EPROM, where there is no writable image and the workspace is three
+pages of host RAM claimed from the OS at service call 1. See
+[the ROM notes](rom-side/README.md) for which to use.
+
+Both of the sideways-RAM images keep their workspace inside their own image
+rather than in host memory at `&900`, `&A00` and `&D90`. The OS owns all three, and `&0D90`
+runs into the extended vector table at `&0D9F`: the service driver was storing
+its UEF stream generation at `&0DAF`, four bytes inside it, which kills the
+next OS call made through a claimed vector. This came from Pi1MHz, which found
+it in the copy of this ROM it merged at V1.34, and the check that finds this
+class of fault now runs in the ROM build and in `make test`. The cost is that
+the bank has to be writable: Pi1MHz serves both images into sideways RAM, and
+an image in a read-only bank detects that at reset and refuses commands rather
+than corrupting memory it does not own. That is what the EPROM build exists
+for: it pays three pages of PAGE instead, which is why it is a separate image
+rather than the default.
+
 Version 0.1.67 is the current compatibility candidate. It repairs the direct
 FILEV stamp which 84 of the 728 corpus titles use to overwrite whatever filing
 system owns the vector, so a title such as Repton Infinity now reaches its menu
@@ -196,8 +216,16 @@ split by provenance. The ROM sources written for this project are in
 `rom-side/1mhz-wifi/src/`; what still derives from ElkWiFi 0.23, and through it
 from Martin Barr's UPCFS, is confined to `rom-side/inherited/`, where it now
 applies to the single file `wicfs.asm`. Pi1MHz changes live under
-`pi-side/pi1mhz-516a267/`. Each package separates ordered patches from complete
-source overlays and records its required upstream commit. Read
+`pi-side/pi1mhz/`. Each package separates ordered patches from complete
+source overlays and records its required upstream commit.
+
+The Pi package is now small, because Pi1MHz V1.35 merged most of it. The WiFi
+service, the UEF tape, the SSH/SFTP service and its crypto build, LWIP_RAW and
+the service command-range allocation are all upstream, and upstream's copies
+carry fixes ours did not, so they are no longer shipped here at all. What is
+left is three patches: the FTP service and the container decoder wired into the
+build, the FILEV stamp repair on upstream's streaming UEF path, and net command
+58, which the merged host ROM calls but upstream does not yet implement. Read
 [the inherited ROM notes](rom-side/inherited/README.md) before reusing any of
 it: two upstream authors have a claim on `wicfs.asm` and neither has stated
 terms.
@@ -344,10 +372,11 @@ optional keys provide initial settings:
 
 ```ini
 Rampage_addr=0xFD
+wifi_service_enable=1
 wifi_ssid=MyNetwork
 wifi_password=secret
 wifi_security=auto
-elkwifi_utc_offset_minutes=0
+wifi_service_utc_offset_minutes=0
 ```
 
 `wifi_security` accepts `auto`, `open`, `wep`, `wpa`, or `wpa2`. A profile
@@ -378,8 +407,8 @@ The complete, reproducible procedure is in
 upstream source trees are required:
 
 - ElkWiFi commit `7bf366c97bec18bd238963c95e6f2aa6893cdb3a`
-- Pi1MHz commit `e949f2d2714b15f314df375e52db5febb6c40e6d`, the official
-  `master` tip verified on 23 August 2026
+- Pi1MHz commit `4c54d8118f632465f31ecb72dcc37b4833c2507a` (V1.35), the
+  official `master` tip verified on 22 September 2026
 
 Pi1MHz has no `main` branch. Run `./pi-side/check_upstream.sh` before a release;
 it fails if the official default branch or its tip has changed.
@@ -397,9 +426,24 @@ Build both Pi kernel families with Arm GCC 13 or later:
 ```sh
 git clone --recursive https://github.com/dp111/Pi1MHz.git
 git -C Pi1MHz submodule update --init --recursive
-git -C Pi1MHz checkout e949f2d2714b15f314df375e52db5febb6c40e6d
+git -C Pi1MHz checkout 4c54d8118f632465f31ecb72dcc37b4833c2507a
 ./pi-side/install_bundle.sh /path/to/Pi1MHz all
 ```
+
+The installer configures each CMake preset with `-DPI1MHZ_SSH=ON`. Upstream
+defaults it off because Pi1MHz neither carries nor fetches wolfSSL and wolfSSH;
+by that point the installer has installed and verified the pinned revisions.
+
+Check the integration without an ARM toolchain:
+
+```sh
+make test-pi-integration
+```
+
+That fetches the pinned Pi1MHz, applies the whole integration to it, and runs
+the host test suites in that tree. It is the gate that matters now: upstream
+owns the services this package patches, so a patch that still applies can
+still be wrong.
 
 The installer modifies the supplied Pi1MHz checkout. Keep both upstream
 checkouts outside this repository and use a path without spaces. This avoids

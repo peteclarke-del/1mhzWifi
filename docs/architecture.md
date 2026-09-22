@@ -137,13 +137,18 @@ reserving page `&FF` for the public trailer and service data. WiCFS refills
 only when both remaining-byte counters reach zero and does not reset its UEF or
 CFS parser between windows. A 16-bit generation at Pi-private JIM addresses
 `&FFEF1A-&FFEF1B` makes refill retries idempotent for the full supported stream
-size. The ROM reloads that value before every refill because cassette loaders
-may overwrite the retired printer workspace used for transient request data.
+size. The ROM reloads that value before every refill. That was necessary when
+the transient request data lived in the retired printer workspace at `&0D90`,
+which a cassette loader overwrites; the workspace is now inside the ROM image
+and out of reach, and the reload is kept because the Pi remains the authority
+for the value.
 
 After a successful `*WGET -U`, WGET updates the JIM length trailer. `*REWIND`
 reloads that authoritative value and resets the WiCFS cursor. It does not keep
-the length in the ROM's `&0900` heap because that workspace is volatile and can
-be overwritten by BASIC or a cassette loader before a title is selected.
+the length in the ROM's command heap, which is scratch for the span of one
+command and holds nothing across a title selection. That heap is now at
+`&BE00`, inside the ROM image; it was at `&0900`, which BASIC or a cassette
+loader could overwrite, and which the OS owns as the RS423 output buffer.
 
 The MOS keyboard input buffer occupies `&03E0-&03FF`; WiCFS never writes it.
 The active stream cursor and counters use the original WiCFS cassette zero-page
