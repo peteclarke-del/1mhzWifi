@@ -7,7 +7,11 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 ## Complete in this build
 
 - [x] Bare-metal Pi1MHz service integration on reviewed upstream commit
-  `e949f2d2714b15f314df375e52db5febb6c40e6d`.
+  `4c54d8118f632465f31ecb72dcc37b4833c2507a` (V1.35). That release merged the
+  WiFi, UEF and secure services this project used to supply, so the
+  integration is now three patches and two sources rather than a fork of half
+  the service layer. `make test-pi-integration` applies it to the pinned
+  upstream and runs upstream's own host suites over the result.
 - [x] Both Raspberry Pi kernel families and the complete SD-card bundle.
 - [x] AP5-safe FRED/JIM transport with no dependency on cartridge `&FC30` UART
   registers.
@@ -92,6 +96,80 @@ These are closed failure paths, not partial implementations:
 - HTTPS and TLS through the ElkWiFi-compatible `*WGET` path. Secure requests
   fail closed and never downgrade to plain HTTP. SSH is available separately
   through the native host tool and managed Pi secure service.
+
+## What has and has not been offered upstream
+
+Checked against the pull request record rather than from memory, because three
+of the six PRs to dp111 show as closed and unmerged and none of them was
+rejected: he applied #18, #19 and #20 by hand and closed them, commenting
+"Thanks", "Merged", and on the largest "This has been merged, there have been
+some improvements and reorganisations". #21, #22 and #23 went through the merge
+button.
+
+Nothing of ours has been turned down. The three patches this tree still carries
+against Pi1MHz were never submitted: `ftp_service.c` and `media_catalogue.c`
+are absent from PR #20's nineteen files, no FILEV content appears in it, and
+command 58 appears only as the test stub described below.
+
+wolfSSL/wolfssh #1215 was closed for a different reason. The maintainer could
+only accept it against a contributor agreement, and said he would instead
+"recreate the change as a bug-fix based on your description text". That is the
+agreed route, so the fork and its two patches stay until wolfSSH's own fix
+ships, and anything further we need from them goes as a bug report rather than
+a pull request.
+
+## Carried after the Pi1MHz V1.35 rebase
+
+Pi1MHz V1.35 merged this project's WiFi service, UEF tape and SSH/SFTP
+service, and dp111 then changed the host ROM he had merged at V1.34. Bringing
+both halves back into line produced the following:
+
+- [ ] Upstream merged the host ROM at V1.34, and that ROM calls net command
+  58 to have the Pi place received bytes straight into the public 64K JIM
+  window. Upstream's `net_service.c` has no handler for 58, so on a stock
+  Pi1MHz the dispatcher echoes the command byte back and the ROM falls back
+  to copying every byte through `&FCA9` itself.
+
+  This was never offered. PR #20 carried the `COPY_PUBLIC_NONZERO_ONLY` test
+  stub but not the command, which is why upstream has the stub and no handler,
+  and why dp111's own `check_interface.py` records 58 as the known gap.
+  `net-copy-public.patch` has the handler and a test built at a nonzero
+  `DISC_RAM_BASE`, which is the only way the source and destination asymmetry
+  shows up. It is the first thing to send him when the work is ready.
+- [x] Backport upstream's workspace move. Both ROMs now keep their scratch
+  inside their own image at `&BDDE` rather than at `&900`, `&A00` and `&D90`,
+  which are the RS423 output buffer, the CFS/RFS input buffer, and the VFS
+  mouse workspace followed by the extended vector table at `&0D9F`. The driver
+  was storing `drv_uef_generation_hi` at `&0DAF`, four bytes into that table.
+  `machine.asm` is now byte-identical to upstream's.
+- [x] Backport upstream's table-driven `*HELP`. It fixed two real omissions:
+  `*DISCONNECT` was in the network ROM's command table with no help line, and
+  the filing system ROM documented three of its eight commands.
+- [x] Restore a burnable image. The workspace in the image left a real ROM
+  with nowhere to put it, so `WS_IN_IMAGE=0` builds the same sources with the
+  three bases pointing at three pages of host RAM claimed at service call 1:
+  `1mhz-wifi-eprom.rom` and `1mhz-wicfs-eprom.rom`, alongside the in-image
+  pair Pi1MHz serves. Upstream has no equivalent yet, and their own ROM notes
+  record the same gap, so this is worth sending them.
+- [ ] The EPROM build claims absolute workspace at a fixed page, which is
+  first-come: if a higher-priority ROM has already claimed past `&0E00`, our
+  image claims nothing and refuses commands. Private workspace at service call
+  `&02`, or `&24`/`&22` on the Master where it comes out of hidden RAM and
+  leaves PAGE alone, would avoid both the fixed page and the PAGE cost, but
+  the address is then only known at run time and all ninety-odd derived
+  symbols would have to be reached through a pointer. Worth doing only if the
+  fixed claim turns out to collide in practice.
+- [ ] Audit the filing system ROM's host-memory writes with
+  `rom-side/check_rom_memory.py 1mhzwicfs.asm`. It reports 19, and most look
+  like a filing system doing its job - stack frames below SP, claiming BYTEV,
+  the CFS filename buffer at `&03D2`, the host launch staging at `&1FC0` - but
+  none of them has been argued through the way the network ROM's six
+  documented exceptions have. Until they are, only the network ROM is gated.
+- [ ] Upstream's build switches `INCLUDE_WICFS`, `INCLUDE_RAMDISK`,
+  `INCLUDE_PDUMP` and `HELP_BRIEF` are deliberately not taken. They exist so
+  upstream can fit the network ROM and the filing system into one bank; this
+  tree ships them as two ROMs, so both have about 5 KB spare and nothing has
+  to be dropped to make room. Revisit only if the two-image split changes.
 
 ## Future product scope
 

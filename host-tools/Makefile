@@ -2,7 +2,7 @@ BEEBASM ?= beebasm
 CC ?= cc
 REPO_ROOT := ..
 MAILBOX := $(REPO_ROOT)/emulator/pi1mhz-mailbox
-PI_OVERLAY := $(REPO_ROOT)/pi-side/pi1mhz-516a267/overlay/src
+PI_OVERLAY := $(REPO_ROOT)/pi-side/pi1mhz/overlay/src
 
 # NET_DEBUG=1 traces the shared FCA6-FCA9 command/result sequence on screen
 # for real-hardware debugging. `make debug` always builds a NET_DEBUG=1 disc
@@ -146,14 +146,6 @@ build/test-pi1mhz-live: \
 		$(MAILBOX)/src/pi1mhz_ftp.c \
 		$(PI_OVERLAY)/media_catalogue.c -lz -o $@
 
-build/test-secure-service-core: \
-		$(REPO_ROOT)/pi-side/tests/test_secure_service_core.c \
-		$(PI_OVERLAY)/secure_service_core.c \
-		$(PI_OVERLAY)/secure_service_core.h | build
-	$(CC) -std=c11 -Wall -Wextra -Werror \
-		-I $(PI_OVERLAY) $(REPO_ROOT)/pi-side/tests/test_secure_service_core.c \
-		$(PI_OVERLAY)/secure_service_core.c -o $@
-
 build/test-media-catalogue: \
 		$(REPO_ROOT)/pi-side/tests/test_media_catalogue.c \
 		$(PI_OVERLAY)/media_catalogue.c \
@@ -172,12 +164,16 @@ build/test-media-service-core: \
 		-I $(PI_OVERLAY) $(REPO_ROOT)/pi-side/tests/test_media_service_core.c \
 		$(PI_OVERLAY)/media_service_core.c $(PI_OVERLAY)/media_catalogue.c -o $@
 
+# The secure service's ABI core moved upstream with PR #20 and is tested
+# there, by src/tests/secure, against upstream's own copy. Keeping a second
+# copy here just to test it is how the two drifted apart: upstream's has
+# fixes - a provider returning more than the host asked for, and a
+# write-and-swap for known_hosts - that this tree's copy never got.
+# make test-pi-integration runs that suite against the integrated tree.
 test: build/nettools.ssd build/nettools-debug.ssd build/test-pi1mhz-mailbox build/test-pi1mhz-live \
-		build/test-secure-service-core build/test-media-catalogue \
-		build/test-media-service-core
+		build/test-media-catalogue build/test-media-service-core
 	./build/test-pi1mhz-mailbox
 	./build/test-pi1mhz-live
-	./build/test-secure-service-core
 	./build/test-media-catalogue
 	./build/test-media-service-core
 	PYTHONPATH=.test-deps PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
@@ -200,7 +196,7 @@ test-ssh-real: build/wolfssh-probe
 	WOLFSSH_PREFIX=$(WOLFSSH_PREFIX) ./tests/run_wolfssh_real.sh
 
 test-pi-firmware:
-	cd $(REPO_ROOT) && ./pi-side/tests/run_secure_build.sh
+	cd $(REPO_ROOT) && ./pi-side/tests/run_firmware_build.sh
 
 clean:
 	rm -rf -- build

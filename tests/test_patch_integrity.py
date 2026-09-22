@@ -1,16 +1,22 @@
 """Structural checks on the patch stacks, from defects that reached the tree.
 
-Two real ones. media-service.patch carried a hand-written hunk header declaring
-six context lines for a hunk with seven, so patch(1) rejected it and the change
-never landed; the emulator compiles those sources directly, so nothing noticed.
-And elkwifi_service.c, which is named in the kernel build, was made to call
-media_catalogue.c, which was not, so the ARM kernel would not have linked.
+Two real ones. media-service.patch carried a hand-written hunk header
+declaring six context lines for a hunk with seven, so patch(1) rejected it and
+the change never landed; the emulator compiles those sources directly, so
+nothing noticed. And elkwifi_service.c, which was named in the kernel build,
+was made to call media_catalogue.c, which was not, so the ARM kernel would not
+have linked.
 
-The first is only reliably caught by applying the patch. A textual check on the
-declared hunk counts looks attractive and is not sound here: patches in this
-tree have had trailing whitespace stripped, so an empty context line and the
-blank line after a hunk are indistinguishable, and the tolerance needed to
+The first is only reliably caught by applying the patch. A textual check on
+the declared hunk counts looks attractive and is not sound here: patches in
+this tree have had trailing whitespace stripped, so an empty context line and
+the blank line after a hunk are indistinguishable, and the tolerance needed to
 accept one would be exactly the error that has to be caught.
+
+Applying them is what `make test-pi-integration` does on every run, against a
+fetched Pi1MHz, and it then runs upstream's own suites over the result. What
+is left here is the cheap half, which needs no network: that the patches and
+the overlay describe a tree that would link.
 """
 
 import os
@@ -22,9 +28,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PI_PATCHES = ROOT / "pi-side/pi1mhz-516a267/patches"
+PI_PATCHES = ROOT / "pi-side/pi1mhz/patches"
 ROM_PATCHES = ROOT / "rom-side/inherited/patches"
-OVERLAY = ROOT / "pi-side/pi1mhz-516a267/overlay/src"
+OVERLAY = ROOT / "pi-side/pi1mhz/overlay/src"
 
 
 def pinned_commit() -> str:
@@ -39,7 +45,9 @@ class PatchApplicationTest(unittest.TestCase):
 
     Skipped without a checkout, because the alternative is a textual
     approximation that cannot distinguish a malformed header from a stripped
-    blank line. Point PI1MHZ_SOURCE at a Pi1MHz clone to run it.
+    blank line. Point PI1MHZ_SOURCE at a Pi1MHz clone to run it here;
+    `make test-pi-integration` fetches one and runs the same check plus
+    upstream's test suites over the result, which is the real gate.
     """
 
     def test_every_pi_patch_applies_to_the_pinned_commit(self) -> None:
@@ -67,12 +75,27 @@ class PatchApplicationTest(unittest.TestCase):
             # overlay supplies, and a patch cannot apply to an absent file.
             for source_file in OVERLAY.glob("*.[ch]"):
                 shutil.copy2(source_file, work / "src" / source_file.name)
+            for source_file in (OVERLAY.parent / "tests").rglob("*.c"):
+                target = work / "src/tests" / source_file.parent.name
+                target.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source_file, target / source_file.name)
             installer = (ROOT / "pi-side/install_bundle.sh").read_text()
             order = [
                 token for token in installer.split("for patch_name in ", 1)[1]
                 .split(";", 1)[0].split()
             ]
-            self.assertGreater(len(order), 5, "the patch order was not parsed")
+            self.assertTrue(order, "the patch order was not parsed")
+            # Every Pi1MHz patch in the directory is driven by that loop. The
+            # wolfSSH ones are not: they patch a third-party checkout, in its
+            # own tree, and the installer applies them separately.
+            self.assertEqual(
+                sorted(order),
+                sorted(
+                    patch.name
+                    for patch in PI_PATCHES.glob("*.patch")
+                    if not patch.name.startswith("wolfssh-")
+                ),
+            )
             for name in order:
                 patch = PI_PATCHES / name
                 self.assertTrue(patch.is_file(), f"{name} is listed but missing")
@@ -94,9 +117,10 @@ class PatchApplicationTest(unittest.TestCase):
 
 class KernelLinkageTest(unittest.TestCase):
     def test_a_linked_pi_source_never_calls_an_unlinked_one(self) -> None:
-        # elkwifi_service.c is in the kernel build and calls media_catalogue.c.
-        # When that was not also named, the kernel would not have linked, and
-        # the emulator did not notice because it compiles the sources directly.
+        # uef_service.c is in the kernel build and, once uef-filev-repair.patch
+        # is applied, calls media_catalogue.c. When that was not also named,
+        # the kernel would not have linked, and the emulator did not notice
+        # because it compiles the sources directly.
         linked: set[str] = set()
         for directory in (PI_PATCHES, ROM_PATCHES):
             for patch in directory.glob("*.patch"):
@@ -107,8 +131,12 @@ class KernelLinkageTest(unittest.TestCase):
                     stripped = line[1:].strip() if line[:1] in "+ " else ""
                     if stripped.endswith(".c"):
                         linked.add(stripped)
-        self.assertIn("elkwifi_service.c", linked)
+        self.assertIn("ftp_service.c", linked)
         self.assertIn("media_catalogue.c", linked)
+        # Everything the overlay supplies and that something calls has to be
+        # named in a CMakeLists hunk. media_service_core.c is deliberately
+        # not: it is staged for a catalogue session that has no caller yet.
+        self.assertNotIn("media_service_core.c", linked)
 
         for name in sorted(linked):
             source = OVERLAY / name

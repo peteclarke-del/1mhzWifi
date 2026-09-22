@@ -1,32 +1,37 @@
 # Pi1MHz bare-metal integration
 
 This directory contains the Pi1MHz integration package and installer. The
-package is under `pi1mhz-516a267/`, with source changes separated into
+package is under `pi1mhz/`, with source changes separated into
 `patches/` and complete replacement files under `overlay/`. Raspberry Pi
 boot firmware loads the resulting `kernel.img` or `kernel7.img` directly. No
 Linux service is installed or required.
 
-The directory name records the original package baseline and is retained to
-avoid churn in downstream patch scripts. `upstream.env`, the installer and the
-package README are authoritative; they currently require commit `e949f2d`.
+The package directory used to carry the baseline commit in its name, which had
+been wrong for several rebases by the time it was renamed. `upstream.env`, the
+installer and the package README are the authority for which commit is
+required; it is currently `4c54d81`.
 
 The implementation record is
-[`pi1mhz-516a267/TECHNICAL.md`](pi1mhz-516a267/TECHNICAL.md). The complete
+[`pi1mhz/TECHNICAL.md`](pi1mhz/TECHNICAL.md). The complete
 `pi-side` directory is the standalone source patch kit. Its `apply` preset
 does not require a host ROM. A complete firmware build accepts `ELKWIFI_ROM`,
 `HOST_TOOLS_SSD` and `PI1MHZ_OUTPUT_DIR` when run outside this monorepo.
 
-Pi1MHz V1.30 already contains its own bare-metal CYW43/SDIO WiFi stack. The
-overlay retains and extends that stack. Its main addition is an ElkWiFi-facing
-services-mailbox adapter, plus the state, security, and networking corrections
-needed by the retained ElkWiFi commands.
+Pi1MHz contains its own bare-metal CYW43/SDIO WiFi stack, and since V1.35 it
+also contains the services-mailbox adapter the host ROM talks to, the UEF tape
+and the SSH/SFTP service. All three began here and were merged upstream; this
+package no longer supplies them, and upstream's copies have since gained fixes
+that the copies here never got. What it still adds is the FTP service, the
+container decoder, the FILEV stamp repair on the streaming UEF path, and net
+command 58.
 
 ## Upstream requirements
 
-Use Pi1MHz commit `e949f2d2714b15f314df375e52db5febb6c40e6d`.
-This was the tip of the official `master` branch when checked on 19 August
-2026. Pi1MHz does not have a `main` branch. The commit is 84 commits after the
-V1.30 tag and includes the later net service required by WGET and OSWORD TCP.
+Use Pi1MHz commit `4c54d8118f632465f31ecb72dcc37b4833c2507a`.
+This is the V1.35 build, and was the tip of the official `master` branch when
+checked on 22 September 2026. Pi1MHz does not have a `main` branch. It is after
+the V1.34 tag and includes the WiFi, UEF and secure services Pi1MHz merged for
+V1.35, on which this integration now depends rather than supplying them.
 The installer rejects any other revision and performs a live upstream check by
 default, so a new upstream commit stops the release build pending review.
 
@@ -68,7 +73,7 @@ Build presets:
 
 Use `kernel.img` for Pi Zero and Zero W. Use `kernel7.img` for Zero 2 W and
 Pi 3A+/3B/3B+. The `all` bundle includes CYW43430, CYW43436/43436s, and
-CYW43455 firmware. Plain Pi Zero has no onboard WiFi, so the ElkWiFi service
+CYW43455 firmware. Plain Pi Zero has no onboard WiFi, so the WiFi service
 remains available but `*WIFI ON` reports `Device not found`.
 The ARMv8 image preloads 43430, 43436, and 43455 candidates, then selects the
 original Pi 3B, Zero 2 W, or Pi 3A+/3B+ image from the detected chip and SOCRAM
@@ -76,20 +81,26 @@ revision before firmware download.
 The BCM43455 image is pinned to firmware 7.45.241 from upstream revision
 `8468a38`. The later 7.45.265 image associates on the Pi 3A+ validation
 hardware but does not complete DHCP. Pi1MHz source remains based on the
-reviewed `e949f2d` revision.
+reviewed `4c54d81` revision.
 
 Set `ARM_GCC` to the compiler path when `arm-none-eabi-gcc` is not on `PATH`.
 
 The installer performs the following operations:
 
-1. Verifies the Pi1MHz checkout and compiler.
-2. Copies the maintained service and UEF normalisation sources into `src/`.
-3. Applies the Pi1MHz integration and CYW43 patches in a fixed order.
-4. Installs the matched host ROM as `firmware/Pi1MHz/1mhz-wifi.rom`.
-5. Enables the Services mailbox, ElkWiFi service, and net service defaults.
-6. Enables the three BeebSCSI defaults when no active value exists.
-7. Invokes the upstream Pi1MHz build script.
-8. Copies the firmware tree into a model-specific SD-card directory and ZIP.
+1. Verifies the Pi1MHz checkout and compiler, and that the checkout carries
+   the services Pi1MHz merged for V1.35.
+2. Installs wolfSSL and our wolfSSH fork at their pinned revisions.
+3. Copies the FTP service, the container decoder and the FILEV repair test
+   into `src/`.
+4. Applies the three Pi1MHz patches in a fixed order.
+5. Installs the matched host ROM as `firmware/Pi1MHz/1mhz-wifi.rom` and the
+   pinned CYW43 firmware.
+6. Enables the Services mailbox, `wifi_service_enable` and `net_enable`.
+7. Enables the three BeebSCSI defaults when no active value exists.
+8. Configures each CMake preset with `-DPI1MHZ_SSH=ON`, which upstream
+   defaults off because it carries neither crypto library.
+9. Invokes the upstream Pi1MHz build script.
+10. Copies the firmware tree into a model-specific SD-card directory and ZIP.
 
 The installer is intended to be repeatable. Each patch has an explicit
 already-applied test. It preserves active configuration values rather than
@@ -99,9 +110,12 @@ actual modification times so stale copies are visible on an SD card. Set
 
 ## Service command range
 
-The overlay registers commands 80-93 at the Pi1MHz Services mailbox. FIQ
-context captures a request and marks it busy. Filesystem, scan, association,
-DNS, ICMP, and NTP work runs in a main-loop poll callback.
+Pi1MHz registers commands 80-93 at its Services mailbox, in `wifi_service.c`
+and `uef_service.c`, once `wifi_service_enable=1`. FIQ context captures a
+request and marks it busy; filesystem, scan, association, DNS, ICMP and NTP
+work runs in a main-loop poll callback. The table below is the host ROM's ABI,
+which did not change when Pi1MHz renamed the service for V1.35. This package
+adds commands 114-119 for the FTP service and 58 to the net range.
 
 | Command | Operation |
 | ---: | --- |
@@ -118,12 +132,22 @@ DNS, ICMP, and NTP work runs in a main-loop poll callback.
 | 90 | Cancel an outstanding scan, DNS, ICMP or NTP request |
 | 91 | Reserved secure-open ABI; unsupported |
 | 92 | Concise association and IPv4 readiness status |
-| 93 | Validate and normalize raw, gzip or ZIP UEF data in JIM |
+| 93 | Open, stream and rewind a raw, gzip or ZIP UEF tape |
 
-Raw TCP and HTTP use the existing Pi1MHz net-service command range. Secure
-open is registered only as a reserved ABI value and returns unsupported.
-Command 93 performs CPU-only decompression and CRC checks in the main poll,
-never in FIQ context.
+| Command | Operation |
+| ---: | --- |
+| 58 | Copy the service scratch page into the public 64K JIM window |
+| 114-119 | Interactive FTP: open, exec, read, write, close, cancel |
+
+Raw TCP and HTTP use the existing Pi1MHz net-service command range, and SSH
+and SFTP use 94-113. Command 93 decompresses and checks CRCs in the main poll,
+never in FIQ context, and holds no decompressed image: it keeps DEFLATE's
+32 KB history and pulls compressed bytes on demand.
+
+Command 58 is this package's, and upstream does not have it. The host ROM
+Pi1MHz merged for V1.34 calls it, so a stock Pi1MHz answers by echoing the
+command byte back and the ROM falls back to copying every byte itself. It was
+never submitted: PR #20 carried the test stub for it and not the command.
 
 ## Retired MENU services
 
@@ -136,7 +160,7 @@ The installer adds required defaults only when no active setting exists:
 
 ```ini
 Services_addr=0xA6
-ElkWiFi_addr=0x00
+wifi_service_enable=1
 net_enable=1
 Rampage_addr=0xFD
 SCSIJUKE=0
@@ -144,24 +168,36 @@ SCSIID=0
 VFSJUKE=0
 ```
 
-Optional initial ElkWiFi settings are:
+`wifi_service_enable=1` is not optional. Pi1MHz 7077688 renamed the service
+from ElkWiFi to WiFi and made it opt-in: without this key it returns from its
+init before claiming a command range, and the ROM reads the dispatcher echoing
+the command byte back as "this Pi has no such service". The same commit
+replaced `ElkWiFi_addr` with `WiFiSvc_addr`, which is not address-mapped and
+does not need setting.
+
+Optional initial WiFi settings are:
 
 ```ini
 wifi_ssid=MyNetwork
 wifi_password=secret
 wifi_security=auto
-elkwifi_utc_offset_minutes=0
-# elkwifi_uef_trim_tail=0
+wifi_service_utc_offset_minutes=0
+# wifi_service_uef_filev_repair=1
 ```
 
 `wifi_security` accepts `auto`, `open`, `wep`, `wpa`, and `wpa2`. A valid
 saved profile takes precedence over the initial WiFi settings.
 
-`elkwifi_uef_trim_tail` is a diagnostic A/B switch, not a normal deployment
-setting. Leave it absent or set to `0` to pass the complete normalized UEF to
-WiCFS, matching the original ElkWiFi path. Set it to `1` only for a controlled
-comparison with the earlier candidate behaviour which stopped after the last
-`&0100` data chunk.
+`wifi_service_uef_filev_repair` is on by default. It redirects the published
+Electron loader idiom `?&212=&D6:?&213=&F1`, which stamps the MOS 1.00
+cassette entry over whatever filing system owns FILEV, including WiCFS. Set it
+to `0` to hand the tape over untouched.
+
+The `elkwifi_uef_trim_tail` diagnostic is gone. It reproduced a candidate
+behaviour that stopped after the last complete `&0100` chunk, and existed only
+to A/B against the full stream; Pi1MHz V1.35 replaced the decoder it lived in
+with a streaming one. The emulator still has its own copy behind
+`PI1MHZ_UEF_TRIM_TAIL`.
 
 The installer preserves an active `Pi1MHz.cfg` value in its source checkout,
 except that it rejects a `Rampage_addr` other than `0xFD`. The ROM uses the
@@ -171,9 +207,9 @@ It does not merge a previously deployed SD card back into a newly generated
 bundle. Preserve deployed configuration separately before replacing an SD-card
 tree.
 
-The services dispatcher owns the individual ElkWiFi, raw network and secure
+The services dispatcher owns the individual WiFi, raw network, secure and FTP
 command ranges once `Services_addr` is enabled. Legacy values such as
-`ElkWiFi_addr=-1`, `net_addr=-1`, or `secure_addr=-1` do not disable those
+`WiFiSvc_addr=-1`, `net_addr=-1`, or `secure_addr=-1` do not disable those
 subservices. Set `Services_addr=-1` only when the entire shared services
 mailbox is intentionally removed from the host address map. The child poll
 callbacks can remain registered, but without a parent mailbox command they are

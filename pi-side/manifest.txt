@@ -5,8 +5,15 @@ Reviewed upstream
 -----------------
 
 - Branch: master
-- Commit: e949f2d2714b15f314df375e52db5febb6c40e6d
+- Commit: 4c54d8118f632465f31ecb72dcc37b4833c2507a (V1.35)
 - Verification metadata: upstream.env
+
+Pi1MHz V1.35 merged most of what this package used to carry. The WiFi service
+(as src/wifi_service.c), the UEF tape (src/uef_service.c and src/uef_stream.c),
+the secure SSH/SFTP service and its wolfSSL/wolfSSH build, LWIP_RAW, the
+service command-range allocation and the bring-up breadcrumbs are all upstream
+now, and upstream's copies carry fixes these did not. They are no longer
+shipped here in any form. What is left below is what upstream does not have.
 
 Installer and review tools
 --------------------------
@@ -17,74 +24,81 @@ Installer and review tools
 - export_upstream_patch.sh
 - upstream.env
 - upstream/1mhzwifi-pi1mhz.patch
-- pi1mhz-516a267/README.md
-- pi1mhz-516a267/TECHNICAL.md
+- pi1mhz/README.md
+- pi1mhz/TECHNICAL.md
 
 Ordered Pi1MHz patches
 ----------------------
 
-- bus-window-adjacent-preservation.patch
-- integration.patch
-- service-range-online.patch
-- uef-normalize.patch
-- services-capacity-test.patch
-- deterministic-service-dispatch.patch
-- gitversion-third-party.patch
-- secure-service.patch
-- wolfssh-pi1mhz.patch
-- wifi-radio.patch
-- wifi-mac-fallback.patch
-- wifi-radio-setup.patch
-- wifi-join-diagnostics.patch
-- wifi-join-reference.patch
-- wifi-leave.patch
-- wifi-network-tools.patch
-- wifi-pi3b.patch
-- http-status.patch
-- tcp-diagnostics.patch
-- http-truncated-body.patch
-- http-titles-transfer.patch
-- net-rx-window.patch
+- services-integration.patch
+    Links ftp_service.c and media_catalogue.c into the kernel, claims
+    commands 114-119 for FTP in services.h, and starts the FTP service from
+    wifi_service_init so the two share one enable key and one lifetime.
+- uef-filev-repair.patch
+    Redirects the published Electron loader idiom that stamps FILEV blind.
+    Upstream streams the tape a window at a time, so the repair carries an
+    incomplete chunk into the next window rather than working on a whole
+    image. Adds its own test to upstream's UEF suite.
 - net-copy-public.patch
-- net-connected-udp.patch
-- http-user-agent.patch
-- wifi-off-state.patch
-- wifi-scan-cancel.patch
-- wifi-profile-validation.patch
-- net-debug-stage.patch
-- net-debug-test-window.patch
-- secure-debug-stage.patch
+    Net command 58: copy received bytes from the service scratch page into
+    the public 64K JIM window. Upstream merged the host ROM that calls this
+    but not the command, so a stock Pi1MHz answers it with the command byte
+    echoed back. Never submitted: PR #20 carried the test stub for it and not
+    the command. First in the queue when the work is offered upstream.
+- wolfssh-pi1mhz.patch
+- wolfssh-sftp-client.patch
+    Applied to the wolfSSH checkout, not to Pi1MHz. Our fork already carries
+    both; these are the fallback for a build pointed at stock wolfSSH.
 
 Added source overlays
 ---------------------
 
-- elkwifi_service.c and elkwifi_service.h
-- uef_normalize.c and uef_normalize.h
-- puff.c and puff.h
-- secure_service.c and secure_service.h
-- secure_service_core.c and secure_service_core.h
-- secure_service_wolfssh.c and secure_service_wolfssh.h
 - ftp_service.c and ftp_service.h
-- user_settings.h
+- media_catalogue.c and media_catalogue.h
+- media_service_core.c and media_service_core.h (staged, not linked)
+- tests/uef/test_uef_filev.c, added to upstream's UEF suite
+- tests/ftp/run_tests.sh, a suite of its own for the FTP service
+- tests/check_rom_interface.py, dp111's check of the host ROM's service
+  command numbers against wifi_service.h and net_service.h, by name
+
+Build options
+-------------
+
+- PI1MHZ_SSH=ON. Upstream defaults it OFF because Pi1MHz neither carries nor
+  fetches wolfSSL and wolfSSH; the installer has just installed and verified
+  the pinned revisions, so it configures each preset with the option on.
 
 Firmware inputs
 ---------------
 
 - firmware/brcmfmac43430-sdio.txt
-- BCM43455 firmware 7.45.241, retrieved and hash-checked from Pi1MHz 8468a38
+- BCM43455 firmware 7.45.241, retrieved and hash-checked from Pi1MHz 8468a38.
+  Pi1MHz 92ccf96 replaced it with 7.45.265, which associates on the Pi 3A+
+  validation hardware but does not pass DHCP traffic.
 - A 16 KiB host ROM supplied by the monorepo build or ELKWIFI_ROM
+
+Configuration the ROM needs
+---------------------------
+
+- wifi_service_enable=1. Pi1MHz 7077688 renamed the service and made it
+  opt-in; without this key it does not register and the ROM sees no service
+  at all.
+- net_enable=1, Services_addr=0xA6, Rampage_addr=0xFD
 
 Tests
 -----
 
-- tests/run_secure_build.sh
-- tests/test_secure_service_core.c
-- upstream Pi1MHz services, network and parser tests
+- tests/run_pi_host_tests.sh, which applies this integration to the pinned
+  Pi1MHz and runs the host suites in that tree (services, net, uef, ftp,
+  secure, config), then checks the host ROM's command numbers against the
+  headers it talks to. This is the gate: the services are upstream's now, so a patch that
+  still applies can still be wrong.
+- tests/run_firmware_build.sh, the two-kernel ARM build
 - monorepo ROM, protocol, UEF, emulator and packaging tests
 
 Associated packages
 -------------------
 
-- ../rom-side: ElkWiFi host-ROM patch kit
+- ../rom-side: 1MHz-WiFi host-ROM patch kit
 - ../host-tools: NetTools host programs and SSD
 - ../emulator/pi1mhz-mailbox: reusable mailbox and Elkulator patch kit

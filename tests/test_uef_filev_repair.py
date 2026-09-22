@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "pi-side/pi1mhz-516a267/overlay/src"
+SOURCE = ROOT / "pi-side/pi1mhz/overlay/src"
 SPEC = importlib.util.spec_from_file_location(
     "uef_map", ROOT / "scripts/uef_map.py"
 )
@@ -21,16 +21,26 @@ class UefFilevRepairTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls._temporary = tempfile.TemporaryDirectory()
-        library = Path(cls._temporary.name) / "libuef_normalize.so"
+        library = Path(cls._temporary.name) / "libmedia_catalogue.so"
         subprocess.run(
             ["cc", "-std=c11", "-shared", "-fPIC", "-O2", "-I", str(SOURCE),
              str(SOURCE / "media_catalogue.c"),
              "-o", str(library)],
             check=True,
         )
-        cls.repair = ctypes.CDLL(str(library)).uef_repair_filev_stamp
+        decoder = ctypes.CDLL(str(library))
+        cls.repair = decoder.uef_repair_filev_stamp
         cls.repair.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t]
         cls.repair.restype = ctypes.c_uint
+        # The windowed form. The Pi streams a tape to the Beeb rather than
+        # holding it, so it repairs a window at a time and needs to know
+        # where the last complete chunk ended.
+        cls.repair_span = decoder.uef_repair_filev_span
+        cls.repair_span.argtypes = [
+            ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t, ctypes.c_size_t,
+            ctypes.POINTER(ctypes.c_uint),
+        ]
+        cls.repair_span.restype = ctypes.c_size_t
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -138,6 +148,57 @@ class UefFilevRepairTest(unittest.TestCase):
         repaired, count = self.run_repair(truncated)
         self.assertEqual(count, 1)
         self.assertEqual(len(repaired), len(truncated))
+
+    def run_span(self, raw: bytes, start: int) -> tuple[bytes, int, int]:
+        buffer = (ctypes.c_uint8 * len(raw)).from_buffer_copy(raw)
+        count = ctypes.c_uint(0)
+        framed = self.repair_span(buffer, len(raw), start, ctypes.byref(count))
+        return bytes(buffer), framed, count.value
+
+    def test_the_windowed_form_matches_the_whole_image_form(self):
+        raw = self.uef([
+            self.block(b"L", 0, b"\r\x00\x0e ?&212=&D6\r\xff", False),
+            self.block(b"L", 1, b"\r\x00\x0e !&213=&F1\r\xff", True),
+        ])
+        whole, whole_count = self.run_repair(raw)
+        span, framed, span_count = self.run_span(raw, 12)
+        self.assertEqual(span, whole)
+        self.assertEqual(span_count, whole_count)
+        self.assertEqual(framed, len(raw))
+
+    def test_the_windowed_form_stops_at_the_last_complete_chunk(self):
+        """A caller feeding it a stream has to hold the remainder back.
+
+        The repair rewrites a block's payload and then the payload CRC that
+        follows it, so a block split across two windows cannot be repaired
+        from either half alone. Reporting where the last complete chunk ended
+        is what lets the caller carry the rest into the next window.
+        """
+        raw = self.uef([self.block(b"L", 0, b"\r\x00\x0e ?&212=&D6\r\xff", True)])
+        for cut in range(13, len(raw)):
+            with self.subTest(cut=cut):
+                _, framed, count = self.run_span(raw[:cut], 12)
+                # Nothing past the truncation is ever framed, and the one
+                # incomplete chunk is left for the next window rather than
+                # being half repaired.
+                self.assertLessEqual(framed, cut)
+                self.assertEqual(framed, 12)
+                self.assertEqual(count, 0)
+        # The whole chunk present: framed to its end, and repaired.
+        _, framed, count = self.run_span(raw, 12)
+        self.assertEqual(framed, len(raw))
+        self.assertEqual(count, 1)
+
+    def test_the_windowed_form_starts_where_it_is_told(self):
+        # Every window after the first begins on a chunk boundary, so the
+        # walk starts at 0 rather than past the twelve byte file header.
+        raw = self.uef([self.block(b"L", 0, b"\r\x00\x0e ?&212=&D6\r\xff", True)])
+        body = raw[12:]
+        repaired, framed, count = self.run_span(body, 0)
+        self.assertEqual(framed, len(body))
+        self.assertEqual(count, 1)
+        self.assertNotIn(b"?&212", repaired)
+        self.assertIn(b"?&900", repaired)
 
 
 if __name__ == "__main__":
