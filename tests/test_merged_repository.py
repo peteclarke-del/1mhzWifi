@@ -18,8 +18,8 @@ class MergedRepositoryTest(unittest.TestCase):
         roots = (
             ROOT / "rom-side/1mhz-wifi/src",
             ROOT / "rom-side/inherited/patches",
-            ROOT / "pi-side/pi1mhz-516a267/overlay",
-            ROOT / "pi-side/pi1mhz-516a267/patches",
+            ROOT / "pi-side/pi1mhz/overlay",
+            ROOT / "pi-side/pi1mhz/patches",
             ROOT / "emulator/pi1mhz-mailbox/src",
         )
         for source_root in roots:
@@ -50,7 +50,7 @@ class MergedRepositoryTest(unittest.TestCase):
         commit that carries upstream's.
         """
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
-        patches = ROOT / "pi-side/pi1mhz-516a267/patches"
+        patches = ROOT / "pi-side/pi1mhz/patches"
         self.assertFalse(
             (patches / "bus-window-adjacent-preservation.patch").exists(),
             "the superseded local fix is back; upstream owns this function",
@@ -62,21 +62,37 @@ class MergedRepositoryTest(unittest.TestCase):
                 patch.read_text(errors="replace"),
                 f"{patch.name} reintroduces the local adjacent-byte fix",
             )
+        # The pin has to be at or past the commit that carries upstream's fix.
+        # Naming that commit exactly is what this used to do, and it then had
+        # to be edited on every update, so it pins the release tag the fix
+        # shipped in instead: install_bundle.sh refuses a checkout that does
+        # not contain PI1MHZ_BASE_TAG, and dp111's fix predates V1.31.
         upstream_env = (ROOT / "pi-side/upstream.env").read_text()
-        self.assertIn(
-            "PI1MHZ_UPSTREAM_COMMIT=d6ee4c357dc1c33640b4d97ac9048431057ede93",
-            upstream_env,
+        base_tag = next(
+            line.split("=", 1)[1].strip()
+            for line in upstream_env.splitlines()
+            if line.startswith("PI1MHZ_BASE_TAG=")
+        )
+        self.assertRegex(base_tag, r"^V1\.\d+$")
+        major, minor = base_tag[1:].split(".")
+        self.assertEqual(major, "1")
+        self.assertGreaterEqual(
+            int(minor), 31,
             "the pin must include dp111's FIQ-masked adjacent-byte fix",
         )
+        installer_text = (ROOT / "pi-side/install_bundle.sh").read_text()
+        self.assertIn('merge-base --is-ancestor "$PI1MHZ_BASE_TAG" HEAD',
+                      installer_text)
 
     def test_secure_command_allocation_is_consistent(self) -> None:
         asm = (ROOT / "host-tools/src/common/pi1mhz_secure.asm").read_text()
         backend = (
             ROOT / "emulator/pi1mhz-mailbox/src/pi1mhz_net_backend.c"
         ).read_text()
-        header = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service_core.h"
-        ).read_text()
+        # secure_service_core.h is Pi1MHz's now. The allocation it has to
+        # agree with is the ROM's and the emulator's, which are both here, and
+        # the 94..113 range upstream reserves for it in services.h - checked
+        # against the real header by make test-pi-integration.
         expected = {
             "CAPS": 94,
             "RANDOM": 95,
@@ -102,69 +118,34 @@ class MergedRepositoryTest(unittest.TestCase):
         for name, command in expected.items():
             self.assertIn(f"SEC_CMD_{name} = {command}", asm)
             self.assertIn(f"SEC_CMD_{name}", backend)
-            self.assertIn(f"NTS_SEC_{name}", header)
+        self.assertEqual(min(expected.values()), 94)
+        self.assertEqual(max(expected.values()), 113)
         self.assertIn("#define SEC_CMD_CAPS       94u", backend)
         self.assertIn("#define SEC_CMD_RANDOM     95u", backend)
 
-    def test_secure_wrapper_cannot_strand_deferred_request_across_reset(self) -> None:
-        wrapper = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service.c"
-        ).read_text()
-        command = wrapper.split("void secure_service_command", 1)[1].split(
-            "static void secure_poll", 1
-        )[0]
-        self.assertIn("NTS_SEC_CAPS", command)
-        self.assertIn("Pi1MHz_MemoryWrite(addr, NTS_OK)", command)
-        self.assertIn("Always latch the newest command", command)
-        self.assertIn("pending_cp = command_pointer", command)
-        self.assertIn("Pi1MHz_MemoryWrite(addr, SEC_BUSY)", command)
+    def test_the_secure_service_is_pi1mhz_s_to_maintain(self) -> None:
+        """Its wrapper and ABI core were merged upstream by PR #20.
 
-    def test_ftp_command_allocation_and_host_boundary_are_consistent(self) -> None:
-        header = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/ftp_service.h"
-        ).read_text()
-        service = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/ftp_service.c"
-        ).read_text()
-        rom = (ROOT / "rom-side/1mhz-wifi/src/ftp.asm").read_text()
-        emulator = (
-            ROOT / "emulator/pi1mhz-mailbox/src/pi1mhz_ftp.c"
-        ).read_text()
-        for name, number in {
-            "OPEN": 114, "EXEC": 115, "READ": 116, "WRITE": 117,
-            "CLOSE": 118, "CANCEL": 119,
-        }.items():
-            self.assertIn(f"FTP_CMD_{name}", header)
-            self.assertRegex(
-                rom,
-                rf"ftp_cmd_{name.lower()}\s*=\s*{number}",
+        They used to be overlay sources here and were checked by reading
+        their text. Upstream's src/tests/secure drives the real dispatcher
+        instead, and its copies have since gained bounds checks and a safe
+        known_hosts write that these never got, so the right thing to assert
+        now is that this package has stopped carrying them.
+        """
+        overlay = ROOT / "pi-side/pi1mhz/overlay/src"
+        for merged in ("secure_service.c", "secure_service_core.c",
+                       "secure_service_wolfssh.c"):
+            self.assertFalse((overlay / merged).exists(), merged)
+        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        # The build option that compiles them, which is OFF upstream because
+        # Pi1MHz carries neither crypto library.
+        self.assertIn("-DPI1MHZ_SSH=ON", installer)
+        # Our fork of wolfSSH, and the fallback patches for a stock one.
+        self.assertIn("peteclarke-del/wolfssh.git", installer)
+        for patch in ("wolfssh-pi1mhz.patch", "wolfssh-sftp-client.patch"):
+            self.assertTrue(
+                (ROOT / "pi-side/pi1mhz/patches" / patch).is_file(), patch
             )
-        self.assertIn("FTP_SCRATCH_OFFSET 0xfff100u", service)
-        self.assertIn("FTP_SCRATCH 0xfff100u", emulator)
-        self.assertIn("ftp_OSFIND", rom)
-        self.assertNotIn("Tube", "\n".join(
-            line for line in rom.splitlines()
-            if not line.lstrip().startswith("\\")
-        ))
-
-    def test_secure_capabilities_do_not_depend_on_poll_registration(self) -> None:
-        wrapper = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/secure_service.c"
-        ).read_text()
-        caps = wrapper.split("static void secure_write_capabilities", 1)[1]
-        caps = caps.split("void secure_service_command", 1)[0]
-        self.assertIn("command[1] = 1u", caps)
-        self.assertIn("command[2] = 1u", caps)
-        self.assertIn("command[3] = capability_features", caps)
-        self.assertIn("command[6] = capability_managed_ssh", caps)
-        command = wrapper.split("void secure_service_command", 1)[1].split(
-            "static void secure_poll", 1
-        )[0]
-        capability_path = command.split("NTS_SEC_CAPS", 1)[1].split("return;", 1)[0]
-        self.assertIn("secure_write_capabilities", capability_path)
-        self.assertIn("Pi1MHz_MemoryWrite(addr, NTS_OK)", capability_path)
-        self.assertNotIn("SEC_BUSY", capability_path)
-
 
     def test_host_nettools_mask_irq_while_using_shared_jim_cursor(self) -> None:
         net = (ROOT / "host-tools/src/common/pi1mhz_net.asm").read_text()
@@ -193,16 +174,26 @@ class MergedRepositoryTest(unittest.TestCase):
         self.assertIn("JSR net_copy_selected_string", fingerprint)
         self.assertIn("PLP", fingerprint)
 
-    def test_elkwifi_wrapper_discards_abandoned_request_on_reset(self) -> None:
-        wrapper = (
-            ROOT / "pi-side/pi1mhz-516a267/overlay/src/elkwifi_service.c"
+    def test_the_ftp_service_discards_an_abandoned_request_on_reset(self) -> None:
+        """A host reset abandons the caller; the mailbox must not stay BUSY.
+
+        The WiFi service's version of this went upstream with the service.
+        The FTP service is still this package's, and has the same obligation:
+        the Beeb that issued the command is gone, so anything latched has to
+        be cleared rather than left for a machine that will never collect it.
+        """
+        service = (
+            ROOT / "pi-side/pi1mhz/overlay/src/ftp_service.c"
         ).read_text()
-        init = wrapper.split("void elkwifi_service_init", 1)[1]
+        init = service.split("void ftp_service_init", 1)[1]
         self.assertIn("request_pending = false", init)
         self.assertIn("request_cancel = false", init)
-        self.assertIn("host reset abandons", init)
-        self.assertIn("_disable_interrupts_cspr()", init)
-        self.assertIn("_restore_cpsr(cpsr)", init)
+        self.assertIn("services_register(FTP_CMD_FIRST, FTP_CMD_LAST", init)
+        # And it has to be started, which the WiFi service's init now does.
+        integration = (
+            ROOT / "pi-side/pi1mhz/patches/services-integration.patch"
+        ).read_text()
+        self.assertIn("ftp_service_init();", integration)
 
     def test_merged_components_have_central_build_owners(self) -> None:
         required = [
@@ -211,11 +202,11 @@ class MergedRepositoryTest(unittest.TestCase):
             "host-tools/tests/test_emulated_clients.py",
             "emulator/pi1mhz-mailbox/Makefile",
             "emulator/pi1mhz-mailbox/integrations/elkulator/install.sh",
-            "pi-side/tests/run_secure_build.sh",
+            "pi-side/tests/run_firmware_build.sh",
             "pi-side/upstream/1mhzwifi-pi1mhz.patch",
             "docs/nettools-merge.md",
             "rom-side/inherited/TECHNICAL.md",
-            "pi-side/pi1mhz-516a267/TECHNICAL.md",
+            "pi-side/pi1mhz/TECHNICAL.md",
             "emulator/pi1mhz-mailbox/integrations/elkulator/TECHNICAL.md",
             "scripts/package_patch_kits.sh",
         ]
@@ -295,17 +286,39 @@ class MergedRepositoryTest(unittest.TestCase):
         patch = (ROOT / "pi-side/upstream/1mhzwifi-pi1mhz.patch").read_text(
             errors="replace"
         )
+        # The two binaries a reviewer cannot rebuild from the patch text: the
+        # host ROM the firmware has to match, and the pinned CYW43455 image.
         self.assertIn("firmware/Pi1MHz/1mhz-wifi.rom", patch)
-        self.assertIn("GIT binary patch", patch)
-        self.assertIn("Pi1MHz ElkWiFi 0.1.67, kernel", patch)
-        self.assertNotIn("Pi1MHz ElkWiFi 0.1.52, kernel", patch)
-        # The RNG word wait is bounded by a named deadline rather than a
-        # literal, so this pins the mechanism and not one magic number.
-        self.assertIn("RNG_WORD_DEADLINE_US", patch)
-        self.assertIn("RPI_GetSystemTime() - started_us >= RNG_WORD_DEADLINE_US", patch)
-        # The MENU/TITLES transfer assertions moved upstream with
-        # http-titles-transfer.patch, so the maintainer patch no longer
-        # carries them; upstream owns that coverage now.
+        self.assertIn("firmware/Pi1MHz/wifi/brcmfmac43455-sdio.bin", patch)
+        self.assertEqual(patch.count("GIT binary patch"), 2)
+
+        # Everything else the patch should contain, and nothing it should
+        # not. Pi1MHz V1.35 merged the WiFi, UEF and secure services, so a
+        # patch still carrying their sources would be re-adding files that
+        # are now upstream's, under older and less correct versions.
+        touched = {
+            line.split(" b/", 1)[1].strip()
+            for line in patch.splitlines() if line.startswith("+++ b/")
+        }
+        for expected in (
+            "src/ftp_service.c", "src/media_catalogue.c",
+            "src/uef_service.c", "src/net_service.c", "src/services.h",
+            "src/CMakeLists.txt", "src/wifi_service.c",
+            "src/tests/uef/test_uef_filev.c",
+            "firmware/Pi1MHz/Pi1MHz.cfg",
+        ):
+            self.assertIn(expected, touched, expected)
+        for merged in (
+            "src/elkwifi_service.c", "src/uef_normalize.c", "src/puff.c",
+            "src/secure_service.c", "src/secure_service_core.c",
+            "src/secure_service_wolfssh.c", "src/user_settings.h",
+        ):
+            self.assertNotIn(merged, touched, merged)
+        self.assertNotIn("src/third_party", patch)
+
+        # The configuration the host ROM cannot work without.
+        self.assertIn("wifi_service_enable=1", patch)
+        self.assertIn("net_enable=1", patch)
 
 
     def test_retired_layout_is_not_referenced(self) -> None:

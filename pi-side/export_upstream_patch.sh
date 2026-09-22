@@ -29,7 +29,10 @@ fi
 git clone --quiet --no-checkout "$source_tree" "$checkout"
 git -C "$checkout" checkout --quiet "$expected"
 
+# The crypto libraries are deleted again below rather than vendored into the
+# patch, so there is no reason to spend several minutes cloning them.
 ELKWIFI_ROM=${ELKWIFI_ROM:-$root_dir/build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom} \
+PI1MHZ_SKIP_THIRD_PARTY=1 \
 WOLFSSL_SOURCE=${WOLFSSL_SOURCE:-} \
 WOLFSSH_SOURCE=${WOLFSSH_SOURCE:-} \
     "$script_dir/install_bundle.sh" "$checkout" apply

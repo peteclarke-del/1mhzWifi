@@ -3,18 +3,28 @@
 ## Scope and base
 
 This package targets Pi1MHz commit
-`e949f2d2714b15f314df375e52db5febb6c40e6d`, the reviewed official `master`
-revision recorded in `../upstream.env`. It extends Pi1MHz's existing bare-metal
-CYW43, lwIP, services and network code. It does not install a Linux daemon.
+`4c54d8118f632465f31ecb72dcc37b4833c2507a` (V1.35), the reviewed official
+`master` revision recorded in `../upstream.env`. It extends Pi1MHz's existing
+bare-metal CYW43, lwIP, services, WiFi, UEF and secure code. It does not
+install a Linux daemon.
+
+The sections below that describe the WiFi service adapter and the UEF tape
+describe upstream's code as this package configures and patches it, not code
+this package supplies. V1.35 merged both.
 
 `overlay/src` contains complete added modules. `patches` contains ordered
 changes to upstream-owned files. `../upstream/1mhzwifi-pi1mhz.patch` is a
 generated, binary-capable review patch and must be regenerated from these
 canonical inputs rather than edited directly.
 
-## ElkWiFi service adapter
+## WiFi service adapter (upstream src/wifi_service.c)
 
-The adapter owns service commands 80 through 93. Command 91 starts radio setup
+The adapter owns service commands 80 through 93, and is Pi1MHz's as of V1.35,
+where it is `src/wifi_service.c` with the UEF half split into
+`src/uef_service.c`. It is described here because the host ROM's ABI is this
+project's and has to keep matching it; the numbers and command-block layouts
+below are the ROM's and did not move when the file was renamed. It is off
+unless `wifi_service_enable=1`. Command 91 starts radio setup
 for public driver function 24 and acknowledges the accepted request without
 waiting for firmware startup or association. The FIQ handler captures the
 command pointer, publishes busy and handles the fixed status response when
@@ -160,33 +170,66 @@ The installer preserves active configuration entries, requires
 `Rampage_addr=0xFD`, enables the services and raw network ranges, and activates
 the three BeebSCSI settings only when they are absent.
 
-The shared services dispatcher owns its ElkWiFi, raw network and secure
+The shared services dispatcher owns its WiFi, raw network, secure and FTP
 command ranges whenever `Services_addr` is enabled. Per-range legacy settings
-such as `ElkWiFi_addr=-1`, `net_addr=-1`, and `secure_addr=-1` are ignored.
+such as `WiFiSvc_addr=-1`, `net_addr=-1`, and `secure_addr=-1` are ignored.
 Only `Services_addr=-1` removes the complete mailbox callbacks. Child pollers
 can remain registered but are not host-visible without the parent mailbox.
+
+The WiFi service is opt-in as of Pi1MHz 7077688 and tests `wifi_service_enable`
+before it claims commands 80 to 93. Where a service tests its config key is an
+ABI decision: before the claim it disappears, and the dispatcher echoes the
+command byte back, which the ROM reads as "no such service"; after the claim it
+would instead answer with its own error. The ROM depends on the first, so the
+installer writes `wifi_service_enable=1` into a generated bundle.
 
 Profile, menu and LAPOPT replacement is not power-failure atomic. This remains
 recorded product work. Passwords are plaintext on the FAT partition.
 
 ## UEF normalization
 
-Command 93 accepts raw UEF, gzip, single-entry ZIP and gzip inside a
-single-entry ZIP. It validates headers, CRC, advertised size and the 65,534-byte
-expanded limit. Decompression runs outside FIQ and uses a caller-provided
-scratch buffer so source and destination cannot alias incorrectly.
+Commands 86 and 93 are Pi1MHz's, in `src/uef_service.c` and `src/uef_stream.c`,
+as of V1.35. They accept raw UEF, gzip, single-entry ZIP and gzip inside a
+single-entry ZIP, and validate headers, CRC and advertised size. The one-shot
+path is still bounded by the 65,534-byte aperture; the incremental path is not,
+because it no longer holds the decompressed tape at all. It keeps DEFLATE's
+32 KB history and pulls compressed bytes on demand, so a 5 MB UEF costs the
+same 34 KB as a 20 KB one. The two static 16 MB buffers this package used to
+carry are gone with it.
 
-The compatibility path publishes the complete normalized UEF length. The
-original WiCFS implementation consumes the complete image, including terminal
-carrier and integer-gap chunks. Earlier 1MHzWifi candidates shortened the
-published length to the end of the last `&0100` chunk. That assumption is not
-part of the original cartridge contract and is now available only through the
-`elkwifi_uef_trim_tail=1` diagnostic switch. The default is full-stream mode.
+The `elkwifi_uef_trim_tail` diagnostic is gone with them. It shortened the
+published length to the end of the last `&0100` chunk, reproducing an earlier
+1MHzWifi candidate for comparison; the original WiCFS consumes the complete
+image, including terminal carrier and integer-gap chunks, and that is what both
+paths now do. The emulator keeps its own copy behind `PI1MHZ_UEF_TRIM_TAIL`.
+
+### FILEV stamp repair
+
+`uef-filev-repair.patch` is what this package still adds here. A large minority
+of Electron titles load with `?&212=&D6:?&213=&F1`, which stamps the MOS 1.00
+cassette entry over whatever filing system owns FILEV, WiCFS included. The
+repair redirects the address token to `&900/&901`, which leaves the program the
+same length so block layout and every stored offset are untouched, and only the
+affected block's payload CRC is recomputed. `wifi_service_uef_filev_repair=0`
+switches it off.
+
+Because the tape is now streamed, the repair sees it a 63 KB window at a time
+and a cassette block can straddle a boundary. It rewrites the payload and then
+the payload CRC that follows it, so a block split across two windows cannot be
+repaired from either half: the service holds the tail of an incomplete chunk
+back and re-offers it at the head of the next window. A `&0100` chunk longer
+than the 1 KB carry is not a cassette block, so framing steps over it rather
+than carrying it, and resumes at the chunk after. `src/tests/uef/test_uef_filev.c`,
+which the patch adds to upstream's UEF suite, drives the whole protocol with
+the block placed at, before and after a window boundary.
 
 ## Validation status
 
-The package builds both `kernel.img` and `kernel7.img`. Upstream service, net
-and parser tests, host service-core tests and the repository contract suite are
-the automated gate. Physical association, DHCP, reconnect, every supported Pi
+The package builds both `kernel.img` and `kernel7.img`. The automated gate is
+`make test-pi-integration`, which applies this integration to the pinned Pi1MHz
+and runs the host suites in that tree (services, net, uef, secure, config),
+plus the repository contract suite. Running upstream's suites against the
+patched tree matters more than it did: upstream owns the WiFi, UEF, secure and
+net services now, and a patch that still applies can still be wrong. Physical association, DHCP, reconnect, every supported Pi
 model and long-running SSH sessions remain hardware gates and must not be
 reported as passed from source inspection alone.

@@ -10,8 +10,10 @@ Each upstream target has a self-contained package:
   with `1mhzwifi.asm` as the assembly root.
 - `rom-side/inherited/patches/` contains what still derives from ElkWiFi, all of
   it now applying to `wicfs.asm` alone.
-- `pi-side/pi1mhz-516a267/patches/` contains the Pi1MHz source patches.
-- `pi-side/pi1mhz-516a267/overlay/` contains complete Pi service sources.
+- `pi-side/pi1mhz/patches/` contains the Pi1MHz source patches.
+- `pi-side/pi1mhz/overlay/` contains complete Pi sources: the FTP service, the
+  container decoder, and a test for the FILEV repair which joins upstream's own
+  UEF suite. Pi1MHz V1.35 merged everything else this directory used to hold.
 
 The corresponding build script is the authority for patch order. Package
 files must not depend on an unrecorded change in an upstream checkout.
@@ -63,7 +65,7 @@ git clone https://github.com/hoglet67/ElkWiFi.git "$build_root/ElkWiFi"
 git -C "$build_root/ElkWiFi" checkout 7bf366c97bec18bd238963c95e6f2aa6893cdb3a
 
 git clone https://github.com/dp111/Pi1MHz.git "$build_root/Pi1MHz"
-git -C "$build_root/Pi1MHz" checkout e949f2d2714b15f314df375e52db5febb6c40e6d
+git -C "$build_root/Pi1MHz" checkout 4c54d8118f632465f31ecb72dcc37b4833c2507a
 git -C "$build_root/Pi1MHz" submodule update --init --recursive
 ./pi-side/check_upstream.sh "$build_root/Pi1MHz"
 ```
@@ -162,6 +164,13 @@ sha256sum --check --strict SHA256SUMS
 `build.sh --rom-only` is reserved for scripts which consume the ROM while
 regenerating the kernels and archive. Normal release validation must use
 the root `make test` target, which invokes `build.sh` without that option.
+
+`make test` does not need a Pi1MHz checkout, and so does not prove that the Pi
+integration still applies or still works. `make test-pi-integration` does: it
+fetches the pinned Pi1MHz, applies the whole integration, and runs the host
+test suites that live in that tree. It needs git and a network but no ARM
+toolchain, and CI runs it as its own job. Run it after any change under
+`pi-side/`.
 
 The tests enforce the ROM contract, 1MHz-bus-only implementation, patch order,
 configuration defaults, absence of the retired Linux bridge and cartridge UART

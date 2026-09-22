@@ -354,7 +354,7 @@ tested has objected to the change.
 
 It cannot reach a title which stamps the vector from machine code rather than
 from its BASIC text, and Exile is one: it improves but does not complete. Set
-`elkwifi_uef_filev_repair=0` in `Pi1MHz.cfg` to disable the repair, which is
+`wifi_service_uef_filev_repair=0` in `Pi1MHz.cfg` to disable the repair, which is
 useful for confirming that a suspect title is failing for this reason.
 
 WiCFS accepts valid zero-byte CFS files. These are used as markers by some

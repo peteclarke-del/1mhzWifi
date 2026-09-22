@@ -586,6 +586,8 @@ def main() -> int:
         "-ram", "7", "-ram", "6",
         "-rom", "5", str(roms / "AFM1V09.rom"),
         "-rom", "3", str(args.wifi_rom.resolve()),
+        # Bank 3 must be writable: the ROM's workspace is in its own image.
+        "-ram", "3",
         "-rom", "1", str(roms / "acorn-adfs.rom"),
     ]
     if not args.without_dfs_rom:

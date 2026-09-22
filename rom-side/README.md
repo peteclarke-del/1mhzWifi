@@ -17,6 +17,60 @@ or offered upstream is decided by a path rather than by a diff:
 Read `inherited/README.md` before reusing anything: two upstream authors have a
 claim on `wicfs.asm` and neither has stated terms.
 
+## Where the ROM keeps its workspace
+
+Both images keep their scratch inside their own image, packed against the top
+of the bank: 32 bytes of driver state and the error block at `&BDDE`, the
+writable-image flag and the connection status just above it, then a 256 byte
+parameter heap at `&BE00` and a 256 byte string buffer at `&BF00`.
+
+It used to live in host memory at `&900`, `&A00` and `&D90`. The OS owns all
+three on every machine this ROM supports: `&0900` is the RS423 output buffer
+and ENVELOPEs 5 to 16, `&0A00` is the CFS/RFS/RS423 input buffer, and `&0D90`
+is VFS and AMX mouse workspace followed by the extended vector table at
+`&0D9F`. The service driver was storing its UEF stream generation at `&0DAF`,
+four bytes inside that table, which kills the next OS call made through a
+claimed vector. `rom-side/check_rom_memory.py` is the check that catches this
+class of fault; it is dp111's, repointed at these sources, and it runs in the
+ROM build and in `make test`.
+
+The consequence is that the bank has to be writable, which it is whenever
+Pi1MHz serves the image into sideways RAM. Each image probes its own workspace
+at reset, writing `&A5` and then `&5A` so a floating bus cannot pass, and
+records the answer. If the bank is read-only, every command raises
+`1MHz-WiFi needs sideways RAM` rather than writing into memory it does not own.
+
+## The EPROM build
+
+For a real ROM there is no writable image, so the build produces a second pair
+of images from the same sources with `WS_IN_IMAGE=0`:
+
+| image | workspace | for |
+| --- | --- | --- |
+| `1mhz-wifi.rom`, `1mhz-wicfs.rom` | in the image, `&BDDE` up | sideways RAM, which is what Pi1MHz serves |
+| `1mhz-wifi-eprom.rom`, `1mhz-wicfs-eprom.rom` | three pages of host RAM, claimed | a burnt EPROM |
+
+The EPROM build keeps the three bases as assembly-time constants and simply
+points them at host RAM. That is what lets one set of sources serve both: the
+ninety-odd symbols derived from `heap`, `strbuf` and `netprt` stay absolute
+addresses, rather than every reference to them having to be reached through a
+pointer.
+
+Those pages are claimed from the OS at service call 1, not assumed, so the
+build cannot repeat the fault the in-image layout was introduced to fix. The
+network image takes `&0E00-&10FF` and the filing system image `&1100-&13FF`,
+so two of them fitted together do not collide, and PAGE rises by three pages
+per fitted image. That cost is why this is a separate build rather than the
+default: it would otherwise be paid on every machine, including the ones where
+the workspace costs nothing at all.
+
+Two things guard the claim. The range is only taken if service call 1 reports
+it still free, and nothing is written when it is not. And because claimed host
+RAM is not owned the way an image is, a two-byte signature is stamped beside
+the flag and checked on every command, so workspace another ROM has since
+taken is refused rather than used.
+
+
 ## Building
 
 ```sh
