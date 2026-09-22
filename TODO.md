@@ -97,6 +97,27 @@ These are closed failure paths, not partial implementations:
   fail closed and never downgrade to plain HTTP. SSH is available separately
   through the native host tool and managed Pi secure service.
 
+## What has and has not been offered upstream
+
+Checked against the pull request record rather than from memory, because three
+of the six PRs to dp111 show as closed and unmerged and none of them was
+rejected: he applied #18, #19 and #20 by hand and closed them, commenting
+"Thanks", "Merged", and on the largest "This has been merged, there have been
+some improvements and reorganisations". #21, #22 and #23 went through the merge
+button.
+
+Nothing of ours has been turned down. The three patches this tree still carries
+against Pi1MHz were never submitted: `ftp_service.c` and `media_catalogue.c`
+are absent from PR #20's nineteen files, no FILEV content appears in it, and
+command 58 appears only as the test stub described below.
+
+wolfSSL/wolfssh #1215 was closed for a different reason. The maintainer could
+only accept it against a contributor agreement, and said he would instead
+"recreate the change as a bug-fix based on your description text". That is the
+agreed route, so the fork and its two patches stay until wolfSSH's own fix
+ships, and anything further we need from them goes as a bug report rather than
+a pull request.
+
 ## Carried after the Pi1MHz V1.35 rebase
 
 Pi1MHz V1.35 merged this project's WiFi service, UEF tape and SSH/SFTP
@@ -107,9 +128,14 @@ both halves back into line produced the following:
   58 to have the Pi place received bytes straight into the public 64K JIM
   window. Upstream's `net_service.c` has no handler for 58, so on a stock
   Pi1MHz the dispatcher echoes the command byte back and the ROM falls back
-  to copying every byte through `&FCA9` itself. `net-copy-public.patch` has
-  the handler and a test for the `DISC_RAM_BASE` asymmetry that makes it easy
-  to get wrong. Offer it to dp111.
+  to copying every byte through `&FCA9` itself.
+
+  This was never offered. PR #20 carried the `COPY_PUBLIC_NONZERO_ONLY` test
+  stub but not the command, which is why upstream has the stub and no handler,
+  and why dp111's own `check_interface.py` records 58 as the known gap.
+  `net-copy-public.patch` has the handler and a test built at a nonzero
+  `DISC_RAM_BASE`, which is the only way the source and destination asymmetry
+  shows up. It is the first thing to send him when the work is ready.
 - [x] Backport upstream's workspace move. Both ROMs now keep their scratch
   inside their own image at `&BDDE` rather than at `&900`, `&A00` and `&D90`,
   which are the RS423 output buffer, the CFS/RFS input buffer, and the VFS
@@ -123,8 +149,8 @@ both halves back into line produced the following:
   with nowhere to put it, so `WS_IN_IMAGE=0` builds the same sources with the
   three bases pointing at three pages of host RAM claimed at service call 1:
   `1mhz-wifi-eprom.rom` and `1mhz-wicfs-eprom.rom`, alongside the in-image
-  pair Pi1MHz serves. Upstream has no equivalent yet, and this is the piece of
-  this tree most worth offering them.
+  pair Pi1MHz serves. Upstream has no equivalent yet, and their own ROM notes
+  record the same gap, so this is worth sending them.
 - [ ] The EPROM build claims absolute workspace at a fixed page, which is
   first-come: if a higher-priority ROM has already claimed past `&0E00`, our
   image claims nothing and refuses commands. Private workspace at service call

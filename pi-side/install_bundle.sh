@@ -82,10 +82,15 @@ done
 
 wolfssl_commit=65836b40693f8ea8d04daac0b1019d8e2e9394dd
 # wolfSSH is taken from our fork, which carries two commits on top of the
-# reviewed upstream commit c2d1698: a portability fix offered to wolfSSH
-# upstream, and the Acorn 40-column vt100 defaults which are local to this
+# reviewed upstream commit c2d1698: a portability fix for client-only embedded
+# builds, and the Acorn 40-column vt100 defaults which are local to this
 # project. The patch applications below remain as a fallback so a build given
 # WOLFSSH_SOURCE pointing at stock wolfSSH still produces the same tree.
+#
+# The portability fix was offered as wolfSSL/wolfssh #1215 and closed unmerged.
+# It was not turned down: the maintainer can only take a change against a
+# contributor agreement, and said he would instead recreate it as a bug fix
+# from the description. The fork stays until that lands.
 wolfssh_commit=d17bdb211075fa4349cba524b95eb1f6408ddd11
 third_party_dir="$upstream/src/third_party"
 mkdir -p "$third_party_dir"

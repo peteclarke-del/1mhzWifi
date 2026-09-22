@@ -146,8 +146,8 @@ never in FIQ context, and holds no decompressed image: it keeps DEFLATE's
 
 Command 58 is this package's, and upstream does not have it. The host ROM
 Pi1MHz merged for V1.34 calls it, so a stock Pi1MHz answers by echoing the
-command byte back and the ROM falls back to copying every byte itself. Offer
-this patch upstream.
+command byte back and the ROM falls back to copying every byte itself. It was
+never submitted: PR #20 carried the test stub for it and not the command.
 
 ## Retired MENU services
 

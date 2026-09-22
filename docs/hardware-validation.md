@@ -1015,7 +1015,8 @@ of their bank numbers.
   order.
 - [ ] Run `*LAP`; confirm the rows describe nearby access points rather than the configured SSID alone.
 - [ ] Capture `nRST`, `PHI2`, `R/W`, address, data, and buffer enable for `&FCA6-&FCAA`.
-- [ ] Compare setup and hold timing with an unmodified Pi1MHz V1.30-descended build.
+- [ ] Compare setup and hold timing with an unmodified build of the pinned
+      Pi1MHz, which is the revision named in `pi-side/upstream.env`.
 - [ ] Run storage, AUN, audio, and ElkWiFi services concurrently; confirm command ranges and poll callbacks do not collide.
 
 Expected error meanings:

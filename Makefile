@@ -21,10 +21,18 @@ test-host:
 test-package:
 	unzip -t build/pi1mhz-all-hardware-test.zip
 	git diff --check
-	@# grep, not rg: a missing rg made this check pass silently, so a
-	@# typographic dash reached CI unseen.
-	@if grep -rn '—\|–' --include='*.md' --include='*.txt' .; then \
-		echo "Documentation contains a typographic dash" >&2; exit 1; \
+	@# Typographic dashes, in every tracked file rather than only .md and
+	@# .txt: the prose that matters is also in script comments, test
+	@# docstrings and assembler headers. build/ is excluded because it holds
+	@# upstream Pi1MHz artefacts, including a web UI full of them.
+	@#
+	@# git grep with Perl escapes, for two reasons. A missing rg once made
+	@# this check pass silently and a dash reached CI unseen, so it uses a
+	@# tool the repository cannot be without. And writing the characters as
+	@# \x{2014} rather than literally is what lets the check cover the
+	@# Makefile without matching itself.
+	@if git grep -n -P '\x{2014}|\x{2013}' -- . ':(exclude)build'; then \
+		echo "Prose contains a typographic dash" >&2; exit 1; \
 	fi
 
 patch-kits:
