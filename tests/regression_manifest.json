@@ -35,7 +35,7 @@
       "symptom": "JOIN returned OK without a usable association or forgot the saved profile after reboot.",
       "status": "fixed",
       "tests": [
-        "tests/test_integration_contract.py::IntegrationContractTest::test_wifi_credentials_persist_and_runtime_network_is_enabled",
+        "tests/test_integration_contract.py::IntegrationContractTest::test_the_services_pi1mhz_now_owns_are_not_carried_here_as_well",
         "tests/test_elkchat_osword.py::ElkChatOSWORDCompatibilityTests::test_status_join_and_control_calls_return_bounded_responses"
       ]
     },
@@ -62,7 +62,7 @@
       "symptom": "Repeated MENU use fetched the stable executable and catalogue again, increasing endpoint load and making reset recovery unnecessarily dependent on the network.",
       "status": "fixed",
       "tests": [
-        "tests/test_integration_contract.py::IntegrationContractTest::test_wifi_credentials_persist_and_runtime_network_is_enabled",
+        "tests/test_integration_contract.py::IntegrationContractTest::test_menu_surface_is_fully_retired",
         "tests/test_merged_repository.py::MergedRepositoryTest::test_emulator_has_no_retired_menu_cache"
       ]
     },
@@ -111,7 +111,7 @@
       "status": "fixed",
       "tests": [
         "tests/test_uef_normalize.py::UefNormalizeTest::test_raw_gzip_zip_and_zip_containing_gzip",
-        "tests/test_uef_normalize.py::UefNormalizeTest::test_emulator_and_pi_normalizers_match_real_corpus",
+        "tests/test_uef_normalize.py::UefNormalizeTest::test_emulator_decoder_matches_python_on_the_real_corpus",
         "tests/test_uef_map.py::UefMapTest::test_decodes_gzip_and_single_entry_zip_gzip"
       ]
     },

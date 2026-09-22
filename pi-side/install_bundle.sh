@@ -15,7 +15,7 @@ esac
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 root_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
-package_dir="$script_dir/pi1mhz-516a267"
+package_dir="$script_dir/pi1mhz"
 patch_dir="$package_dir/patches"
 overlay_dir="$package_dir/overlay"
 output_dir=${PI1MHZ_OUTPUT_DIR:-$root_dir/build}
@@ -28,12 +28,12 @@ if [ ! -e "$upstream/.git" ] || [ ! -f "$upstream/src/Pi1MHz.c" ]; then
     exit 1
 fi
 
-if ! git -C "$upstream" rev-parse --verify V1.30 >/dev/null 2>&1; then
-    echo "Pi1MHz tag V1.30 is required" >&2
+if ! git -C "$upstream" rev-parse --verify "$PI1MHZ_BASE_TAG" >/dev/null 2>&1; then
+    echo "Pi1MHz tag $PI1MHZ_BASE_TAG is required" >&2
     exit 1
 fi
-if ! git -C "$upstream" merge-base --is-ancestor V1.30 HEAD; then
-    echo "the checkout does not contain Pi1MHz V1.30" >&2
+if ! git -C "$upstream" merge-base --is-ancestor "$PI1MHZ_BASE_TAG" HEAD; then
+    echo "the checkout does not contain Pi1MHz $PI1MHZ_BASE_TAG" >&2
     exit 1
 fi
 expected_upstream=$PI1MHZ_UPSTREAM_COMMIT
@@ -67,18 +67,30 @@ if [ "$preset" != apply ]; then
     fi
 fi
 
-if [ ! -f "$upstream/src/net_service.c" ]; then
-    echo "Pi1MHz must include the post-V1.30 net service (src/net_service.c)" >&2
-    echo "Update the checkout to reviewed Pi1MHz $PI1MHZ_UPSTREAM_BRANCH before installing." >&2
-    exit 1
-fi
+# Pi1MHz has since merged the WiFi, UEF and secure services that this package
+# used to carry as overlay sources. The installer now patches them rather than
+# replacing them, so a checkout without them is the wrong checkout, not one
+# this script can repair.
+for required in net_service.c wifi_service.c uef_service.c uef_stream.c \
+                secure_service.c secure_service_core.c; do
+    if [ ! -f "$upstream/src/$required" ]; then
+        echo "Pi1MHz must include src/$required (merged upstream by V1.35)" >&2
+        echo "Update the checkout to reviewed Pi1MHz $PI1MHZ_UPSTREAM_BRANCH before installing." >&2
+        exit 1
+    fi
+done
 
 wolfssl_commit=65836b40693f8ea8d04daac0b1019d8e2e9394dd
 # wolfSSH is taken from our fork, which carries two commits on top of the
-# reviewed upstream commit c2d1698: a portability fix offered to wolfSSH
-# upstream, and the Acorn 40-column vt100 defaults which are local to this
+# reviewed upstream commit c2d1698: a portability fix for client-only embedded
+# builds, and the Acorn 40-column vt100 defaults which are local to this
 # project. The patch applications below remain as a fallback so a build given
 # WOLFSSH_SOURCE pointing at stock wolfSSH still produces the same tree.
+#
+# The portability fix was offered as wolfSSL/wolfssh #1215 and closed unmerged.
+# It was not turned down: the maintainer can only take a change against a
+# contributor agreement, and said he would instead recreate it as a bug fix
+# from the description. The fork stays until that lands.
 wolfssh_commit=d17bdb211075fa4349cba524b95eb1f6408ddd11
 third_party_dir="$upstream/src/third_party"
 mkdir -p "$third_party_dir"
@@ -110,19 +122,27 @@ install_dependency() {
     fi
 }
 
-install_dependency wolfSSL https://github.com/wolfSSL/wolfssl.git \
-    "$wolfssl_commit" "${WOLFSSL_SOURCE:-}" "$third_party_dir/wolfssl"
-install_dependency wolfSSH https://github.com/peteclarke-del/wolfssh.git \
-    "$wolfssh_commit" "${WOLFSSH_SOURCE:-}" "$third_party_dir/wolfssh"
-if ! grep -q 'BBC/Electron display' \
-        "$third_party_dir/wolfssh/wolfssh/internal.h"; then
-    patch -d "$third_party_dir/wolfssh" -p1 \
-        < "$patch_dir/wolfssh-pi1mhz.patch"
-fi
-if ! grep -q '^#if defined(WOLFSSH_SFTP) || defined(WOLFSSH_SCP)$' \
-        "$third_party_dir/wolfssh/src/ssh.c"; then
-    patch -d "$third_party_dir/wolfssh" -p1 \
-        < "$patch_dir/wolfssh-sftp-client.patch"
+# The crypto libraries are only reachable through PI1MHZ_SSH=ON, which only a
+# firmware build turns on. PI1MHZ_SKIP_THIRD_PARTY=1 leaves them out so a
+# source-only apply - the host test gate does one on every run - does not
+# clone 400 MB it will not compile.
+if [ "${PI1MHZ_SKIP_THIRD_PARTY:-0}" = 1 ] && [ "$preset" = apply ]; then
+    echo "skipping wolfSSL/wolfSSH: PI1MHZ_SKIP_THIRD_PARTY=1" >&2
+else
+    install_dependency wolfSSL https://github.com/wolfSSL/wolfssl.git \
+        "$wolfssl_commit" "${WOLFSSL_SOURCE:-}" "$third_party_dir/wolfssl"
+    install_dependency wolfSSH https://github.com/peteclarke-del/wolfssh.git \
+        "$wolfssh_commit" "${WOLFSSH_SOURCE:-}" "$third_party_dir/wolfssh"
+    if ! grep -q 'BBC/Electron display' \
+            "$third_party_dir/wolfssh/wolfssh/internal.h"; then
+        patch -d "$third_party_dir/wolfssh" -p1 \
+            < "$patch_dir/wolfssh-pi1mhz.patch"
+    fi
+    if ! grep -q '^#if defined(WOLFSSH_SFTP) || defined(WOLFSSH_SCP)$' \
+            "$third_party_dir/wolfssh/src/ssh.c"; then
+        patch -d "$third_party_dir/wolfssh" -p1 \
+            < "$patch_dir/wolfssh-sftp-client.patch"
+    fi
 fi
 
 # The host ROM is required for a complete SD-card build. The source-only
@@ -145,7 +165,7 @@ if [ "$preset" != apply ]; then
     fi
 fi
 if [ -n "$rom_source" ] && [ "$(wc -c < "$rom_source")" -ne 16384 ]; then
-    echo "$rom_source is not a 16 KiB ElkWiFi host ROM" >&2
+    echo "$rom_source is not a 16 KiB 1MHz-WiFi host ROM" >&2
     exit 1
 fi
 
@@ -157,102 +177,63 @@ install_if_changed() {
     fi
 }
 
-install_if_changed "$overlay_dir/src/elkwifi_service.c" "$upstream/src/elkwifi_service.c"
-install_if_changed "$overlay_dir/src/elkwifi_service.h" "$upstream/src/elkwifi_service.h"
+# What is left of the overlay after Pi1MHz V1.35 absorbed the rest. The WiFi,
+# UEF and secure services, the wolfSSL/wolfSSH build and user_settings.h are
+# all upstream now, and upstream's copies carry fixes these did not, so they
+# are no longer shipped here at all.
 install_if_changed "$overlay_dir/src/ftp_service.c" "$upstream/src/ftp_service.c"
 install_if_changed "$overlay_dir/src/ftp_service.h" "$upstream/src/ftp_service.h"
-# Container decoder. media-service.patch links it, because elkwifi_service.c
-# calls uef_repair_filev_stamp, which lives beside the decoder so the Pi and
-# the emulator share one implementation. media_service_core.c is staged but
-# not linked: its catalogue and extract session has no caller.
+# Container decoder. services-integration.patch links it, because
+# uef-filev-repair.patch makes uef_service.c call uef_repair_filev_span, which
+# lives beside the decoder so the Pi and the emulator share one
+# implementation. media_service_core.c is staged but not linked: its catalogue
+# and extract session has no caller.
 install_if_changed "$overlay_dir/src/media_catalogue.c" "$upstream/src/media_catalogue.c"
 install_if_changed "$overlay_dir/src/media_catalogue.h" "$upstream/src/media_catalogue.h"
 install_if_changed "$overlay_dir/src/media_service_core.c" "$upstream/src/media_service_core.c"
 install_if_changed "$overlay_dir/src/media_service_core.h" "$upstream/src/media_service_core.h"
-install_if_changed "$overlay_dir/src/uef_normalize.c" "$upstream/src/uef_normalize.c"
-install_if_changed "$overlay_dir/src/uef_normalize.h" "$upstream/src/uef_normalize.h"
-install_if_changed "$overlay_dir/src/puff.c" "$upstream/src/puff.c"
-install_if_changed "$overlay_dir/src/puff.h" "$upstream/src/puff.h"
-install_if_changed "$overlay_dir/src/secure_service.c" "$upstream/src/secure_service.c"
-install_if_changed "$overlay_dir/src/secure_service.h" "$upstream/src/secure_service.h"
-install_if_changed "$overlay_dir/src/secure_service_core.c" "$upstream/src/secure_service_core.c"
-install_if_changed "$overlay_dir/src/secure_service_core.h" "$upstream/src/secure_service_core.h"
-install_if_changed "$overlay_dir/src/secure_service_wolfssh.c" "$upstream/src/secure_service_wolfssh.c"
-install_if_changed "$overlay_dir/src/secure_service_wolfssh.h" "$upstream/src/secure_service_wolfssh.h"
-install_if_changed "$overlay_dir/src/user_settings.h" "$upstream/src/user_settings.h"
+install_if_changed "$overlay_dir/tests/uef/test_uef_filev.c" \
+                   "$upstream/src/tests/uef/test_uef_filev.c"
+# Nothing else in the Pi1MHz tree compiles ftp_service.c, so its suite is a
+# compile check against the headers upstream keeps moving, plus the command
+# range. Installed rather than patched: it is a whole file of ours.
+mkdir -p "$upstream/src/tests/ftp"
+install -m 0755 "$overlay_dir/tests/ftp/run_tests.sh" \
+                "$upstream/src/tests/ftp/run_tests.sh"
+# The host ROM hard-codes the service command numbers in these headers, and
+# neither build refers to the other, so a renumbering upstream would leave the
+# ROM sending the old number and the firmware answering a different command.
+# dp111's check compares the two by name; the ROM lives here, not there, so it
+# is passed in.
+mkdir -p "$upstream/src/tests/wifirom"
+install -m 0755 "$overlay_dir/tests/check_rom_interface.py" \
+                "$upstream/src/tests/wifirom/check_rom_interface.py"
 
-for patch_name in integration.patch service-range-online.patch uef-normalize.patch media-service.patch secure-service.patch ftp-service.patch wifi-network-tools.patch net-copy-public.patch net-debug-stage.patch secure-debug-stage.patch; do
+for patch_name in services-integration.patch uef-filev-repair.patch net-copy-public.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
-        integration.patch)
-            grep -q 'elkwifi_service.c' "$upstream/src/CMakeLists.txt" &&
-            grep -q 'SERVICE_CMD_ELKWIFI_FIRST' "$upstream/src/services.h" &&
-            patch_present=true
-            ;;
-        service-range-online.patch)
-            grep -Eq 'SERVICE_CMD_ELKWIFI_LAST  *(92|93)u' "$upstream/src/services.h" &&
-            patch_present=true
-            ;;
-        media-service.patch)
+        services-integration.patch)
+            grep -q '^   ftp_service.c' "$upstream/src/CMakeLists.txt" &&
             grep -q '^    media_catalogue.c' "$upstream/src/CMakeLists.txt" &&
+            grep -q 'SERVICE_CMD_FTP_FIRST' "$upstream/src/services.h" &&
+            grep -q 'ftp_service_init()' "$upstream/src/wifi_service.c" &&
             patch_present=true
             ;;
-        uef-normalize.patch)
-            grep -q 'SERVICE_CMD_ELKWIFI_LAST  *93u' "$upstream/src/services.h" &&
-            grep -q '^    uef_normalize.c' "$upstream/src/CMakeLists.txt" &&
-            grep -q '^    puff.c' "$upstream/src/CMakeLists.txt" &&
+        uef-filev-repair.patch)
+            grep -q 'uef_repair_filev_span' "$upstream/src/uef_service.c" &&
+            grep -q 'test_uef_filev.c' "$upstream/src/tests/uef/run_tests.sh" &&
             patch_present=true
             ;;
         net-copy-public.patch)
             grep -q 'NET_CMD_COPY_PUBLIC' "$upstream/src/net_service.h" &&
-            grep -q 'memmove(&Pi1MHz->JIM_ram\[destination\],' \
-                "$upstream/src/net_service.c" &&
-            ! grep -q 'JIM_ram\[DISC_RAM_BASE + destination\]' \
-                "$upstream/src/net_service.c" &&
-            grep -q 'memcmp(&Pi1MHz->JIM_ram\[0x01f0u\]' \
-                "$upstream/src/tests/net/test_net.c" &&
-            grep -q 'DISC_RAM_BASE + 0x01f0u' \
-                "$upstream/src/tests/net/test_net.c" &&
-            grep -q 'COPY_PUBLIC_NONZERO_ONLY' \
-                "$upstream/src/tests/net/run_tests.sh" &&
-            grep -q '#define TEST_JIM_SIZE 0x1100000u' \
-                "$upstream/src/tests/net/stubs/Pi1MHz.h" &&
-            patch_present=true
-            ;;
-        secure-service.patch)
-            grep -q 'SERVICE_CMD_SECURE_FIRST  *94u' "$upstream/src/services.h" &&
-            grep -q 'secure_service.c' "$upstream/src/CMakeLists.txt" &&
-            grep -q 'nettools_wolfssh' "$upstream/src/CMakeLists.txt" &&
-            grep -q 'secure_service_init' "$upstream/src/Pi1MHz.c" &&
-            patch_present=true
-            ;;
-        ftp-service.patch)
-            grep -q 'ftp_service.c' "$upstream/src/CMakeLists.txt" &&
-            grep -q 'SERVICE_CMD_FTP_FIRST' "$upstream/src/services.h" &&
-            patch_present=true
-            ;;
-        wifi-network-tools.patch)
-            grep -q '#define LWIP_RAW[[:space:]]*1' "$upstream/src/wifi/lwipopts.h" &&
-            grep -q 'src/core/raw.c' "$upstream/src/CMakeLists.txt" &&
-            patch_present=true
-            ;;
-        net-debug-stage.patch)
-            grep -q 'net_debug_mark' "$upstream/src/net_service.c" &&
-            patch_present=true
-            ;;
-        secure-debug-stage.patch)
-            grep -q 'secure_debug_mark' "$upstream/src/secure_service.c" &&
+            grep -q 'do_copy_public' "$upstream/src/net_service.c" &&
+            grep -q 'COPY_PUBLIC_NONZERO_ONLY' "$upstream/src/tests/net/run_tests.sh" &&
             patch_present=true
             ;;
     esac
     if "$patch_present"; then
         echo "Pi1MHz $patch_name is already applied"
-    elif [ "$patch_name" = service-range-online.patch ] || [ "$patch_name" = uef-normalize.patch ] || [ "$patch_name" = ftp-service.patch ]; then
-        # These small migration patches use zero-context hunks so they can
-        # update an already-integrated checkout as well as a clean one.
-        git -C "$upstream" apply --unidiff-zero --check "$patch_file"
-        git -C "$upstream" apply --unidiff-zero "$patch_file"
     else
         # patch(1) rather than git apply: upstream regularly inserts code above
         # our hunks, and git apply rejects any line-offset shift. Those are not
@@ -277,8 +258,20 @@ install_if_changed "$script_dir/firmware/brcmfmac43430-sdio.txt" \
 bcm43455_path=firmware/Pi1MHz/wifi/brcmfmac43455-sdio.bin
 bcm43455_tmp=$(mktemp)
 trap 'rm -f "$bcm43455_tmp"' EXIT
-git -C "$upstream" show \
-    "$PI1MHZ_BCM43455_FIRMWARE_COMMIT:$bcm43455_path" > "$bcm43455_tmp"
+# A blobless or shallow checkout has the commit but not this blob. Ask the
+# remote for it once rather than failing with git's "bad object", which says
+# nothing about which object or why.
+if ! git -C "$upstream" show \
+        "$PI1MHZ_BCM43455_FIRMWARE_COMMIT:$bcm43455_path" > "$bcm43455_tmp" 2>/dev/null; then
+    git -C "$upstream" fetch -q --depth 1 origin \
+        "$PI1MHZ_BCM43455_FIRMWARE_COMMIT" 2>/dev/null || true
+    if ! git -C "$upstream" show \
+            "$PI1MHZ_BCM43455_FIRMWARE_COMMIT:$bcm43455_path" > "$bcm43455_tmp"; then
+        echo "cannot read $bcm43455_path from Pi1MHz $PI1MHZ_BCM43455_FIRMWARE_COMMIT" >&2
+        echo "the checkout is missing that blob and the remote could not supply it" >&2
+        exit 1
+    fi
+fi
 printf '%s  %s\n' "$PI1MHZ_BCM43455_FIRMWARE_SHA256" "$bcm43455_tmp" \
     | sha256sum --check --strict
 install_if_changed "$bcm43455_tmp" "$upstream/$bcm43455_path"
@@ -319,41 +312,63 @@ if ! grep -Eqi '^[[:space:]]*Rampage_addr[[:space:]]*=[[:space:]]*0x0*FD([[:spac
     exit 1
 fi
 if ! grep -Eq '^[[:space:]]*Services_addr[[:space:]]*=' "$config_file"; then
-    printf '\n# ElkWiFi host transport: AP5 forwards the FCA0-FCAF block\nServices_addr=0xA6\n' >> "$config_file"
+    printf '\n# 1MHz-WiFi host transport: AP5 forwards the FCA0-FCAF block\nServices_addr=0xA6\n' >> "$config_file"
 fi
-if ! grep -Eq '^[[:space:]]*ElkWiFi_addr[[:space:]]*=' "$config_file"; then
-    printf 'ElkWiFi_addr=0x00\n' >> "$config_file"
+# Pi1MHz 7077688 renamed the service and its keys: elkwifi_enable became
+# wifi_service_enable, ElkWiFi_addr became WiFiSvc_addr, and the service is
+# now OFF unless the enable key is set - it used to register unconditionally.
+# The ROM depends on it, so a bundle built here turns it on.
+if ! grep -Eq '^[[:space:]]*wifi_service_enable[[:space:]]*=' "$config_file"; then
+    printf '\n# Required by the 1MHz-WiFi ROM: WiFi control, DATE/TIME and the UEF tape\nwifi_service_enable=1\n' >> "$config_file"
 fi
 if ! grep -Eq '^[[:space:]]*net_enable[[:space:]]*=' "$config_file"; then
-    printf '\n# Required by the ElkWiFi ROM transport\nnet_enable=1\n' >> "$config_file"
+    printf '\n# Required by the 1MHz-WiFi ROM transport\nnet_enable=1\n' >> "$config_file"
 fi
-if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_utc_offset_minutes[[:space:]]*=' "$config_file"; then
-    printf '# elkwifi_utc_offset_minutes=0  # DATE/TIME offset east of UTC; e.g. 60 for BST\n' >> "$config_file"
+if ! grep -Eq '^[[:space:]]*#?[[:space:]]*wifi_service_utc_offset_minutes[[:space:]]*=' "$config_file"; then
+    printf '# wifi_service_utc_offset_minutes=0  # DATE/TIME offset east of UTC; e.g. 60 for BST\n' >> "$config_file"
 fi
-if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_uef_trim_tail[[:space:]]*=' "$config_file"; then
-    printf '# elkwifi_uef_trim_tail=0  # diagnostic A/B only; normal WiCFS receives the complete UEF\n' >> "$config_file"
-fi
-if ! grep -Eq '^[[:space:]]*#?[[:space:]]*elkwifi_uef_filev_repair[[:space:]]*=' "$config_file"; then
-    printf '# elkwifi_uef_filev_repair=1  # redirect loaders which stamp FILEV themselves; 0 disables\n' >> "$config_file"
+if ! grep -Eq '^[[:space:]]*#?[[:space:]]*wifi_service_uef_filev_repair[[:space:]]*=' "$config_file"; then
+    printf '# wifi_service_uef_filev_repair=1  # redirect loaders which stamp FILEV themselves; 0 disables\n' >> "$config_file"
 fi
 if ! grep -Eq '^[[:space:]]*#?[[:space:]]*wifi_security[[:space:]]*=' "$config_file"; then
     printf '# wifi_security=auto      # auto|open|wep|wpa|wpa2\n' >> "$config_file"
 fi
+# PI1MHZ_SSH defaults OFF upstream, because Pi1MHz neither carries nor fetches
+# wolfSSL and wolfSSH. This installer has just installed and verified the
+# pinned revisions, so it turns the option on. src/scripts/build.sh configures
+# a preset only when its build directory has no CMakeCache.txt yet, so
+# configuring here first is what carries the option through - and a build tree
+# left over from a plain upstream build would otherwise keep SSH switched off,
+# which is why an existing cache is checked rather than trusted.
+configure_preset() {
+    cache="$upstream/src/build/$1/CMakeCache.txt"
+    if [ -f "$cache" ] && ! grep -q '^PI1MHZ_SSH:BOOL=ON$' "$cache"; then
+        rm -rf -- "$upstream/src/build/$1"
+    fi
+    if [ ! -f "$cache" ]; then
+        (cd "$upstream/src" && cmake --preset "$1" -DPI1MHZ_SSH=ON)
+    fi
+}
+
 case "$preset" in
     apply)
         echo "Applied the complete 1MHzWifi integration to $upstream"
         exit 0
         ;;
     all)
+        configure_preset rpi
+        configure_preset rpi3
         bash "$upstream/src/scripts/build.sh" rpi
         bash "$upstream/src/scripts/build.sh" rpi3
         echo "Built $upstream/firmware/kernel.img and $upstream/firmware/kernel7.img"
         ;;
     rpi)
+        configure_preset rpi
         bash "$upstream/src/scripts/build.sh" rpi
         echo "Built $upstream/firmware/kernel.img"
         ;;
     rpi3)
+        configure_preset rpi3
         bash "$upstream/src/scripts/build.sh" rpi3
         echo "Built $upstream/firmware/kernel7.img"
         ;;

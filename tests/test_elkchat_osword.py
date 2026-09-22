@@ -11,18 +11,32 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "host-tools/.test-deps"))
 from py65.devices.mpu6502 import MPU
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from rom_symbols import symbol
+
 ROM_START = 0x8000
+# The ROM builds its BRK block here. It used to be &0D90 in host RAM, which is
+# the VFS mouse workspace and then the extended vector table at &0D9F; it is
+# now inside the image, so ask the sources rather than pinning a number.
+ERROR_WORKSPACE = symbol("error_workspace")
 OSBYTE = 0xFFF4
 RETURN_SENTINEL = 0x0400
 
 
 class ElkWiFiMemory:
-    """Host RAM, the sideways ROM, Pi1MHz byte mailbox and public JIM window."""
+    """Host RAM, sideways RAM, Pi1MHz byte mailbox and public JIM window.
+
+    The bank is writable. Pi1MHz serves this ROM into sideways RAM, and the
+    ROM keeps its workspace inside its own image rather than in host memory
+    the OS owns, so a bank modelled read-only makes every workspace write
+    vanish: the write landed in a shadow that the reads never looked at, and
+    every reply came back as whatever had been assembled into the image.
+    """
 
     def __init__(self, rom: bytes, delayed_increment_accesses=0,
                  delayed_selector_accesses=0, supports_copy_public=True):
         self.ram = bytearray(0x10000)
-        self.rom = rom
+        self.rom = bytearray(rom)
         self.jim = bytearray(0x1000000)
         self.address = 0
         self.data_address = 0
@@ -83,6 +97,18 @@ class ElkWiFiMemory:
             self.address = target
             self.data_address = target
 
+    def error_message(self) -> bytes:
+        """The BRK block's message: a zero, the error number, then the text."""
+        start = ERROR_WORKSPACE + 2
+        if ROM_START <= start < 0xC000:
+            block = self.rom
+            base = start - ROM_START
+        else:
+            block = self.ram
+            base = start
+        end = block.find(0, base, base + 0x20)
+        return bytes(block[base:end if end >= 0 else base + 0x20])
+
     def __len__(self):
         return 0x10000
 
@@ -109,6 +135,9 @@ class ElkWiFiMemory:
     def __setitem__(self, address, value):
         address &= 0xFFFF
         value &= 0xFF
+        if ROM_START <= address < 0xC000:
+            self.rom[address - ROM_START] = value
+            return
         if address == 0xFCA6:
             self.address = (self.address & 0xFFFF00) | value
             self._select_address()
@@ -288,9 +317,8 @@ class ElkWiFiOSWORDMachine:
         mpu.sp = stack_pointer
         mpu.stPushWord(RETURN_SENTINEL - 1)
         for _ in range(limit):
-            if mpu.pc == 0x0D90:
-                end = self.memory.ram.find(0, 0x0D92, 0x0DB0)
-                message = bytes(self.memory.ram[0x0D92:end])
+            if mpu.pc == ERROR_WORKSPACE:
+                message = self.memory.error_message()
                 if expected_error is None:
                     raise AssertionError(
                         f"unexpected MOS error: {message.decode('ascii')}"

@@ -3,7 +3,7 @@
 This records the interface for `*UEF CAT`, `*UEF EXTRACT`, `*SSD CAT`,
 `*SSD EXTRACT`, `*SSD LOAD`, `*SSD CLOSE` and the Pi-hosted disc. It is a
 design record, not a description of shipped behaviour: only the decoder in
-`pi-side/pi1mhz-516a267/overlay/src/media_catalogue.c` exists so far.
+`pi-side/pi1mhz/overlay/src/media_catalogue.c` exists so far.
 
 ## Division of work
 

@@ -51,286 +51,30 @@ install -m 0644 "$overlay_dir/version.asm" "$upstream/rom/version.asm"
 install -m 0644 "$overlay_dir/uef.asm" "$upstream/rom/uef.asm"
 install -m 0644 "$overlay_dir/wicfs_messages.asm" "$upstream/rom/wicfs_messages.asm"
 install -m 0644 "$overlay_dir/wicfs_catalogue.asm" "$upstream/rom/wicfs_catalogue.asm"
+# The ordered stack below can only be applied to the reviewed wicfs.asm: every
+# diff assumes the ones before it, and they are zero-context. Restore that one
+# file from the pinned commit first, so the result depends on the patches and
+# the commit alone and not on what a previous run left behind.
+#
+# This replaces 45 hand-written "already applied" tests. Three of them could
+# never be true on a fully patched tree - they tested for equates that a later
+# patch in the same stack deletes again - so the repeat invocation the build
+# procedure documents as a requirement failed on context, and the remaining
+# forty-two were one upstream edit away from the same rot. git apply --check
+# still refuses a patch that does not apply, which is what actually catches a
+# mis-ordered or stale stack.
+git -C "$upstream" checkout "$expected" -- rom/wicfs.asm
+
 for patch_name in wicfs-page-shadow.patch wicfs-osfile-metadata.patch wicfs-host-only.patch wicfs-vector-chain.patch wicfs-osfile-stack.patch wicfs-host-addresses.patch wicfs-reentry-run.patch wicfs-callable-init.patch wicfs-rewind.patch wicfs-long-branches.patch wicfs-zero-length.patch wicfs-cursor-zp.patch wicfs-safe-state.patch wicfs-lifecycle.patch wicfs-jim-state.patch wicfs-vector-entry-state.patch wicfs-jim-atomic.patch wicfs-oscli-prefix.patch wicfs-opt.patch wicfs-private-workspace.patch wicfs-basic-host.patch wicfs-rom-switch.patch wicfs-transactional-state.patch wicfs-stream-checkpoint.patch wicfs-invalid-state.patch wicfs-stream-finish.patch wicfs-pre-tape-predecessor.patch wicfs-bget-exhaustion.patch wicfs-run-return.patch wicfs-run-owner.patch wicfs-dual-predecessor.patch wicfs-native-predecessor.patch wicfs-opt-forward.patch wicfs-chain-target.patch wicfs-vector-flags.patch wicfs-page-select-fast.patch wicfs-incremental-stream.patch wicfs-low-loader-guard.patch wicfs-bget-refill-detection.patch wicfs-reply-buffer-page.patch wicfs-relocatable-guard.patch wicfs-guard-in-jim.patch wicfs-messages-out.patch wicfs-catalogue-out.patch wicfs-mos-equates-out.patch; do
     patch_file="$patch_dir/$patch_name"
-    patch_present=false
-    case "$patch_name" in
-        wicfs-catalogue-out.patch)
-            ! grep -q '^\.prblock' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-mos-equates-out.patch)
-            ! grep -q '^OSWORD' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-messages-out.patch)
-            ! grep -q '^\.txt0' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-guard-in-jim.patch)
-            grep -q 'romsel.*&FD00+jim_page_usable' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-relocatable-guard.patch)
-            grep -q 'guard_kind = wicfs_state_ram' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-reply-buffer-page.patch)
-            grep -q 'lda #uef_first_page' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-mirrored-vectors.patch)
-            grep -q '^\\.wicfs_publish_mirror_vectors' "$upstream/rom/wicfs.asm" &&
-            grep -q '^jim_page_usable' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-page-shadow.patch)
-            grep -q 'FCFF is write-only through AP5/Pi1MHz' "$upstream/rom/wicfs.asm" &&
-            ! grep -q 'inc pagereg.*increment page register' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-osfile-metadata.patch)
-            grep -q '^\\OSFILE metadata return complete' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-host-only.patch)
-            { grep -q '^\\1MHz-bus filing system and must not claim' "$upstream/rom/wicfs.asm" ||
-              grep -q 'Tube is used only as the MOS OSFILE destination' "$upstream/rom/wicfs.asm"; } &&
-            patch_present=true
-            ;;
-        wicfs-vector-chain.patch)
-            grep -Eq '^filev_prev_rom += (&03A0|&03EA|wicfs_state_ram\+5)' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.chain_from_stack' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.xfscv_direct' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-osfile-stack.patch)
-            grep -q 'Keep the OSFILE control-block pointer below the active stack' "$upstream/rom/wicfs.asm" &&
-            { grep -q '^\.upf_a1_not_found' "$upstream/rom/wicfs.asm" ||
-              grep -q "leave the caller's OSFILE block unchanged" "$upstream/rom/wicfs.asm"; } &&
-            patch_present=true
-            ;;
-        wicfs-host-addresses.patch)
-            grep -q 'portable host-memory representation' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-reentry-run.patch)
-            grep -q '^\.upv_rewind_space' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.run_code' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.osb_s' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-callable-init.patch)
-            grep -q '^\.wicfs_install' "$upstream/rom/wicfs.asm" &&
-            grep -q 'return to the command-specific wrapper' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-rewind.patch)
-            grep -q 'reload authoritative UEF length from Pi1MHz JIM and rewind' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-long-branches.patch)
-            grep -q '^\.stl_newuef_ok' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.stl_skip_ok' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-zero-length.patch)
-            grep -q 'zero-byte CFS files have no data byte to fetch' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.ldb_data' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-cursor-zp.patch)
-            grep -Eq '^pr_y    =   (&C7|&03E0)' "$upstream/rom/wicfs.asm" &&
-            grep -Eq '^pr_r    =   (&C8|&03E1)' "$upstream/rom/wicfs.asm" &&
-            grep -q '^fscv_x         = &C9' "$upstream/rom/wicfs.asm" &&
-            grep -Eq '^findv_rtn += (&CB|&03E6|wicfs_state_ram\+1)' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-safe-state.patch)
-            { grep -q '^pr_y    =   &03E0' "$upstream/rom/wicfs.asm" ||
-              grep -Eq '^wicfs_state_ram = (heap\+&E8|&0380)' "$upstream/rom/wicfs.asm"; } &&
-            patch_present=true
-            ;;
-        wicfs-lifecycle.patch)
-            grep -q '^\.wicfs_reset' "$upstream/rom/wicfs.asm" &&
-            grep -Eq '^bget_prev_rom.*(&03ED|wicfs_state_ram\+8)' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-jim-state.patch)
-            grep -Eq '^wicfs_state_ram = (heap\+&E8|&0380)' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_state_load' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-vector-entry-state.patch)
-            grep -q '^chain_exec     = &03A0' "$upstream/rom/wicfs.asm" &&
-            grep -q 'restore state which applications may overwrite' "$upstream/rom/wicfs.asm" &&
-            grep -q 'restore state before any vector forwarding' "$upstream/rom/wicfs.asm" &&
-            grep -q 'restore predecessor FSCV after saving arguments' "$upstream/rom/wicfs.asm" &&
-            { grep -q 'restore lifecycle state on every external entry' "$upstream/rom/wicfs.asm" ||
-              { grep -q '^\.upbgetv_state_valid' "$upstream/rom/wicfs.asm" &&
-                grep -q 'bounded EOF; no persisted transaction per byte' "$upstream/rom/wicfs.asm"; }; } &&
-            patch_present=true
-            ;;
-        wicfs-opt.patch)
-            { { grep -q '^\.upv_opt_default' "$upstream/rom/wicfs.asm" &&
-                grep -q '^\.upv_opt_retry_values' "$upstream/rom/wicfs.asm"; } ||
-              { grep -q 'local \*OPT support follows' "$upstream/rom/wicfs.asm" &&
-                ! grep -q '^\.upv_opt_default' "$upstream/rom/wicfs.asm"; }; } &&
-            patch_present=true
-            ;;
-        wicfs-private-workspace.patch)
-            grep -q '^wicfs_state_ram = &0380' "$upstream/rom/wicfs.asm" &&
-            { { grep -q '^wicfs_state_size = 22' "$upstream/rom/wicfs.asm" &&
-                grep -q '^filev_x =   &0396' "$upstream/rom/wicfs.asm" &&
-                grep -q '^bget_y  =   &03B1' "$upstream/rom/wicfs.asm"; } ||
-              { grep -q '^wicfs_state_size = 17' "$upstream/rom/wicfs.asm" &&
-                grep -q '^wicfs_state_generation = wicfs_state_ram+17' "$upstream/rom/wicfs.asm" &&
-                grep -q '^filev_x =   &0396' "$upstream/rom/wicfs.asm" &&
-                grep -q '^bget_y  =   &03B1' "$upstream/rom/wicfs.asm"; }; } &&
-            patch_present=true
-            ;;
-        wicfs-basic-host.patch)
-            grep -q '^\.upv_basic_match' "$upstream/rom/wicfs.asm" &&
-            grep -Eq 'JMP.*(menu_enter_host_basic|host_enter_basic)' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-rom-switch.patch)
-            grep -q '^chain_machine  *= &C3' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.chain_preselect' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.run_preselect' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-transactional-state.patch)
-            grep -q '^wicfs_record_valid_value = &A5' "$upstream/rom/wicfs.asm" &&
-            grep -Eq '^wicfs_state_generation = (wicfs_state_ram\+17|&C5)' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_state_save_payload' "$upstream/rom/wicfs.asm" &&
-            grep -q '^wicfs_record_payload = 4' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-stream-checkpoint.patch)
-            grep -q '^wicfs_state_size = 22' "$upstream/rom/wicfs.asm" &&
-            grep -q '^wicfs_machine = &C3' "$upstream/rom/wicfs.asm" &&
-            grep -q 'checkpoint cursor before executing loaded code' "$upstream/rom/wicfs.asm" &&
-            grep -q 'checkpoint before a loaded program runs' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-stream-finish.patch)
-            grep -q '^\.wicfs_finish_if_exhausted' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_install_byte_trap' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_any_vector_owned' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_install_check_partial' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_prepare_byte_trap' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_publish_byte_trap' "$upstream/rom/wicfs.asm" &&
-            grep -q 'commit rollback record before publishing hooks' "$upstream/rom/wicfs.asm" &&
-            grep -q 'capture any BYTEV owner installed by service &0F' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_release_invalid_byte_trap' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.uef_run_failed' "$upstream/rom/uef.asm" &&
-            grep -q '^ bcs uef_run_failed' "$upstream/rom/uef.asm" &&
-            grep -q '^\.bUPCFS_installed' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.error_wicfs_state' "$upstream/rom/errors.asm" &&
-            patch_present=true
-            ;;
-        wicfs-pre-tape-predecessor.patch)
-            grep -q '^\.wicfs_snapshot_pre_tape' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_apply_pre_tape' "$upstream/rom/wicfs.asm" &&
-            grep -q 'retain the pre-\*TAPE standard BYTEV as well' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-bget-exhaustion.patch)
-            grep -q 'retire vectors after the final BGET byte' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-run-return.patch)
-            grep -q '^\.run_call' "$upstream/rom/wicfs.asm" &&
-            grep -q 'return through the intact MOS extended-vector frame' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-run-owner.patch)
-            grep -q '^wicfs_pending_run_rom = 13' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.run_owner_ready' "$upstream/rom/wicfs.asm" &&
-            grep -q 'Preserve the displaced cassette FSCV owner separately' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-dual-predecessor.patch)
-            grep -q '^\.wicfs_load_pre_tape' "$upstream/rom/wicfs.asm" &&
-            grep -q 'Keep the cassette predecessors live while WiCFS owns the stream' "$upstream/rom/wicfs.asm" &&
-            grep -q $'^\tSTA\tbytev_rtn+1$' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-native-predecessor.patch)
-            grep -q 'Do not issue filing-system shutdown here' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-opt-forward.patch)
-            ! grep -q '^\.upv_opt_default' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.upv_not_about_to_process' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-chain-target.patch)
-            sed -n '/^\.xfilev$/,/^\.xfilev_direct$/p' "$upstream/rom/wicfs.asm" | grep -q $'^\tLDA\tFILVRTN$' &&
-            sed -n '/^\.xfindv$/,/^\.xfindv_direct$/p' "$upstream/rom/wicfs.asm" | grep -q $'^\tLDA\tfindv_rtn$' &&
-            sed -n '/^\.xfscv$/,/^\.xfscv_direct$/p' "$upstream/rom/wicfs.asm" | grep -q $'^\tLDA\tFSCVRTN$' &&
-            patch_present=true
-            ;;
-        wicfs-vector-flags.patch)
-            grep -q '^\.chain_entry_flags' "$upstream/rom/wicfs.asm" &&
-            grep -q 'saved P precedes the MOS extended-vector frame' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-invalid-state.patch)
-            grep -q '^\.upfilev_state_valid' "$upstream/rom/wicfs.asm" &&
-            grep -q 'bounded OSFILE failure; no predecessor is trusted' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.upbgetv_invalid' "$upstream/rom/wicfs.asm" &&
-            grep -q 'bounded EOF; no persisted transaction per byte' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-jim-atomic.patch)
-            grep -q 'keep bank, page and data read one atomic transaction' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_select_public_page_a' "$upstream/rom/wicfs.asm" &&
-            grep -q 'recover data before the older saved flags below it' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-oscli-prefix.patch)
-            grep -q '^\.upv_about_to_process' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-page-select-fast.patch)
-            grep -q '^\.wicfs_select_public_page_a' "$upstream/rom/wicfs.asm" &&
-            grep -q $'^\tLDA\t#64$' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-incremental-stream.patch)
-            grep -q '^\.wicfs_refill_if_available' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.cfsinit_incremental' "$upstream/rom/wicfs.asm" &&
-            grep -q 'another Pi window remains' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-low-loader-guard.patch)
-            grep -q '^romsel.*&0780.*Tube-off resilient vector guard' "$upstream/rom/wicfs.asm" &&
-            grep -q '^\.wicfs_publish_guards_if_host_only' "$upstream/rom/wicfs.asm" &&
-            grep -q '^ASSERT romsel+(e_guard-s_guard) <= &0800' "$upstream/rom/wicfs.asm" &&
-            patch_present=true
-            ;;
-        wicfs-bget-refill-detection.patch)
-            ! sed -n '/^\.upbgetv/,/^\\=\{20\}/p' "$upstream/rom/wicfs.asm" |
-                grep -q 'JSR[[:space:]]*wicfs_detect_machine' &&
-            sed -n '/^\.fillget/,/^\\-\{20\}/p' "$upstream/rom/wicfs.asm" |
-                grep -q 'Detect it once per 256-byte refill' &&
-            patch_present=true
-            ;;
-    esac
-    if "$patch_present"; then
-        echo "ElkWiFi $patch_name is already applied"
-    else
-        apply_options=()
-        if [[ "$patch_name" = wicfs-*.patch ]]; then
-            # Upstream wicfs.asm uses CRLF. Ignore that whitespace-only
-            # difference so this repository can keep a normal text patch.
-            apply_options+=(--ignore-space-change --ignore-whitespace --unidiff-zero)
-        fi
-        git -C "$upstream" apply --check "${apply_options[@]}" "$patch_file"
-        git -C "$upstream" apply "${apply_options[@]}" "$patch_file"
+    apply_options=()
+    if [[ "$patch_name" = wicfs-*.patch ]]; then
+        # Upstream wicfs.asm uses CRLF. Ignore that whitespace-only
+        # difference so this repository can keep a normal text patch.
+        apply_options+=(--ignore-space-change --ignore-whitespace --unidiff-zero)
     fi
+    git -C "$upstream" apply --check "${apply_options[@]}" "$patch_file"
+    git -C "$upstream" apply "${apply_options[@]}" "$patch_file"
 done
 
 # Replace the patched files with the complete Pi1MHz implementations before
@@ -342,7 +86,7 @@ install -m 0644 "$overlay_dir/wificmd.asm" "$upstream/rom/wificmd.asm"
 install -m 0644 "$overlay_dir/driver.asm" "$upstream/rom/driver.asm"
 install -m 0644 "$overlay_dir/errors.asm" "$upstream/rom/errors.asm"
 install -m 0644 "$overlay_dir/serial.asm" "$upstream/rom/serial.asm"
-install -m 0644 "$overlay_dir/wget_helpers.asm" "$upstream/rom/wget.asm"
+install -m 0644 "$overlay_dir/wget.asm" "$upstream/rom/wget.asm"
 
 # Audit the fully patched source, after every patch and overlay has landed.
 # The checker resolves source equates, so aliases into &03E0-&03FF cannot hide
@@ -368,11 +112,39 @@ fi
 # 1mhz-wicfs.rom carries the filing system, and with it the only inherited
 # file, so that the network ROM can be licensed and shipped on its own.
 labels_file="$upstream/rom/1mhzwifi-labels.json"
-(cd "$upstream/rom" && "$beebasm_command" -i 1mhzwifi.asm -dd -labels "$labels_file")
+# WS_IN_IMAGE=1 is the image Pi1MHz serves: it loads the ROM into sideways
+# RAM, so the workspace lives in the bank and costs the host nothing.
+# WS_HOST_PAGE is unused in that build but beebasm needs every symbol an IF
+# might reach to be defined.
+ws_wifi_page=0x0E
+ws_wicfs_page=0x11
+(cd "$upstream/rom" && "$beebasm_command" -i 1mhzwifi.asm -dd \
+    -D WS_IN_IMAGE=1 -D WS_HOST_PAGE=$((ws_wifi_page)) -labels "$labels_file")
 wicfs_labels_file="$upstream/rom/1mhzwicfs-labels.json"
-(cd "$upstream/rom" && "$beebasm_command" -i 1mhzwicfs.asm -dd -labels "$wicfs_labels_file")
+(cd "$upstream/rom" && "$beebasm_command" -i 1mhzwicfs.asm -dd \
+    -D WS_IN_IMAGE=1 -D WS_HOST_PAGE=$((ws_wicfs_page)) -labels "$wicfs_labels_file")
+
+# WS_IN_IMAGE=0 builds the same sources for a real EPROM. There is no writable
+# image to keep the workspace in, so it is three pages of host RAM claimed
+# from the OS at service call 1. Each image claims a different fixed range so
+# that two of them fitted together do not collide, and PAGE rises by three
+# pages per fitted image - which is why this is a separate build and not the
+# default.
+(cd "$upstream/rom" && "$beebasm_command" -i 1mhzwifi.asm \
+    -D WS_IN_IMAGE=0 -D WS_HOST_PAGE=$((ws_wifi_page)))
+(cd "$upstream/rom" && "$beebasm_command" -i 1mhzwicfs.asm \
+    -D WS_IN_IMAGE=0 -D WS_HOST_PAGE=$((ws_wicfs_page)))
 # The RAM layout audit belongs to the image that installs filing system
 # vectors and persists state, which is now the WiCFS ROM.
+# Every absolute store in the network ROM must land in memory a sideways ROM
+# owns. This is dp111's check, repointed at these sources; it is what catches
+# the class of fault that had this ROM keeping its scratch at &0900, &0A00 and
+# &0D90 - the last of which runs into the extended vector table at &0D9F.
+python3 "$script_dir/check_rom_memory.py" 1mhzwifi.asm
+# The same check for the EPROM build, where the workspace is host RAM claimed
+# at service call 1 rather than part of the image.
+python3 "$script_dir/check_rom_memory.py" 1mhzwifi.asm --eprom
+
 python3 "$script_dir/check_combined_ram_layout.py" "$upstream/rom" \
     "$wicfs_labels_file" "$labels_file"
 mkdir -p "$root_dir/build"
@@ -381,4 +153,10 @@ mkdir -p "$(dirname -- "$rom_output")"
 install -m 0644 "$upstream/rom/1mhz-wifi.rom" "$rom_output"
 wicfs_output=${ELKWIFI_WICFS_ROM_OUTPUT:-"$(dirname -- "$rom_output")/1mhz-wicfs.rom"}
 install -m 0644 "$upstream/rom/1mhz-wicfs.rom" "$wicfs_output"
-sha256sum "$rom_output" "$wicfs_output"
+# The EPROM images sit beside them. Pi1MHz serves the two above; these are for
+# anyone burning a real ROM, and are not part of the SD-card bundle.
+eprom_dir=$(dirname -- "$rom_output")
+install -m 0644 "$upstream/rom/1mhz-wifi-eprom.rom" "$eprom_dir/1mhz-wifi-eprom.rom"
+install -m 0644 "$upstream/rom/1mhz-wicfs-eprom.rom" "$eprom_dir/1mhz-wicfs-eprom.rom"
+sha256sum "$rom_output" "$wicfs_output" \
+    "$eprom_dir/1mhz-wifi-eprom.rom" "$eprom_dir/1mhz-wicfs-eprom.rom"

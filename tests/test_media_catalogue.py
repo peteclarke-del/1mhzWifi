@@ -1,6 +1,6 @@
 """Differential tests for the Pi-side container catalogue.
 
-`pi-side/pi1mhz-516a267/overlay/src/media_catalogue.c` is the decoder that will
+`pi-side/pi1mhz/overlay/src/media_catalogue.c` is the decoder that will
 answer `*UEF CAT`, `*UEF EXTRACT`, `*SSD CAT` and `*SSD EXTRACT`, so the host
 ROM never parses a container itself. `scripts/uef_map.py` is the independently
 written Python decoder already used to qualify the corpus, and it acts as the
@@ -21,7 +21,7 @@ import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-OVERLAY = ROOT / "pi-side/pi1mhz-516a267/overlay/src"
+OVERLAY = ROOT / "pi-side/pi1mhz/overlay/src"
 HARNESS = ROOT / "pi-side/tests/test_media_catalogue.c"
 CORPUS = ROOT / "samples/(2022-06-08)"
 

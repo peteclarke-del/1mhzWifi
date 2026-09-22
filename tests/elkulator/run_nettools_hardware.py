@@ -370,6 +370,15 @@ def main() -> int:
         command.extend(["-ram", "7", "-ram", "6"])
     for slot, path in sorted(profile_roms.items(), reverse=True):
         command.extend(["-rom", str(slot), str(path.resolve())])
+    # Both 1MHz-WiFi images keep their workspace inside their own image, so
+    # the bank each is loaded into has to be writable. In a read-only bank an
+    # image detects that at reset and refuses every command rather than
+    # corrupting host memory, so without this the run fails at the first star
+    # command. Any slot holding one of our images is marked, not just the
+    # default one, because the filing system image can arrive via --extra-rom.
+    for slot, path in sorted(profile_roms.items()):
+        if path.name.startswith("1mhz-"):
+            command.extend(["-ram", str(slot)])
     if args.disc:
         command.extend(["-disc", str(args.disc.resolve())])
     command.extend(["-autokeys", command_script(

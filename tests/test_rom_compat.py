@@ -8,7 +8,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom"
 WICFS_ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom"
-ROM_SHA256 = "7d9523df8d4f1b0e89da1be695beee625a3b5b1d48fae991c339ff8b7f8ae5f1"
+def _recorded_sha256(relative: str) -> str:
+    """The hash SHA256SUMS records for a built artefact.
+
+    Read rather than duplicated. This constant was the third copy of the ROM
+    hash, after SHA256SUMS and build.sh, and rebuilding the ROM left it
+    disagreeing with both.
+    """
+    for line in (ROOT / "SHA256SUMS").read_text().splitlines():
+        digest, _, path = line.partition("  ")
+        if path == relative:
+            return digest
+    raise AssertionError(f"SHA256SUMS does not record {relative}")
+
+
+ROM_SHA256 = _recorded_sha256("build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom")
+WICFS_ROM_SHA256 = _recorded_sha256("build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom")
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -24,6 +39,9 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertEqual(len(self.rom), 16 * 1024)
         if self.rom_path == ROM_PATH:
             self.assertEqual(hashlib.sha256(self.rom).hexdigest(), ROM_SHA256)
+            self.assertEqual(
+                hashlib.sha256(self.wicfs_rom).hexdigest(), WICFS_ROM_SHA256
+            )
         self.assertEqual(
             self.rom[:9], bytes((0, 0, 0, 0x4C, 0x33, 0x80, 0x82, 0x19, 0x30))
         )

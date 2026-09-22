@@ -23,6 +23,21 @@ JIM window, together with the four bytes `machine.asm` documents as the
 contract: the stream length in `sbufl` and `sbufh`, and the cursor in `pr_y`
 and `pr_r`. Either image works with the other absent.
 
+## Relationship to Pi1MHz
+
+Pi1MHz merged this ROM at V1.34 and keeps a copy in `beeb/1mhz-wifi/src`. Most
+files here are byte-identical to it, and `machine.asm` deliberately is, so a
+future rebase is a small diff rather than a reconciliation.
+
+Two differences are deliberate. This tree keeps `*FTP`, because it also ships
+the Pi-side FTP service that Pi1MHz does not have. And upstream builds one
+merged image with `INCLUDE_WICFS`, `INCLUDE_RAMDISK`, `INCLUDE_PDUMP` and
+`HELP_BRIEF` switches, which exist to fit the network ROM and the filing
+system into a single bank; this tree ships two images instead, so both have
+around 5 KB spare and nothing has to be switched off to make room. The switches
+are therefore not carried, and the descriptive `*HELP` is unconditional, which
+is what upstream's own non-merged build uses.
+
 Several sources are compiled into both: `machine.asm`, `util.asm`,
 `errors.asm`, `serial.asm`, `service_driver.asm`, `net_transport.asm` and
 `driver.asm`. Shared code is compiled twice rather than called across banks,
