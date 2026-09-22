@@ -11,10 +11,12 @@ star commands do not repurpose a published ElkWiFi call.
 Cartridge-specific commands are omitted where the required UART, printer port,
 or flash device does not exist.
 
-Pi1MHz V1.30 already provides the bare-metal CYW43/SDIO WiFi stack. This
-project reuses that implementation and adds the missing ElkWiFi-compatible
-host contract; it does not install a second network stack or emulate the
-cartridge UART. The Electron Plus 5 does not forward the original `&FC30` UART
+Pi1MHz provides the bare-metal CYW43/SDIO WiFi stack, and since V1.35 the
+services-mailbox adapter, the UEF tape and the SSH/SFTP service as well: all
+three began here and were merged upstream. This project reuses that
+implementation rather than installing a second network stack or emulating the
+cartridge UART, and what it still adds on the Pi side is the FTP service, the
+container decoder, the FILEV stamp repair and net command 58. The Electron Plus 5 does not forward the original `&FC30` UART
 range to its 1 MHz connector. Pi1MHz already provides a command mailbox in a
 Plus 5 compatible FRED range, so the ROM uses that mailbox as its private
 transport.

@@ -43,7 +43,8 @@ Ordered Pi1MHz patches
     Net command 58: copy received bytes from the service scratch page into
     the public 64K JIM window. Upstream merged the host ROM that calls this
     but not the command, so a stock Pi1MHz answers it with the command byte
-    echoed back. Offer this one upstream.
+    echoed back. Never submitted: PR #20 carried the test stub for it and not
+    the command. First in the queue when the work is offered upstream.
 - wolfssh-pi1mhz.patch
 - wolfssh-sftp-client.patch
     Applied to the wolfSSH checkout, not to Pi1MHz. Our fork already carries
