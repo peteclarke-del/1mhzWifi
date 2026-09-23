@@ -151,6 +151,16 @@ both halves back into line produced the following:
   `1mhz-wifi-eprom.rom` and `1mhz-wicfs-eprom.rom`, alongside the in-image
   pair Pi1MHz serves. Upstream has no equivalent yet, and their own ROM notes
   record the same gap, so this is worth sending them.
+- [ ] Send dp111 the two faults the emulator found in the read-only path,
+  which his copy of the ROM has too: the workspace test sits ahead of the
+  command table search, so the ROM answers for every unrecognised command on
+  the machine, and the error it raises is a `BRK` whose message is inline in
+  the bank and therefore unreadable once the MOS has paged the ROM out. The
+  `*HELP` column padding has the same origin: a ten-character name such as
+  `DISCONNECT` fills the description column and was given no separator at all.
+  He cannot reach the first two, because Pi1MHz only ever serves the image
+  into sideways RAM, but the code is the same and the third is visible in his
+  build today.
 - [ ] The EPROM build claims absolute workspace at a fixed page, which is
   first-come: if a higher-priority ROM has already claimed past `&0E00`, our
   image claims nothing and refuses commands. Private workspace at service call
