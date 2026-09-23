@@ -162,8 +162,12 @@ both halves back into line produced the following:
   into sideways RAM, but the code is the same and the third is visible in his
   build today.
 - [ ] The EPROM build claims absolute workspace at a fixed page, which is
-  first-come: if a higher-priority ROM has already claimed past `&0E00`, our
-  image claims nothing and refuses commands. Private workspace at service call
+  first-come and therefore order-dependent: the network image must sit in a
+  higher-numbered bank than the filing system image, because the MOS services
+  bank 15 downwards and the fixed ranges ascend in that order. Fitted the
+  other way round, or behind any other ROM that has claimed past `&0E00`, the
+  network image claims nothing and declines its commands with the reason on
+  screen. Private workspace at service call
   `&02`, or `&24`/`&22` on the Master where it comes out of hidden RAM and
   leaves PAGE alone, would avoid both the fixed page and the PAGE cost, but
   the address is then only known at run time and all ninety-odd derived
