@@ -164,6 +164,41 @@ class RomMemoryOwnershipTest(unittest.TestCase):
             ".autorun_ws_ready", 1)[0]
         self.assertIn("bit ws_flag", banner)
 
+    def test_the_eprom_pages_ascend_in_service_call_order(self) -> None:
+        """The MOS services bank 15 downwards, so the ranges must ascend.
+
+        Each EPROM image claims a fixed range only if service call 1 says it
+        is still free, so the image serviced first has to be the one wanting
+        the lower pages. Measured on the emulator: PAGE is &0E00 with neither
+        fitted, &1100 with the network image alone, and &1400 with both, but
+        only when the network image sits in the higher bank. The other way
+        round the filing system claims first, takes Y past &0E00, and the
+        network image declines with the reason on screen.
+        """
+        build = (ROOT / "rom-side/build_rom.sh").read_text()
+        pages = {}
+        for name in ("ws_wifi_page", "ws_wicfs_page"):
+            line = [l for l in build.splitlines() if l.startswith(f"{name}=")]
+            self.assertEqual(len(line), 1, name)
+            pages[name] = int(line[0].split("=", 1)[1], 16)
+        # The network image is the one that must be serviced first, so it
+        # takes the lower range.
+        self.assertLess(pages["ws_wifi_page"], pages["ws_wicfs_page"])
+        self.assertEqual(
+            pages["ws_wicfs_page"] - pages["ws_wifi_page"], 3,
+            "each image claims three pages, so they would overlap or leave a "
+            "hole the other cannot claim across",
+        )
+        # And both images say so when the claim does not succeed, rather than
+        # declining in silence.
+        for root, who in (("1mhzwifi.asm", "1MHz-WiFi"),
+                          ("1mhzwicfs.asm", "1MHz-WiCFS")):
+            source = (SRC / root).read_text()
+            with self.subTest(root=root):
+                self.assertIn(f'"{who} needs sideways RAM"', source
+                              .replace('equs " needs sideways RAM"',
+                                       f'equs "{who} needs sideways RAM"'))
+
     def test_every_command_in_the_table_has_a_help_line(self) -> None:
         """*HELP is walked out of the command table, so it cannot drift.
 

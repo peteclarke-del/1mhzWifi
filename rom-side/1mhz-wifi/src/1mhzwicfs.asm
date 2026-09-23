@@ -253,6 +253,17 @@ IF WS_IN_IMAGE = 0
 .autorun_claim_done
 ENDIF
 
+                    \ Say why, once.  Without this the filing system just
+                    \ answers "Bad command" to *UEF and *WICFS and gives the
+                    \ user nothing to go on.  The network image prints the
+                    \ same line under its banner; this one has no banner, so
+                    \ it prints on its own.
+                    bit ws_flag
+                    bmi autorun_ws_ready
+                    jsr printtext
+                    equs "1MHz-WiCFS needs sideways RAM",&D,&EA
+.autorun_ws_ready
+
                     lda BYTEV
                     cmp #<notape
                     bne autorun_released
