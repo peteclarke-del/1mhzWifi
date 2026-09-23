@@ -64,11 +64,43 @@ per fitted image. That cost is why this is a separate build rather than the
 default: it would otherwise be paid on every machine, including the ones where
 the workspace costs nothing at all.
 
+### Fit the network image in the higher bank
+
+The two EPROM images take fixed ranges, and the MOS issues service call 1 from
+bank 15 downwards, so the one serviced first must be the one wanting the lower
+range. That is the network image at `&0E00`, followed by the filing system
+image at `&1100`, which gives PAGE `&1400` with both fitted. Measured, not
+reasoned: PAGE reads `&0E00` with no EPROM image fitted, `&1100` with the
+network image alone, and `&1400` with both in that order.
+
+Fitted the other way round the filing system image claims first and takes Y
+past `&0E00`, so the network image can no longer prove its own range is free
+and claims nothing. It then prints `needs sideways RAM` under its banner and
+declines its commands, which is the safe outcome rather than the right one.
+Both images print that line when their claim does not succeed.
+
 Two things guard the claim. The range is only taken if service call 1 reports
 it still free, and nothing is written when it is not. And because claimed host
 RAM is not owned the way an image is, a two-byte signature is stamped beside
 the flag and checked on every command, so workspace another ROM has since
 taken is refused rather than used.
+
+## What happens when the workspace is not there
+
+The command entry declines the service call: A is left at 4 and nothing is
+pushed, so the MOS carries on offering the command to lower-priority ROMs and
+reports `Bad command` if nobody takes it. The reason is printed once at reset,
+under the banner, as `1MHz-WiFi 0.1.67 needs sideways RAM`.
+
+It raised an error at first, which the emulator showed to be wrong twice over.
+The test sits ahead of the command table search, so the ROM answered for every
+unrecognised command on the machine rather than only its own, and `*DISC` with
+no DFS fitted stopped working. And the error was a `BRK` with its message
+inline in the bank, which the MOS cannot read back once it has paged the ROM
+out: the screen filled with whatever the incoming ROM held at those addresses,
+which on an Electron is BASIC's keyword table. Both faults are in the upstream
+copy of this ROM as well, because upstream is only ever served into sideways
+RAM and so never reaches the path.
 
 
 ## Building

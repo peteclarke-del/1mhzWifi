@@ -60,8 +60,7 @@ class RomMemoryOwnershipTest(unittest.TestCase):
             source = (SRC / root).read_text()
             with self.subTest(root=root):
                 self.assertIn("bit ws_flag", source)
-                self.assertIn("jmp no_swr_error", source)
-                self.assertIn("needs sideways RAM", source)
+                self.assertIn("command_declined", source)
                 # The probe writes both a value and its complement, so a bus
                 # that floats high cannot pass it.
                 self.assertIn("lda #&A5", source)
@@ -117,6 +116,88 @@ class RomMemoryOwnershipTest(unittest.TestCase):
             abs(pages["ws_wicfs_page"] - pages["ws_wifi_page"]), 3,
             "each image claims three pages, so the two ranges would overlap",
         )
+
+    def test_a_long_command_name_is_still_separated_from_its_help(self) -> None:
+        """*DISCONNECT is ten characters and fills the description column.
+
+        The walk pads a name out to column eleven and then prints the
+        description. A name that already reaches that column was given no
+        padding at all, so the emulator showed
+        "DISCONNECTClose the connection". Names this long are rare, which is
+        why the source list it replaced never hit it.
+        """
+        for root in ("1mhzwifi.asm", "1mhzwicfs.asm"):
+            source = (SRC / root).read_text()
+            with self.subTest(root=root):
+                pad = source.split(".phd_pad", 1)[1].split(".phd_desc", 1)[0]
+                self.assertIn("bcc phd_pad_one", pad)
+                self.assertEqual(
+                    pad.count("jsr OSWRCH"), 2,
+                    "one space for a name that fills the column, and the "
+                    "padding loop for one that does not",
+                )
+
+    def test_no_command_entry_raises_an_error_from_the_bank(self) -> None:
+        """A BRK cannot carry its message inline in a sideways ROM.
+
+        The MOS pages the ROM out before reading the error text back, so the
+        message came from whatever ROM was paged in instead: on an Electron
+        that is BASIC, and the screen filled with its keyword table. The entry
+        declines the service call instead, which also stops it answering for
+        every unrecognised command on the machine rather than only this ROM's.
+        """
+        for root in ("1mhzwifi.asm", "1mhzwicfs.asm"):
+            source = (SRC / root).read_text()
+            with self.subTest(root=root):
+                self.assertNotIn("no_swr_error", source)
+                entry = source.split("\n.command ", 1)[1].split(
+                    ".command_have_ws", 1)[0]
+                self.assertIn("command_declined", entry)
+                self.assertNotRegex(entry, r"(?m)^\s+brk\b")
+                declined = entry.split(".command_declined", 1)[1]
+                self.assertIn("lda #4", declined)
+                self.assertIn("rts", declined)
+        # And the reason is stated once at reset, where the text is readable.
+        wifi = (SRC / "1mhzwifi.asm").read_text()
+        self.assertIn("needs sideways RAM", wifi)
+        banner = wifi.split('equs "1MHz-WiFi 0.1.67"', 1)[1].split(
+            ".autorun_ws_ready", 1)[0]
+        self.assertIn("bit ws_flag", banner)
+
+    def test_the_eprom_pages_ascend_in_service_call_order(self) -> None:
+        """The MOS services bank 15 downwards, so the ranges must ascend.
+
+        Each EPROM image claims a fixed range only if service call 1 says it
+        is still free, so the image serviced first has to be the one wanting
+        the lower pages. Measured on the emulator: PAGE is &0E00 with neither
+        fitted, &1100 with the network image alone, and &1400 with both, but
+        only when the network image sits in the higher bank. The other way
+        round the filing system claims first, takes Y past &0E00, and the
+        network image declines with the reason on screen.
+        """
+        build = (ROOT / "rom-side/build_rom.sh").read_text()
+        pages = {}
+        for name in ("ws_wifi_page", "ws_wicfs_page"):
+            line = [l for l in build.splitlines() if l.startswith(f"{name}=")]
+            self.assertEqual(len(line), 1, name)
+            pages[name] = int(line[0].split("=", 1)[1], 16)
+        # The network image is the one that must be serviced first, so it
+        # takes the lower range.
+        self.assertLess(pages["ws_wifi_page"], pages["ws_wicfs_page"])
+        self.assertEqual(
+            pages["ws_wicfs_page"] - pages["ws_wifi_page"], 3,
+            "each image claims three pages, so they would overlap or leave a "
+            "hole the other cannot claim across",
+        )
+        # And both images say so when the claim does not succeed, rather than
+        # declining in silence.
+        for root, who in (("1mhzwifi.asm", "1MHz-WiFi"),
+                          ("1mhzwicfs.asm", "1MHz-WiCFS")):
+            source = (SRC / root).read_text()
+            with self.subTest(root=root):
+                self.assertIn(f'"{who} needs sideways RAM"', source
+                              .replace('equs " needs sideways RAM"',
+                                       f'equs "{who} needs sideways RAM"'))
 
     def test_every_command_in_the_table_has_a_help_line(self) -> None:
         """*HELP is walked out of the command table, so it cannot drift.
