@@ -70,6 +70,23 @@ RAM is not owned the way an image is, a two-byte signature is stamped beside
 the flag and checked on every command, so workspace another ROM has since
 taken is refused rather than used.
 
+## What happens when the workspace is not there
+
+The command entry declines the service call: A is left at 4 and nothing is
+pushed, so the MOS carries on offering the command to lower-priority ROMs and
+reports `Bad command` if nobody takes it. The reason is printed once at reset,
+under the banner, as `1MHz-WiFi 0.1.67 needs sideways RAM`.
+
+It raised an error at first, which the emulator showed to be wrong twice over.
+The test sits ahead of the command table search, so the ROM answered for every
+unrecognised command on the machine rather than only its own, and `*DISC` with
+no DFS fitted stopped working. And the error was a `BRK` with its message
+inline in the bank, which the MOS cannot read back once it has paged the ROM
+out: the screen filled with whatever the incoming ROM held at those addresses,
+which on an Electron is BASIC's keyword table. Both faults are in the upstream
+copy of this ROM as well, because upstream is only ever served into sideways
+RAM and so never reaches the path.
+
 
 ## Building
 
