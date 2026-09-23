@@ -70,18 +70,39 @@ include "machine.asm"
 \ with no name terminates the table. Every BNE after an INX stands in for a
 \ JMP, since X only returns to zero if the table passes 256 bytes.
 
-.command            bit ws_flag                 \ no writable workspace, no
-                    bpl command_no_ws           \ commands: every handler
-IF WS_IN_IMAGE = 0                              \ scribbles on it.  Claimed
-                    lda ws_signature            \ host RAM needs more than
-                    cmp #ws_signature_lo        \ one byte of evidence that
-                    bne command_no_ws           \ it is still ours, so the
-                    lda ws_signature+1          \ signature autorun stamped
-                    cmp #ws_signature_hi        \ is checked as well.
-                    bne command_no_ws
+\ Without a writable workspace every handler below would scribble on memory
+\ this ROM does not own, so none of them may run.  Decline the service call
+\ rather than raising an error: A is still 4 and nothing has been pushed, so
+\ the MOS carries on offering the command to lower-priority ROMs and reports
+\ "Bad command" if nobody takes it.
+\
+\ Raising an error here instead, which is what this did first, was wrong
+\ twice over.  The test runs before the command table is searched, so it
+\ answered for every unrecognised command on the machine and not just this
+\ ROM's, which broke other ROMs' commands and the MOS's own.  And the error
+\ was a BRK with its message inline in the bank, which the MOS cannot read
+\ back once it has paged this ROM out: the screen filled with whatever the
+\ incoming ROM had at those addresses, which on an Electron is BASIC's
+\ keyword table.  The reason is printed once at reset instead, where OSWRCH
+\ works and the text is addressable.
+.command            bit ws_flag
+                    bpl command_declined
+IF WS_IN_IMAGE = 0
+                    \ Claimed host RAM is not ours the way an image is: the
+                    \ flag alone would be a single byte of uninitialised RAM
+                    \ that could read back as set, so the signature autorun
+                    \ stamped beside it is checked as well.
+                    lda ws_signature
+                    cmp #ws_signature_lo
+                    bne command_declined
+                    lda ws_signature+1
+                    cmp #ws_signature_hi
+                    bne command_declined
+                    lda #4                      \ the compares clobbered A
 ENDIF
                     jmp command_have_ws
-.command_no_ws      jmp no_swr_error
+.command_declined   lda #4                      \ unclaimed: pass it on
+                    rts
 .command_have_ws    tya
                     pha
                     txa
@@ -232,6 +253,17 @@ IF WS_IN_IMAGE = 0
 .autorun_claim_done
 ENDIF
 
+                    \ Say why, once.  Without this the filing system just
+                    \ answers "Bad command" to *UEF and *WICFS and gives the
+                    \ user nothing to go on.  The network image prints the
+                    \ same line under its banner; this one has no banner, so
+                    \ it prints on its own.
+                    bit ws_flag
+                    bmi autorun_ws_ready
+                    jsr printtext
+                    equs "1MHz-WiCFS needs sideways RAM",&D,&EA
+.autorun_ws_ready
+
                     lda BYTEV
                     cmp #<notape
                     bne autorun_released
@@ -325,9 +357,16 @@ ENDIF
                     sta help_tbl
                     bcc phd_pad
                     inc help_tbl+1
-.phd_pad            cpx #11                     \ line up the descriptions
-                    bcs phd_desc
+\ Line the descriptions up at column 11.  A name that already reaches it
+\ gets a single space instead of none: *DISCONNECT is ten characters, which
+\ with the leading space fills the column exactly, and without this its
+\ description ran straight into the name as "DISCONNECTClose the connection".
+.phd_pad            cpx #11
+                    bcc phd_pad_one
                     lda #' '
+                    jsr OSWRCH
+                    bne phd_desc                \ always: A is a space
+.phd_pad_one        lda #' '
                     jsr OSWRCH
                     inx
                     bne phd_pad
@@ -371,14 +410,6 @@ include "wicfs_messages.asm"   \ after wicfs.asm, which defines cr
 include "wicfs_catalogue.asm"
 include "uef.asm"
 include "host_launch.asm"
-
-\ Raised when the image is not writable - burnt into a real ROM rather than
-\ loaded into sideways RAM.  The workspace this ROM needs lives in the image,
-\ so there is nowhere to put it; say so instead of corrupting host memory.
-.no_swr_error       brk
-                    equb &80
-                    equs "1MHz-WiCFS needs sideways RAM"
-                    equb 0
 
 rom_content_end = P%
 IF WS_IN_IMAGE

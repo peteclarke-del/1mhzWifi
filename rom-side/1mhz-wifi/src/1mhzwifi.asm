@@ -79,18 +79,39 @@ include "machine.asm"
 \ matched text, which is where every handler expects to start reading its
 \ arguments.
 
-.command            bit ws_flag                 \ no writable workspace, no
-                    bpl command_no_ws           \ commands: every handler
-IF WS_IN_IMAGE = 0                              \ scribbles on it.  Claimed
-                    lda ws_signature            \ host RAM needs more than
-                    cmp #ws_signature_lo        \ one byte of evidence that
-                    bne command_no_ws           \ it is still ours, so the
-                    lda ws_signature+1          \ signature autorun stamped
-                    cmp #ws_signature_hi        \ is checked as well.
-                    bne command_no_ws
+\ Without a writable workspace every handler below would scribble on memory
+\ this ROM does not own, so none of them may run.  Decline the service call
+\ rather than raising an error: A is still 4 and nothing has been pushed, so
+\ the MOS carries on offering the command to lower-priority ROMs and reports
+\ "Bad command" if nobody takes it.
+\
+\ Raising an error here instead, which is what this did first, was wrong
+\ twice over.  The test runs before the command table is searched, so it
+\ answered for every unrecognised command on the machine and not just this
+\ ROM's, which broke other ROMs' commands and the MOS's own.  And the error
+\ was a BRK with its message inline in the bank, which the MOS cannot read
+\ back once it has paged this ROM out: the screen filled with whatever the
+\ incoming ROM had at those addresses, which on an Electron is BASIC's
+\ keyword table.  The reason is printed once at reset instead, where OSWRCH
+\ works and the text is addressable.
+.command            bit ws_flag
+                    bpl command_declined
+IF WS_IN_IMAGE = 0
+                    \ Claimed host RAM is not ours the way an image is: the
+                    \ flag alone would be a single byte of uninitialised RAM
+                    \ that could read back as set, so the signature autorun
+                    \ stamped beside it is checked as well.
+                    lda ws_signature
+                    cmp #ws_signature_lo
+                    bne command_declined
+                    lda ws_signature+1
+                    cmp #ws_signature_hi
+                    bne command_declined
+                    lda #4                      \ the compares clobbered A
 ENDIF
                     jmp command_have_ws
-.command_no_ws      jmp no_swr_error
+.command_declined   lda #4                      \ unclaimed: pass it on
+                    rts
 .command_have_ws    tya                         \ A on exit belongs to the
                     pha                         \ handler, so only X and Y are
                     txa                         \ saved here
@@ -250,13 +271,29 @@ ENDIF
                     \ runs with another ROM's page possibly selected, and every
                     \ command selects its own page when it starts.
                     lda #&D7                    \ suppress the default banner
-                    ldx #0
-                    stx mux_status              \ no connection multiplexing yet
                     ldy #&7F
                     jsr osbyte
+                    \ Only once the workspace is known to be ours: in a
+                    \ read-only bank this store goes nowhere, and in the
+                    \ EPROM build with a refused claim it would land in
+                    \ another ROM's pages.
+                    bit ws_flag
+                    bpl autorun_no_mux
+                    ldx #0
+                    stx mux_status              \ no connection multiplexing yet
+.autorun_no_mux
 
                     jsr printtext
                     equs "1MHz-WiFi 0.1.67",&EA
+
+                    \ Say why, once, if the workspace is not there.  The
+                    \ command entry only declines; without this the machine
+                    \ would answer "Bad command" with no explanation.
+                    bit ws_flag
+                    bmi autorun_ws_ready
+                    jsr printtext
+                    equs " needs sideways RAM",&D,&EA
+.autorun_ws_ready
 
                     ldy #&FF                    \ OSBYTE &FD: last reset type
                     ldx #&00
@@ -376,9 +413,16 @@ ENDIF
                     sta help_tbl
                     bcc phd_pad
                     inc help_tbl+1
-.phd_pad            cpx #11                     \ line up the descriptions
-                    bcs phd_desc
+\ Line the descriptions up at column 11.  A name that already reaches it
+\ gets a single space instead of none: *DISCONNECT is ten characters, which
+\ with the leading space fills the column exactly, and without this its
+\ description ran straight into the name as "DISCONNECTClose the connection".
+.phd_pad            cpx #11
+                    bcc phd_pad_one
                     lda #' '
+                    jsr OSWRCH
+                    bne phd_desc                \ always: A is a space
+.phd_pad_one        lda #' '
                     jsr OSWRCH
                     inx
                     bne phd_pad
@@ -476,16 +520,6 @@ include "ftp.asm"
 include "ping.asm"
 include "nslook.asm"
 include "ramdisk.asm"
-
-\ Raised when the image is not writable - burnt into a real ROM rather than
-\ loaded into sideways RAM.  The workspace this ROM needs lives in the image,
-\ so there is nowhere to put it; say so instead of corrupting host memory.
-\ (A real-ROM build wants the workspace claimed from the OS at service call
-\ &02, or &24/&22 on the Master: see TODO.md.)
-.no_swr_error       brk
-                    equb &80
-                    equs "1MHz-WiFi needs sideways RAM"
-                    equb 0
 
 rom_content_end = P%
 IF WS_IN_IMAGE

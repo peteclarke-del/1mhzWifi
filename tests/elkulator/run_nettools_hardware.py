@@ -376,8 +376,11 @@ def main() -> int:
     # corrupting host memory, so without this the run fails at the first star
     # command. Any slot holding one of our images is marked, not just the
     # default one, because the filing system image can arrive via --extra-rom.
+    # The -eprom images are the exception and must stay in a read-only bank:
+    # they are built for a burnt ROM and claim their workspace from the OS at
+    # service call 1, so giving them a writable bank would test neither build.
     for slot, path in sorted(profile_roms.items()):
-        if path.name.startswith("1mhz-"):
+        if path.name.startswith("1mhz-") and "-eprom" not in path.name:
             command.extend(["-ram", str(slot)])
     if args.disc:
         command.extend(["-disc", str(args.disc.resolve())])
