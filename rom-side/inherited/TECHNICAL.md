@@ -72,7 +72,9 @@ menu patcher and the corresponding Pi cache. Generic HTTP and UEF behavior is
 unchanged. ROM 0.1.64 makes ordinary `*WGET <url> <filename>` write through
 MOS OSFIND and OSBPUT to the active filing system. JIM output is retained only
 for the explicit `-U` and `-S` modes consumed by WiCFS and sideways RAM.
-ROM 0.1.65 adds interactive FTP commands 114 to 119. The Pi owns both sockets;
+ROM 0.1.65 adds interactive FTP commands, first 114 to 119 and since the
+rebase onto Pi1MHz 143f43e 128 to 133, because Pi1MHz 926a670 gave 114 to
+119 to its FujiNet device. The Pi owns both sockets;
 the ROM moves local bytes only through OSFIND, OSBGET and OSBPUT. The fixed
 private JIM scratch address contains at most 240 bytes and is never interpreted
 as a host or Tube address.

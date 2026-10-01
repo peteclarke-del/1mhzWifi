@@ -3,11 +3,12 @@ import os
 import re
 import unittest
 from pathlib import Path
+from rom_source import ROM_SRC
 
 
 ROOT = Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom"
-WICFS_ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom"
+WICFS_ROM_PATH = ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wicfs-only.rom"
 def _recorded_sha256(relative: str) -> str:
     """The hash SHA256SUMS records for a built artefact.
 
@@ -23,7 +24,7 @@ def _recorded_sha256(relative: str) -> str:
 
 
 ROM_SHA256 = _recorded_sha256("build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom")
-WICFS_ROM_SHA256 = _recorded_sha256("build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom")
+WICFS_ROM_SHA256 = _recorded_sha256("build/pi1mhz-all/Pi1MHz/1mhz-wicfs-only.rom")
 
 
 class RomCompatibilityTest(unittest.TestCase):
@@ -55,7 +56,7 @@ class RomCompatibilityTest(unittest.TestCase):
     def test_uef_host_transition_is_present(self) -> None:
         self.assertIn(b"TAPE\r", self.wicfs_rom)
         source = (
-            ROOT / "rom-side/1mhz-wifi/src/host_launch.asm"
+            ROM_SRC / "host_launch.asm"
         ).read_text()
         self.assertIn(".host_select_tape", source)
         self.assertIn("jsr wicfs_snapshot_pre_tape", source)
@@ -140,12 +141,14 @@ class RomCompatibilityTest(unittest.TestCase):
 
     def test_supported_commands_and_osword_are_present(self) -> None:
         for command in (
-            b"WGET", b"FTP", b"WIFI", b"VERSION", b"LAPOPT",
+            b"WGET", b"WIFI", b"VERSION", b"LAPOPT",
             b"LAP", b"IFCFG", b"DATE", b"TIME", b"PRD", b"JOIN", b"LEAVE",
             b"PING", b"NSLOOK", b"MODE", b"ONLINE", b"DISCONNECT",
             b"RDINIT", b"RDCAT", b"RDLOAD", b"RDSAVE", b"RDRUN",
         ):
             self.assertIn(command, self.rom)
+        # *FTP is built only with INCLUDE_FTP=1, which is off.
+        self.assertNotIn(b"FTP", self.rom)
         # The filing system commands are in the filing system image, and must
         # not appear in the network one.
         for command in (
@@ -175,7 +178,8 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertIn(b"*QUPRUN\r", self.wicfs_rom)
         self.assertIn(b"*REWIND\rCHAIN \"\"\r", self.wicfs_rom)
         self.assertNotIn(b"*QUPRUN\r*REWIND", self.wicfs_rom)
-        self.assertIn(b"USER PASS PWD CD DIR LS GET PUT", self.rom)
+        # The FTP client's help text goes with it while INCLUDE_FTP is off.
+        self.assertNotIn(b"USER PASS PWD CD DIR LS GET PUT", self.rom)
 
     def test_public_osword_driver_abi_reaches_single_socket_transport(self) -> None:
         # The emitted OSWORD &65 handler must unpack driver A/X/Y from the
@@ -185,9 +189,9 @@ class RomCompatibilityTest(unittest.TestCase):
             "C8 B1 F0 AA C8 B1 F0 A8 68 20"
         ), self.rom)
 
-        driver = (ROOT / "rom-side/1mhz-wifi/src/driver.asm").read_text()
-        service = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
-        serial = (ROOT / "rom-side/1mhz-wifi/src/serial.asm").read_text()
+        driver = (ROM_SRC / "driver.asm").read_text()
+        service = (ROM_SRC / "service_driver.asm").read_text()
+        serial = (ROM_SRC / "serial.asm").read_text()
         table = driver.split(".public_driver_dispatch", 1)[1].split(
             "\\ Initialize the data buffer", 1
         )[0]
@@ -224,25 +228,25 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertGreaterEqual(service.count("jsr service_driver_read_a"), 3)
         self.assertGreaterEqual(service.count("jsr service_driver_wait_cursor"), 3)
 
-        # Electron errorspace is &0100, the CPU hardware stack. A deep public
-        # OSWORD caller such as ElkChat will have live return addresses there.
-        # Error construction and driver state must remain in the retired
-        # netprt block.
-        ping = (ROOT / "rom-side/1mhz-wifi/src/ping.asm").read_text()
-        nslook = (ROOT / "rom-side/1mhz-wifi/src/nslook.asm").read_text()
-        errors = (ROOT / "rom-side/1mhz-wifi/src/errors.asm").read_text()
+        # Driver state stays in the netprt block inside the image. The error
+        # block does not: the language reads it after the MOS has paged this
+        # ROM out, so Pi1MHz 2f5ca7a builds it at &0100, below the live stack,
+        # as Acorn's own ROMs do. errorspace+ offsets are still not used.
+        ping = (ROM_SRC / "ping.asm").read_text()
+        nslook = (ROM_SRC / "nslook.asm").read_text()
+        errors = (ROM_SRC / "errors.asm").read_text()
         self.assertNotIn("errorspace+", service)
         self.assertNotIn("errorspace+", ping)
         self.assertNotIn("errorspace+", nslook)
         self.assertNotIn("errorspace", errors)
-        self.assertIn("error_workspace = netprt", errors)
+        self.assertIn("error_workspace = &0100", errors)
         self.assertIn("drv_svc_workspace = netprt", service)
         self.assertIn("drv_net_ip = drv_svc_workspace+15", service)
         self.assertIn("driver_page_shadow = drv_svc_workspace+19", driver)
         self.assertIn("driver_machine = drv_svc_workspace+20", driver)
 
-        transport = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
-            ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
+        transport = (ROM_SRC / "net_wget.asm").read_text() + (
+            ROM_SRC / "net_transport.asm").read_text()
         self.assertIn("net_cursor_lo = drv_svc_workspace+21", transport)
         self.assertIn("net_empty_lo = drv_svc_workspace+24", transport)
         self.assertIn(".net_wait_cursor", transport)
@@ -283,7 +287,7 @@ class RomCompatibilityTest(unittest.TestCase):
         self.assertNotIn(b"ACORNELECTRON.NL/uefarchive/MENU", self.rom)
 
     def test_join_uses_the_long_async_service_timeout(self) -> None:
-        source = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
+        source = (ROM_SRC / "service_driver.asm").read_text()
         self.assertIn("cmp #drv_svc_join", source)
 
     def test_startup_does_not_probe_legacy_uart_or_reset_pi_service(self) -> None:

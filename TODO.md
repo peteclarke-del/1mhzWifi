@@ -7,7 +7,7 @@ Pi1MHz implementation pass. Hardware proving is tracked separately in
 ## Complete in this build
 
 - [x] Bare-metal Pi1MHz service integration on reviewed upstream commit
-  `4c54d8118f632465f31ecb72dcc37b4833c2507a` (V1.35). That release merged the
+  `143f43e88a40cef5d1b1381d2621449492aedf37` (after V1.36). V1.35 merged the
   WiFi, UEF and secure services this project used to supply, so the
   integration is now three patches and two sources rather than a fork of half
   the service layer. `make test-pi-integration` applies it to the pinned
@@ -118,6 +118,29 @@ agreed route, so the fork and its two patches stay until wolfSSH's own fix
 ships, and anything further we need from them goes as a bug report rather than
 a pull request.
 
+## Carried after the rebase onto Pi1MHz 143f43e
+
+The host ROM is now built from Pi1MHz's `beeb/1mhz-wifi` with this project's
+patches applied, rather than from a copy kept here. That took in four ROM
+fixes dp111 had made and this project's copy lacked: errors built at `&0100`
+so they print, `*WGET <url> <file>` handing OSFIND a name it can read,
+`*WGET -S` actually copying, and the file created before the URL is opened.
+
+- [x] `1mhz-wicfs.rom` is Pi1MHz's merged image again, built from upstream's
+  sources with this project's patches, and the SD-card bundle installs it for
+  helper 16. The filing-system-only image is `1mhz-wicfs-only.rom`.
+- [ ] `*FTP` is built only with `INCLUDE_FTP=1`, and is off. It costs 1,295
+  bytes and the merged image has 268 free; it fits with `INCLUDE_RAMDISK=0`.
+  Ask dp111 whether it belongs in his image and what gives way for it.
+- [ ] The hardware-test bundle and its kernels predate this rebase. Rebuild
+  both from `143f43e` and record the new checksums.
+- [ ] `read-only-bank.patch` and `help-long-name.patch` fix faults in
+  upstream's ROM that upstream cannot reach from sideways RAM or has not
+  noticed. Offer them to dp111 when Peter says the work is ready.
+- [ ] FTP moved from service commands 114 to 119, which Pi1MHz `926a670`
+  gave to its FujiNet device, to 128 to 133. 120 to 127 stay held for the
+  media service. Neither range is agreed with dp111.
+
 ## Carried after the Pi1MHz V1.35 rebase
 
 Pi1MHz V1.35 merged this project's WiFi service, UEF tape and SSH/SFTP
@@ -127,8 +150,11 @@ both halves back into line produced the following:
 - [ ] Upstream merged the host ROM at V1.34, and that ROM calls net command
   58 to have the Pi place received bytes straight into the public 64K JIM
   window. Upstream's `net_service.c` has no handler for 58, so on a stock
-  Pi1MHz the dispatcher echoes the command byte back and the ROM falls back
-  to copying every byte through `&FCA9` itself.
+  Pi1MHz the dispatcher answers `NET_ERR_UNSUPPORTED` and the ROM falls back
+  to copying every byte through `&FCA9` itself. Nothing is broken by its
+  absence; 58 is the fast path. (This entry used to say the dispatcher echoed
+  the command byte back, which was wrong: the default case returns
+  `NET_ERR_UNSUPPORTED`, and the ROM tests for exactly that.)
 
   This was never offered. PR #20 carried the `COPY_PUBLIC_NONZERO_ONLY` test
   stub but not the command, which is why upstream has the stub and no handler,
@@ -646,9 +672,11 @@ FILEV, FINDV and FSCV still point into it. See the gateway location study in
   requirements did one or the other. The cassette rendering, the `!BOOT` exec
   launch, the `*SSD` command, the media service mailbox binding and their tests
   are removed, and the ROM rebuilds byte for byte to the pinned `720a180d`.
-  What was kept is what serves UEF: `media_catalogue.c`, which decodes CFS and
-  now also hosts `uef_repair_filev_stamp` so the Pi and the emulator share one
-  implementation, and the literal-path staging in `make_uef_lun.py`.
+  What was kept is what serves UEF: `media_catalogue.c`, which decodes CFS,
+  `uef_repair.c`, which holds the FILEV stamp repair so the Pi and the
+  emulator share one implementation, and the literal-path staging in
+  `make_uef_lun.py`. The repair began inside `media_catalogue.c` and moved to
+  its own file so it can be offered upstream without the decoder.
   `media_service_core.c` stays staged and unlinked, as it was before, because
   its catalogue and extract session has no caller.
 - [ ] Check whether BeebSCSI already meets the original goal without any ROM

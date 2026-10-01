@@ -1,0 +1,175 @@
+WS_IN_IMAGE=0: the same sources as a real EPROM.
+
+Upstream keeps the workspace inside the image, which needs sideways RAM. With
+WS_IN_IMAGE=0 the three workspace bases point at host RAM claimed at service
+call 1 instead (&0E00 for this ROM), guarded by a signature so unclaimed or
+reclaimed RAM is refused. The image is saved as 1mhz-wifi-eprom.rom.
+Applies after read-only-bank.patch, whose command_declined it uses.
+
+diff --git a/1mhzwifi.asm b/1mhzwifi.asm
+index 1fad52f..96eed98 100644
+--- a/1mhzwifi.asm
++++ b/1mhzwifi.asm
+@@ -96,6 +96,19 @@ include "machine.asm"
+ \ works and the text is addressable.
+ .command            bit ws_flag
+                     bpl command_declined
++IF WS_IN_IMAGE = 0
++                    \ Claimed host RAM is not ours the way an image is: the
++                    \ flag alone would be a single byte of uninitialised RAM
++                    \ that could read back as set, so the signature autorun
++                    \ stamped beside it is checked as well.
++                    lda ws_signature
++                    cmp #ws_signature_lo
++                    bne command_declined
++                    lda ws_signature+1
++                    cmp #ws_signature_hi
++                    bne command_declined
++                    lda #4                      \ the compares clobbered A
++ENDIF
+                     jmp command_have_ws
+ .command_declined   lda #4                      \ unclaimed: pass it on
+                     rts
+@@ -190,11 +203,35 @@ include "machine.asm"
+ \ 3 before this one sees it. The MOS banner is suppressed and replaced, so the
+ \ machine reports one identity rather than two.
+ 
+-.autorun            tya
++.autorun
++IF WS_IN_IMAGE = 0
++                    \ Service call 1 hands the first free page of absolute
++                    \ workspace in Y. This image needs a fixed range, because
++                    \ every workspace reference in it is an absolute address,
++                    \ so it can only take that range if nothing claimed
++                    \ earlier has already reached past the start of it. When
++                    \ it can, it raises Y over the pages it takes; when it
++                    \ cannot, it claims nothing and leaves the signature
++                    \ below unwritten, so the command entry refuses rather
++                    \ than writing into another ROM's workspace.
++                    cpy #WS_HOST_PAGE
++                    beq autorun_may_claim
++                    bcc autorun_may_claim
++                    clc                         \ carry clear: not ours
++                    bcc autorun_claim_decided   \ always
++.autorun_may_claim  ldy #ws_host_end            \ raise Y over our pages
++                    sec                         \ carry set: claimed
++.autorun_claim_decided
++ENDIF
++                    tya
+                     pha
+                     txa
+                     pha
+ 
++IF WS_IN_IMAGE = 0
++                    bcc autorun_claim_done      \ nothing claimed, touch none
++ENDIF
++
+                     \ Is the image writable?  Pi1MHz loads this ROM into
+                     \ sideways RAM, where the workspace above the code is
+                     \ ours to use.  Burnt into a real ROM the writes would go
+@@ -217,6 +254,19 @@ include "machine.asm"
+                     sta ws_flag                 \ can test it with BIT/BMI
+ .autorun_read_only  pla
+                     sta ws_base
++IF WS_IN_IMAGE = 0
++                    \ Claimed host RAM is not ours the way an image is: the
++                    \ flag alone would be a single byte of uninitialised RAM
++                    \ that could read back as set. Stamp a signature beside
++                    \ it and have the command entry check both, so workspace
++                    \ this image never claimed, or that another ROM has since
++                    \ taken, is refused instead of used.
++                    lda #ws_signature_lo
++                    sta ws_signature
++                    lda #ws_signature_hi
++                    sta ws_signature+1
++.autorun_claim_done
++ENDIF
+ 
+ 
+                     \ Nothing here may touch the AP5 JIM selector: the ROM scan
+@@ -226,7 +276,9 @@ include "machine.asm"
+                     ldy #&7F
+                     jsr osbyte
+                     \ Only once the workspace is known to be ours: in a
+-                    \ read-only bank this store goes nowhere.
++                    \ read-only bank this store goes nowhere, and in the
++                    \ EPROM build with a refused claim it would land in
++                    \ another ROM's pages.
+                     bit ws_flag
+                     bpl autorun_no_mux
+                     ldx #0
+@@ -584,6 +636,7 @@ include "host_launch.asm"
+ ENDIF
+ 
+ rom_content_end = P%
++IF WS_IN_IMAGE
+ ASSERT rom_content_end <= ws_base
+ 
+ \ ---------------------------------------------------------------------------
+@@ -597,6 +650,11 @@ skipto ws_base
+ skipto heap
+ .ws_heap            skip &100       \ heap
+ .ws_strbuf          skip &100       \ strbuf
++ELSE
++\ A real ROM keeps nothing in the image: the workspace is three pages of host
++\ RAM claimed at service call 1, so the whole bank below &C000 is code.
++ASSERT rom_content_end <= &C000
++ENDIF
+ 
+ skipto &C000
+ .romend
+@@ -605,6 +663,10 @@ skipto &C000
+ \ one the Pi serves, so it is saved under its own name.
+ IF INCLUDE_WICFS
+ SAVE "1mhz-wicfs.rom", romstart, romend
++ELIF WS_IN_IMAGE = 0
++\ The EPROM build keeps no workspace in the bank and claims host RAM instead,
++\ so it is saved under its own name rather than overwriting the default.
++SAVE "1mhz-wifi-eprom.rom", romstart, romend
+ ELSE
+ SAVE "1mhz-wifi.rom", romstart, romend
+ ENDIF
+diff --git a/machine.asm b/machine.asm
+index 78c8e18..0816245 100644
+--- a/machine.asm
++++ b/machine.asm
+@@ -137,9 +137,39 @@
+             \ and the small state sits just under them.  Room matters here -
+             \ a second ROM merged into this image has to fit in what remains
+             \ (see README.md, "One bank").
++            \ WS_IN_IMAGE=0 builds the same sources for a real EPROM, where
++            \ there is no writable image to put this in. The addresses stay
++            \ assembly-time constants either way, which is what lets one set
++            \ of sources serve both: every reference is still absolute, and
++            \ none of the 90-odd symbols derived from these three bases has
++            \ to be reached through a pointer.
++            \
++            \ The EPROM build claims its pages from the OS at service call 1
++            \ rather than assuming them, so it cannot repeat the fault this
++            \ layout was introduced to fix. Each image claims its own fixed
++            \ range so that two of them fitted together do not collide:
++            \ the network ROM takes &0E00, the filing system ROM &1100. PAGE
++            \ then rises by three pages per fitted image, which is the cost
++            \ of a real ROM and is why it is not the default.
++IF WS_IN_IMAGE
+             heap       = &BE00      \ command parameter block, 256 bytes
+             strbuf     = &BF00      \ command line parameter string, 256 bytes
+             ws_base    = &BDDE      \ 34 bytes of state below them
++ELSE
++            ws_base    = WS_HOST_PAGE * &100
++            heap       = ws_base + &100
++            strbuf     = ws_base + &200
++            \ The first free page this image leaves behind, handed back in Y
++            \ at service call 1.
++            ws_host_end = WS_HOST_PAGE + 3
++            \ Two bytes beside the flag, stamped once the claim succeeds.
++            \ Claimed host RAM is not ours the way a writable image is: the
++            \ flag on its own is one byte of uninitialised RAM that can read
++            \ back as set, so the command entry checks all three.
++            ws_signature    = ws_base+&22
++            ws_signature_lo = &57       \ "W"
++            ws_signature_hi = &53       \ "S"
++ENDIF
+             netprt     = ws_base+&00    \ 32 bytes, was &0D90
+             ws_flag    = ws_base+&20    \ 0 = image is not writable (real ROM)
+             mux_status = ws_base+&21    \ connection state, was zero page &90
