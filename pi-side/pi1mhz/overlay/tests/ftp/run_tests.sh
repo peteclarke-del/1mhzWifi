@@ -48,8 +48,8 @@ gcc -std=gnu2x -Wall -Wextra -Werror -I"$B" -o "$B/range" -x c - <<'RANGE'
 #include "ftp_service.h"
 _Static_assert(FTP_CMD_FIRST == SERVICE_CMD_FTP_FIRST, "FTP first differs");
 _Static_assert(FTP_CMD_LAST  == SERVICE_CMD_FTP_LAST,  "FTP last differs");
-_Static_assert(FTP_CMD_FIRST == 114u, "the host ROM sends 114");
-_Static_assert(FTP_CMD_LAST  == 119u, "the host ROM sends up to 119");
+_Static_assert(FTP_CMD_FIRST == 128u, "the host ROM sends 128");
+_Static_assert(FTP_CMD_LAST  == 133u, "the host ROM sends up to 133");
 int main(void) { printf("  ok: FTP owns %u..%u\n",
                         FTP_CMD_FIRST, FTP_CMD_LAST); return 0; }
 RANGE

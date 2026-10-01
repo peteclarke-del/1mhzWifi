@@ -168,6 +168,19 @@ if [ -n "$rom_source" ] && [ "$(wc -c < "$rom_source")" -ne 16384 ]; then
     echo "$rom_source is not a 16 KiB 1MHz-WiFi host ROM" >&2
     exit 1
 fi
+# The image helper 16 loads: Pi1MHz's merged network and filing system bank,
+# built from upstream's sources with this project's patches. It replaces the
+# copy in Pi1MHz's firmware/, which upstream built from the same sources
+# without them. Without one, upstream's copy is left as it is.
+wicfs_rom_source=${ELKWIFI_WICFS_ROM:-}
+if [ -z "$wicfs_rom_source" ] && [ -n "$rom_source" ] \
+        && [ -f "$(dirname -- "$rom_source")/1mhz-wicfs.rom" ]; then
+    wicfs_rom_source="$(dirname -- "$rom_source")/1mhz-wicfs.rom"
+fi
+if [ -n "$wicfs_rom_source" ] && [ "$(wc -c < "$wicfs_rom_source")" -ne 16384 ]; then
+    echo "$wicfs_rom_source is not a 16 KiB 1MHz-WiFi+WiCFS ROM" >&2
+    exit 1
+fi
 
 install_if_changed() {
     source_file=$1
@@ -183,11 +196,13 @@ install_if_changed() {
 # are no longer shipped here at all.
 install_if_changed "$overlay_dir/src/ftp_service.c" "$upstream/src/ftp_service.c"
 install_if_changed "$overlay_dir/src/ftp_service.h" "$upstream/src/ftp_service.h"
-# Container decoder. services-integration.patch links it, because
-# uef-filev-repair.patch makes uef_service.c call uef_repair_filev_span, which
-# lives beside the decoder so the Pi and the emulator share one
-# implementation. media_service_core.c is staged but not linked: its catalogue
-# and extract session has no caller.
+# The FILEV stamp repair. uef-filev-repair.patch links it and makes
+# uef_service.c call it; the emulator compiles the same file, so the Pi and the
+# emulator share one implementation.
+install_if_changed "$overlay_dir/src/uef_repair.c" "$upstream/src/uef_repair.c"
+install_if_changed "$overlay_dir/src/uef_repair.h" "$upstream/src/uef_repair.h"
+# The container decoder and the media service core are staged but not linked:
+# the catalogue and extract session has no caller on the Pi yet.
 install_if_changed "$overlay_dir/src/media_catalogue.c" "$upstream/src/media_catalogue.c"
 install_if_changed "$overlay_dir/src/media_catalogue.h" "$upstream/src/media_catalogue.h"
 install_if_changed "$overlay_dir/src/media_service_core.c" "$upstream/src/media_service_core.c"
@@ -200,28 +215,19 @@ install_if_changed "$overlay_dir/tests/uef/test_uef_filev.c" \
 mkdir -p "$upstream/src/tests/ftp"
 install -m 0755 "$overlay_dir/tests/ftp/run_tests.sh" \
                 "$upstream/src/tests/ftp/run_tests.sh"
-# The host ROM hard-codes the service command numbers in these headers, and
-# neither build refers to the other, so a renumbering upstream would leave the
-# ROM sending the old number and the firmware answering a different command.
-# dp111's check compares the two by name; the ROM lives here, not there, so it
-# is passed in.
-mkdir -p "$upstream/src/tests/wifirom"
-install -m 0755 "$overlay_dir/tests/check_rom_interface.py" \
-                "$upstream/src/tests/wifirom/check_rom_interface.py"
-
 for patch_name in services-integration.patch uef-filev-repair.patch net-copy-public.patch; do
     patch_file="$patch_dir/$patch_name"
     patch_present=false
     case "$patch_name" in
         services-integration.patch)
             grep -q '^   ftp_service.c' "$upstream/src/CMakeLists.txt" &&
-            grep -q '^    media_catalogue.c' "$upstream/src/CMakeLists.txt" &&
             grep -q 'SERVICE_CMD_FTP_FIRST' "$upstream/src/services.h" &&
             grep -q 'ftp_service_init()' "$upstream/src/wifi_service.c" &&
             patch_present=true
             ;;
         uef-filev-repair.patch)
             grep -q 'uef_repair_filev_span' "$upstream/src/uef_service.c" &&
+            grep -q '^    uef_repair.c' "$upstream/src/CMakeLists.txt" &&
             grep -q 'test_uef_filev.c' "$upstream/src/tests/uef/run_tests.sh" &&
             patch_present=true
             ;;
@@ -278,6 +284,9 @@ install_if_changed "$bcm43455_tmp" "$upstream/$bcm43455_path"
 
 if [ -n "$rom_source" ]; then
     install_if_changed "$rom_source" "$upstream/firmware/Pi1MHz/1mhz-wifi.rom"
+fi
+if [ -n "$wicfs_rom_source" ]; then
+    install_if_changed "$wicfs_rom_source" "$upstream/firmware/Pi1MHz/1mhz-wicfs.rom"
 fi
 
 # The raw socket/URL service is deliberately opt-in upstream.  This adapter

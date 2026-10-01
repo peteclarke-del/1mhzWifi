@@ -1,7 +1,7 @@
 #include "pi1mhz_net_backend.h"
 #include "pi1mhz_mailbox.h"
 #include "pi1mhz_ftp.h"
-#include "media_catalogue.h"
+#include "uef_repair.h"
 #ifdef PI1MHZ_WOLFSSH
 #include "pi1mhz_wolfssh.h"
 #endif
@@ -2043,7 +2043,7 @@ uint8_t pi1mhz_net_backend_dispatch(void *opaque, uint8_t selector,
     default:
         break;
     }
-    if (command[0] >= 114u && command[0] <= 119u)
+    if (command[0] >= 128u && command[0] <= 133u)
         return pi1mhz_ftp_dispatch(backend->ftp, command, service_jim,
                                    service_size);
     if (index >= NET_MAX_HANDLES)
