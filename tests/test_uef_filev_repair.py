@@ -21,10 +21,10 @@ class UefFilevRepairTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls._temporary = tempfile.TemporaryDirectory()
-        library = Path(cls._temporary.name) / "libmedia_catalogue.so"
+        library = Path(cls._temporary.name) / "libuef_repair.so"
         subprocess.run(
             ["cc", "-std=c11", "-shared", "-fPIC", "-O2", "-I", str(SOURCE),
-             str(SOURCE / "media_catalogue.c"),
+             str(SOURCE / "uef_repair.c"),
              "-o", str(library)],
             check=True,
         )

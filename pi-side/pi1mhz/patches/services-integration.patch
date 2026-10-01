@@ -1,8 +1,8 @@
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 8ca5811..0b1b643 100644
+index 3f1ce56..246296f 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -292,6 +292,8 @@ set(FrameBuffer_emulator_files
+@@ -346,6 +346,8 @@ set(FrameBuffer_emulator_files
  set(services_emulator_files
     services_emulator.c
     fat_service.c
@@ -11,36 +11,27 @@ index 8ca5811..0b1b643 100644
     net_service.c
     net_service.h
     net_tnfs.c
-@@ -450,6 +452,8 @@ set( Pi1MHz_sources
-     ${wifi_files}
-     ${lwip_files}
-     wifi_service.c
-+    media_catalogue.c
-+    media_catalogue.h
- )
- 
- # These are cold (config/filename handling, ~12 call sites). We recompile them
 diff --git a/src/services.h b/src/services.h
-index 48b6a8d..5b5532e 100644
+index 9c4c136..24833cf 100644
 --- a/src/services.h
 +++ b/src/services.h
-@@ -30,7 +30,9 @@
- #define SERVICE_CMD_WIFI_LAST  93u
- #define SERVICE_CMD_SECURE_FIRST  94u /* RNG and managed SSH - secure_service.c */
+@@ -32,7 +32,9 @@
  #define SERVICE_CMD_SECURE_LAST  113u
--/* 114..255 unallocated */
-+#define SERVICE_CMD_FTP_FIRST    114u /* interactive FTP - ftp_service.c      */
-+#define SERVICE_CMD_FTP_LAST     119u
-+/* 120..255 unallocated */
+ #define SERVICE_CMD_FUJI_FIRST  114u  /* FujiNet device for fn-rom - fujibus_service.c */
+ #define SERVICE_CMD_FUJI_LAST   119u  /* 114 = FujiBus exchange; the rest reserved */
+-/* 120..255 unallocated */
++#define SERVICE_CMD_FTP_FIRST   128u  /* interactive FTP - ftp_service.c (1MHzWifi) */
++#define SERVICE_CMD_FTP_LAST    133u
++/* 120..127 held by 1MHzWifi for a media service; 134..255 unallocated */
  
  /* ---- untrusted-input bounds checks -------------------------------------
     Every service takes an offset and a length from the Beeb, so this is one
-@@ -81,6 +83,8 @@ _Static_assert(SERVICE_CMD_FAT_LAST     < SERVICE_CMD_AUN_FIRST,     "FAT overla
- _Static_assert(SERVICE_CMD_AUN_LAST     < SERVICE_CMD_NET_FIRST,     "AUN overlaps net");
- _Static_assert(SERVICE_CMD_NET_LAST     < SERVICE_CMD_WIFI_FIRST, "net overlaps ElkWiFi");
+@@ -85,6 +87,8 @@ _Static_assert(SERVICE_CMD_NET_LAST     < SERVICE_CMD_WIFI_FIRST, "net overlaps
  _Static_assert(SERVICE_CMD_WIFI_LAST < SERVICE_CMD_SECURE_FIRST,  "ElkWiFi overlaps secure");
-+_Static_assert(SERVICE_CMD_FTP_FIRST     <= SERVICE_CMD_FTP_LAST,     "FTP range inverted");
-+_Static_assert(SERVICE_CMD_SECURE_LAST  < SERVICE_CMD_FTP_FIRST,     "secure overlaps FTP");
+ _Static_assert(SERVICE_CMD_FUJI_FIRST   <= SERVICE_CMD_FUJI_LAST,    "FujiNet range inverted");
+ _Static_assert(SERVICE_CMD_SECURE_LAST  < SERVICE_CMD_FUJI_FIRST,    "secure overlaps FujiNet");
++_Static_assert(SERVICE_CMD_FTP_FIRST    <= SERVICE_CMD_FTP_LAST,     "FTP range inverted");
++_Static_assert(SERVICE_CMD_FUJI_LAST    < SERVICE_CMD_FTP_FIRST,     "FujiNet overlaps FTP");
  
  /* What a Beeb sees when a service is not there.  Three states, deliberately
     distinguishable, because a ROM has to tell them apart:

@@ -27,15 +27,16 @@ host is using and never sees a MOS control block.
 ## Command allocation
 
 Pi1MHz services command numbers are allocated as follows. 80 to 119 are
-already in use.
+Pi1MHz's own, and 128 to 133 are this project's FTP service.
 
 | Range | Service |
 | --- | --- |
 | 80-93 | ElkWiFi station, network, `*ONLINE` and UEF normalisation |
 | 94-100 | Secure service, SSH |
 | 101-113 | Secure service, SFTP |
-| 114-119 | Interactive FTP |
+| 114-119 | FujiNet device, Pi1MHz's own since its V1.36 series |
 | 120-127 | Media service, reserved by this document |
+| 128-133 | Interactive FTP |
 
 Within the media range:
 
@@ -71,9 +72,10 @@ minutes-long upload before a game starts both miss that, and every design here
 required one or the other. The commands, the cassette rendering and the mailbox
 binding are removed from the tree.
 
-What remains in use from this area is `media_catalogue.c`, which decodes CFS
-for the UEF path and hosts the FILEV stamp repair. `media_service_core.c` is
-staged but not linked and has no caller.
+What remains from this area is `media_catalogue.c`, which decodes CFS and is
+used by the emulator's tests, and `media_service_core.c`. Neither is linked
+into the Pi kernel and neither has a caller there. The FILEV stamp repair that
+used to live in `media_catalogue.c` is now `uef_repair.c`.
 
 The sections below are kept as a design record only.
 

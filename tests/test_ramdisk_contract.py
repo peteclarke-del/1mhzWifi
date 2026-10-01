@@ -7,11 +7,12 @@ B-Em rather than by reading it, so each test names the symptom it prevents.
 import pathlib
 import re
 import unittest
+from rom_source import ROM_SRC
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "rom-side/1mhz-wifi/src/ramdisk.asm"
-NET_ROOT = ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm"
+SOURCE = ROM_SRC / "ramdisk.asm"
+NET_ROOT = ROM_SRC / "1mhzwifi.asm"
 
 
 class RamDiskContractTest(unittest.TestCase):

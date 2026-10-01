@@ -265,11 +265,20 @@ static void free_keys(pi1mhz_wolfssh *provider)
     provider->private_key_size = provider->public_key_size = 0;
 }
 
+/* Erase through a volatile pointer so the compiler cannot decide the writes
+ * are dead and delete them. A plain memset on a buffer whose address does not
+ * escape afterwards is exactly the call it is entitled to remove, which left
+ * a copy of the SSH password on the stack: CodeQL cpp/memset-may-be-deleted
+ * on reset_connection's saved_password. */
+static void secure_zero(void *data, size_t length)
+{
+    volatile unsigned char *p = data;
+    while (length-- != 0u) *p++ = 0;
+}
+
 static void clear_password(pi1mhz_wolfssh *provider)
 {
-    volatile byte *p = provider->password;
-    word32 count = sizeof(provider->password);
-    while (count-- != 0u) *p++ = 0;
+    secure_zero(provider->password, sizeof(provider->password));
     provider->password_size = 0;
 }
 
@@ -295,7 +304,7 @@ static void reset_connection(pi1mhz_wolfssh *provider, int keep_password)
     if (saved_size) {
         memcpy(provider->password, saved_password, saved_size);
         provider->password_size = saved_size;
-        memset(saved_password, 0, sizeof(saved_password));
+        secure_zero(saved_password, sizeof(saved_password));
     }
 }
 
