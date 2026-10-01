@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -136,6 +137,17 @@ static void test_wifi_lifecycle(void)
     assert(!close(profile_fd));
     assert(!strcmp(persisted,
                    "ELKWIFI1\nWPA2\nLifecycle-AP\neightchars\n"));
+
+    /* The profile holds the network password in cleartext, because that is
+       the format Pi1MHz reads on the SD card and cards already carry it. On a
+       host filesystem it can at least be owner-only, which FAT could not
+       express. Created 0600, not chmodded after, so there is no window under
+       the umask's permissions. */
+    {
+        struct stat profile_stat;
+        assert(!stat(profile_path, &profile_stat));
+        assert((profile_stat.st_mode & 0777) == 0600);
+    }
 
     /* A new Pi process reloads the persisted profile, associates, then gets
        its DHCP address. Zero delays make both transitions deterministic. */
