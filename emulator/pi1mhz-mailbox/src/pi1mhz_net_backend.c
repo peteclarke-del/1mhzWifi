@@ -15,6 +15,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 #include <zlib.h>
@@ -285,12 +286,28 @@ static int wifi_profile_load(pi1mhz_net_backend *backend)
 static int wifi_profile_save(pi1mhz_net_backend *backend)
 {
     FILE *profile;
+    int descriptor;
     int ok;
     if (!backend->wifi_profile_path[0])
         return 1;
-    profile = fopen(backend->wifi_profile_path, "wb");
-    if (!profile)
+    /* The ELKWIFI1 profile holds the network password in cleartext. That is
+     * the format Pi1MHz reads and writes on the SD card, and cards already
+     * carry it, so this fixture cannot encrypt it without ceasing to describe
+     * the machine it stands in for: see SECURITY.md, "Known limits".
+     *
+     * What it can do is stop being readable by every account on the host it
+     * runs on, which FAT could not express and a host filesystem can. Created
+     * 0600 rather than chmodded afterwards, so there is no window in which the
+     * file exists under the umask's permissions. */
+    descriptor = open(backend->wifi_profile_path,
+                      O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    if (descriptor < 0)
         return 0;
+    profile = fdopen(descriptor, "wb");
+    if (!profile) {
+        close(descriptor);
+        return 0;
+    }
     ok = fprintf(profile, "ELKWIFI1\n%s\n%s\n%s\n",
                  backend->wifi_security, backend->wifi_ssid,
                  backend->wifi_password) > 0;
