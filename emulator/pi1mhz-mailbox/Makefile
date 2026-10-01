@@ -21,12 +21,12 @@ OVERLAY := ../../pi-side/pi1mhz/overlay/src
 
 $(BUILD)/test-live: tests/test_live_backend.c src/pi1mhz_mailbox.c \
 		src/pi1mhz_net_backend.c src/pi1mhz_ftp.c include/pi1mhz_mailbox.h \
-		include/pi1mhz_net_backend.h $(OVERLAY)/media_catalogue.c | $(BUILD)
+		include/pi1mhz_net_backend.h $(OVERLAY)/uef_repair.c | $(BUILD)
 	$(CC) -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror \
 		-I include -I $(OVERLAY) tests/test_live_backend.c \
 		src/pi1mhz_mailbox.c \
 		src/pi1mhz_net_backend.c src/pi1mhz_ftp.c \
-		$(OVERLAY)/media_catalogue.c \
+		$(OVERLAY)/uef_repair.c \
 		-lz -o $@
 
 clean:

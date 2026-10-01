@@ -17,11 +17,12 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from rom_source import ROM_SRC
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKER = ROOT / "rom-side/check_rom_memory.py"
-SRC = ROOT / "rom-side/1mhz-wifi/src"
+SRC = ROM_SRC
 
 
 def run(root: str) -> subprocess.CompletedProcess:

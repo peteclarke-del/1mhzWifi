@@ -1,0 +1,46 @@
+*FTP, behind INCLUDE_FTP: the command table entry, its *HELP line and the
+include.
+
+ftp.asm is this project's own source and talks to the Pi-side FTP service in
+pi-side/pi1mhz, which Pi1MHz does not carry. Service commands 128 to 133.
+
+Off in the image Pi1MHz serves. *FTP costs 1,295 bytes, and upstream's merged
+image has 268 free; it fits only with INCLUDE_RAMDISK=0, and which of
+upstream's features gives way is upstream's decision. build_rom.sh passes
+INCLUDE_FTP=0 to every image unless INCLUDE_FTP=1 is set.
+
+diff --git a/1mhzwifi.asm b/1mhzwifi.asm
+index dc241b2..1fad52f 100644
+--- a/1mhzwifi.asm
++++ b/1mhzwifi.asm
+@@ -288,6 +288,10 @@ ENDIF
+ 
+ .commandtable       equs "WGET"
+                     equb >pi_wget_cmd, <pi_wget_cmd
++IF INCLUDE_FTP
++                    equs "FTP"
++                    equb >ftp_cmd, <ftp_cmd
++ENDIF
+                     equs "WIFI"
+                     equb >wifi_cmd, <wifi_cmd
+                     equs "VERSION"
+@@ -476,6 +480,9 @@ ELSE
+ \ must match the one around the entry it describes.
+ .help_descriptions
+                     equs "Get a file from a webserver",&0D
++IF INCLUDE_FTP
++                    equs "Interactive file transfer",&0D
++ENDIF
+                     equs "WiFi control ON|OFF|HR|SR",&0D
+                     equs "Print firmware version",&0D
+                     equs "Set LAP options",&0D
+@@ -566,6 +573,9 @@ include "join.asm"
+ include "mode.asm"
+ include "wget.asm"
+ include "net_wget.asm"
++IF INCLUDE_FTP
++include "ftp.asm"
++ENDIF
+ include "ping.asm"
+ include "nslook.asm"
+ IF INCLUDE_RAMDISK

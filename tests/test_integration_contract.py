@@ -2,6 +2,7 @@ import hashlib
 import re
 import unittest
 from pathlib import Path
+from rom_source import ROM_SRC, without_merged_wicfs
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +13,7 @@ class IntegrationContractTest(unittest.TestCase):
         """Compatibility fixes must describe MOS/UEF state, never a title."""
         runtime_roots = (
             ROOT / "rom-side/1mhz-wifi/src",
+            ROOT / "rom-side/1mhz-wifi/patches",
             ROOT / "rom-side/inherited/patches",
             ROOT / "pi-side/pi1mhz/overlay",
             ROOT / "pi-side/pi1mhz/patches",
@@ -36,8 +38,12 @@ class IntegrationContractTest(unittest.TestCase):
         rom_installer = (ROOT / "rom-side/build_rom.sh").read_text()
         for patch in (ROOT / "rom-side/inherited/patches").glob("*.patch"):
             self.assertIn(patch.name, rom_installer, patch.name)
-        for source in (ROOT / "rom-side/1mhz-wifi/src").glob("*.asm"):
-            self.assertIn(source.name, rom_installer, source.name)
+        for patch in (ROOT / "rom-side/1mhz-wifi/patches").glob("*.patch"):
+            self.assertIn(patch.name, rom_installer, patch.name)
+        # Sources of this project's own are installed by a glob, which is only
+        # safe because the build refuses one that shadows an upstream file.
+        self.assertIn('for own in "$own_dir"/*.asm; do', rom_installer)
+        self.assertIn("change it with a patch", rom_installer)
 
         pi_installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         for patch in (ROOT / "pi-side/pi1mhz/patches").glob("*.patch"):
@@ -186,7 +192,8 @@ class IntegrationContractTest(unittest.TestCase):
             sorted(source.name for source in overlay.iterdir() if source.is_file()),
             ["ftp_service.c", "ftp_service.h",
              "media_catalogue.c", "media_catalogue.h",
-             "media_service_core.c", "media_service_core.h"],
+             "media_service_core.c", "media_service_core.h",
+             "uef_repair.c", "uef_repair.h"],
         )
 
     def test_host_side_of_the_pi_services_is_wired_as_designed(self) -> None:
@@ -200,10 +207,10 @@ class IntegrationContractTest(unittest.TestCase):
         this repository's: the 6502 side, the two patches that add commands
         upstream does not have, and the bundle the installer produces.
         """
-        service_driver = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
-        uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
-        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
-            ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
+        service_driver = (ROM_SRC / "service_driver.asm").read_text()
+        uef = (ROM_SRC / "uef.asm").read_text()
+        wget = (ROM_SRC / "net_wget.asm").read_text() + (
+            ROM_SRC / "net_transport.asm").read_text()
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         net_copy_public_patch = (
             ROOT / "pi-side/pi1mhz/patches/net-copy-public.patch"
@@ -305,9 +312,10 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("test_uef_filev.c", filev_patch)
 
         # One implementation of the repair, shared, rather than two kept in
-        # step by this test. Both sides link media_catalogue.c.
+        # step by this test. Both sides link uef_repair.c, which is the one
+        # file the repair needs, so it can be offered upstream on its own.
         decoder = (
-            ROOT / "pi-side/pi1mhz/overlay/src/media_catalogue.c"
+            ROOT / "pi-side/pi1mhz/overlay/src/uef_repair.c"
         ).read_text()
         self.assertIn("unsigned uef_repair_filev_stamp(", decoder)
         self.assertIn("size_t uef_repair_filev_span(", decoder)
@@ -349,9 +357,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn('mv "$bundle_staged" "$bundle"', installer)
 
     def test_rom_routes_url_and_osword_tcp_through_pi_services(self) -> None:
-        driver = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
-        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
-            ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
+        driver = (ROM_SRC / "service_driver.asm").read_text()
+        wget = (ROM_SRC / "net_wget.asm").read_text() + (
+            ROM_SRC / "net_transport.asm").read_text()
         for operation in ("cipstart", "cipsend", "receive", "cipclose"):
             self.assertIn(f"service_driver_{operation}", driver)
         self.assertIn("net_cmd_url_open = 60", wget)
@@ -364,8 +372,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("lda &FC00+drv_svc_command", driver)
         self.assertNotIn("lda #&92", driver)
         self.assertNotIn("lda #&93", driver)
-        dispatch = (ROOT / "rom-side/1mhz-wifi/src/driver.asm").read_text()
-        wifi_response = (ROOT / "rom-side/1mhz-wifi/src/wificmd.asm").read_text()
+        dispatch = (ROM_SRC / "driver.asm").read_text()
+        wifi_response = (ROM_SRC / "wificmd.asm").read_text()
         table = dispatch.split(".public_driver_dispatch", 1)[1].split(
             "\\ Initialize the data buffer", 1
         )[0]
@@ -383,9 +391,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("lda #14\n jmp generic_cmd", wget)
 
     def test_wget_and_wicfs_use_the_pi_transport_and_jim_windows(self) -> None:
-        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
-            ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
-        surface = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
+        wget = (ROM_SRC / "net_wget.asm").read_text() + (
+            ROM_SRC / "net_transport.asm").read_text()
+        surface = (ROM_SRC / "1mhzwifi.asm").read_text()
         executable = "\n".join(
             line for line in wget.splitlines() if not line.lstrip().startswith("\\")
         )
@@ -424,9 +432,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("ldy net_file_handle", file_store)
         self.assertIn("jsr wget_OSBPUT", file_store)
 
-        ftp = (ROOT / "rom-side/1mhz-wifi/src/ftp.asm").read_text()
-        self.assertIn("ftp_cmd_open   = 114", ftp)
-        self.assertIn("ftp_cmd_cancel = 119", ftp)
+        ftp = (ROM_SRC / "ftp.asm").read_text()
+        self.assertIn("ftp_cmd_open   = 128", ftp)
+        self.assertIn("ftp_cmd_cancel = 133", ftp)
         self.assertIn("jsr ftp_OSBPUT", ftp)
         self.assertIn("jsr ftp_OSBGET", ftp)
         self.assertIn("jsr ftp_OSFIND", ftp)
@@ -446,7 +454,7 @@ class IntegrationContractTest(unittest.TestCase):
             ".pi_wget_usage", 1
         )[0]
         self.assertLess(close.index("jsr wget_OSFIND"), close.index("jsr net_dispatch_wait"))
-        wicfs_root = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
+        wicfs_root = (ROM_SRC / "1mhzwicfs.asm").read_text()
         self.assertIn('equs "WICFS"', wicfs_root)
         self.assertIn('include "wicfs.asm"', wicfs_root)
         wicfs_patch = (ROOT / "rom-side/inherited/patches/wicfs-page-shadow.patch").read_text()
@@ -540,20 +548,22 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("pr_y    =   &C7", jim_state_patch)
         self.assertIn("pr_r    =   &C8", jim_state_patch)
 
-        driver = (ROOT / "rom-side/1mhz-wifi/src/driver.asm").read_text()
+        driver = (ROM_SRC / "driver.asm").read_text()
         service_driver = (
-            ROOT / "rom-side/1mhz-wifi/src/service_driver.asm"
+            ROM_SRC / "service_driver.asm"
         ).read_text()
         self.assertIn("driver_page_shadow = drv_svc_workspace+19", driver)
         self.assertNotIn("ldx pagereg", driver)
         self.assertNotIn("inc pagereg", service_driver)
 
         wget_helpers = (
-            ROOT / "rom-side/1mhz-wifi/src/wget.asm"
+            ROM_SRC / "wget.asm"
         ).read_text()
         self.assertNotRegex(wget_helpers, r"\blda\s+pagereg\b")
         self.assertNotRegex(wget_helpers, r"\binc\s+pagereg\b")
-        self.assertIn("inc pr_r", wget_helpers)
+        # *WGET -S walks the JIM pages with its own counter and writes it to
+        # the page register; it never reads the register back.
+        self.assertIn("inc swr_page", wget_helpers)
 
         lifecycle_patch = (
             ROOT / "rom-side/inherited/patches/wicfs-lifecycle.patch"
@@ -579,10 +589,10 @@ class IntegrationContractTest(unittest.TestCase):
         # stream completion restores BYTEV, MOS owns reset-time vector rebuilds.
         # The reset service moved into the filing system image with the filing
         # system, so the network image no longer mentions it at all.
-        wicfs_root = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
+        wicfs_root = (ROM_SRC / "1mhzwicfs.asm").read_text()
         self.assertIn("jsr release_owned_wicfs", wicfs_root)
         self.assertNotIn("jsr wicfs_reset", wicfs_root)
-        rom_source = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
+        rom_source = without_merged_wicfs((ROM_SRC / "1mhzwifi.asm").read_text())
         self.assertNotIn("release_owned_wicfs", rom_source)
         self.assertNotIn("stx pagereg", rom_source)
         self.assertNotIn("stx uptype", rom_source)
@@ -662,7 +672,7 @@ class IntegrationContractTest(unittest.TestCase):
             self.assertNotIn(forbidden, build_script)
 
         host_launch = (
-            ROOT / "rom-side/1mhz-wifi/src/host_launch.asm"
+            ROM_SRC / "host_launch.asm"
         ).read_text()
         self.assertFalse(
             (ROOT / "rom-side/inherited/patches/menu-host-reset.patch").exists()
@@ -675,7 +685,7 @@ class IntegrationContractTest(unittest.TestCase):
             self.assertNotIn(forbidden, host_launch)
         self.assertNotIn("sta &FCE", host_launch)
         self.assertNotIn("lda &FCE", host_launch)
-        uef = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
+        uef = (ROM_SRC / "uef.asm").read_text()
         self.assertIn(".uef_select_launch", uef)
         self.assertIn("cmp #&0D", uef)
         self.assertIn("cmp #5", uef)
@@ -689,7 +699,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn('equs "PAGE=&E00",&0D', host_launch)
         self.assertIn('equs "*QR",&0D', host_launch)
         self.assertIn("jmp host_basic_cmd", uef)
-        command_patch = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
+        command_patch = (ROM_SRC / "1mhzwicfs.asm").read_text()
         self.assertIn('equs "QHOST"', command_patch)
         self.assertIn(".host_basic_cmd", host_launch)
         self.assertIn("jmp &8000", host_launch)
@@ -751,28 +761,28 @@ class IntegrationContractTest(unittest.TestCase):
         rewind_patch = (
             ROOT / "rom-side/inherited/patches/wicfs-rewind.patch"
         ).read_text()
-        wget = (ROOT / "rom-side/1mhz-wifi/src/net_wget.asm").read_text() + (
-            ROOT / "rom-side/1mhz-wifi/src/net_transport.asm").read_text()
+        wget = (ROM_SRC / "net_wget.asm").read_text() + (
+            ROM_SRC / "net_transport.asm").read_text()
         self.assertIn("jsr cfsinit", rewind_patch)
         self.assertIn("authoritative UEF length from Pi1MHz JIM", rewind_patch)
         self.assertNotIn("tape_len", rewind_patch)
         self.assertNotIn("tape_len", wget)
         self.assertIn("lda #&EA", uef)
-        serial = (ROOT / "rom-side/1mhz-wifi/src/serial.asm").read_text()
+        serial = (ROM_SRC / "serial.asm").read_text()
         self.assertIn("cpx #1\n beq set_bank_0_page", serial)
         self.assertIn("sta &FCFD\n jsr bus_delay\n sta &FCFE", serial)
         self.assertIn(".detect_jim_machine", serial)
         self.assertNotIn("lda &FCFF", serial)
-        self.assertIn("jsr set_bank_0             \\ ElkWiFi buffers are in JIM address 00:00:page", (ROOT / "rom-side/1mhz-wifi/src/driver.asm").read_text())
+        self.assertIn("jsr set_bank_0             \\ ElkWiFi buffers are in JIM address 00:00:page", (ROM_SRC / "driver.asm").read_text())
 
     def test_rom_startup_and_absent_service_are_fail_safe(self) -> None:
-        driver = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
-        serial = (ROOT / "rom-side/1mhz-wifi/src/serial.asm").read_text()
-        wifi = (ROOT / "rom-side/1mhz-wifi/src/wificmd.asm").read_text()
-        public_driver = (ROOT / "rom-side/1mhz-wifi/src/driver.asm").read_text()
-        rom_source = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
+        driver = (ROM_SRC / "service_driver.asm").read_text()
+        serial = (ROM_SRC / "serial.asm").read_text()
+        wifi = (ROM_SRC / "wificmd.asm").read_text()
+        public_driver = (ROM_SRC / "driver.asm").read_text()
+        rom_source = (ROM_SRC / "1mhzwifi.asm").read_text()
         rom_autorun = rom_source.split(".autorun", 1)[1].split(".commandtable", 1)[0]
-        logo = (ROOT / "rom-side/1mhz-wifi/src/util.asm").read_text()
+        logo = (ROM_SRC / "util.asm").read_text()
         self.assertIn("drv_svc_response_count = drv_svc_workspace+11", driver)
         self.assertIn("lda #240\n sta drv_svc_response_count", driver)
         self.assertIn("lda #100", driver)
@@ -782,7 +792,7 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("equw service_driver_version-1", public_driver)
         self.assertIn('romtitle           equs "1MHz-WiFi"', rom_source)
         self.assertIn('romversion         equs "0.1.67"', rom_source)
-        version = (ROOT / "rom-side/1mhz-wifi/src/version.asm").read_text()
+        version = (ROM_SRC / "version.asm").read_text()
         self.assertIn("1MHz-WiFi 0.1.67 (C) 2026 Peter Clarke", version)
         self.assertIn("equb &D,&EA", rom_autorun)
         self.assertNotIn("equb &D,&D,&EA", rom_autorun)
@@ -830,9 +840,11 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("&60A0", logo_code)
 
     def test_prd_uses_write_only_safe_jim_selection(self) -> None:
-        pdump = (ROOT / "rom-side/1mhz-wifi/src/pdump.asm").read_text()
+        pdump = (ROM_SRC / "pdump.asm").read_text()
         build = (ROOT / "rom-side/build_rom.sh").read_text()
-        self.assertIn('install -m 0644 "$overlay_dir/pdump.asm"', build)
+        # pdump.asm is upstream's, taken as it is: no patch may touch it.
+        for patch in (ROOT / "rom-side/1mhz-wifi/patches").glob("*.patch"):
+            self.assertNotIn("pdump.asm", patch.read_text(), patch.name)
         self.assertNotRegex(pdump, r"(?im)^\s*lda\s+(?:&FCF[DEF]|pagereg)\s*$")
         read = pdump.split(".pdump_read_y", 1)[1]
         self.assertIn("sta &FCFD", read)
@@ -847,23 +859,46 @@ class IntegrationContractTest(unittest.TestCase):
         # of the bank, so code has to stop below it rather than below the last
         # page. Both roots assert it, because both carry a copy.
         for root in ("1mhzwifi.asm", "1mhzwicfs.asm"):
-            source = (ROOT / "rom-side/1mhz-wifi/src" / root).read_text()
+            source = (ROM_SRC / root).read_text()
             with self.subTest(root=root):
                 self.assertIn("rom_content_end = P%", source)
                 self.assertIn("ASSERT rom_content_end <= ws_base", source)
                 self.assertNotIn("ASSERT rom_content_end <= &BF00", source)
-        for image in ("1mhz-wifi.rom", "1mhz-wicfs.rom"):
+        for image in ("1mhz-wifi.rom", "1mhz-wicfs.rom", "1mhz-wicfs-only.rom"):
             built = (ROOT / "build/pi1mhz-all/Pi1MHz" / image).read_bytes()
             with self.subTest(image=image):
                 self.assertNotIn(b"This is the end!", built)
                 self.assertEqual(len(built), 16384)
 
+    def test_the_served_image_is_upstreams_merged_bank_without_ftp(self) -> None:
+        """Helper 16 loads 1mhz-wicfs.rom: upstream's merged image, plus ours.
+
+        This project adds to that image rather than shipping its own under the
+        same name. *FTP does not fit beside upstream's features, so it is
+        built behind INCLUDE_FTP and left off until upstream decides what, if
+        anything, gives way for it.
+        """
+        served = (ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom").read_bytes()
+        for command in (b"WGET", b"JOIN", b"NSLOOK", b"RDINIT", b"WICFS", b"UEF"):
+            self.assertIn(command, served, command)
+        self.assertNotIn(b"FTP", served)
+        build = (ROOT / "rom-side/build_rom.sh").read_text()
+        self.assertIn("include_ftp=${INCLUDE_FTP:-0}", build)
+        self.assertIn("-D INCLUDE_WICFS=1 -D INCLUDE_RAMDISK=1", build)
+        self.assertIn("-D INCLUDE_PDUMP=0 -D HELP_BRIEF=1", build)
+        lines = (ROM_SRC / "1mhzwifi.asm").read_text().splitlines()
+        for guarded in ('equs "FTP"', '"Interactive file transfer"', 'include "ftp.asm"'):
+            index = next(i for i, line in enumerate(lines) if guarded in line)
+            self.assertEqual(lines[index - 1].strip(), "IF INCLUDE_FTP", guarded)
+        installer = (ROOT / "pi-side/install_bundle.sh").read_text()
+        self.assertIn('"$upstream/firmware/Pi1MHz/1mhz-wicfs.rom"', installer)
+
     def test_menu_surface_is_fully_retired(self) -> None:
         installer = (ROOT / "pi-side/install_bundle.sh").read_text()
         build_script = (ROOT / "rom-side/build_rom.sh").read_text()
-        retirement = (ROOT / "rom-side/1mhz-wifi/src/1mhzwifi.asm").read_text()
+        retirement = (ROM_SRC / "1mhzwifi.asm").read_text()
         wget = (
-            ROOT / "rom-side/1mhz-wifi/src/net_wget.asm"
+            ROM_SRC / "net_wget.asm"
         ).read_text()
         for patch in (ROOT / "pi-side/pi1mhz/patches").glob("*.patch"):
             self.assertNotIn("CMD_MENU", patch.read_text(), patch.name)
@@ -880,8 +915,8 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertNotIn("NET_OPEN_READ plus Pi MENU cache mode", wget)
 
     def test_ping_escape_dispatches_pi_cancellation(self) -> None:
-        driver = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
-        ping = (ROOT / "rom-side/1mhz-wifi/src/ping.asm").read_text()
+        driver = (ROM_SRC / "service_driver.asm").read_text()
+        ping = (ROM_SRC / "ping.asm").read_text()
         self.assertIn("drv_svc_cancel = 90", driver)
         self.assertIn("jsr check_esc", driver)
         self.assertIn("lda #drv_svc_cancel", driver)
@@ -920,7 +955,9 @@ class IntegrationContractTest(unittest.TestCase):
         self.assertIn("zero-byte CFS files have no data byte to fetch", zero_length_patch)
         self.assertIn("JSR\tadjlen", zero_length_patch)
         self.assertIn("JSR\tchskip", zero_length_patch)
-        self.assertIn('"$overlay_dir/uef.asm"', rom_installer)
+        self.assertIn('cp "$cache/pi1mhz/beeb/1mhz-wifi/src/"*.asm "$work/"',
+                      rom_installer)
+        self.assertIn('"$PI1MHZ_UPSTREAM_COMMIT"', rom_installer)
         self.assertLess(
             rom_installer.index("wicfs-callable-init.patch"),
             rom_installer.index("wicfs-rewind.patch"),
@@ -931,8 +968,8 @@ class IntegrationContractTest(unittest.TestCase):
         )
 
     def test_local_uef_import_uses_current_filing_system_and_wicfs(self) -> None:
-        source = (ROOT / "rom-side/1mhz-wifi/src/uef.asm").read_text()
-        command_patch = (ROOT / "rom-side/1mhz-wifi/src/1mhzwicfs.asm").read_text()
+        source = (ROM_SRC / "uef.asm").read_text()
+        command_patch = (ROM_SRC / "1mhzwicfs.asm").read_text()
         callable_patch = (
             ROOT / "rom-side/inherited/patches/wicfs-callable-init.patch"
         ).read_text()
@@ -983,8 +1020,8 @@ class IntegrationContractTest(unittest.TestCase):
             self.assertNotIn(f"&{register:04X}", source.upper())
 
     def test_date_time_and_ping_use_pi_network_services(self) -> None:
-        driver = (ROOT / "rom-side/1mhz-wifi/src/service_driver.asm").read_text()
-        time_source = (ROOT / "rom-side/1mhz-wifi/src/time.asm").read_text()
+        driver = (ROM_SRC / "service_driver.asm").read_text()
+        time_source = (ROM_SRC / "time.asm").read_text()
         self.assertIn("drv_svc_ping = 88", driver)
         self.assertIn("drv_svc_datetime = 89", driver)
         self.assertIn("service_driver_ping_copy", driver)

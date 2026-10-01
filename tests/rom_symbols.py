@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from rom_source import ROM_SRC
 
 
-SRC = Path(__file__).resolve().parents[1] / "rom-side/1mhz-wifi/src"
+SRC = ROM_SRC
 EQUATE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*(?:\\.*)?$")
 
 _equates: dict[str, str] = {}

@@ -6,7 +6,7 @@ upstream projects:
 | Project | Upstream | Revision basis |
 | --- | --- | --- |
 | ElkWiFi | <https://github.com/hoglet67/ElkWiFi> | `7bf366c97bec18bd238963c95e6f2aa6893cdb3a` |
-| Pi1MHz | <https://github.com/dp111/Pi1MHz> | `4c54d8118f632465f31ecb72dcc37b4833c2507a` (V1.35) |
+| Pi1MHz | <https://github.com/dp111/Pi1MHz> | `143f43e88a40cef5d1b1381d2621449492aedf37` (after V1.36) |
 | wolfSSL | <https://github.com/wolfSSL/wolfssl> | `65836b40693f8ea8d04daac0b1019d8e2e9394dd` |
 | wolfSSH | <https://github.com/wolfSSL/wolfssh> | `c2d169872e410251a6967fc47d4fc0c6f318b79c` |
 | vrEmu6502 | <https://github.com/visrealm/vrEmu6502> | `aae98cb14386d832cb7357c99626520b6590bc24` |

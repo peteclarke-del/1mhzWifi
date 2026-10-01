@@ -41,15 +41,15 @@ class UefNormalizeTest(unittest.TestCase):
         cls._temporary = tempfile.TemporaryDirectory()
         fixture_library = Path(cls._temporary.name) / "libfixture_normalize.so"
         subprocess.run(
-            # The backend calls uef_repair_filev_stamp, which lives beside
-            # the container decoder so the Pi and the emulator share one
+            # The backend calls uef_repair_filev_stamp, which lives in the
+            # Pi overlay's uef_repair.c so the Pi and the emulator share one
             # implementation, so the fixture links what the emulator does.
             ["cc", "-std=c11", "-shared", "-fPIC", "-O2",
              "-D_POSIX_C_SOURCE=200809L", "-I", str(EMULATOR / "include"),
              "-I", str(SOURCE),
              str(EMULATOR / "src/pi1mhz_net_backend.c"),
              str(EMULATOR / "src/pi1mhz_ftp.c"),
-             str(SOURCE / "media_catalogue.c"), "-lz",
+             str(SOURCE / "uef_repair.c"), "-lz",
              "-o", str(fixture_library)],
             check=True,
         )

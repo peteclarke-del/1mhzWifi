@@ -2,6 +2,7 @@ import pathlib
 import re
 import unittest
 import zipfile
+from rom_source import ROM_SRC
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -17,6 +18,7 @@ class MergedRepositoryTest(unittest.TestCase):
         source_suffixes = {".asm", ".c", ".h", ".py", ".sh"}
         roots = (
             ROOT / "rom-side/1mhz-wifi/src",
+            ROOT / "rom-side/1mhz-wifi/patches",
             ROOT / "rom-side/inherited/patches",
             ROOT / "pi-side/pi1mhz/overlay",
             ROOT / "pi-side/pi1mhz/patches",
@@ -264,7 +266,7 @@ class MergedRepositoryTest(unittest.TestCase):
         # passes, which is the intended cost.
         pattern = re.compile(
             rb"Pi1MHz ElkWiFi 0\.1\.67, kernel "
-            rb"(V1\.30-137-gd6ee4c3-dirty\.8aee109b)"
+            rb"(V\.136-7-g143f43e-dirty\.cb71c2c8)"
         )
         revisions = []
         for name in ("kernel.img", "kernel7.img"):
@@ -286,11 +288,14 @@ class MergedRepositoryTest(unittest.TestCase):
         patch = (ROOT / "pi-side/upstream/1mhzwifi-pi1mhz.patch").read_text(
             errors="replace"
         )
-        # The two binaries a reviewer cannot rebuild from the patch text: the
-        # host ROM the firmware has to match, and the pinned CYW43455 image.
+        # The binaries a reviewer cannot rebuild from the patch text: the two
+        # host ROMs the firmware has to match, being the merged image helper
+        # 16 loads and the network ROM on its own, and the pinned CYW43455
+        # image.
+        self.assertIn("firmware/Pi1MHz/1mhz-wicfs.rom", patch)
         self.assertIn("firmware/Pi1MHz/1mhz-wifi.rom", patch)
         self.assertIn("firmware/Pi1MHz/wifi/brcmfmac43455-sdio.bin", patch)
-        self.assertEqual(patch.count("GIT binary patch"), 2)
+        self.assertEqual(patch.count("GIT binary patch"), 3)
 
         # Everything else the patch should contain, and nothing it should
         # not. Pi1MHz V1.35 merged the WiFi, UEF and secure services, so a
@@ -301,7 +306,7 @@ class MergedRepositoryTest(unittest.TestCase):
             for line in patch.splitlines() if line.startswith("+++ b/")
         }
         for expected in (
-            "src/ftp_service.c", "src/media_catalogue.c",
+            "src/ftp_service.c", "src/uef_repair.c",
             "src/uef_service.c", "src/net_service.c", "src/services.h",
             "src/CMakeLists.txt", "src/wifi_service.c",
             "src/tests/uef/test_uef_filev.c",

@@ -435,12 +435,12 @@ ENDIF
 skipto &C000
 .romend
 
-\ The EPROM build is a different image from the one Pi1MHz serves - it keeps
-\ no workspace in the bank and claims host RAM instead - so it is saved under
-\ its own name rather than overwriting the default.
+\ Saved as 1mhz-wicfs-only: 1mhz-wicfs.rom is Pi1MHz's name for its merged
+\ network and filing system image, which helper 16 loads, and this image is
+\ the filing system alone. The EPROM build keeps no workspace in the bank and
+\ claims host RAM instead, so it has its own name as well.
 IF WS_IN_IMAGE
-SAVE "1mhz-wicfs-atm.rom", atmheader, romend
-SAVE "1mhz-wicfs.rom", romstart, romend
+SAVE "1mhz-wicfs-only.rom", romstart, romend
 ELSE
-SAVE "1mhz-wicfs-eprom.rom", romstart, romend
+SAVE "1mhz-wicfs-only-eprom.rom", romstart, romend
 ENDIF

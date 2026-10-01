@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -137,6 +138,17 @@ static void test_wifi_lifecycle(void)
     assert(!strcmp(persisted,
                    "ELKWIFI1\nWPA2\nLifecycle-AP\neightchars\n"));
 
+    /* The profile holds the network password in cleartext, because that is
+       the format Pi1MHz reads on the SD card and cards already carry it. On a
+       host filesystem it can at least be owner-only, which FAT could not
+       express. Created 0600, not chmodded after, so there is no window under
+       the umask's permissions. */
+    {
+        struct stat profile_stat;
+        assert(!stat(profile_path, &profile_stat));
+        assert((profile_stat.st_mode & 0777) == 0600);
+    }
+
     /* A new Pi process reloads the persisted profile, associates, then gets
        its DHCP address. Zero delays make both transitions deterministic. */
     assert(!setenv("PI1MHZ_WIFI_ASSOCIATE_MS", "0", 1));
@@ -214,40 +226,40 @@ static void test_ftp_fixture_roundtrip(void)
     scratch = mailbox.jim + mailbox.services_base + 0xFFF100u;
 
     memset(command, 0, 224u);
-    command[0] = 114;
+    command[0] = 128;
     strcpy((char *)command + 1, "ftp://fixture:21");
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
     assert(strstr((char *)command + 2, "220 "));
 
     memset(command, 0, 224u);
-    command[0] = 115;
+    command[0] = 129;
     strcpy((char *)command + 1, "PUT roundtrip.bin");
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
     assert(command[1] == 2u);
     memcpy(scratch, "roundtrip", 9u);
-    command[0] = 117;
+    command[0] = 131;
     command[1] = 9u;
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
-    command[0] = 117;
+    command[0] = 131;
     command[1] = 0u;
     assert(issue(&mailbox) == 0x20u);
     assert(strstr((char *)command + 2, "226 "));
 
     memset(command, 0, 224u);
-    command[0] = 115;
+    command[0] = 129;
     strcpy((char *)command + 1, "GET roundtrip.bin");
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
-    command[0] = 116;
+    command[0] = 130;
     command[1] = 240u;
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
     assert(command[1] == 9u);
     assert(!memcmp(scratch, "roundtrip", 9u));
-    command[0] = 116;
+    command[0] = 130;
     command[1] = 240u;
     assert(issue(&mailbox) == 0x20u);
     assert(strstr((char *)command + 2, "226 "));
 
-    command[0] = 118;
+    command[0] = 132;
     assert(issue(&mailbox) == PI1MHZ_NET_OK);
     pi1mhz_mailbox_destroy(&mailbox);
     pi1mhz_net_backend_destroy(backend);

@@ -1,32 +1,44 @@
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 3f1ce56..6346d74 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -540,6 +540,8 @@ set( Pi1MHz_sources
+     ${wifi_files}
+     ${lwip_files}
+     wifi_service.c
++    uef_repair.c
++    uef_repair.h
+ )
+ 
+ # These are cold (config/filename handling, ~12 call sites). We recompile them
 diff --git a/src/tests/uef/run_tests.sh b/src/tests/uef/run_tests.sh
-index e4c2e28..57a3fa0 100644
+index e4c2e28..e64b4f6 100644
 --- a/src/tests/uef/run_tests.sh
 +++ b/src/tests/uef/run_tests.sh
-@@ -22,6 +22,10 @@ cp "$SRC"/rpi/byteorder.h "$B/rpi/"
+@@ -22,6 +22,9 @@ cp "$SRC"/rpi/byteorder.h "$B/rpi/"
  cp "$SRC"/uzlib/*.c "$SRC"/uzlib/*.h "$B/uzlib/"
  cp "$HERE"/test_uef_stream.c "$HERE"/test_uef_service.c "$B/"
  cp "$SRC"/uef_service.c "$SRC"/uef_service.h "$SRC"/wifi_service.h "$SRC"/services.h "$B/"
-+# uef_service.c calls the FILEV stamp repair, which lives beside the container
-+# decoder so the Pi and the emulator run one implementation, not two.
-+cp "$SRC"/media_catalogue.c "$SRC"/media_catalogue.h "$SRC"/config.h "$B/"
++# uef_service.c calls the FILEV stamp repair in uef_repair.c.
++cp "$SRC"/uef_repair.c "$SRC"/uef_repair.h "$SRC"/config.h "$B/"
 +cp "$HERE"/test_uef_filev.c "$B/"
  cp -r "$HERE"/stubs/. "$B/"
  
  SAN="-fsanitize=address,undefined -fno-sanitize-recover=all"
-@@ -56,6 +60,12 @@ fi
+@@ -56,6 +59,12 @@ fi
  
  gcc -std=gnu2x -Wall -Wextra -g $SAN -I"$B" -o "$B/svc" \
      "$B/test_uef_service.c" "$B/uef_service.c" "$B/uef_stream.c" \
-+    "$B/media_catalogue.c" \
++    "$B/uef_repair.c" \
 +    "$B/tinflate.o" "$B/crc32.o" "$B/adler32.o"
 +
 +gcc -std=gnu2x -Wall -Wextra -Wconversion -g $SAN -I"$B" -o "$B/filev" \
 +    "$B/test_uef_filev.c" "$B/uef_service.c" "$B/uef_stream.c" \
-+    "$B/media_catalogue.c" \
++    "$B/uef_repair.c" \
      "$B/tinflate.o" "$B/crc32.o" "$B/adler32.o"
  
  echo "== UEF stream: bytes match gunzip, rewind repeats, CRC verifies =="
-@@ -95,3 +105,7 @@ for f in "$B"/corpus/*.uef; do
+@@ -95,3 +104,7 @@ for f in "$B"/corpus/*.uef; do
     fi
     "$B/svc" "$f" "$B/ref.bin"
  done
@@ -55,7 +67,7 @@ index 9ffbd48..6a909d9 100644
  void response_string(uint32_t cp, const char *value)
  {
 diff --git a/src/uef_service.c b/src/uef_service.c
-index 50c3118..8d8a17f 100644
+index 50c3118..e15c510 100644
 --- a/src/uef_service.c
 +++ b/src/uef_service.c
 @@ -4,6 +4,8 @@
@@ -63,7 +75,7 @@ index 50c3118..8d8a17f 100644
  
  #include "Pi1MHz.h"
 +#include "config.h"
-+#include "media_catalogue.h"
++#include "uef_repair.h"
  #include "uef_stream.h"
  #include "rpi/byteorder.h"
  #include "uzlib/uzlib.h"

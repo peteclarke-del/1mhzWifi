@@ -1,8 +1,9 @@
 # Pi1MHz patch package
 
 This directory contains the changes applied to Pi1MHz commit
-`4c54d8118f632465f31ecb72dcc37b4833c2507a`, the V1.35 build and the tip of the
-official `master` branch when verified on 22 September 2026.
+`143f43e88a40cef5d1b1381d2621449492aedf37`, after the V1.36 build and the tip
+of the official `master` branch when verified on 30 September 2026. None of
+them is in that commit.
 
 V1.35 merged most of what this package used to be. The WiFi service (now
 `src/wifi_service.c`), the UEF tape (`src/uef_service.c` and

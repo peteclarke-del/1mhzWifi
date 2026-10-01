@@ -58,7 +58,7 @@ own service command 92 and returns `Not implemented`.
 | `*WGET -X <url>` | Prints text using LF input | Implemented |
 | `*WGET -U <url>` | Downloads a UEF image to JIM `&000000-&00FFFF` | Implemented; hardware validation pending |
 | `*WGET -S <url> <slot>` | Downloads to JIM and copies to sideways RAM | Implemented; hardware validation pending |
-| `*FTP <host>` | Opens an interactive plain FTP session | Implemented; hardware validation pending |
+| `*FTP <host>` | Opens an interactive plain FTP session | Implemented but not built: off until room is agreed in the Pi1MHz image (`INCLUDE_FTP=1` to build) |
 | `*DATE` | Reads date from NTP | Implemented |
 | `*TIME` | Reads time from NTP | Implemented |
 | `*DISCONNECT` | Closes the current OSWORD-compatible raw socket and prints the close response | Implemented |
@@ -87,6 +87,10 @@ status. The older generic `&25` remains for connection errors which lwIP does
 not classify more specifically.
 
 ### Interactive FTP
+
+Not in the shipped ROM. `*FTP` costs 1,295 bytes and does not fit in the image
+Pi1MHz serves without dropping one of upstream's features, so it is built
+only with `INCLUDE_FTP=1`. The Pi-side service is present either way.
 
 `*FTP <host>` and `*FTP ftp://host[:port]` open a standard, unencrypted FTP
 control session. The prompt accepts `USER`, `PASS`, `PWD`, `CD`, `DIR`, `LS`,

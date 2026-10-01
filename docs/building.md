@@ -6,8 +6,9 @@ Both upstream projects must be checked out separately at the pinned commits.
 
 Each upstream target has a self-contained package:
 
-- `rom-side/1mhz-wifi/src/` contains the ROM sources written for this project,
-  with `1mhzwifi.asm` as the assembly root.
+- `rom-side/1mhz-wifi/patches/` contains this project's changes to the host
+  ROM, which is Pi1MHz's `beeb/1mhz-wifi` at the pinned commit, and
+  `rom-side/1mhz-wifi/src/` the ROM sources Pi1MHz does not carry.
 - `rom-side/inherited/patches/` contains what still derives from ElkWiFi, all of
   it now applying to `wicfs.asm` alone.
 - `pi-side/pi1mhz/patches/` contains the Pi1MHz source patches.
@@ -36,8 +37,8 @@ make test
 
 Use an external build directory with an absolute path containing no spaces.
 The upstream Pi1MHz CMake files do not quote every generated include path. If
-BeebAsm is installed as a confined Snap, its ElkWiFi checkout must also be in a
-location the Snap can read. A short directory directly below the user home
+BeebAsm is installed as a confined Snap, `build_rom.sh` calls the packaged
+executable directly so the composed tree may live anywhere. A short directory directly below the user home
 directory satisfies both constraints on a normal Linux workstation.
 
 ## Verify and obtain the current reviewed upstream sources
@@ -61,11 +62,8 @@ explicit path suitable for the build machine.
 build_root=/home/your-user/1mhzwifi-build
 mkdir -p "$build_root"
 
-git clone https://github.com/hoglet67/ElkWiFi.git "$build_root/ElkWiFi"
-git -C "$build_root/ElkWiFi" checkout 7bf366c97bec18bd238963c95e6f2aa6893cdb3a
-
 git clone https://github.com/dp111/Pi1MHz.git "$build_root/Pi1MHz"
-git -C "$build_root/Pi1MHz" checkout 4c54d8118f632465f31ecb72dcc37b4833c2507a
+git -C "$build_root/Pi1MHz" checkout 143f43e88a40cef5d1b1381d2621449492aedf37
 git -C "$build_root/Pi1MHz" submodule update --init --recursive
 ./pi-side/check_upstream.sh "$build_root/Pi1MHz"
 ```
@@ -78,18 +76,21 @@ scripts deliberately modify their supplied upstream checkout.
 Run this from the 1MHz-WiFi repository root:
 
 ```sh
-./rom-side/build_rom.sh "$build_root/ElkWiFi"
+./rom-side/build_rom.sh
 ```
 
-The command verifies that the checkout contains the reviewed ElkWiFi commit,
-applies the ROM patch series in a fixed order, installs the maintained assembly
-overlays, and writes the canonical
-`build/pi1mhz-all/Pi1MHz/1mhz-wifi.rom` and
-`build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom`. The script builds both images: the
-network ROM, which is entirely this project's own code, and the filing system
-ROM, which carries the inherited `wicfs.asm`. A repeat invocation must report every
-patch as already applied and produce the same 16 KiB ROM. The legacy
-`build/elkwifi_pi1mhz.rom` name is a relative symbolic link to this file, not a
+The command fetches Pi1MHz at the commit in `pi-side/upstream.env` and ElkWiFi
+at `7bf366c97bec18bd238963c95e6f2aa6893cdb3a` into `.build-upstream/`, resets
+both to those commits, and composes the ROM sources in `.build-rom/`: Pi1MHz's
+`beeb/1mhz-wifi/src`, this project's patches to it, its own sources, and
+`wicfs.asm` with the inherited stack. `PI1MHZ_SOURCE` and `ELKWIFI_SOURCE`
+name existing checkouts to use instead of fetching. It writes
+`build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom`, Pi1MHz's merged image with this
+project's patches, which helper 16 loads; the split `1mhz-wifi.rom` and
+`1mhz-wicfs-only.rom`; and the two EPROM builds. `*FTP` is left out of every
+image unless `INCLUDE_FTP=1` is set. A repeat invocation produces the same
+images. The legacy
+`build/elkwifi_pi1mhz.rom` name is a relative symbolic link to `1mhz-wifi.rom`, not a
 second ROM image.
 
 The expected ROM SHA-256 is recorded in `SHA256SUMS` and enforced by

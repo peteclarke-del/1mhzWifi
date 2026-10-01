@@ -18,6 +18,9 @@ display_auto_detect=0
 #hdmi_ignore_edid=0xa5000080
 #hdmi_ignore_hotplug=1
 boot_delay=0
+# Bare metal takes no device tree: an empty name stops the firmware searching
+# for .dtb files it will not find (~46 ms off every boot, measured on a Zero 2 W)
+device_tree=
 #gpu_mem=16
 
 # settings for domesday
@@ -28,3 +31,6 @@ vd_isp_disable=1
 #hdmi_force_hotplug=1
 hdmi_group=1
 hdmi_mode=31
+# Skip the firmware's HDMI mute/unmute waits around a runtime mode set:
+# the 50 Hz switch at boot (SET_TIMING) drops from 145 ms to 22-29 ms.
+hdmi_muting=0x10001

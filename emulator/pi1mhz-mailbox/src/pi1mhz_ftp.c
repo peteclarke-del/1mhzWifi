@@ -12,12 +12,12 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#define FTP_OPEN 114u
-#define FTP_EXEC 115u
-#define FTP_READ 116u
-#define FTP_WRITE 117u
-#define FTP_CLOSE 118u
-#define FTP_CANCEL 119u
+#define FTP_OPEN 128u
+#define FTP_EXEC 129u
+#define FTP_READ 130u
+#define FTP_WRITE 131u
+#define FTP_CLOSE 132u
+#define FTP_CANCEL 133u
 #define FTP_OK 0u
 #define FTP_EOF 0x20u
 #define FTP_PARAM 0x23u
