@@ -21,12 +21,14 @@ absent. The current release still requires regression testing on the Electron,
 Plus 5, Pi1MHz, and Tube combinations listed in
 [the hardware checklist](docs/hardware-validation.md).
 
-The build produces four images. `1mhz-wifi.rom` and `1mhz-wicfs.rom` are the
-pair Pi1MHz serves into sideways RAM and are what the SD-card bundle carries.
-`1mhz-wifi-eprom.rom` and `1mhz-wicfs-eprom.rom` are the same sources built
-for a burnt EPROM, where there is no writable image and the workspace is three
-pages of host RAM claimed from the OS at service call 1. See
-[the ROM notes](rom-side/README.md) for which to use.
+The ROM is Pi1MHz's own 1MHz-WiFi ROM with this project's additions applied.
+`1mhz-wicfs.rom` is the image Pi1MHz serves: upstream's merged network and
+filing system bank, which helper 16 loads. The build also produces the two
+halves separately, `1mhz-wifi.rom` and `1mhz-wicfs-only.rom`, and EPROM builds
+of those, where there is no writable image and the workspace is three pages of
+host RAM claimed from the OS at service call 1. See
+[the ROM notes](rom-side/1mhz-wifi/README.md) for which to use. `*FTP` is not
+in any shipped image; see [the command notes](docs/commands.md).
 
 Both of the sideways-RAM images keep their workspace inside their own image
 rather than in host memory at `&900`, `&A00` and `&D90`. The OS owns all three, and `&0D90`
@@ -204,9 +206,9 @@ a whole page, and space is reclaimed only by `*RDINIT`, which clears the
 catalogue. It stays in JIM bank 0 because that is the only bank an unmodified
 Electron AP5 forwards, so it behaves the same on all four target machines.
 
-`1mhz-wicfs.rom` carries the UEF cassette filing system, and with it the only
-file that derives from anyone else's work, so the network image can be
-licensed and shipped on its own. The two do not call each other. They share
+`1mhz-wicfs-only.rom` carries the UEF cassette filing system on its own, and
+with it the only file that derives from anyone else's work, so the split
+network image can be licensed and shipped on its own. The two do not call each other. They share
 only the JIM window and four documented bytes, so either works with the other
 absent, and Pi1MHz serves sideways ROMs from its own directory, so the second
 image costs no socket on any target machine.
@@ -247,9 +249,11 @@ The removal and the retained generic facilities are recorded in
 The ready-to-copy SD-card image tree is `build/pi1mhz-all/`. The equivalent ZIP
 archive is [build/pi1mhz-all-hardware-test.zip](build/pi1mhz-all-hardware-test.zip).
 Copy the contents of `pi1mhz-all/` to a FAT-formatted Pi boot partition, then
-fit or load `Pi1MHz/1mhz-wifi.rom` as an Acorn sideways ROM. Add
-`Pi1MHz/1mhz-wicfs.rom` in a second slot if you want UEF cassette loading;
-the network ROM does not need it.
+run Pi1MHz helper 16 (`*FX147,136,16` then `*GO FD00`), which loads
+`Pi1MHz/1mhz-wicfs.rom` into sideways RAM: the network commands and the UEF
+cassette filing system in one bank. To fit the halves separately
+instead, use `Pi1MHz/1mhz-wifi.rom` and, for cassette loading,
+`Pi1MHz/1mhz-wicfs-only.rom`; do not fit either beside `1mhz-wicfs.rom`.
 The same tree includes `host-tools/nettools.ssd`. Install or select that SSD
 through DFS/MMFS when testing `*SSH` or `*TELNET`; replacing the Pi files alone
 does not replace host programs already held on another disc image.
@@ -407,8 +411,8 @@ The complete, reproducible procedure is in
 upstream source trees are required:
 
 - ElkWiFi commit `7bf366c97bec18bd238963c95e6f2aa6893cdb3a`
-- Pi1MHz commit `4c54d8118f632465f31ecb72dcc37b4833c2507a` (V1.35), the
-  official `master` tip verified on 22 September 2026
+- Pi1MHz commit `143f43e88a40cef5d1b1381d2621449492aedf37`, the official `master` tip verified on
+  30 September 2026. The host ROM's sources come from this tree too.
 
 Pi1MHz has no `main` branch. Run `./pi-side/check_upstream.sh` before a release;
 it fails if the official default branch or its tip has changed.
@@ -416,17 +420,17 @@ it fails if the official default branch or its tip has changed.
 Build the host ROM with BeebAsm:
 
 ```sh
-git clone https://github.com/hoglet67/ElkWiFi.git
-git -C ElkWiFi checkout 7bf366c97bec18bd238963c95e6f2aa6893cdb3a
-./rom-side/build_rom.sh /path/to/ElkWiFi
+./rom-side/build_rom.sh
 ```
+
+It fetches both pinned trees itself; see `rom-side/1mhz-wifi/README.md`.
 
 Build both Pi kernel families with Arm GCC 13 or later:
 
 ```sh
 git clone --recursive https://github.com/dp111/Pi1MHz.git
 git -C Pi1MHz submodule update --init --recursive
-git -C Pi1MHz checkout 4c54d8118f632465f31ecb72dcc37b4833c2507a
+git -C Pi1MHz checkout 143f43e88a40cef5d1b1381d2621449492aedf37
 ./pi-side/install_bundle.sh /path/to/Pi1MHz all
 ```
 

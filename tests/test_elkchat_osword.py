@@ -13,6 +13,7 @@ from py65.devices.mpu6502 import MPU
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rom_symbols import symbol
+from rom_source import ROM_SRC
 
 ROM_START = 0x8000
 # The ROM builds its BRK block here. It used to be &0D90 in host RAM, which is
@@ -508,7 +509,7 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         # Machine type controls whether the BBC-family high JIM selectors are
         # written. The result must be refreshed for each call because the
         # driver state is explicitly transient and cannot be a boot-time cache.
-        source = (ROOT / "rom-side" / "1mhz-wifi" / "src" /
+        source = (ROM_SRC /
                   "driver.asm").read_text()
         entry = source.split(".wifidriver", 1)[1].split(
             ".service_driver_not_0", 1
@@ -565,7 +566,7 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         # numbers to five bits. Private star commands must bypass this table.
         self.machine.call(29, 37, 0, expected_error=b"Not implemented")
 
-        driver = (ROOT / "rom-side" / "1mhz-wifi" / "src" /
+        driver = (ROM_SRC /
                   "driver.asm").read_text()
         table = driver.split(".public_driver_dispatch", 1)[1].split(
             "\\ Initialize the data buffer", 1
@@ -684,15 +685,25 @@ class ElkChatOSWORDCompatibilityTests(unittest.TestCase):
         )
 
     def test_osword_error_block_does_not_overwrite_live_stack(self):
+        """The error block goes below the live stack, in main memory.
+
+        Pi1MHz 2f5ca7a builds it at &0100, as Acorn's own ROMs do. It has to
+        be in main memory because the language reads the message after the
+        MOS has paged this ROM out: built inside the image, as this project's
+        copy of the ROM did, every error printed as the incoming ROM's bytes.
+        What must survive is the stack above SP, which the caller still owns.
+        With SP at &40 that is &0141 up; &0100-&013F is free stack space.
+        """
         stack_canary = bytes(range(0x30, 0x3F))
-        self.machine.memory.ram[0x0103:0x0112] = stack_canary
+        self.machine.memory.ram[0x0141:0x0150] = stack_canary
 
         message = self.machine.call(
             29, stack_pointer=0x40, expected_error=b"Not implemented"
         )
 
         self.assertEqual(message, b"Not implemented")
-        self.assertEqual(self.machine.memory.ram[0x0103:0x0112], stack_canary)
+        self.assertEqual(symbol("error_workspace"), 0x0100)
+        self.assertEqual(self.machine.memory.ram[0x0141:0x0150], stack_canary)
 
     def test_status_survives_delayed_fca9_callback(self):
         self.machine = ElkWiFiOSWORDMachine(

@@ -32,7 +32,11 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SRC = HERE / "1mhz-wifi/src"
+# The composed source tree: upstream's ROM with this project's patches and
+# sources applied, as build_rom.sh leaves it. --src DIR names another.
+SRC = HERE.parent / ".build-rom"
+if "--src" in sys.argv:
+    SRC = Path(sys.argv[sys.argv.index("--src") + 1])
 
 # Which root to check. This repository builds two images from one directory,
 # so the file list comes from the root's own include statements rather than
@@ -50,9 +54,21 @@ WS_HOST_PAGE = {"1mhzwifi.asm": 0x0E, "1mhzwicfs.asm": 0x11}
 
 def sources(root):
     """The root, machine.asm, and every file the root includes."""
-    text = (SRC / root).read_text()
     names = [root, "machine.asm"]
-    names += re.findall(r'^\s*include\s+"([^"]+)"', text, re.MULTILINE)
+    # Upstream's root merges the filing system into the same bank under
+    # IF INCLUDE_WICFS. This project builds with it off and ships the filing
+    # system as its own root, so includes inside that block are not this
+    # image's. Blocks do not nest in these sources.
+    in_wicfs = False
+    for line in (SRC / root).read_text().splitlines():
+        stripped = line.strip()
+        if stripped.startswith("IF INCLUDE_WICFS"):
+            in_wicfs = True
+        elif in_wicfs and stripped.startswith(("ENDIF", "ELSE")):
+            in_wicfs = False
+        match = re.match(r'\s*include\s+"([^"]+)"', line)
+        if match and not in_wicfs:
+            names.append(match.group(1))
     seen, ordered = set(), []
     for name in names:
         if name not in seen and (SRC / name).is_file():
@@ -81,6 +97,10 @@ KNOWN = {
     0x00F9: "sbufh: UEF stream length high, shared with the filing system ROM",
     0x00F4: "shadow: the MOS's own copy of the selected ROM number",
     0x00F5: "sbuft: UEF stream flags, shared with the filing system ROM",
+    0x0100: "bottom of the stack page, as Acorn's own ROMs use it: the error "
+            "block, and the name *WGET hands OSFIND - both read by another ROM, "
+            "so they cannot be in this image - and the *WGET -S loop, borrowed "
+            "with interrupts off and put back",
 }
 
 
@@ -182,6 +202,8 @@ def main():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        ROOT = sys.argv[1]
+    positional = [a for i, a in enumerate(sys.argv[1:], 1)
+                  if not a.startswith("--") and sys.argv[i - 1] != "--src"]
+    if positional:
+        ROOT = positional[0]
     sys.exit(main())

@@ -31,7 +31,7 @@ class UefLaunchTimingGate(unittest.TestCase):
     def setUpClass(cls) -> None:
         path = Path(os.environ.get(
             "ELKWIFI_TEST_WICFS_ROM",
-            ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wicfs.rom",
+            ROOT / "build/pi1mhz-all/Pi1MHz/1mhz-wicfs-only.rom",
         ))
         cls.rom = path.read_bytes()
         entry = re.search(

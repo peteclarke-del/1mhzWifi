@@ -2,12 +2,12 @@
 \ files are opened through MOS so ADFS, DFS and MMFS all use their normal
 \ filing-system paths. No Tube address is passed to the service.
 
-ftp_cmd_open   = 114
-ftp_cmd_exec   = 115
-ftp_cmd_read   = 116
-ftp_cmd_write  = 117
-ftp_cmd_close  = 118
-ftp_cmd_cancel = 119
+ftp_cmd_open   = 128
+ftp_cmd_exec   = 129
+ftp_cmd_read   = 130
+ftp_cmd_write  = 131
+ftp_cmd_close  = 132
+ftp_cmd_cancel = 133
 ftp_eof        = &20
 ftp_scratch_max = 240
 ftp_action_quit = 1
