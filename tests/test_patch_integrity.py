@@ -118,7 +118,7 @@ class PatchApplicationTest(unittest.TestCase):
 class KernelLinkageTest(unittest.TestCase):
     def test_a_linked_pi_source_never_calls_an_unlinked_one(self) -> None:
         # uef_service.c is in the kernel build and, once uef-filev-repair.patch
-        # is applied, calls media_catalogue.c. When that was not also named,
+        # is applied, calls uef_repair.c. When that was not also named,
         # the kernel would not have linked, and the emulator did not notice
         # because it compiles the sources directly.
         linked: set[str] = set()
@@ -132,11 +132,13 @@ class KernelLinkageTest(unittest.TestCase):
                     if stripped.endswith(".c"):
                         linked.add(stripped)
         self.assertIn("ftp_service.c", linked)
-        self.assertIn("media_catalogue.c", linked)
+        self.assertIn("uef_repair.c", linked)
         # Everything the overlay supplies and that something calls has to be
-        # named in a CMakeLists hunk. media_service_core.c is deliberately
-        # not: it is staged for a catalogue session that has no caller yet.
+        # named in a CMakeLists hunk. The decoder and media_service_core.c are
+        # deliberately not: they are staged for a catalogue session that has
+        # no caller on the Pi yet.
         self.assertNotIn("media_service_core.c", linked)
+        self.assertNotIn("media_catalogue.c", linked)
 
         for name in sorted(linked):
             source = OVERLAY / name

@@ -125,9 +125,9 @@ build/test-pi1mhz-mailbox: \
 		$(MAILBOX)/tests/test_mailbox.c \
 		$(MAILBOX)/src/pi1mhz_mailbox.c -o $@
 
-# The backend calls uef_repair_filev_stamp, which lives beside the container
-# decoder in the Pi overlay so the Pi and the emulator share one implementation
-# rather than two that can drift. Every place which compiles the backend needs
+# The backend calls uef_repair_filev_stamp, which lives in the Pi overlay's
+# uef_repair.c so the Pi and the emulator share one implementation rather than
+# two that can drift. Every place which compiles the backend needs
 # that source; this is the fourth, after the emulator Makefile, elkulator's
 # install.sh and the test_uef_normalize fixture.
 build/test-pi1mhz-live: \
@@ -135,7 +135,7 @@ build/test-pi1mhz-live: \
 		$(MAILBOX)/src/pi1mhz_mailbox.c \
 		$(MAILBOX)/src/pi1mhz_net_backend.c \
 		$(MAILBOX)/src/pi1mhz_ftp.c \
-		$(PI_OVERLAY)/media_catalogue.c \
+		$(PI_OVERLAY)/uef_repair.c \
 		$(MAILBOX)/include/pi1mhz_mailbox.h \
 		$(MAILBOX)/include/pi1mhz_net_backend.h | build
 	$(CC) -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror \
@@ -144,7 +144,7 @@ build/test-pi1mhz-live: \
 		$(MAILBOX)/src/pi1mhz_mailbox.c \
 		$(MAILBOX)/src/pi1mhz_net_backend.c \
 		$(MAILBOX)/src/pi1mhz_ftp.c \
-		$(PI_OVERLAY)/media_catalogue.c -lz -o $@
+		$(PI_OVERLAY)/uef_repair.c -lz -o $@
 
 build/test-media-catalogue: \
 		$(REPO_ROOT)/pi-side/tests/test_media_catalogue.c \

@@ -71,8 +71,10 @@ class DomesdayStackUntouchedTest(unittest.TestCase):
         last = re.search(r"SERVICE_CMD_FTP_LAST\s+(\d+)u", integration)
         self.assertIsNotNone(first)
         self.assertIsNotNone(last)
-        self.assertEqual(int(first.group(1)), 114)
-        self.assertEqual(int(last.group(1)), 119)
+        # 114-119 went to FujiNet in Pi1MHz 926a670; FTP follows the
+        # 120-127 that docs/media-service-abi.md holds for a media service.
+        self.assertEqual(int(first.group(1)), 128)
+        self.assertEqual(int(last.group(1)), 133)
         # And it must not relocate any emulator's FRED base, which is how
         # BeebSCSI, the frame buffer and the video player are reached.
         for patch in PATCHES.glob("*.patch"):

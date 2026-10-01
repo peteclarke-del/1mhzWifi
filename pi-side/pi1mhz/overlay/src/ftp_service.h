@@ -4,13 +4,13 @@
 #include <stdint.h>
 
 /* High-level interactive FTP service on the shared Pi1MHz mailbox. */
-#define FTP_CMD_FIRST   114u
-#define FTP_CMD_OPEN    114u
-#define FTP_CMD_EXEC    115u
-#define FTP_CMD_READ    116u
-#define FTP_CMD_WRITE   117u
-#define FTP_CMD_CLOSE   118u
-#define FTP_CMD_CANCEL  119u
+#define FTP_CMD_FIRST   128u
+#define FTP_CMD_OPEN    128u
+#define FTP_CMD_EXEC    129u
+#define FTP_CMD_READ    130u
+#define FTP_CMD_WRITE   131u
+#define FTP_CMD_CLOSE   132u
+#define FTP_CMD_CANCEL  133u
 #define FTP_CMD_LAST    FTP_CMD_CANCEL
 
 #define FTP_RESULT_OK       0x00u

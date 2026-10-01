@@ -5,7 +5,7 @@ Reviewed upstream
 -----------------
 
 - Branch: master
-- Commit: 4c54d8118f632465f31ecb72dcc37b4833c2507a (V1.35)
+- Commit: 143f43e88a40cef5d1b1381d2621449492aedf37 (after V1.36)
 - Verification metadata: upstream.env
 
 Pi1MHz V1.35 merged most of what this package used to carry. The WiFi service
@@ -31,20 +31,21 @@ Ordered Pi1MHz patches
 ----------------------
 
 - services-integration.patch
-    Links ftp_service.c and media_catalogue.c into the kernel, claims
-    commands 114-119 for FTP in services.h, and starts the FTP service from
+    Links ftp_service.c into the kernel, claims
+    commands 128-133 for FTP in services.h (114-119 are Pi1MHz's FujiNet
+    device and 120-127 are held for a media service), and starts the FTP service from
     wifi_service_init so the two share one enable key and one lifetime.
 - uef-filev-repair.patch
     Redirects the published Electron loader idiom that stamps FILEV blind.
     Upstream streams the tape a window at a time, so the repair carries an
     incomplete chunk into the next window rather than working on a whole
-    image. Adds its own test to upstream's UEF suite.
+    image. Links uef_repair.c and adds its own test to upstream's UEF suite.
 - net-copy-public.patch
     Net command 58: copy received bytes from the service scratch page into
     the public 64K JIM window. Upstream merged the host ROM that calls this
-    but not the command, so a stock Pi1MHz answers it with the command byte
-    echoed back. Never submitted: PR #20 carried the test stub for it and not
-    the command. First in the queue when the work is offered upstream.
+    but not the command, so a stock Pi1MHz answers it NET_ERR_UNSUPPORTED and
+    the ROM falls back to its byte-at-a-time path. Never submitted until now:
+    PR #20 carried the test stub for it and not the command.
 - wolfssh-pi1mhz.patch
 - wolfssh-sftp-client.patch
     Applied to the wolfSSH checkout, not to Pi1MHz. Our fork already carries
@@ -54,12 +55,11 @@ Added source overlays
 ---------------------
 
 - ftp_service.c and ftp_service.h
-- media_catalogue.c and media_catalogue.h
+- uef_repair.c and uef_repair.h, the FILEV stamp repair
+- media_catalogue.c and media_catalogue.h (staged, not linked)
 - media_service_core.c and media_service_core.h (staged, not linked)
 - tests/uef/test_uef_filev.c, added to upstream's UEF suite
 - tests/ftp/run_tests.sh, a suite of its own for the FTP service
-- tests/check_rom_interface.py, dp111's check of the host ROM's service
-  command numbers against wifi_service.h and net_service.h, by name
 
 Build options
 -------------

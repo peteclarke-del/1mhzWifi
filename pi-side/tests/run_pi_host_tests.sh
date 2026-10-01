@@ -39,9 +39,10 @@ PI1MHZ_SKIP_THIRD_PARTY=1 PI1MHZ_VERIFY_REMOTE=${PI1MHZ_VERIFY_REMOTE:-0} \
     "$root_dir/pi-side/install_bundle.sh" "$checkout" apply
 
 # Every host suite in the tree that covers a file this integration touches or
-# supplies. uef and net carry the two tests this package adds to them.
+# supplies. uef and net carry the two tests this package adds to them, and
+# wifirom is dp111's check of the host ROM this project builds on.
 status=0
-for suite in services net uef ftp secure config; do
+for suite in services net uef ftp secure config wifirom; do
     runner="$checkout/src/tests/$suite/run_tests.sh"
     [ -f "$runner" ] || runner="$checkout/src/tests/$suite/run.sh"
     if [ ! -f "$runner" ]; then
@@ -58,19 +59,6 @@ for suite in services net uef ftp secure config; do
         status=1
     fi
 done
-
-# The host ROM against the headers it talks to. The ROM is this repository's
-# and the headers are upstream's, so this is the one check that can only run
-# with both trees present.
-echo
-echo "======== 1MHz-WiFi ROM against the service headers ========"
-if python3 "$checkout/src/tests/wifirom/check_rom_interface.py" \
-        "$root_dir/rom-side/1mhz-wifi/src/service_driver.asm"; then
-    echo "rom interface: OK"
-else
-    echo "rom interface: FAILED" >&2
-    status=1
-fi
 
 echo
 if [ "$status" -eq 0 ]; then

@@ -9,7 +9,7 @@ Linux service is installed or required.
 The package directory used to carry the baseline commit in its name, which had
 been wrong for several rebases by the time it was renamed. `upstream.env`, the
 installer and the package README are the authority for which commit is
-required; it is currently `4c54d81`.
+required; it is currently `143f43e`.
 
 The implementation record is
 [`pi1mhz/TECHNICAL.md`](pi1mhz/TECHNICAL.md). The complete
@@ -27,9 +27,9 @@ command 58.
 
 ## Upstream requirements
 
-Use Pi1MHz commit `4c54d8118f632465f31ecb72dcc37b4833c2507a`.
-This is the V1.35 build, and was the tip of the official `master` branch when
-checked on 22 September 2026. Pi1MHz does not have a `main` branch. It is after
+Use Pi1MHz commit `143f43e88a40cef5d1b1381d2621449492aedf37`.
+This is after the V1.36 build, and was the tip of the official `master` branch
+when checked on 30 September 2026. Pi1MHz does not have a `main` branch. It is after
 the V1.34 tag and includes the WiFi, UEF and secure services Pi1MHz merged for
 V1.35, on which this integration now depends rather than supplying them.
 The installer rejects any other revision and performs a live upstream check by
@@ -81,7 +81,7 @@ revision before firmware download.
 The BCM43455 image is pinned to firmware 7.45.241 from upstream revision
 `8468a38`. The later 7.45.265 image associates on the Pi 3A+ validation
 hardware but does not complete DHCP. Pi1MHz source remains based on the
-reviewed `4c54d81` revision.
+reviewed `143f43e` revision.
 
 Set `ARM_GCC` to the compiler path when `arm-none-eabi-gcc` is not on `PATH`.
 
@@ -115,7 +115,7 @@ and `uef_service.c`, once `wifi_service_enable=1`. FIQ context captures a
 request and marks it busy; filesystem, scan, association, DNS, ICMP and NTP
 work runs in a main-loop poll callback. The table below is the host ROM's ABI,
 which did not change when Pi1MHz renamed the service for V1.35. This package
-adds commands 114-119 for the FTP service and 58 to the net range.
+adds commands 128-133 for the FTP service and 58 to the net range.
 
 | Command | Operation |
 | ---: | --- |
@@ -137,7 +137,7 @@ adds commands 114-119 for the FTP service and 58 to the net range.
 | Command | Operation |
 | ---: | --- |
 | 58 | Copy the service scratch page into the public 64K JIM window |
-| 114-119 | Interactive FTP: open, exec, read, write, close, cancel |
+| 128-133 | Interactive FTP: open, exec, read, write, close, cancel |
 
 Raw TCP and HTTP use the existing Pi1MHz net-service command range, and SSH
 and SFTP use 94-113. Command 93 decompresses and checks CRCs in the main poll,
